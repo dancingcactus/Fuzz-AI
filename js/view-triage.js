@@ -149,7 +149,7 @@
       if (card.style.display === 'none' && !ciOpen && !scOpen) showNext();
     } else if (e.type === 'work') {
       stats();
-      if (card.style.display === 'none' && !ciOpen && !scOpen) renderEmpty();
+      if (card.style.display === 'none' && !ciOpen && !scOpen && !foOpen) renderEmpty();   /* the focus question hides the card, but the queue isn't empty */
     } else if (e.type === 'wrapped') {
       /* The last task in a group finished, so the thread is closed: a bigger moment than one task, and a line
          on what happened (the core's, in live mode). Calm mode keeps the line and drops the motion. */
@@ -917,7 +917,11 @@
     try {
       if (runOver(grun)) await exitRun();   /* the last answer of a group is in */
       var q = Store.queue();
-      if (!q.length) return zeroState();
+      /* Nothing left to order, so the focus question goes too */
+      if (!q.length) { if (foOpen) { foOpen = false; $('#focuscard').hidden = true; paintFocusLine(); } return zeroState(); }
+      /* While you're saying what you're working on, the queue waits behind the question: a card drawn
+         now would sit under it with its keys dead (they go to the focus card until it closes) */
+      if (foOpen) return;
       var t = q[0];
       if (needFocus(q)) return showFocus();
       if (t.id !== shown) {
