@@ -30,6 +30,12 @@ SEM_MIN_ENTITY = {"hash": 0.05, "ollama": 0.40}
 ANCHOR_SEM_FLOOR = {"hash": 0.10, "ollama": 0.45}
 
 TYPE_WEIGHT = {"ticket": 3.0, "document": 3.0, "person": 1.0, "term": 1.0, "org": 0.3}
+
+# Your regular team is on most of your asks, so sharing one of them says nothing about two asks being the
+# same: a person on this many of the tasks made in the window doesn't count. Someone you hear from now and
+# then still does. The window lets the team change: new people become regulars, old ones drop back.
+PERSON_REGULAR = 4
+REGULAR_WINDOW_DAYS = 60
 STRENGTH_WEIGHT = {"id": 1.0, "alias": 0.5, "provisional": 0.0}
 
 # Your own reply that answers the thread closes the task, if it's still waiting on you. Waiting tasks wait on
@@ -214,10 +220,22 @@ def stage1_anchor(ctx, cand, eligible):
     return hits
 
 
+def regular_people(ctx):
+    """Your regular team: the people on PERSON_REGULAR or more of the tasks made in the last REGULAR_WINDOW_DAYS."""
+    since = iso(ctx.core.now() - timedelta(days=REGULAR_WINDOW_DAYS))
+    return {r["entity_id"] for r in ctx.conn.execute(
+        "SELECT m.entity_id, COUNT(DISTINCT s.task_id) n FROM sources s JOIN mentions m ON m.candidate_id=s.candidate_id "
+        "JOIN entities e ON e.id=m.entity_id JOIN tasks t ON t.id=s.task_id "
+        "WHERE s.user_id=? AND s.withdrawn=0 AND e.type='person' AND t.created_at >= ? "
+        "GROUP BY m.entity_id HAVING n >= ?", (_uid(ctx), since, PERSON_REGULAR))}
+
+
 def stage2_entities(ctx, cand, eligible):
     conn = ctx.conn
+    regulars = regular_people(ctx)
     cand_m = {r["entity_id"]: r["strength"] for r in
-              conn.execute("SELECT entity_id, strength FROM mentions WHERE candidate_id=?", (cand["id"],))}
+              conn.execute("SELECT entity_id, strength FROM mentions WHERE candidate_id=?", (cand["id"],))
+              if r["entity_id"] not in regulars}
     if not cand_m or not eligible:
         return {}, {}
     ids = list(eligible)
@@ -233,7 +251,7 @@ def stage2_entities(ctx, cand, eligible):
         for e in ents:
             df[e] = df.get(e, 0) + 1
     n = len(eligible)
-    types = {r["id"]: (r["type"], r["name"]) for r in conn.execute(
+    types = {r["id"]: (r["type"], entities.display_name(conn, r)) for r in conn.execute(
         f"SELECT id, type, name FROM entities WHERE id IN ({','.join('?' * len(cand_m))})", list(cand_m))}
     siblings = _sibling_tasks(ctx, cand)
     scores, shared = {}, {}

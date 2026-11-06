@@ -21,6 +21,7 @@ from . import entities, matcher, vectors
 
 LINK_COMMON = 3                               # a link on more than this many live tasks is too common to count
 DUP_SEM = {"hash": 0.75, "ollama": 0.85}      # meaning alone, close enough to ask
+PEOPLE_SEM = {"hash": 0.5, "ollama": 0.75}    # sharing only people (never your regulars), with meaning this close
 SAME_AS_LIMIT = 5
 
 
@@ -98,8 +99,10 @@ def likely(ctx, cand, others, strict=True):
         e, s, link = escore.get(tid, 0), sem.get(tid, 0), shared.get(tid)
         # the same words: works with no embedder (Ollama down), where meaning can't be measured
         same_words = max(_overlap(mine, _words(others[tid]["title"])), _overlap(mine, _words(others[tid]["ask"]))) >= WORDS_SAME
+        # the same people alone never make two asks the same: they need to mean nearly the same thing too
+        people_only = all(n.startswith("person:") for n in names.get(tid, []))
         close = (bool(link) or s >= DUP_SEM[fam] or same_words
-                 or (e >= matcher.STRONG_ENTITY and s >= matcher.SEM_MIN_ENTITY[fam]))
+                 or (e >= matcher.STRONG_ENTITY and s >= (PEOPLE_SEM if people_only else matcher.SEM_MIN_ENTITY)[fam]))
         loose = close or s >= matcher.SEM_FLOOR[fam] or e >= matcher.ENTITY_MIN
         if not (close if strict else loose):
             continue

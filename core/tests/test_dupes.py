@@ -145,6 +145,93 @@ class Dupes(CoreCase):
         self.assertIsNone(dupes.ident("https://wiki.example.com/"))   # a site's home says nothing
 
 
+
+DANA = {"name": "Dana Reyes", "email": "dana@example.com"}
+OMAR = {"name": "Omar Haddad", "email": "omar@example.com"}
+TESS = {"name": "Tess Morgan", "email": "tess@example.com"}
+PRIYA = {"name": "Priya Shah", "slack_id": "U0PRIYA"}
+TEAM_ASKS = ["Review the Q4 roadmap deck", "Send the vendor contract to legal", "Book the offsite venue",
+             "Write the release notes for 2.3"]
+OTHERS = [("Noor K", "Cover the Tuesday support shift"), ("Ivan P", "Read the hiring proposal"),
+          ("Gwen O", "Sign the expense report")]
+
+
+def mail(n, ask, who, cc=()):
+    return {"source": "email", "source_id": f"r{n}", "anchor": f"email:R{n}", "ts": f"2026-10-20T09:{n:02d}:00Z",
+            "from": who, "people": list(cc), "quote": ask, "candidates": [{"ask": ask, "owner": "me"}]}
+
+
+class People(CoreCase):
+    """A person you work with every day is on most of your asks, so sharing one says nothing. Someone you
+    hear from now and then still counts, but only alongside an ask that means nearly the same thing."""
+    send, tid, kinds = Dupes.send, Dupes.tid, Dupes.kinds
+
+    def regulars(self, *who, asks=TEAM_ASKS):
+        for i, ask in enumerate(asks):
+            self.send(mail(10 + i, ask, who[0], who[1:]))
+
+    def one_run(self, *sigs):
+        """Several messages in one extraction run, each judged new (as the judge can)."""
+        tools.submit_signals(self.core, list(sigs))
+        items = tools.get_pending_judgments(self.core)["items"]
+        tools.submit_verdicts(self.core, [{"candidate_id": i["candidate_id"], "verdict": "new", "confidence": 0.9}
+                                          for i in items])
+
+    def others(self, judged=False):
+        """Asks from other people in the same run. judged: each sender already has a task, so the ask goes to
+        the judge with the rest and its task is made alongside them, as most asks in a busy run are."""
+        who = [{"name": n, "email": n.split()[0].lower() + "@elsewhere.com"} for n, _ in OTHERS]
+        if judged:
+            for i, (w, (_, ask)) in enumerate(zip(who, OTHERS)):
+                self.send(mail(20 + i, f"Earlier note: {ask}", w))
+        return [mail(30 + i, ask, w) for i, ((_, ask), w) in enumerate(zip(OTHERS, who))]
+
+    def test_two_asks_from_your_regular_team_are_not_duplicates(self):
+        self.regulars(DANA, OMAR)
+        self.one_run(*self.others(judged=True),
+                     mail(40, "Prioritize the garden plan for the spring fair", DANA, [OMAR]),
+                     mail(41, "Clarify whether a test plan covers the mobile app checkout", DANA, [OMAR]))
+        for t in tasks.list_tasks(self.core):
+            self.assertNotIn("duplicate", self.kinds(t["id"]), t["title"])
+
+    def test_people_you_rarely_hear_from_alone_dont_make_two_asks_the_same(self):
+        self.send(mail(10, "Share the photos from the picnic", DANA, [OMAR]))   # one task: not a regular
+        self.one_run(*self.others(judged=True),
+                     mail(40, "Prioritize the garden plan for the spring fair", DANA, [OMAR]),
+                     mail(41, "Clarify whether a test plan covers the mobile app checkout", DANA, [OMAR]))
+        for t in tasks.list_tasks(self.core):
+            self.assertNotIn("duplicate", self.kinds(t["id"]), t["title"])
+
+    def test_people_you_rarely_hear_from_still_count_when_the_asks_mean_the_same(self):
+        self.send(mail(10, "Share the photos from the picnic", DANA, [OMAR]))
+        self.one_run(*self.others(judged=True),
+                     mail(40, "Prioritize the garden plan for the spring fair", DANA, [OMAR]),
+                     mail(41, "Prioritize the garden plan for the spring fair launch review", DANA, [OMAR]))
+        first, second = sorted(t["id"] for t in tasks.list_tasks(self.core) if t["title"].startswith("Prioritize"))
+        self.assertEqual(self.card_for(second, "duplicate")["other_id"], first)
+
+    def test_an_ask_from_a_regular_is_judged_against_the_task_it_means(self):
+        """Tess is on four of your tasks. Her ask about the onboarding checklist should reach the judge
+        with the checklist task Priya asked for, not just her own four."""
+        # his tasks share a word with the new ask, so they aren't 0.0 apart in meaning (with Ollama nothing is)
+        self.regulars(TESS, asks=[a + " this week" for a in TEAM_ASKS])
+        self.send(slack(5, "Update the onboarding checklist for new engineers", who=PRIYA))
+        checklist = self.tid("onboarding checklist")
+        tools.submit_signals(self.core, [mail(50, "Update the onboarding checklist for new engineers this week", TESS)])
+        items = tools.get_pending_judgments(self.core)["items"]
+        self.assertEqual(len(items), 1)
+        self.assertIn(checklist, [s["task_id"] for s in items[0]["shortlist"]])
+
+    def test_a_person_first_seen_by_email_gets_their_name(self):
+        me = {"names": ["Sam"], "emails": []}
+        with self.core.tx("system"):
+            eid, _ = entities.resolve_person(self.core, {"email": "dana@example.com"}, me)
+            row = self.core.one("SELECT * FROM entities WHERE id=?", (eid,))
+            self.assertEqual(entities.display_name(self.core.conn, row), "someone")   # nothing to call them yet
+            entities.resolve_person(self.core, {"email": "dana@example.com", "name": "Dana Reyes"}, me)
+            self.assertEqual(self.core.one("SELECT name FROM entities WHERE id=?", (eid,))["name"], "Dana Reyes")
+
+
 class SameAs(Server):
     def test_same_as_offers_likely_tasks_and_merges_with_undo(self):
         tools.submit_signals(self.core, [slack(1, "Find the thread explaining how to test the plugin", [TICKET])])

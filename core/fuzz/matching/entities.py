@@ -62,6 +62,14 @@ def _new_entity(core, typ, name, provisional):
     return eid
 
 
+def display_name(conn, row):
+    """An entity's name, or its longest alias when it was first seen with no name (a bare email address)."""
+    if row["name"]:
+        return row["name"]
+    a = conn.execute("SELECT alias FROM aliases WHERE entity_id=? ORDER BY length(alias) DESC LIMIT 1", (row["id"],)).fetchone()
+    return (a["alias"].title() if row["type"] == "person" else a["alias"]) if a else "someone"
+
+
 def _add_identifier(core, typ, value, eid):
     core.conn.execute("INSERT OR IGNORE INTO identifiers VALUES (?,?,?,?)", (core.user_id, typ, value, eid))
 
@@ -115,6 +123,8 @@ def resolve_person(core, person, me):
         if slack:
             _add_identifier(core, "slack", slack, eid)
         if name:
+            # first seen by email alone, the person had no name until now
+            core.conn.execute("UPDATE entities SET name=? WHERE id=? AND name IS NULL", (name, eid))
             core.conn.execute("INSERT OR IGNORE INTO aliases VALUES (?,?)", (eid, name.lower()))
             first = name.split()[0].lower()
             core.conn.execute("INSERT OR IGNORE INTO aliases VALUES (?,?)", (eid, first))
