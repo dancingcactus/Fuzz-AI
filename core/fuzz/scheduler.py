@@ -548,6 +548,15 @@ def tick(core):
                 ch.task(t["id"], deadline_level=lvl, variant_tags=tags)
                 events.emit(core, "task.deadline_level", task_id=t["id"], changes=ch, data={"level": lvl})
             out["deadline"] += 1
+    # An ask that only mattered until a time ("can you join the meeting?") goes once that time passes, if you
+    # never touched it. Anything you did to it keeps it, so one you bring back from Lineup stays.
+    for t in core.all("SELECT * FROM tasks t WHERE user_id=? AND state='triage' AND expires_at IS NOT NULL "
+                      "AND expires_at <= ? AND NOT EXISTS (SELECT 1 FROM events e WHERE e.task_id=t.id "
+                      "AND e.actor='human')", (core.user_id, now)):
+        why = f"Only needed until {tasks._when(core, t['expires_at'])}, and that passed. Fuzz let it go."
+        tasks._one(core, "system", "task.let_go", t, "letgo", ("status", why), question=None, reason=why,
+                   add_tags=("lapsed",), data={"lapsed": True})
+        out["lapsed"] = out.get("lapsed", 0) + 1
     cutoff = iso(core.now() - timedelta(days=core.config["stale_days"]))
     for t in core.all("SELECT * FROM tasks WHERE user_id=? AND state='triage' AND state_changed_at < ?",
                       (core.user_id, cutoff)):

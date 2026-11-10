@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   session_id TEXT,                 -- the Claude or Copilot conversation it's open in, to resume
   session_launch TEXT,             -- the latest window opened on it; only that one closing brings it back
   session_at TEXT,                 -- the last word from a working session, for the quiet check
+  expires_at TEXT,                 -- the ask is moot after this (a meeting to join); untouched, it's let go then
   title_history TEXT,              -- json list
   created_at TEXT,
   state_changed_at TEXT,
@@ -378,7 +379,8 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                         ("reschedules", "INTEGER"), ("step_count", "INTEGER"), ("gaps", "TEXT"), ("find_out", "TEXT"),
                         ("pushes", "INTEGER"), ("missed_blocks", "INTEGER"),
                         ("deliverable_id", "INTEGER"), ("maybe_deliverable_id", "INTEGER"),
-                        ("next_step", "TEXT"), ("session_id", "TEXT"), ("session_launch", "TEXT"), ("session_at", "TEXT")]}
+                        ("next_step", "TEXT"), ("session_id", "TEXT"), ("session_launch", "TEXT"), ("session_at", "TEXT"),
+                        ("expires_at", "TEXT")]}
 
 
 def _migrate(conn):

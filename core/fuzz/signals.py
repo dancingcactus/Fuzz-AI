@@ -40,6 +40,8 @@ CANDIDATE = {
         "steps": {"type": "integer", "minimum": 1, "maximum": 50},   # how many steps the work takes
         "energy": {"enum": ["low", "normal", "high"]},
         "moments": {"type": "array", "maxItems": 2, "items": MOMENT},
+        # the ask is moot after this ("can you join the meeting?" ends with the meeting): no task once it's past
+        "until": {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$"},
     },
     "additionalProperties": False,
 }

@@ -4,7 +4,7 @@ import unittest
 
 from helpers import CoreCase, fixture
 
-from fuzz import answers, cards, events, tasks, tools
+from fuzz import answers, cards, events, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 # What a judge says about each day-2 ask (the spike's table): ask keyword -> (target title keyword, verdict, conf, new_ask, new_title)
@@ -419,3 +419,74 @@ if __name__ == "__main__":
         t = self.task(tid)
         self.assertEqual(t["state"], "parked")
         self.assertNotIn("woke", t["variant_tags"])
+
+
+class Lapsed(CoreCase):
+    """An ask that only mattered until a time: "can you join the TPR meeting?" once the meeting is over."""
+
+    def ask(self, until, sid="200.1", anchor="slack:C9:200.1", **extra):
+        return dict({"source": "slack", "source_id": f"C9:{sid}", "version": sid, "anchor": anchor,
+                     "ts": "2026-10-20T08:10:00Z", "from": {"name": "James Torio"},
+                     "quote": "Hi @here - are you able to join the TPR meeting",
+                     "candidates": [{"ask": "Join the TPR meeting James is waiting on", "owner": "me",
+                                     "until": until}]}, **extra)
+
+    def tpr(self):
+        return [t for t in tasks.list_tasks(self.core) if "TPR" in t["title"]]
+
+    def test_an_ask_already_over_makes_no_task(self):
+        tools.submit_signals(self.core, [self.ask("2026-10-20T08:45:00Z")])   # the clock reads 9:00
+        self.assertEqual(self.tpr(), [])
+        d = self.core.one("SELECT outcome, reason FROM decisions ORDER BY id DESC LIMIT 1")
+        self.assertEqual(d["outcome"], "lapsed")
+        self.assertIn("Only needed until", d["reason"])
+
+    def test_an_ask_already_over_in_a_known_thread_is_kept_as_history(self):
+        first = self.ask("2026-10-20T10:00:00Z")
+        first["candidates"][0]["ask"] = "Review the TPR agenda"
+        first["candidates"][0].pop("until")
+        tools.submit_signals(self.core, [first])
+        (t,) = self.tpr()
+        later = self.ask("2026-10-20T08:45:00Z", sid="200.2")
+        tools.submit_signals(self.core, [later])
+        self.assertEqual([x["id"] for x in self.tpr()], [t["id"]])
+        self.assertEqual(self.task(t["id"])["state"], "triage")
+        d = self.core.one("SELECT outcome, task_id FROM decisions ORDER BY id DESC LIMIT 1")
+        self.assertEqual((d["outcome"], d["task_id"]), ("context", t["id"]))
+
+    def test_an_untouched_task_goes_when_its_time_passes(self):
+        tools.submit_signals(self.core, [self.ask("2026-10-20T09:45:00+00:00")])
+        (t,) = self.tpr()
+        self.assertEqual(t["expires_at"], "2026-10-20T09:45:00Z")
+        scheduler.tick(self.core)
+        self.assertEqual(self.task(t["id"])["state"], "triage")
+        self.clock.advance(hours=1)
+        self.assertEqual(scheduler.tick(self.core)["lapsed"], 1)
+        t = self.task(t["id"])
+        self.assertEqual(t["state"], "letgo")
+        self.assertIn("lapsed", t["variant_tags"])
+        self.assertFalse([c for c in self.open_cards() if c["task_id"] == t["id"]])
+        self.assertIn("Only needed until", events.task_log(self.core, t["id"], 1)[0]["text"])
+
+    def test_one_you_brought_back_stays(self):
+        tools.submit_signals(self.core, [self.ask("2026-10-20T09:45:00Z")])
+        (t,) = self.tpr()
+        self.clock.advance(hours=1)
+        scheduler.tick(self.core)
+        tasks.bring_back(self.core, t["id"])
+        scheduler.tick(self.core)
+        self.assertEqual(self.task(t["id"])["state"], "triage")
+
+    def test_one_you_touched_stays(self):
+        tools.submit_signals(self.core, [self.ask("2026-10-20T09:45:00Z")])
+        (t,) = self.tpr()
+        tasks.schedule(self.core, t["id"], {"type": "later_today"})   # you put it off, and its time came
+        tasks.bring_back(self.core, t["id"], actor="system")
+        self.clock.advance(hours=1)
+        scheduler.tick(self.core)
+        self.assertEqual(self.task(t["id"])["state"], "triage")
+
+    def test_until_must_be_a_time(self):
+        with self.assertRaises(FuzzError) as e:
+            tools.submit_signals(self.core, [self.ask("after the meeting")])
+        self.assertEqual(e.exception.field, "signals[0].candidates[0].until")

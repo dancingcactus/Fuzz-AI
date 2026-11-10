@@ -1,7 +1,7 @@
 ---
 name: fuzz-extract
 description: Run Fuzz extraction. Reads the person's email, Slack and meeting summaries since the last run with your own connectors, turns each ask into a signal, and judges which existing Fuzz task each ask belongs to. Use when asked to "run Fuzz extraction", "pull my asks into Fuzz" or "update Fuzz from email and Slack".
-prompt_version: extract-0.13
+prompt_version: extract-0.14
 ---
 
 # Fuzz extraction
@@ -13,7 +13,7 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
 
 ## Steps
 
-1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.13`). It returns the person's
+1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.14`). It returns the person's
    names, email addresses, Slack IDs and the folders to read. Use these; never guess who they are.
 2. **`get_cursors`**: where to start reading each source. Read from there to now. A search filter
    that takes a day (Glean's `after`) leaves that day out, so pass the day **before** the cursor's
@@ -57,6 +57,11 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
      "label": "Before the leadership meeting", "at": "2026-10-30T09:00:00Z"}`, where `at` is when the
      task should come back. If a meeting you handed in before has moved or been cancelled, send the
      same `key` again with the new `at` or `"cancelled": true`.
+   - When an ask only makes sense at the time ("can you join the TPR meeting?", "can you hop on now?",
+     "before I present at 2"), add `until`: when it stops mattering. For a meeting, its end from your
+     calendar connector; with nothing to look up, the message's time plus an hour. Send it even when
+     that time has passed: Fuzz makes no task for an ask that was over before it saw it, and lets go of
+     one the person never got to. Not for a deadline that still matters after it passes (that's `due`).
    - No new ask (a thank-you, an FYI) means `"candidates": []`. Still send the signal.
    - Someone chasing an earlier ask ("any update on the vendor list?", "following up on this", "bump")
      gets `"nudge": true` on the signal. Fuzz brings a parked task back for it. If the nudge isn't in

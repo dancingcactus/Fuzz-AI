@@ -14,7 +14,7 @@ import re
 from datetime import timedelta
 
 from .. import cards, events, groups, states, tasks
-from ..db import FuzzError, iso
+from ..db import FuzzError, iso, parse_iso
 from . import entities, vectors
 
 MATCHER_VERSION = "core-0.1"
@@ -321,6 +321,16 @@ def _decide(ctx, cand, eligible, hits, fam):
             return record(ctx, cand, "anchor", "update", tid, reason="Reply in a thread already linked to this task")
         return record(ctx, cand, "rule", "discarded", reason="No new ask and no known thread")
 
+    until = _until(cand)
+    if until and until <= ctx.core.now():
+        # only needed until a time that's passed ("can you join the meeting?" after it ended): no task. In a
+        # thread that already has one, it's kept there as history.
+        why = f"Only needed until {tasks._when(ctx.core, iso(until))}, which passed before Fuzz saw it"
+        live = sorted(t for t in hits if eligible[t]["state"] in states.LIVE)
+        if live:
+            return record(ctx, cand, "anchor", "context", live[0], reason=why)
+        return record(ctx, cand, "rule", "lapsed", reason=why)
+
     if len(hits) == 1:
         tid, kind = next(iter(hits.items()))
         t = eligible[tid]
@@ -478,6 +488,16 @@ def _brief(cand):
     return {("step_count" if k == "steps" else k): c[k] for k in BRIEF_KEYS if c.get(k) is not None}
 
 
+def _until(cand):
+    """When the ask stops mattering, or None. Only a new task takes it: an ask folded into an existing task
+    never gives that task an end."""
+    c = json.loads(cand["payload"]) if isinstance(cand["payload"], str) else (cand["payload"] or {})
+    try:
+        return parse_iso(c.get("until"))
+    except ValueError:
+        return None
+
+
 def create_task(ctx, cand, decision_id):
     core = ctx.core
     s = _signal(ctx, cand)
@@ -486,6 +506,7 @@ def create_task(ctx, cand, decision_id):
         title = title[:tasks.TITLE_MAX - 3] + "..."
     owner = cand["owner"] or "me"
     brief = _brief(cand)
+    until = _until(cand)
     if len((brief.get("context_md") or "").encode()) > tasks.CONTEXT_MAX:
         raise FuzzError(f"context_md is over {tasks.CONTEXT_MAX // 1024} KB", "candidates[].context_md")
     tid = core.new_id("tasks")
@@ -494,7 +515,7 @@ def create_task(ctx, cand, decision_id):
     ch.task(tid, state="triage", assignee="human", title=title, ask=cand["ask"], owner=owner, due=cand["due"],
             order_key=tasks.next_order(core), variant_tags=["unconfirmed"] if owner == "unclear" else [],
             created_at=now, state_changed_at=now, title_history=[], steps_used=0, attempts=0, deadline_level=0,
-            **brief)
+            expires_at=until and iso(until), **brief)
     note = f"Created from {SOURCE_LABEL.get(s['source'], s['source'])}"
     if (s.get("from") or {}).get("name"):
         note += f" ({s['from']['name']})"

@@ -1192,6 +1192,12 @@ at them, even when the message came from the one you were waiting on. A Done or 
 would reopen goes straight to Waiting instead of Triage. It never takes a task from Fuzz or a session, or
 one whose draft waits for your OK, and a `waiting_on` naming you is ignored.
 
+**An ask that is over makes no task.** A candidate with `until` ("Can you join the TPR meeting?" until the
+meeting ends) that has passed by the time it's matched is recorded as `lapsed`, with no task and no card. In
+a thread that already has a live task, it's kept there as history. A task made from one carries `expires_at`.
+If it's still in Triage when that time passes and you never touched it, Fuzz lets it go ("Only needed until
+…"). Anything you did to it keeps it, so one you bring back from Lineup stays.
+
 ### The card record
 
 ```json
