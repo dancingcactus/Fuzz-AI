@@ -10,7 +10,11 @@ Three gaps, all closed here with code, no judge:
   - a ticket key or document link two tasks share is the identifier that stays the same across email,
     Slack and meetings, so it counts as a match whichever channels they came from. A link on many live
     tasks (a wiki home page) doesn't.
-A likely match becomes a duplicate card. likely() also ranks the choices for "Same as…" in task detail.
+A likely match becomes a duplicate card, one per task they may be the same as: a second possible duplicate
+of the same task joins the open card. The same ask again from the same sender in one run (a reminder sent
+five times) isn't asked about at all: it's folded into the first. When the task they may be the same as
+closes, settle() answers its cards for you.
+likely() also ranks the choices for "Same as…" in task detail.
 """
 
 import json
@@ -21,6 +25,7 @@ from . import entities, matcher, vectors
 
 LINK_COMMON = 3                               # a link on more than this many live tasks is too common to count
 DUP_SEM = {"hash": 0.75, "ollama": 0.85}      # meaning alone, close enough to ask
+PEOPLE_SEM = {"hash": 0.5, "ollama": 0.75}    # sharing only people (never your regulars), with meaning this close
 SAME_AS_LIMIT = 5
 
 
@@ -98,8 +103,10 @@ def likely(ctx, cand, others, strict=True):
         e, s, link = escore.get(tid, 0), sem.get(tid, 0), shared.get(tid)
         # the same words: works with no embedder (Ollama down), where meaning can't be measured
         same_words = max(_overlap(mine, _words(others[tid]["title"])), _overlap(mine, _words(others[tid]["ask"]))) >= WORDS_SAME
+        # the same people alone never make two asks the same: they need to mean nearly the same thing too
+        people_only = all(n.startswith("person:") for n in names.get(tid, []))
         close = (bool(link) or s >= DUP_SEM[fam] or same_words
-                 or (e >= matcher.STRONG_ENTITY and s >= matcher.SEM_MIN_ENTITY[fam]))
+                 or (e >= matcher.STRONG_ENTITY and s >= (PEOPLE_SEM if people_only else matcher.SEM_MIN_ENTITY)[fam]))
         loose = close or s >= matcher.SEM_FLOOR[fam] or e >= matcher.ENTITY_MIN
         if not (close if strict else loose):
             continue
@@ -205,7 +212,7 @@ def ask(core, task_id, other_id, why, confidence=None):
             ch.card(c["id"], status="withdrawn")
     if not ch.empty():
         events.emit(core, "card.updated", task_id=task_id, changes=ch, data={"kind": "task", "why": "duplicate_first"})
-    return cards.create(core, "duplicate", task_id, other_id=other_id, reason=why, suggested="merge", where="front")
+    return card_for(core, task_id, other_id, why, where="front")
 
 
 # ---------------------------------------------------------------- the same run
@@ -228,12 +235,143 @@ def run_mates(ctx, cand, frozen_after):
 
 def same_run(ctx, cand, frozen_after):
     """The task an ask judged new is likely the same as, among those made since its shortlist froze:
-    (task_id, reason, semantic) or None."""
+    (task_id, reason, semantic, repeat) or None. repeat: it's the same ask again from the same sender (a
+    reminder email sent five times), which matching folds in rather than asking you."""
     hits = likely(ctx, cand, run_mates(ctx, cand, frozen_after))
     if not hits:
         return None
     tid, why, scores = hits[0]
-    return tid, f"{why}, and came in with #{tid} in the same run", scores.get("semantic")
+    who = repeat_of(ctx, cand, tid)
+    if who:
+        return tid, f"The same ask from {who} again, after #{tid} in the same run", scores.get("semantic"), True
+    return tid, f"{why}, and came in with #{tid} in the same run", scores.get("semantic"), False
+
+
+REPEAT_WORDS = 0.9   # share of words two asks have in common to be the same ask repeated
+NOT_SENDERS = ("fuzz", "capture")   # asks Fuzz or you made: there's no one repeating themselves
+
+
+def _sender(s):
+    """Who sent a signal, as one comparable string: their email, Slack id or else their name."""
+    f = s.get("from") or {}
+    key = f.get("email") or f.get("slack_id") or f.get("name")
+    return key.strip().lower() if isinstance(key, str) and key.strip() else None
+
+
+def repeat_of(ctx, cand, task_id):
+    """The sender's name when the candidate is the ask task_id came from, sent again: the same sender and
+    nearly the same words. None otherwise."""
+    s = matcher.candidate_signal(ctx, cand)
+    me = _sender(s)
+    if not me or s.get("source") in NOT_SENDERS:
+        return None
+    origin = ctx.core.q("SELECT c.* FROM sources so JOIN candidates c ON c.id=so.candidate_id WHERE so.task_id=? "
+                        "AND so.user_id=? AND so.role='origin' ORDER BY so.id LIMIT 1",
+                        (task_id, ctx.core.user_id)).fetchone()
+    if origin is None:
+        return None
+    o = matcher.candidate_signal(ctx, origin)
+    if o.get("source") != s.get("source") or _sender(o) != me:
+        return None
+    if _overlap(_words(cand["ask"]), _words(origin["ask"])) < REPEAT_WORDS:
+        return None
+    return (s.get("from") or {}).get("name") or "the same sender"
+
+
+# ---------------------------------------------------------------- one card per task they're the same as
+
+def card_dupes(core, card):
+    """The tasks a duplicate card asks about, its own first, then the ones folded in, each only while it
+    still waits for the answer (in triage)."""
+    ids = dict.fromkeys([card["task_id"]] + ((card.get("payload") or {}).get("dupes") or []))
+    out = [tasks.get(core, i) for i in ids]
+    return [t for t in out if t and t["state"] == "triage"]
+
+
+def _open_card_about(core, other_id, but=None):
+    return core.one("SELECT * FROM cards WHERE user_id=? AND kind='duplicate' AND status='open' AND other_id=? "
+                    "AND task_id IS NOT ? ORDER BY id LIMIT 1", (core.user_id, other_id, but))
+
+
+def card_for(core, task_id, other_id, why, where="back"):
+    """The duplicate card asking whether task_id is the same as other_id. One card per task they may be the
+    same as: a second possible duplicate of #162 joins the open card about #162, so one answer settles them
+    all. Returns the card id."""
+    c = _open_card_about(core, other_id, but=task_id)
+    if c is None:
+        return cards.create(core, "duplicate", task_id, other_id=other_id, reason=why, suggested="merge", where=where)
+    p = dict(c.get("payload") or {})
+    have = p.get("dupes") or []
+    if task_id not in have and task_id != c["task_id"]:
+        ch = events.Changes()
+        ch.card(c["id"], payload=dict(p, dupes=have + [task_id]))
+        events.emit(core, "card.updated", task_id=c["task_id"], changes=ch,
+                    data={"kind": "duplicate", "card_id": c["id"], "added": task_id})
+    return c["id"]
+
+
+def folded_into(core, t):
+    """The open duplicate card another task holds that asks about t too, or None."""
+    for c in core.all("SELECT * FROM cards WHERE user_id=? AND kind='duplicate' AND status='open' AND task_id!=?",
+                      (core.user_id, t["id"])):
+        if t["id"] in ((c.get("payload") or {}).get("dupes") or []):
+            return c
+    return None
+
+
+# ---------------------------------------------------------------- the task they're the same as closes
+
+def settle(core, target_id):
+    """The open duplicate cards about a task that just left your queue. cards.sync runs it after any move.
+
+    Merged into another task: the cards ask about that one instead. Done or let go: the possible duplicates
+    follow it in, since your answer about it is the answer about the same ask again (split one back out if
+    it isn't); the card is answered for you. Merged into one of the possible duplicates: nothing to ask."""
+    t = tasks.get(core, target_id)
+    if t is None or t["state"] not in ("merged", "done", "letgo"):
+        return
+    for c in core.all("SELECT * FROM cards WHERE user_id=? AND kind='duplicate' AND status='open' AND other_id=?",
+                      (core.user_id, target_id)):
+        into = tasks.live(core, target_id)
+        dupes = card_dupes(core, c)
+        rest = [d["id"] for d in dupes if into is None or d["id"] != into["id"]]
+        if into is None or not rest:
+            _withdraw(core, c, "target_closed")
+        elif into["id"] in {d["id"] for d in dupes}:   # merged into one of them: the rest ask about that one
+            rehome(core, c, rest, into["id"])
+        elif into["state"] in ("done", "letgo"):
+            how = ("someone else’s" if "theirs" in (into.get("variant_tags") or []) else
+                   "done" if into["state"] == "done" else "let go")
+            for i, d in enumerate(dupes):
+                matcher.merge(core, d["id"], into["id"], card=c if i == 0 else None, actor="system",
+                              log=f"#{into['id']} is {how}, so Fuzz merged in #{d['id']}, the same ask "
+                                  f"(“{d['title']}”). Split it back out if it isn’t.")
+        else:
+            rehome(core, c, rest, into["id"])
+
+
+def rehome(core, c, ids, other_id, ch=None):
+    """Point a duplicate card at ids (the first is its own task) and other_id. With ch, it joins the
+    caller's change instead of emitting its own (cards.withdraw, while the card's own task moves on)."""
+    fields = dict(task_id=ids[0], other_id=other_id, payload=dict(c.get("payload") or {}, dupes=ids[1:]))
+    if ch is not None:
+        ch.card(c["id"], **fields)
+        return
+    with core.tx("system"):
+        ch = events.Changes()
+        ch.card(c["id"], **fields)
+        events.emit(core, "card.updated", task_id=ids[0], changes=ch,
+                    data={"kind": "duplicate", "card_id": c["id"], "other_id": other_id, "was": c["other_id"]})
+
+
+def _withdraw(core, c, why):
+    with core.tx("system"):
+        ch = events.Changes()
+        ch.card(c["id"], status="withdrawn")
+        events.emit(core, "card.updated", task_id=c["task_id"], changes=ch,
+                    data={"kind": "duplicate", "card_id": c["id"], "why": why})
+        for d in card_dupes(core, c):   # the ones folded in get a card of their own
+            cards.sync(core, d["id"])
 
 
 # ---------------------------------------------------------------- "Same as…" in task detail

@@ -30,6 +30,12 @@ SEM_MIN_ENTITY = {"hash": 0.05, "ollama": 0.40}
 ANCHOR_SEM_FLOOR = {"hash": 0.10, "ollama": 0.45}
 
 TYPE_WEIGHT = {"ticket": 3.0, "document": 3.0, "person": 1.0, "term": 1.0, "org": 0.3}
+
+# Your regular team is on most of your asks, so sharing one of them says nothing about two asks being the
+# same: a person on this many of the tasks made in the window doesn't count. Someone you hear from now and
+# then still does. The window lets the team change: new people become regulars, old ones drop back.
+PERSON_REGULAR = 4
+REGULAR_WINDOW_DAYS = 60
 STRENGTH_WEIGHT = {"id": 1.0, "alias": 0.5, "provisional": 0.0}
 
 # Your own reply that answers the thread closes the task, if it's still waiting on you. Waiting tasks wait on
@@ -214,10 +220,22 @@ def stage1_anchor(ctx, cand, eligible):
     return hits
 
 
+def regular_people(ctx):
+    """Your regular team: the people on PERSON_REGULAR or more of the tasks made in the last REGULAR_WINDOW_DAYS."""
+    since = iso(ctx.core.now() - timedelta(days=REGULAR_WINDOW_DAYS))
+    return {r["entity_id"] for r in ctx.conn.execute(
+        "SELECT m.entity_id, COUNT(DISTINCT s.task_id) n FROM sources s JOIN mentions m ON m.candidate_id=s.candidate_id "
+        "JOIN entities e ON e.id=m.entity_id JOIN tasks t ON t.id=s.task_id "
+        "WHERE s.user_id=? AND s.withdrawn=0 AND e.type='person' AND t.created_at >= ? "
+        "GROUP BY m.entity_id HAVING n >= ?", (_uid(ctx), since, PERSON_REGULAR))}
+
+
 def stage2_entities(ctx, cand, eligible):
     conn = ctx.conn
+    regulars = regular_people(ctx)
     cand_m = {r["entity_id"]: r["strength"] for r in
-              conn.execute("SELECT entity_id, strength FROM mentions WHERE candidate_id=?", (cand["id"],))}
+              conn.execute("SELECT entity_id, strength FROM mentions WHERE candidate_id=?", (cand["id"],))
+              if r["entity_id"] not in regulars}
     if not cand_m or not eligible:
         return {}, {}
     ids = list(eligible)
@@ -233,7 +251,7 @@ def stage2_entities(ctx, cand, eligible):
         for e in ents:
             df[e] = df.get(e, 0) + 1
     n = len(eligible)
-    types = {r["id"]: (r["type"], r["name"]) for r in conn.execute(
+    types = {r["id"]: (r["type"], entities.display_name(conn, r)) for r in conn.execute(
         f"SELECT id, type, name FROM entities WHERE id IN ({','.join('?' * len(cand_m))})", list(cand_m))}
     siblings = _sibling_tasks(ctx, cand)
     scores, shared = {}, {}
@@ -325,8 +343,9 @@ def _decide(ctx, cand, eligible, hits, fam):
             return record(ctx, cand, "rule", "discarded", reason=f"Ask is for {cand['owner']}, no related task")
         from . import dupes   # an ask made earlier in this run may be the same one (with no older task to judge against)
         mate = dupes.same_run(ctx, cand, getattr(ctx, "run_start", None))
-        if mate:
-            return record(ctx, cand, "rule", "possible_duplicate", mate[0], confidence=mate[2], reason=mate[1])
+        if mate:   # the same ask again from the same sender is folded in; anything else, you're asked
+            return record(ctx, cand, "rule", "merged" if mate[3] else "possible_duplicate", mate[0],
+                          confidence=mate[2], reason=mate[1])
         return record(ctx, cand, "semantic" if ctx.embed_ok else "entity", "new", reason="No anchor, entity or meaning match")
 
     item = _judgment_item(ctx, cand, keep, hits, escore, shared, sem)
@@ -403,8 +422,9 @@ def record(ctx, cand, stage, outcome, task_id=None, other_task_id=None, verdict=
                    (tid, task_id if outcome != "new" else None, did))
             if outcome != "new" and task_id is not None:
                 core.q("INSERT OR REPLACE INTO task_links VALUES (?,?,?,?,?)", (tid, task_id, outcome, confidence, reason))
-                if outcome == "possible_duplicate":
-                    cards.create(core, "duplicate", tid, other_id=task_id, reason=reason, suggested="merge")
+                if outcome == "possible_duplicate":   # joins the open card about task_id, if there is one
+                    from . import dupes
+                    dupes.card_for(core, tid, task_id, reason)
             cards.sync(core, tid)
         elif outcome in ("merged", "update"):
             attach(ctx, task_id, cand, "update", did, new_title=new_title)
@@ -634,8 +654,8 @@ def apply_verdicts(ctx, verdicts):
             from . import dupes
             item = json.loads(cand["pending_item"]) if cand["pending_item"] else {}
             mate = dupes.same_run(ctx, cand, item.get("frozen_after"))
-            if mate:
-                outcome, tid, reason = "possible_duplicate", mate[0], mate[1]
+            if mate:   # the same ask again from the same sender is folded in; anything else, you're asked
+                outcome, tid, reason = "merged" if mate[3] else "possible_duplicate", mate[0], mate[1]
         res = record(ctx, cand, "judge", outcome, tid, verdict=verdict, confidence=conf,
                      reason=reason, scores={"judge": conf}, new_title=v.get("new_title"))
         stats[res["outcome"]] = stats.get(res["outcome"], 0) + 1
@@ -655,13 +675,13 @@ def _creation_decision(core, task_id):
     return row["id"] if row else None
 
 
-def merge(core, a, b, card=None):
+def merge(core, a, b, card=None, actor="human", log=None):
     """Merge task a into task b. Records exactly what moved, so split can undo it."""
     ta, tb = tasks.live(core, a), tasks.live(core, b)
     if not ta or not tb or ta["id"] == tb["id"]:
         raise FuzzError("Both tasks must exist and differ", "task_id")
     a, b = ta["id"], tb["id"]
-    with core.tx("human"):
+    with core.tx(actor):
         srcs = core.all("SELECT * FROM sources WHERE task_id=?", (a,))
         anchors = [r["anchor"] for r in core.all("SELECT anchor FROM task_anchors WHERE task_id=?", (a,))]
         b_had = [r["anchor"] for r in core.all("SELECT anchor FROM task_anchors WHERE task_id=?", (b,))]
@@ -683,7 +703,9 @@ def merge(core, a, b, card=None):
         if card:
             cards.mark_answered(core, ch, card, "merge")
         events.emit(core, "task.merged", task_id=b, changes=ch, data={"merge_id": mid, "from": a, "into": b},
-                    log=("status", f"Merged #{a} into this task (“{ta['title']}”)."))
+                    log=("status", log or f"Merged #{a} into this task (“{ta['title']}”)."))
+        from . import dupes
+        dupes.settle(core, a)   # cards asking whether others are the same as a now ask about b
     return mid
 
 

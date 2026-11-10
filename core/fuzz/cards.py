@@ -89,10 +89,16 @@ def next_order(core, where="back"):
 
 
 def withdraw(core, ch, task_id, keep=None):
-    """Close the open cards of a task that is leaving the state they were about."""
+    """Close the open cards of a task that is leaving the state they were about. A duplicate card that asks
+    about other tasks too stays, on the next of them."""
+    from .matching import dupes
     for c in open_cards(core, task_id):
         if c["id"] != keep and ch.pending("cards", c["id"]).get("status", "open") == "open":
-            ch.card(c["id"], status="withdrawn")
+            rest = [d["id"] for d in dupes.card_dupes(core, c) if d["id"] != task_id] if c["kind"] == "duplicate" else []
+            if rest:
+                dupes.rehome(core, c, rest, c["other_id"], ch=ch)
+            else:
+                ch.card(c["id"], status="withdrawn")
 
 
 def mark_answered(core, ch, card, option, value=None):
@@ -133,6 +139,14 @@ def sync(core, task_id, where="back"):
         return None
     open_ = open_cards(core, task_id)
     tags = t.get("variant_tags") or []
+    from .matching import dupes
+    if t["state"] in ("merged", "done", "letgo"):   # cards asking whether others are the same as this one
+        dupes.settle(core, task_id)
+        return None
+    if t["state"] == "triage" and not open_:   # asked about on another task's duplicate card, with it
+        folded = dupes.folded_into(core, t)
+        if folded:
+            return folded["id"]
     if t["state"] == "triage" and not open_ and "unconfirmed" in tags:
         # Asks from one message that may not be yours share one card, so a broadcast email is one answer
         c = _asking_card(core, t)
@@ -208,9 +222,10 @@ def asks(core, card):
 
 
 def covered(core, t):
-    """A task with no card of its own because another task's is_task card asks about it too."""
+    """A task with no card of its own because another task's is_task or duplicate card asks about it too."""
+    from .matching import dupes
     c = _asking_card(core, t)
-    return bool(c) and t["id"] in ((c.get("payload") or {}).get("asks") or [])
+    return bool(c) and t["id"] in ((c.get("payload") or {}).get("asks") or []) or bool(dupes.folded_into(core, t))
 
 
 def refresh_schedule_options(core, ch, task_id):
@@ -367,6 +382,13 @@ def view(core, card, task=None):
     many = asks(core, card) if card["kind"] == "is_task" and card["status"] == "open" else []
     if not prompt and len(many) > 1:
         prompt = "Are any of these yours?"
+    if card["kind"] == "duplicate" and card["status"] == "open":
+        from .matching import dupes
+        same = dupes.card_dupes(core, card)
+    else:
+        same = []
+    if not prompt and len(same) > 1:
+        prompt = f"Are these {len(same)} the same as “{(other or {}).get('title', 'another task')}”?"
     if not prompt:
         prompt = PROMPTS[card["kind"]].format(other=(other or {}).get("title", "another task"),
                                               term=payload.get("term", "this"),
@@ -378,6 +400,8 @@ def view(core, card, task=None):
            "created_at": card.get("created_at")}
     if len(many) > 1:
         out["asks"] = [task_summary(a) for a in many]
+    if len(same) > 1:   # one answer settles them all
+        out["dupes"] = [task_summary(d) for d in same]
     if card["kind"] == "task":
         out["schedule_options"] = card.get("schedule_options") or []
         if task:   # its size, a big task's four choices, and the times Book time offers

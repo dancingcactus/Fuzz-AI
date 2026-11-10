@@ -277,7 +277,12 @@ or Fuzz (two things you typed yourself are yours to tell apart). A shared ticket
 or an ask very close in meaning, raises a `duplicate` card, which comes before the task's own card.
 A link on more than three live tasks doesn't count. The judge's `new` verdicts get the same check
 against the tasks made in the same run after their shortlist froze (`frozen_after` on the pending
-item), since those were never on it. The code is `fuzz/matching/dupes.py`.
+item), since those were never on it. When the match is the same ask again from the same sender
+(a reminder sent five times), it's folded straight in (`merged`, no card). Possible duplicates of
+one task share one card: later ones join its `payload.dupes`, the card view lists them as `dupes`,
+and Merge or Keep separate answers for all of them. When that task is done or let go, its possible
+duplicates merge into it and the card is answered (`dupes.settle`, run from `cards.sync`); when it's
+merged elsewhere, the card asks about where it went. The code is `fuzz/matching/dupes.py`.
 
 ### Working through a group
 

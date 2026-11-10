@@ -453,11 +453,14 @@ class App:
         """{other_id}: this task is the same as that one, so it merges into it. Undo splits it back out."""
         if not isinstance(body.get("other_id"), int):
             raise FuzzError("other_id is the task this one is the same as", "other_id")
+        from .matching import dupes
         tid = int(m.group(1))
         if tasks.require(core, tid)["state"] not in states.LIVE:
             raise FuzzError("Only an open task can be merged", "task_id", 409)
         dup = next((c for c in cards.open_cards(core, tid) if c["kind"] == "duplicate" and c["other_id"] == body["other_id"]),
                    None)
+        if dup and len(dupes.card_dupes(core, dup)) > 1:   # it asks about others too: it stays, on the next one
+            dup = None
         mid = matching.merge(core, tid, body["other_id"], card=dup)
         return {"task_id": tid, "into": tasks.live(core, tid)["id"], "merge_id": mid}
 

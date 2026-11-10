@@ -290,8 +290,13 @@
         f.title = c.asks.length + ' asks in one message';
         f.primary = 'The ticked ones are mine'; f.secondary = 'None are mine';
       } else delete it.asks;
+      /* The same ask that came in more than once: one card, and one answer settles them all */
+      if (c.dupes && c.dupes.length > 1) {
+        f.dupes = c.dupes.map(function (d) { return { id: d.id, title: d.title || d.ask || 'Untitled', at: agoText(d.created_at) }; });
+        f.primary = 'Merge them all'; f.secondary = 'Keep them separate';
+      } else delete it.dupes;
     } else {
-      ['entity', 'dupOf', 'primary', 'secondary', 'third', 'answers', 'boxLabel', 'placeholder', 'profiles', 'mentions', 'asks'].forEach(function (k) { delete it[k]; });
+      ['entity', 'dupOf', 'primary', 'secondary', 'third', 'answers', 'boxLabel', 'placeholder', 'profiles', 'mentions', 'asks', 'dupes'].forEach(function (k) { delete it[k]; });
     }
     /* What you typed but haven't sent stays; everything else is the core's */
     return Object.assign(it, f);
