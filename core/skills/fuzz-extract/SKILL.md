@@ -69,6 +69,13 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
      replies with a new message, not in the thread. Then the anchor is the ask's
      (`slack:<channel>:<ts of the ask>`), not the reply's own `ts`. Send the reply even when the ask
      is in the same batch, or Fuzz already has a task for it: that reply is what closes the task.
+   - The one who asked saying it's sorted ("That was it, thanks", "Works now", "Never mind, figured it
+     out", "Y u so smrt?" after the person's suggestion fixed it): `"resolved": true` and no candidates,
+     with the `anchor` of the ask, just as for `answers`. Fuzz marks the task done. This is how a
+     question back that turned out to be the fix ("Are you on the VPN?") gets closed: the person's
+     question isn't `answers`, but the asker's "yep, that was it" is `resolved`. The person's own
+     message can carry it too, when it says the matter is settled ("Glad that sorted it"). Not for a
+     plain thank-you that leaves the ask open, or "I'll try that".
    - The person's own message (an email or invite they sent, their Slack post) is an ask only when they
      commit to something beyond the message itself ("I'll send the deck Friday"). An invite they sent,
      or their note on why they're meeting, has `"candidates": []`: the calendar already holds it.

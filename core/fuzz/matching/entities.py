@@ -94,6 +94,18 @@ def sent_by_me(person, me):
     return bool(name) and (name in names or name.split()[0] in names)
 
 
+def same_person(a, b):
+    """Whether two senders are the same person. An email or Slack ID both carry decides; otherwise the names,
+    with a first name matching a full one ("Jacob" and "Jacob Tedders"), as sent_by_me allows."""
+    for key in ("email", "slack_id"):
+        if a.get(key) and b.get(key):
+            return a[key].lower() == b[key].lower()
+    x, y = ((p.get("name") or "").strip().lower() for p in (a, b))
+    if not x or not y:
+        return False
+    return x == y or (" " not in x and x == y.split()[0]) or (" " not in y and y == x.split()[0])
+
+
 def resolve_person(core, person, me):
     """Return (entity_id, strength) or None for the user themself."""
     if _is_me(person, me):

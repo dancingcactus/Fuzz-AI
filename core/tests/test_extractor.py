@@ -238,6 +238,46 @@ class TwoDays(CoreCase):
             self.answer_in_thread({"name": "Justin"}, candidates=[{"ask": "Send the deck"}])
         self.assertEqual(e.exception.field, "signals[0].answers")
 
+    def prototype_thread(self, confirm_from, **extra):
+        """Jacob hits an error, you ask about the VPN, he says that was it: all in one batch."""
+        ask = self.dm("100.1", "2026-11-06T16:44:43Z", {"name": "Jacob Tedders"},
+                      "I tried making a new prototype and got this error",
+                      candidates=[{"ask": "Help Jacob resolve the new-prototype error"}])
+        mine = self.dm("100.2", "2026-11-06T17:10:39Z", {"name": "Justin Grover"}, "Are you connected to the VPN?")
+        confirm = self.dm("100.3", "2026-11-06T17:11:19Z", confirm_from, "Y u so smrt?", resolved=True, **extra)
+        tools.submit_signals(self.core, [ask, mine, confirm])
+        return self.by_title("new-prototype error")
+
+    def test_the_asker_saying_its_sorted_closes_the_task(self):
+        t = self.prototype_thread({"name": "Jacob Tedders"})
+        self.assertEqual(t["state"], "done")
+        self.assertFalse([c for c in self.open_cards() if c["task_id"] == t["id"]])
+        log = [x["text"] for x in events.task_log(self.core, t["id"])]
+        self.assertIn("Jacob Tedders says it's sorted", log[0])
+        self.assertEqual(len(log), 3, "created, your question, his answer: each reply once")
+
+    def test_a_first_name_is_the_same_asker(self):
+        self.assertEqual(self.prototype_thread({"name": "Jacob"})["state"], "done")
+
+    def test_someone_else_saying_its_sorted_does_not_close_it(self):
+        self.assertEqual(self.prototype_thread({"name": "Marco Diaz"})["state"], "triage")
+
+    def test_the_asker_saying_its_sorted_closes_a_task_you_wait_on(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        answers.answer(self.core, self.card_for(contract["id"], "task")["id"], "wait", "Marco Diaz")
+        frm = self.core.one(   # whoever sent the message the task came from
+            "SELECT g.payload FROM sources so JOIN signals g ON g.key=so.signal_key AND g.user_id=so.user_id "
+            "WHERE so.task_id=? AND so.role='origin'", (contract["id"],))["payload"]["from"]
+        self.answer_in_thread(frm, answers=False, resolved=True)
+        self.assertEqual(self.task(contract["id"])["state"], "done")
+
+    def test_a_sorted_message_carries_no_asks(self):
+        with self.assertRaises(FuzzError) as e:
+            self.answer_in_thread({"name": "Marco"}, answers=False, resolved=True,
+                                  candidates=[{"ask": "Send the deck"}])
+        self.assertEqual(e.exception.field, "signals[0].resolved")
+
     def test_an_email_read_again_is_not_new(self):
         msg = {"source": "email", "source_id": "<m1@acme.example>", "version": "2026-10-20T08:00:00Z",
                "anchor": "email:conv-Q", "ts": "2026-10-20T08:00:00Z", "from": {"name": "Dana"},

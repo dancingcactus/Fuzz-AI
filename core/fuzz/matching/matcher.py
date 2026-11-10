@@ -41,6 +41,9 @@ STRENGTH_WEIGHT = {"id": 1.0, "alias": 0.5, "provisional": 0.0}
 # Your own reply that answers the thread closes the task, if it's still waiting on you. Waiting tasks wait on
 # someone else, and Fuzz's own work in flight finishes or comes back to you.
 ANSWERED_CLOSES = ("triage", "queued", "scheduled", "parked", "session")
+# The one who asked saying it's sorted ("that was it", "works now") closes it too, even while you wait on them:
+# nothing is left to wait for. Fuzz's own work in flight still finishes or comes back to you.
+RESOLVED_CLOSES = ANSWERED_CLOSES + ("waiting",)
 
 MERGE_CONF = 0.85
 DUP_CONF = 0.60
@@ -443,7 +446,8 @@ def record(ctx, cand, stage, outcome, task_id=None, other_task_id=None, verdict=
 def replay_early_replies(ctx, task_id, cand):
     """Replies Fuzz dropped because their thread had no task yet. An ask waits for the judge, so a reply in the
     same batch (or an earlier run) found no thread and was discarded. Once the ask's thread has a task, each
-    reply on it sent after the ask is matched again: yours that answers it closes the task."""
+    reply on it sent after the ask is matched again: yours that answers it, or the asker's saying it's sorted,
+    closes the task."""
     core = ctx.core
     s = _signal(ctx, cand)
     threads = [a for kind, a in candidate_anchors(ctx, cand) if kind == "thread"]
@@ -452,7 +456,9 @@ def replay_early_replies(ctx, task_id, cand):
     marks = ",".join("?" * len(threads))
     rows = core.q(
         "SELECT c.* FROM candidates c JOIN signals s ON s.user_id=c.user_id AND s.key=c.signal_key "
-        f"WHERE c.user_id=? AND c.kind='update' AND c.signal_key!=? AND s.anchor IN ({marks}) AND s.ts>=? "
+        # decided: a reply later in this same batch is still to come, and finds the task on its own
+        f"WHERE c.user_id=? AND c.kind='update' AND c.status='decided' AND c.signal_key!=? AND s.anchor IN ({marks}) "
+        "AND s.ts>=? "
         "AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.candidate_id=c.id AND d.outcome!='discarded') "
         "ORDER BY s.ts, c.id", (_uid(ctx), cand["signal_key"], *threads, s.get("ts") or "")).fetchall()
     for r in rows:
@@ -546,6 +552,8 @@ def attach(ctx, task_id, cand, role, decision_id, new_title=None, reopen=False):
     back = None   # (type, reason, tag) when the task returns to triage
     answered = (role == "update" and not new_ask and s.get("answers") and t["state"] in ANSWERED_CLOSES
                 and entities.sent_by_me(s.get("from") or {}, ctx.cfg.get("me", {})))
+    resolved = (not answered and role == "update" and not new_ask and s.get("resolved")
+                and t["state"] in RESOLVED_CLOSES and _from_asker(ctx, tid, s))
     if role == "update":
         if new_title:
             tasks.retitle(core, ch, t, new_title)
@@ -561,6 +569,8 @@ def attach(ctx, task_id, cand, role, decision_id, new_title=None, reopen=False):
             back = ("task.reopened", why, "reopened")
             if theirs:
                 ch.task(tid, owner="me", variant_tags=tasks._tags(t, remove=("theirs",)))
+        elif resolved:
+            pass   # it closes below; nothing brings it back
         elif t["state"] == "scheduled" and due and t["schedule_fire_at"] and due < t["schedule_fire_at"]:
             back = ("task.came_back", f"Pulled forward: the new deadline {due} is before {t['schedule_fire_at'][:10]}",
                     "returning")
@@ -592,11 +602,27 @@ def attach(ctx, task_id, cand, role, decision_id, new_title=None, reopen=False):
                     log=("status", f"You answered in {where}" + (f": “{quote}”" if quote else "") + ". Fuzz marked this done."),
                     data={"candidate_id": cand["id"], "role": role, "decision_id": decision_id, "by": "reply"})
         cards.sync(core, tid)
+    elif resolved:
+        tasks.move(core, ch, t, "done", question=None)
+        events.emit(core, "task.done", task_id=tid, changes=ch,
+                    log=("status", f"{text}. {who} says it's sorted, so Fuzz marked this done."),
+                    data={"candidate_id": cand["id"], "role": role, "decision_id": decision_id, "by": "resolved"})
+        cards.sync(core, tid)
     else:
         events.emit(core, "task.reply_in", task_id=tid, changes=ch, log=("status", text),
                     data={"candidate_id": cand["id"], "role": role, "decision_id": decision_id})
     if role == "update":
         _moments(core, tid, cand)
+
+
+def _from_asker(ctx, task_id, s):
+    """Whether a message comes from you or from someone whose ask made the task (its origin signals)."""
+    frm = s.get("from") or {}
+    if entities.sent_by_me(frm, ctx.cfg.get("me", {})):
+        return True
+    rows = ctx.core.q("SELECT g.payload FROM sources so JOIN signals g ON g.user_id=so.user_id AND g.key=so.signal_key "
+                      "WHERE so.user_id=? AND so.task_id=? AND so.role='origin'", (_uid(ctx), task_id)).fetchall()
+    return any(entities.same_person(frm, json.loads(r["payload"]).get("from") or {}) for r in rows)
 
 
 def _from_waited_on(t, s):
