@@ -97,20 +97,31 @@ def fuzz_times(core, t, now=None):
         if s_utc <= now or (due and e_utc > due) or not _free(s_utc, e_utc, taken):
             continue
         anchor = {"type": "block", "start": iso(s_utc), "end": iso(e_utc)}
-        out.append({"anchor": anchor, "label": timeres.block_label(core, anchor), "fire_at": iso(s_utc),
-                    "source": "fuzz", "focus": False})
-        if len(out) >= OPTIONS:
-            break
+        out.append({"anchor": anchor, "fire_at": iso(s_utc), "source": "fuzz", "focus": False})
     return out
 
 
 def options(core, t, now=None):
     """The times Book time offers this task, best first: from the calendar the executor last reported
-    (Focus time slots first), else Fuzz's own times."""
+    (Focus time slots first), else Fuzz's own times. Tomorrow always gets a place when it has a time free:
+    if none of the best few is tomorrow, the best one tomorrow takes the last place."""
+    now = now or core.now()
     cal = calendar(core)
-    if cal is None:
-        return fuzz_times(core, t, now)
-    return ranked(core, t, cal, now)
+    every = fuzz_times(core, t, now) if cal is None else ranked(core, t, cal, now)
+    out = every[:OPTIONS]
+    tz = timeres.local_tz(core)
+    tomorrow = now.astimezone(tz).date() + timedelta(days=1)
+
+    def on_tomorrow(o):
+        return parse_iso(o["fire_at"]).astimezone(tz).date() == tomorrow
+    if out and not any(on_tomorrow(o) for o in out):
+        best = next((o for o in every[OPTIONS:] if on_tomorrow(o)), None)
+        if best:
+            out[-1] = best
+            out.sort(key=lambda o: every.index(o))
+    for o in out:
+        o["label"] = timeres.block_label(core, o["anchor"], now=now)
+    return out
 
 
 # ---------------------------------------------------------------- the calendar, as the executor reads it
@@ -225,10 +236,8 @@ def ranked(core, t, cal, now=None):
     out = []
     for fa, fb, focus, note in sorted(whole) + sorted(part) + sorted(other):
         anchor = {"type": "block", "start": iso(fa), "end": iso(fb)}
-        out.append({"anchor": anchor, "label": timeres.block_label(core, anchor), "fire_at": iso(fa), "source": "calendar",
+        out.append({"anchor": anchor, "fire_at": iso(fa), "source": "calendar",
                     "focus": focus, "note": note or ("In a Focus time slot" if focus else "Not a focus slot")})
-        if len(out) >= OPTIONS:
-            break
     return out
 
 

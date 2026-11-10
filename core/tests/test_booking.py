@@ -52,6 +52,14 @@ class Booking(CoreCase):
             ("2026-10-20T15:00:00Z", "2026-10-20T15:30:00Z", "Block 1 of 3"),
             ("2026-10-21T13:00:00Z", "2026-10-21T14:30:00Z", "Not a focus slot")])
 
+    def test_tomorrow_always_gets_a_place_and_reads_as_tomorrow(self):
+        today = [{"start": f"2026-10-20T{h}:00:00Z", "end": f"2026-10-20T{h}:30:00Z", "title": "Focus time"}
+                 for h in (10, 11, 12, 13, 14)]
+        self.report(*today, FREE)
+        opts = booking.options(self.core, self.task(self.sized("Reply to Marcus", 30)))
+        self.assertEqual([o["label"] for o in opts], ["Today 10:00–10:30", "Today 11:00–11:30", "Today 12:00–12:30",
+                                                      "Tomorrow 13:00–13:30"])
+
     def test_two_tasks_share_a_slot_but_never_the_same_time(self):
         self.report(FOCUS)
         self.book_first(self.sized("Write the Q4 readout", 90))

@@ -319,7 +319,7 @@
           if (out.length >= 3) return;
           var s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h), e = new Date(s.getTime() + mins * 60000);
           var f = function (x) { return x.getHours() + ':' + ('0' + x.getMinutes()).slice(-2); };
-          out.push({ anchor: { type: 'block', start: s.toISOString(), end: e.toISOString() }, label: s.toLocaleDateString([], { weekday: 'short' }) + ' ' + f(s) + '–' + f(e), focus: false });
+          out.push({ anchor: { type: 'block', start: s.toISOString(), end: e.toISOString() }, label: (i === 1 ? 'Tomorrow' : s.toLocaleDateString([], { weekday: 'short' })) + ' ' + f(s) + '–' + f(e), focus: false });
         });
       }
       return out;

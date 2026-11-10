@@ -67,8 +67,8 @@ class Options(CoreCase):
         return [o["label"] for o in timeres.build_options(self.core, {"due": due, "schedule_hints": hints or []})]
 
     def test_timeline_by_time_left(self):
-        self.assertEqual(self.labels(None), ["Later today", "When I’m back at my desk", "Monday morning",
-                                             "Sometime next week", "Pick an exact time"])
+        self.assertEqual(self.labels(None), ["Later today", "When I’m back at my desk", "First thing tomorrow",
+                                             "Monday morning", "Sometime next week", "Pick an exact time"])
         self.assertEqual(self.labels("2026-10-20T12:00:00Z"), ["In 30 minutes", "An hour before it’s due",
                                                                "Pick an exact time"])
         self.assertEqual(self.labels("2026-10-21T15:00:00Z"), ["Later today", "When I’m back at my desk",
@@ -76,7 +76,8 @@ class Options(CoreCase):
                                                                "Pick an exact time"])
         self.assertEqual(self.labels("2026-10-24T17:00:00Z"), ["First thing tomorrow", "The day before it’s due",
                                                                "Pick an exact time"])
-        self.assertEqual(self.labels("2026-11-20"), ["Sometime next week", "A week before it’s due", "Pick an exact time"])
+        self.assertEqual(self.labels("2026-11-20"), ["First thing tomorrow", "Sometime next week", "A week before it’s due",
+                                                     "Pick an exact time"])
 
     def test_near_the_end_of_the_day_later_today_becomes_tomorrow(self):
         self.clock.advance(hours=7)   # 16:00

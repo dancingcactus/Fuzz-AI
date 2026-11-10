@@ -54,15 +54,17 @@
   }
 
   /* The core's times, from how long is left (the design's table). Within an hour of the end of the
-     work day, "Later today" gives way to "First thing tomorrow". */
+     work day, "Later today" gives way to "First thing tomorrow". Tomorrow is offered whenever it's before
+     the due date; options() drops it when it isn't, and the duplicate when it's already first. */
   function timeline(it, now) {
-    var later = new Date(now).getHours() >= WORKDAY_END_HOUR - 1 ? { type: 'day_part', day: 'tomorrow', part: 'morning' } : { type: 'later_today' };
-    if (!it.dueAt) return [later, { type: 'at_desk' }, { type: 'day_part', day: 'monday', part: 'morning' }, { type: 'day_part', day: 'next_week', part: 'morning' }];
+    var tom = { type: 'day_part', day: 'tomorrow', part: 'morning' };
+    var later = new Date(now).getHours() >= WORKDAY_END_HOUR - 1 ? tom : { type: 'later_today' };
+    if (!it.dueAt) return [later, { type: 'at_desk' }, tom, { type: 'day_part', day: 'monday', part: 'morning' }, { type: 'day_part', day: 'next_week', part: 'morning' }];
     var left = it.dueAt - now;
     if (left < 6 * H) return [{ type: 'in', minutes: 30 }, { type: 'before_due', lead: '1h' }];
-    if (left < 48 * H) return [later, { type: 'at_desk' }, { type: 'day_part', day: 'tomorrow', part: 'morning' }, { type: 'before_due', lead: '3h' }];
-    if (left < 168 * H) return [{ type: 'day_part', day: 'tomorrow', part: 'morning' }, { type: 'before_due', lead: '1d' }];
-    return [{ type: 'day_part', day: 'next_week', part: 'morning' }, { type: 'before_due', lead: '1w' }];
+    if (left < 48 * H) return [later, { type: 'at_desk' }, tom, { type: 'before_due', lead: '3h' }];
+    if (left < 168 * H) return [tom, { type: 'before_due', lead: '1d' }];
+    return [tom, { type: 'day_part', day: 'next_week', part: 'morning' }, { type: 'before_due', lead: '1w' }];
   }
 
   function options(it) {

@@ -134,12 +134,16 @@ def check_block(anchor):
     return start, end
 
 
-def block_label(core, anchor, with_day=True):
-    """"Tue 10:00–11:30" in your time zone."""
+def block_label(core, anchor, with_day=True, now=None):
+    """"Tue 10:00–11:30" in your time zone. Given now (for a button, not a log line that is read later),
+    today and tomorrow read as "Today" and "Tomorrow"."""
     s, e = check_block(anchor)
     tz = local_tz(core)
     s, e = s.astimezone(tz), e.astimezone(tz)
     day = s.strftime("%a ") if with_day else ""
+    if with_day and now is not None:
+        ahead = (s.date() - now.astimezone(tz).date()).days
+        day = {0: "Today ", 1: "Tomorrow "}.get(ahead, day)
     return f"{day}{s.strftime('%-H:%M')}–{e.strftime('%-H:%M')}"
 
 
@@ -190,22 +194,25 @@ def line(core, anchor):
     return f"I’ll bring it back {lab[0].lower() + lab[1:]}."
 
 
+TOMORROW = {"type": "day_part", "day": "tomorrow", "part": "morning"}
+
+
 def timeline(due, now, late=False):
     """The core's options from how much time is left (the design's table). Near the end of the work day
-    (late), "Later today" gives way to "First thing tomorrow"."""
-    later = {"type": "day_part", "day": "tomorrow", "part": "morning"} if late else {"type": "later_today"}
+    (late), "Later today" gives way to "First thing tomorrow". Tomorrow is offered whenever it's before
+    the due date (build_options drops it when it isn't, and the duplicate when late already offers it)."""
+    later = TOMORROW if late else {"type": "later_today"}
     if due is None:
-        return [later, {"type": "at_desk"}, {"type": "day_part", "day": "monday", "part": "morning"},
+        return [later, {"type": "at_desk"}, TOMORROW, {"type": "day_part", "day": "monday", "part": "morning"},
                 {"type": "day_part", "day": "next_week", "part": "morning"}]
     left = due - now
     if left < timedelta(hours=6):
         return [{"type": "in", "minutes": 30}, {"type": "before_due", "lead": "1h"}]
     if left < timedelta(hours=48):
-        return [later, {"type": "at_desk"}, {"type": "day_part", "day": "tomorrow", "part": "morning"},
-                {"type": "before_due", "lead": "3h"}]
+        return [later, {"type": "at_desk"}, TOMORROW, {"type": "before_due", "lead": "3h"}]
     if left < timedelta(days=7):
-        return [{"type": "day_part", "day": "tomorrow", "part": "morning"}, {"type": "before_due", "lead": "1d"}]
-    return [{"type": "day_part", "day": "next_week", "part": "morning"}, {"type": "before_due", "lead": "1w"}]
+        return [TOMORROW, {"type": "before_due", "lead": "1d"}]
+    return [TOMORROW, {"type": "day_part", "day": "next_week", "part": "morning"}, {"type": "before_due", "lead": "1w"}]
 
 
 def check_moment(anchor):
@@ -290,7 +297,7 @@ def build_options(core, task, now=None):
             add({k: v for k, v in h.items() if k != "reason"}, "ai", h.get("reason"))
     late = now.astimezone(local_tz(core)).hour >= WORKDAY_END_HOUR - 1
     for a in timeline(due, now, late):
-        add(a, "core")
+        add(dict(a), "core")
     out = out[:MAX_OPTIONS]
     out.append({"anchor": {"type": "exact"}, "label": "Pick an exact time", "fire_at": None, "source": "core"})
     return out
