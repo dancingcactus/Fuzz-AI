@@ -1185,6 +1185,13 @@ This rule lives in the core, as code. Most of it is already in the matching spik
 | Scheduled | History only | Stays scheduled. An earlier deadline pulls it forward |
 | Waiting | History only, unless it's from the person you're waiting on: then back to Triage as "Reply came in" | Back to Triage |
 
+**A hand-off overrides the table.** A signal marked `waiting_on` ("Is there someone who could take this?",
+"Let me talk to Jacob about covering it") says the next move is someone else's. A task in Triage, Scheduled
+or Parked moves to Waiting on that person, with the usual check-back time. A task already Waiting re-points
+at them, even when the message came from the one you were waiting on. A Done or Let go task that a new ask
+would reopen goes straight to Waiting instead of Triage. It never takes a task from Fuzz or a session, or
+one whose draft waits for your OK, and a `waiting_on` naming you is ignored.
+
 ### The card record
 
 ```json

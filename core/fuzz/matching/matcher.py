@@ -38,6 +38,11 @@ PERSON_REGULAR = 4
 REGULAR_WINDOW_DAYS = 60
 STRENGTH_WEIGHT = {"id": 1.0, "alias": 0.5, "provisional": 0.0}
 
+# A message that hands the next move to someone else (waiting_on) moves your task to waiting on them. Not while
+# Fuzz or a session is working it, or a draft waits for your OK: that finishes first. Waiting re-points at the
+# new person. Done or let go only when the message also reopens it with a new ask.
+HANDS_OFF = ("triage", "scheduled", "parked", "waiting")
+
 # Your own reply that answers the thread closes the task, if it's still waiting on you. Waiting tasks wait on
 # someone else, and Fuzz's own work in flight finishes or comes back to you.
 ANSWERED_CLOSES = ("triage", "queued", "scheduled", "parked", "session")
@@ -588,7 +593,19 @@ def attach(ctx, task_id, cand, role, decision_id, new_title=None, reopen=False):
         brief = _brief(cand)
         if brief:
             ch.task(tid, **brief)
-    if back:
+    handed = None if (answered or resolved or role == "ignored") else _handed_to(ctx, s)
+    if handed and (t["state"] in HANDS_OFF or (reopen and back)):
+        # the next move is theirs: it waits on them, not in your queue (and a reply from them brings it back)
+        check = tasks.default_check_back(core)
+        tasks.move(core, ch, t, "waiting", waiting_on=handed, schedule_anchor=None, schedule_fire_at=check,
+                   question=None)
+        events.emit(core, "task.waiting", task_id=tid, changes=ch,
+                    log=("status", f"{text}. Fuzz moved this to waiting on {handed} and checks back "
+                                   f"{tasks._when(core, check)}, sooner if they reply."),
+                    data={"candidate_id": cand["id"], "role": role, "decision_id": decision_id, "on": handed,
+                          "by": "handoff"})
+        cards.sync(core, tid)
+    elif back:
         typ, why, tag = back
         tasks.move(core, ch, t, "triage", add_tags=(tag,), order_key=tasks.next_order(core), reason=why,
                    schedule_anchor=None, schedule_fire_at=None)
@@ -623,6 +640,14 @@ def _from_asker(ctx, task_id, s):
     rows = ctx.core.q("SELECT g.payload FROM sources so JOIN signals g ON g.user_id=so.user_id AND g.key=so.signal_key "
                       "WHERE so.user_id=? AND so.task_id=? AND so.role='origin'", (_uid(ctx), task_id)).fetchall()
     return any(entities.same_person(frm, json.loads(r["payload"]).get("from") or {}) for r in rows)
+
+
+def _handed_to(ctx, s):
+    """Who a message hands the next move to (its waiting_on), unless that's the person themselves."""
+    who = (s.get("waiting_on") or "").strip()
+    if not who or entities.sent_by_me({"name": who}, ctx.cfg.get("me", {})):
+        return None
+    return who
 
 
 def _from_waited_on(t, s):

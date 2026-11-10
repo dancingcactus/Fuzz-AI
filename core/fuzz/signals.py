@@ -63,6 +63,8 @@ SIGNAL = {
         "withdrawn": {"type": "boolean"},
         "answers": {"type": "boolean"},   # the person's own reply, doing what the thread asked of them
         "resolved": {"type": "boolean"},  # the one who asked, saying it's sorted: nothing more is needed
+        # the next move on the thread is this person's, not the person's: they were handed it, or took it on
+        "waiting_on": {"type": "string", "minLength": 1, "maxLength": 120},
         "candidates": {"type": "array", "items": CANDIDATE},
     },
     "additionalProperties": False,
@@ -120,6 +122,9 @@ def check_signals(signals):
         if s.get("resolved") and s.get("candidates"):
             raise FuzzError(f"signals[{i}]: a message saying the ask is sorted has no candidates; send a new ask "
                             "in it as its own signal", f"signals[{i}].resolved")
+        if s.get("waiting_on") and (s.get("answers") or s.get("resolved") or s.get("withdrawn")):
+            raise FuzzError(f"signals[{i}]: a message that settles or withdraws the ask leaves no one to wait on",
+                            f"signals[{i}].waiting_on")
 
 
 def check_verdicts(verdicts):
