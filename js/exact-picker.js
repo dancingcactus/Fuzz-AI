@@ -1,4 +1,4 @@
-/* The exact-time picker behind Schedule → More times → "Pick an exact time instead".
+/* The exact-time picker behind Schedule → the Exact time tile (X).
    Day chips for the coming week, "Other day" for the month, and a two-ring clock: hours inside, minutes outside,
    both live. The time box takes typing too ("3", "330p", "15:30"), and there are a few common times.
    The defaults: today is an hour from now, rounded up to the next 5 minutes; any later day is 8 AM. They hold until

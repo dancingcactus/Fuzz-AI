@@ -1,3 +1,6 @@
 # Impeccable: per-machine consent and the design hook cache
 .impeccable/config.local.json
 .impeccable/hook.cache.json
+
+# UI tests (tests/ui): npm install puts Playwright here
+tests/ui/node_modules/

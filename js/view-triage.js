@@ -167,7 +167,7 @@
   /* The key guide (press ? on Triage). Letters act on a task card; numbers pick from whatever choice is showing. */
   function keysHTML() {
     var g = [
-      ['On a task card', [['A', 'Assign to Fuzz'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (M for more times)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
+      ['On a task card', [['A', 'Assign to Fuzz'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (X for an exact time, M for more times)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
       ['On a draft', [['R', 'Ask Fuzz to change it'], ['L', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
       ['Choices on screen', [['1 – 9', 'Pick an answer, a time or a mood'], ['K', 'Keep a stale card, or keep a parked one parked'], ['R', 'Bring a parked card back'], ['G / U', 'On a check-back: they got back to you, or nudge them'], ['H', 'On a task that keeps coming back: Fuzz works out the first step'], ['E', 'When picking a time: move it to the end of the list instead'], ['L', 'Let a stale or parked card go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
       ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New task (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
@@ -282,19 +282,22 @@
   var FIND_WHAT = 'Fuzz looks one thing up. The task stays yours and comes back next.';
   function actionsHTML(it) {
     if (scheduling) {
-      /* Three likely times first. The rest, and an exact time, wait behind More times. */
-      var all = schedOpts(it), opts = schedMore ? all : all.slice(0, 3);
+      /* Three likely times first, then End of the list and an exact time. The rest wait behind More times,
+         but only when there are at least two more: a single extra time just shows as a fourth tile. */
+      var all = schedOpts(it), fold = !schedMore && all.length > 4, opts = fold ? all.slice(0, 3) : all;
       var tiles = opts.map(function (o, n) { return '<button type="button" class="when" data-when="' + n + '" aria-keyshortcuts="' + (n + 1) + '"><span>' + esc(o.label) + kbd(n + 1) + '</span><small>' + esc(Sched.hint(o)) + '</small></button>'; });
       /* No time at all: it stays in triage and comes up after everything else */
       tiles.push('<button type="button" class="when" data-sched="back" aria-keyshortcuts="E"><span>End of the list' + kbd('E') + '</span><small>After everything else waiting here</small></button>');
-      if (!schedMore) tiles.push('<button type="button" class="when when-more" data-sched="more" aria-keyshortcuts="M"><span>More times' + kbd('M') + '</span><small>' + (all.length > 3 ? 'Later options, or an exact time' : 'Or an exact time') + '</small></button>');
+      /* An exact time: opens the picker below the tiles */
+      tiles.push('<button type="button" class="when" data-sched="exact" aria-keyshortcuts="X" aria-controls="exact" aria-expanded="false"><span>Exact time' + kbd('X') + '</span><small>Pick the day and time</small></button>');
+      if (fold) tiles.push('<button type="button" class="when when-more" data-sched="more" aria-keyshortcuts="M"><span>More times' + kbd('M') + '</span><small>Later options</small></button>');
       var meta = it.state === 'review' ? 'Pick a rough time. The draft waits, unsent, and comes back then for your OK.'
         : it.result ? 'Pick a rough time. What Fuzz found waits, and comes back then to ask if it’s done.'
         : 'Pick a rough time. Fuzz finds the right moment around your day. Anything you wrote in the instructions, Fuzz looks into before it comes back.';
       return '<div class="sched-panel"><h3 id="sched-h" tabindex="-1">When should this come back?</h3><p class="meta">' + meta + '</p>' +
         '<div class="when-grid">' + tiles.join('') + '</div>' +
-        (schedMore ? '<div class="exact" id="exact" role="group" aria-label="Exact time" hidden></div>' : '') +
-        '<div class="sched-links">' + (schedMore ? '<button type="button" class="linkbtn" data-sched="exact">Pick an exact time instead</button>' : '') + '<button type="button" class="linkbtn" data-sched="cancel" aria-keyshortcuts="Escape">Back to the card</button></div></div>';
+        '<div class="exact" id="exact" role="group" aria-label="Exact time" hidden></div>' +
+        '<div class="sched-links"><button type="button" class="linkbtn" data-sched="cancel" aria-keyshortcuts="Escape">Back to the card</button></div></div>';
     }
     if (askingWho) {
       /* Waiting is for when you're blocked until someone gets back to you, so it names who. Their own work isn't yours to track. */
@@ -1803,9 +1806,14 @@
       if (t.dataset.sched) {
         if (t.dataset.sched === 'cancel') { if (schedResolve) schedResolve(-1); }
         else if (t.dataset.sched === 'back') { if (schedResolve) schedResolve(-2); }
-        else if (t.dataset.sched === 'more') { schedMore = true; renderCardKeep(); var nx = card.querySelectorAll('[data-when]')[3]; if (nx) nx.focus(); }
+        /* More times redraws the tiles, but an exact-time picker you have open stays open, with what you set in it */
+        else if (t.dataset.sched === 'more') {
+          var openEx = $('#exact'); if (openEx && openEx.hidden) openEx = null;
+          schedMore = true; renderCardKeep();
+          if (openEx) { $('#exact').replaceWith(openEx); var xt = card.querySelector('[data-sched="exact"]'); if (xt) xt.setAttribute('aria-expanded', 'true'); }
+          var nx = card.querySelectorAll('[data-when]')[3]; if (nx) nx.focus(); }
         /* The exact-time picker (js/exact-picker.js): drawn fresh each time it opens, so its defaults use the time now */
-        else if (t.dataset.sched === 'exact') { var ex = $('#exact'); ex.hidden = !ex.hidden; if (!ex.hidden) { exactPicker = ExactPicker.mount(ex); exactPicker.focus(); } }
+        else if (t.dataset.sched === 'exact') { var ex = $('#exact'); ex.hidden = !ex.hidden; t.setAttribute('aria-expanded', String(!ex.hidden)); if (!ex.hidden) { exactPicker = ExactPicker.mount(ex); exactPicker.focus(); } }
         else if (t.dataset.sched === 'exact-go') {
           if (!exactPicker) return;
           var when = exactPicker.at();
@@ -1951,6 +1959,7 @@
       } else if (scheduling) {
         if (n > -1) b = card.querySelectorAll('[data-when]')[n];
         else if (k === 'm') b = card.querySelector('[data-sched="more"]');
+        else if (k === 'x') b = card.querySelector('[data-sched="exact"]');
         else if (k === 'e') b = card.querySelector('[data-sched="back"]');
         else if (k === 'escape') b = card.querySelector('[data-sched="cancel"]');
       } else if (REVIEW[k] && card.querySelector('.actions.review')) {
