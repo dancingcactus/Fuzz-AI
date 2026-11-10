@@ -934,8 +934,9 @@ html.calm .gdots li { transition: none; }
 .onb p { margin: 0; line-height: 1.55; }
 .onb-top { display: flex; gap: 16px; align-items: center; }
 .onb-top .meta { margin-top: 6px; }
-.onb-fz { width: 64px; flex: none; }
-.onb-fz.big { width: 88px; }
+.onb-fz { width: 100px; flex: none; }
+.onb-fz.big { width: 128px; }
+@media (max-width: 480px) { .onb-fz { width: 80px; } .onb-fz.big { width: 96px; } }
 .onb-form { display: flex; flex-direction: column; gap: 24px; }
 .onb-form fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .onb-form legend { padding: 0; margin-bottom: 2px; font-weight: 600; font-size: 16px; }

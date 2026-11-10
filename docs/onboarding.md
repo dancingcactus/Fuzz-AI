@@ -223,9 +223,14 @@ that would be handling the request. The page has to survive that and reconnect.
 - **Then the new task.** Answering (or skipping) brings Fuzz's ask for one real task, with the New task
   button ringed and pointed at.
 - **How Fuzz helps, guilt-free** is its own step, right after the name and app, still with the header
-  hidden. The three first tips are told as what Fuzz does: one queue, so a short session is enough
-  (with the calendar file); nothing he does is final; he doesn't keep score. Each has "Why this helps"
+  hidden. The three first tips are told as what Fuzz does: one queue he helps you prioritize, so a
+  short session is enough (with the calendar file); he collects each task's context and resources in
+  one place; he keeps things up to date while you're away (and doesn't keep score). Each has "Why this helps"
   folded away, and Got it (Enter) moves on.
+- **Fuzz is there in full** on each onboarding page: the jointed body, greeting once and then resting.
+  He waves on the intro, leans in for the questions, hops (then rests caring) on how he helps, clacks
+  his claw on "All set", works through papers during the wait, and does a ta-da (jazz hands if it's
+  already done) when the task lands. Calm and reduced motion keep just the resting pose.
 - **The wait** teaches the next habit: keep an eye on Triage, where Fuzz brings tasks he has looked into
   and any questions he has. The Triage tab is ringed and pointed at. Going there early is fine: Fuzz is
   shown reading up on the task, and when it lands the lesson is on its card.

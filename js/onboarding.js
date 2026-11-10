@@ -67,12 +67,14 @@
     root.addEventListener('submit', onSubmit);
     root.addEventListener('change', onChange);
     root.addEventListener('input', onChange);
+    window.addEventListener('pointermove', eyesFollow);
     unsub = Store.on(function () { if (st && st.step === 'wait') paintWait(); });
     if (!st) { root.innerHTML = '<p class="meta" role="status">One moment…</p>'; load().then(paint); return; }
     paint();
   };
   V.unmount = function () {
-    clearInterval(ticker); ticker = 0; spotlight(false);
+    clearInterval(ticker); ticker = 0; spotlight(false); dropRig();
+    window.removeEventListener('pointermove', eyesFollow);
     var ptr = document.getElementById('onb-pointer'); if (ptr) ptr.remove();
     if (unsub) unsub(); unsub = null;
     root = null;
@@ -80,7 +82,7 @@
 
   function paint() {
     if (!root) return;
-    clearInterval(ticker); ticker = 0;
+    clearInterval(ticker); ticker = 0; dropRig();
     if (!active()) { App.navigate('#/triage'); return; }
     calm(true);
     var s = st.step;
@@ -100,11 +102,48 @@
   }
   function skipLink() { return '<p class="onb-skip"><button type="button" class="linkbtn" data-onb="skip">Skip the tour</button><span class="meta">Settings has it if you change your mind.</span></p>'; }
 
+  /* ---------- Fuzz himself, reacting to each step ---------- */
+  /* The whole jointed Fuzz (js/fuzz-rig.js) beside each step's heading. Each step greets with one
+     gesture, then settles into the pose it rests in. The intro's own calm (tempCalm) doesn't still him;
+     your Calm setting and reduced motion do: then he just rests, no gesture. */
+  var rig = null, rigTimer = 0, greeted = '';
+  function fzHTML(big) { return '<div class="onb-fz' + (big ? ' big' : '') + '" id="onb-fz" aria-hidden="true"></div>'; }
+  function stillFuzz() {
+    var p = window.App && App.prefs ? App.prefs() : {};
+    return !!p.calm || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function dropRig() { clearTimeout(rigTimer); rigTimer = 0; if (rig) rig.destroy(); rig = null; }
+  /* rest: the pose he settles in. hello: a once-only gesture that falls back to it, or a looping one
+     played for ms before he settles. */
+  function react(rest, hello, ms) {
+    dropRig();
+    var host = root && root.querySelector('#onb-fz');
+    if (!host) return;
+    if (!window.FuzzRig) { host.innerHTML = Fuzz.mini('good'); return; }
+    rig = FuzzRig.rig(host);
+    /* A repaint of the same step (the form, once the apps are found) doesn't greet twice */
+    var r = FuzzRig.reactions, key = st.step + ':' + hello, again = key === greeted;
+    greeted = key;
+    if (!hello || !r[hello] || again || stillFuzz()) return rig.play(rest);
+    if (r[hello].once) { rig.prev = rest; return rig.play(hello); }
+    rig.play(hello);
+    var mine = rig;
+    rigTimer = setTimeout(function () { if (rig === mine) rig.play(rest); }, ms || 2400);
+  }
+  /* His eyes follow the pointer, as on Triage */
+  function eyesFollow(e) {
+    if (!rig || rig.dead) return;
+    var eyes = rig.el.eyes, r = rig.bot.getBoundingClientRect();
+    if (!eyes || !r.width) return;
+    var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 160);
+    eyes.style.transform = 'translate(' + (dx / d * 5 * k) + 'px,' + (dy / d * 3.6 * k) + 'px)';
+  }
+
   /* ---------- 2. The form ---------- */
   function paintForm() {
     var a = apps ? apps.clients : [];
     root.innerHTML = '<section class="onb" aria-labelledby="onb-h">' +
-      '<div class="onb-top">' + Fuzz.mini('good', { cls: 'onb-fz' }) + '<div><h1 id="onb-h">Two things before I start</h1><p class="meta">That’s all I’ll ask for now. Everything else can wait until it’s useful.</p></div></div>' +
+      '<div class="onb-top">' + fzHTML() + '<div><h1 id="onb-h">Two things before I start</h1><p class="meta">That’s all I’ll ask for now. Everything else can wait until it’s useful.</p></div></div>' +
       '<form class="onb-form" id="onb-form" novalidate>' +
         '<div class="field"><label for="onb-name">What should I call you?</label><input id="onb-name" type="text" autocomplete="given-name" spellcheck="false" value="' + esc(formName) + '" placeholder="Your first name"></div>' +
         '<fieldset class="onb-apps"><legend>Which app should I work through?</legend><p class="meta">I do my work inside it, with what you’ve connected there.</p>' +
@@ -112,6 +151,7 @@
         '</fieldset>' +
         '<div class="onb-actions"><button type="submit" class="btn primary" id="onb-go"' + (canGo() ? '' : ' disabled') + '>' + goLabel() + '</button><span class="meta" id="onb-gonote" role="status">' + goNote() + '</span></div>' +
       '</form></section>';
+    react('standEager', 'lean');
     heading();
     if (!apps) loadApps();
   }
@@ -261,7 +301,7 @@
   /* ---------- 1. Fuzz introduces himself ---------- */
   function paintIntro() {
     root.innerHTML = '<section class="onb onb-intro" aria-labelledby="onb-h">' +
-      '<div class="onb-top">' + Fuzz.mini('good', { cls: 'onb-fz big' }) + '<div><h1 id="onb-h">Hi. I’m Fuzz.</h1></div></div>' +
+      '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">Hi. I’m Fuzz.</h1></div></div>' +
       '<div class="onb-says">' +
         '<p>I take things off your plate. You tell me what’s on your mind, and I look into it, draft it or do it, then bring you one decision at a time.</p>' +
         '<p>I work in the background, while you get on with your day.</p>' +
@@ -269,6 +309,7 @@
       '</div>' +
       '<div class="onb-actions"><button type="button" class="btn primary" data-onb="hello">' + (needsForm() ? 'Nice to meet you' : 'Show me') + '<kbd aria-hidden="true">↵</kbd></button></div>' +
       skipLink() + '</section>';
+    react('standHappy', 'wave', 2600);
     heading(true);
   }
 
@@ -277,13 +318,14 @@
     var name = st.name ? ', ' + st.name : '';
     var app = st.app && client(st.app) ? client(st.app).label : { 'claude-code': 'Claude Code', copilot: 'GitHub Copilot' }[st.app];
     root.innerHTML = '<section class="onb onb-intro" aria-labelledby="onb-h">' +
-      '<div class="onb-top">' + Fuzz.mini('good', { cls: 'onb-fz big' }) + '<div><h1 id="onb-h">' + (st.hours_set ? 'Thanks' : 'All set') + esc(name) + '.</h1>' +
+      '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">' + (st.hours_set ? 'Thanks' : 'All set') + esc(name) + '.</h1>' +
         '<p class="meta">' + (st.hours_set ? 'That was a card: one question, one answer. ' : '') + (app ? 'I’m working through ' + esc(app) + '. ' : '') + 'Right now I only know what you type here.</p></div></div>' +
       '<div class="onb-ask"><h2>Let’s try it on something real</h2>' +
         '<p>Tell me one thing on your plate. Something I can write or think through works best for now, like a reply to draft or a plan to sketch, since I can’t look things up yet.</p>' +
         '<p>Press the <b>New task</b> button, or <kbd>N</kbd> from anywhere. It’s always there.</p></div>' +
       skipLink() + '</section>' +
       pointerHTML('New task');
+    react('standEager', 'thumb', 2400);
     heading(true);
     spotlight('new');
   }
@@ -320,26 +362,27 @@
 
   /* ---------- 5. Tips during the wait ---------- */
   var TIPS = [
-    { key: 'sessions', title: 'I keep everything in one queue, so a short session is enough.',
-      line: 'Set aside 20 minutes, once or twice a day, and we’ll go through it together.',
-      why: 'A short slot you’ve already decided on helps a lot of people get started, because the “when” is settled. Put it on your calendar so you don’t have to hold it in your head. I don’t send reminders of my own.' },
-    { key: 'sendback', title: 'Nothing I do is final.',
-      line: 'Ask me to change things, or send a task back to me, as often as you like.',
-      why: 'Getting it right the first time isn’t the job. On a draft, press R and say what to change. On other cards, write it in the instructions box. Sending something back costs nothing.' },
-    { key: 'nothinglost', title: 'I don’t keep score.',
-      line: 'Miss a session and everything waits where you left it. Stopping with cards left is fine too.',
-      why: 'Nothing piles up against you: no overdue counts, no streaks to break. The time is there to help you start, not to measure you.' }
+    { key: 'sessions', title: 'I keep everything in one queue and help you prioritize it.',
+      line: 'Set aside 20 minutes, once or twice a day, and we’ll go through what matters most together.',
+      why: 'You don’t have to work out what comes first on your own: I bring the most important things to the front, so a short session is enough to make real progress. A slot you’ve already decided on helps a lot of people get started, because the “when” is settled. Put it on your calendar so you don’t have to hold it in your head. I don’t send reminders of my own.' },
+    { key: 'context', title: 'I collect everything a task needs into one place.',
+      line: 'The emails, threads, notes and links behind a task end up on its card, wherever they started.',
+      why: 'Hunting for the right email or message is often what makes a task feel heavy. With the context and resources already together, you can start right away instead of digging through your inbox first.' },
+    { key: 'uptodate', title: 'I keep things up to date while you’re away.',
+      line: 'Miss a session and I keep going: new replies and asks land on the right task, so you come back to where things stand now.',
+      why: 'You don’t come back to a stale list you have to rebuild. And I don’t keep score: no overdue counts, no streaks to break. Stopping with cards left is fine too.' }
   ];
   /* Its own step, right after the questions: how Fuzz helps you get things done, guilt-free */
   function paintHow() {
     root.innerHTML = '<section class="onb onb-how" aria-labelledby="onb-h">' +
-      '<div class="onb-top">' + Fuzz.mini('good', { cls: 'onb-fz big' }) + '<div><h1 id="onb-h">Here’s how I help you get things done, guilt-free.</h1>' +
+      '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">Here’s how I help you get things done, guilt-free.</h1>' +
         '<p class="meta">Three things that help a lot of people. None of them is required.</p></div></div>' +
       '<ol class="onb-tips">' + TIPS.map(function (t, i) {
         return '<li class="onb-tip"><p class="tip-title">' + esc(t.title) + '</p><p class="tip-line">' + esc(t.line) + '</p>' + (i === 0 ? calendarHTML() : '') + '<details><summary>Why this helps</summary><p>' + esc(t.why) + '</p></details></li>';
       }).join('') + '</ol>' +
       '<div class="onb-actions"><button type="button" class="btn primary" data-onb="howdone">Got it<kbd aria-hidden="true">↵</kbd></button></div>' +
       skipLink() + '</section>';
+    react('standCaring', 'hop');
     heading(true);
   }
   function taskItem() {
@@ -364,19 +407,23 @@
     var top = root.querySelector('#onb-status');
     /* The next habit: Triage is where Fuzz brings things to decide, this task and any question he has */
     var html = s === 'ready'
-      ? '<div class="onb-status ready">' + Fuzz.mini('good', { cls: 'onb-fz' }) + '<div><h1 id="onb-h">' + (it.result ? 'Done. It’s in Triage.' : 'It’s in Triage.') + '</h1><p>“' + esc(it.title) + '” is waiting there for you' + (it.result ? ', already done' : '') + '. Take your time; it’ll keep.</p>' +
+      ? '<div class="onb-status ready">' + fzHTML() + '<div><h1 id="onb-h">' + (it.result ? 'Done. It’s in Triage.' : 'It’s in Triage.') + '</h1><p>“' + esc(it.title) + '” is waiting there for you' + (it.result ? ', already done' : '') + '. Take your time; it’ll keep.</p>' +
         '<button type="button" class="btn primary" data-onb="show" id="onb-show">Open Triage<kbd aria-hidden="true">↵</kbd></button></div></div>'
-      : '<div class="onb-status">' + Fuzz.mini('think', { cls: 'onb-fz' }) + '<div><h1 id="onb-h">Next, keep an eye on Triage.</h1>' +
+      : '<div class="onb-status">' + fzHTML() + '<div><h1 id="onb-h">Next, keep an eye on Triage.</h1>' +
         '<p>That’s where I bring you things to decide: your tasks once I’ve looked into them, and any questions I have. “' + esc(it.title) + '” lands there when I’m done reading up on it.</p>' +
         '<p class="meta" role="status"><span class="spin" aria-hidden="true"></span> Usually a minute or two. <span id="onb-el"></span> The dot on Triage means something’s waiting.</p></div></div>';
     if (top && top.dataset.s === s && !first) return;
+    /* Reading up on it, papers in hand; then a ta-da when it lands, jazz hands if it's already done */
+    var fzRest = s === 'ready' ? 'proud' : Math.random() < .5 ? 'working' : 'printout', fzHello = s === 'ready' ? (it.result ? 'jazz' : 'tada') : null;
     if (!top || first) {
       root.innerHTML = '<section class="onb onb-wait" aria-labelledby="onb-h"><div id="onb-status" data-s="' + s + '">' + html + '</div>' + pointerHTML('Triage') +
         skipLink() + '</section>';
+      react(fzRest, fzHello);
       heading(true);
       spotlight('triage');
     } else {
       top.dataset.s = s; top.innerHTML = html;
+      react(fzRest, fzHello);
       var b = root.querySelector('#onb-show'); if (b) b.focus({ preventScroll: true });
       Say.announce('It’s in Triage.');
       place();
