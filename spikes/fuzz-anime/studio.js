@@ -1,9 +1,9 @@
-/* The studio: edits the reaction data in spikes/fuzz-joints/fuzz-joints.js while it runs. A reaction is plain data, so an edit
+/* The studio: edits the reaction data in js/fuzz-rig.js while it runs. A reaction is plain data, so an edit
    changes the object in place and the next play picks it up. Nothing here writes to the source file: edits
    live in localStorage, and Copy changes lists them for pasting into the code. */
 (function () {
   'use strict';
-  var FA = window.FuzzJoints, A = window.anime, R = FA.reactions, FEEL = FA.feel, GROUPS = FA.groups;
+  var FA = window.FuzzRig, A = window.anime, R = FA.reactions, FEEL = FA.feel, GROUPS = FA.groups;
   var KEY = 'fuzz-studio-v1', FRAME = 1000 / 60;
   var T = {
     sitDown: { label: 'Sit down', list: FA.transitions.sitDown, code: 'SIT_DOWN', from: 'idle', target: 'sleepy', mood: 'idle', when: 'whenever Fuzz has to get onto the card.' },

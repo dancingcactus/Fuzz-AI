@@ -1,5 +1,5 @@
-/* Spike: the anime.js Fuzz from spikes/fuzz-anime, with elbows and knees instead of bendy hoses.
-   The reactions and their timing come from that spike. The limbs are new.
+/* Fuzz's body: the head from js/fuzz-svg.js on a jointed robot, moved with anime.js. js/fuzz.js drives it
+   for the app. Reactions are plain data, tuned in the studio (spikes/fuzz-anime/studio.html).
 
    How the limbs work: each arm or leg is two equal segments and a hinge, solved with two-bone IK from
    the shoulder (or hip) to the hand (or ankle). An arm's elbow is pulled toward a pole, a point down and
@@ -11,7 +11,7 @@
    By default the hinge is invisible: the limb pivots there, but it is drawn as one ringed tube that
    rounds the corner. Rig option hinges (or setHinges) shows it as a pinned joint instead.
 
-   This is the rig the studio (spikes/fuzz-anime/studio.html) runs on. */
+   */
 (function () {
   'use strict';
   var A = window.anime;
@@ -89,6 +89,13 @@
     { d: 800, hold: 1900, ease: IO, x: 1.2, rot: .7, head: -3, lh: [61, 175.5], rh: [137, 174.5] },
     { d: 900, hold: 1200, ease: IO, x: -1, rot: -.5, head: 2.5, lh: [63, 174.5], rh: [139, 175.5] }
   ] };
+  /* Moods with no pose of their own stand like Idle, wearing the face. */
+  function standing(mood, label) { return { label: label, say: '', s: { mood: mood }, loop: R.idle.loop }; }
+  R.standHappy = standing('happy', 'Standing: happy');
+  R.standEager = standing('eager', 'Standing: eager');
+  R.standCaring = standing('caring', 'Standing: caring');
+  R.standPuzzled = standing('puzzled', 'Standing: puzzled');
+  R.standBored = standing('bored', 'Standing: bored');
   /* A wave pivots at the elbow: the upper arm stays where it is and only the forearm swings. A hand one
      segment from the elbow puts the hinge right on it, and the pole already sends the elbow low and out. */
   var WAVE_ARM = 68, WAVE_DROP = 8 * Math.PI / 180;   // arm length, and how far the upper arm sits below level
@@ -133,6 +140,7 @@
     o.d = 420; o.ease = SINE; o.x = -s * 8; o.rot = s * 6; o.y = -1.5; o.head = -s * 5;
     return o;
   }
+  R.jig = { label: 'Quick dance', once: true, say: 'Little victory dance.', s: R.dance.s, enter: R.dance.loop.concat(R.dance.loop, [{ d: 220, ease: IO }]) };
   R.floss = { label: 'Floss', say: 'List’s clean. Time to floss.', s: { mood: 'happy', lhand: 'fist', rhand: 'fist', lL: ARM - 2, rL: ARM - 2, lf: [84, 204], rf: [116, 204], br: 0 }, loop: [
     floss(1, { llay: 'afront', rlay: 'aunder' }),
     floss(-1, { llay: 'afront', rlay: 'afront' }),
@@ -283,6 +291,7 @@
       { d: 640, hold: 900, ease: 'in(2)', aease: IO, y: 0, head: 3, lh: [48, 150], rh: [152, 150], lrot: 200, rrot: -20 },
       { d: 170, ease: IO, y: 2.5, head: 2, lh: [50, 156], rh: [150, 156], lrot: 200, rrot: -20 }
     ] };
+  R.quickShrug = { label: 'Quick shrug', once: true, say: '', s: R.shrug.s, enter: R.shrug.enter.concat(R.shrug.loop.slice(0, 2), [{ d: 300, ease: IO }]) };
   /* The tape lives in the chest slot. tp is how far it sticks out, th hands it from the slot to the claw,
      tr tilts it, and tf turns it over (1 is the label, -1 the back). ex and ey aim the eyes at it. */
   function atSlot(o) { return mix({ rh: [113, 135], rrot: 180, rgap: 9, tp: .6, head: 5, ex: -1, ey: 3 }, o); }
@@ -394,19 +403,28 @@
   /* A sheet sails in from off to the side (pi is how far away it still is), Fuzz catches it, and feeds it
      to the chest slot, which swallows it in gulps: the printout, run backwards. */
   function feeding(o) { return mix({ pp: 1, pr: 1, rh: [118, 148], rrot: 180, rgap: 34 }, o); }
+  var CATCH_AT = [172, 118];   // where a flying card meets the claw
   var CATCH = { rh: [160, 126], rrot: -40, rgap: 34, head: 5, ex: 4, ey: -2, rot: -1 };
+  function gulped(n, rest) {
+    var bites = n === 1 ? [.02] : [.6, .3, .02];
+    return [
+      mix(CATCH, { d: 90, tight: 1, ease: OUT, pp: 1, pg: 1, pr: 1, rh: [164, 131], rgap: 9, y: 1.5 }),
+      feeding({ d: n === 1 ? 200 : 300, ease: IO, rgap: 9, head: 4, ex: -1, ey: 3 })
+    ].concat(bites.map(function (b, i) {
+      return feeding({ d: n === 1 ? 170 : 130, tight: 1, ease: i === 2 ? 'in(2)' : IO, mood: 'boop', pr: b, y: i % 2 ? 2 + i : -2, head: i % 2 ? 3 + i - 1 : -2 + i * 3 });
+    }), [
+      { d: 120, tight: 1, ease: OUT, mood: 'happy', y: -2, head: -2 },
+      { d: rest, ease: 'outBack(1.6)', mood: 'happy' }
+    ]);
+  }
   R.gulp = { label: 'Gulp', once: true, say: 'Got it.', s: { mood: 'eager', solo: true }, enter: [
     mix(CATCH, { d: 200, ease: IO, pi: 1 }),
     mix(CATCH, { d: 1, tight: 1, pp: 1, pg: 1, pi: 1 }),
-    mix(CATCH, { d: 300, ease: 'in(1.6)', aease: 'in(1.6)', pp: 1, pg: 1 }),
-    mix(CATCH, { d: 90, tight: 1, ease: OUT, pp: 1, pg: 1, pr: 1, rh: [164, 131], rgap: 9, y: 1.5 }),
-    feeding({ d: 300, ease: IO, rgap: 9, head: 4, ex: -1, ey: 3 }),
-    feeding({ d: 130, tight: 1, ease: IO, mood: 'boop', pr: .6, y: -2, head: -2 }),
-    feeding({ d: 130, tight: 1, ease: IO, mood: 'boop', pr: .3, y: 2, head: 3 }),
-    feeding({ d: 130, tight: 1, ease: 'in(2)', mood: 'boop', pr: .02, y: 3, head: 4 }),
-    { d: 120, tight: 1, ease: OUT, mood: 'happy', y: -2, head: -2 },
-    { d: 280, ease: 'outBack(1.6)', mood: 'happy' }
-  ] };
+    mix(CATCH, { d: 300, ease: 'in(1.6)', aease: 'in(1.6)', pp: 1, pg: 1 })
+  ].concat(gulped(3, 280)) };
+  /* The same catch for a real card: the app flies it to CATCH_AT, so Fuzz only has to be waiting there. */
+  R.take = { label: 'Take a card', once: true, say: 'Got it.', s: { mood: 'eager', solo: true }, enter: [mix(CATCH, { d: 200, hold: 400, ease: IO })].concat(gulped(3, 280)) };
+  R.takeFast = { label: 'Take a card, rushed', once: true, say: 'Got it.', s: { mood: 'eager', solo: true }, enter: [mix(CATCH, { d: 160, hold: 180, ease: IO })].concat(gulped(1, 200)) };
   R.bow = { label: 'Bow', once: true, say: 'Thank you, thank you.', s: { mood: 'happy' }, enter: [
     { d: 180, ease: IO, y: -1.5, head: -3, rh: [134, 158], lh: [60, 170] },
     { d: 360, hold: 520, ease: IO, y: 6, rot: 3, head: 9, hp: 1, rh: [104, 158], lh: [48, 156] },
@@ -631,14 +649,32 @@
     this.setHinges(!!this.opts.hinges);
     var self = this;
     /* Breathing runs under everything on its own clock, so Fuzz is never fully frozen during a hold. */
-    A.animate(this.breath, { v: 1, duration: 1700, ease: SINE, alternate: true, loop: true });
-    A.animate(this.swing, { v: 1, duration: 620, ease: SINE, alternate: true, loop: true });
+    this.clocks = [
+      A.animate(this.breath, { v: 1, duration: 1700, ease: SINE, alternate: true, loop: true }),
+      A.animate(this.swing, { v: 1, duration: 620, ease: SINE, alternate: true, loop: true })
+    ];
     this.timer = A.createTimer({ onUpdate: function () { self.draw(); } });
     this.play('idle');
     (function blink() {
-      setTimeout(function () { self.bot.classList.add('blink'); setTimeout(function () { self.bot.classList.remove('blink'); }, 130); blink(); }, 2200 + Math.random() * 3200);
+      setTimeout(function () {
+        if (self.dead) return;
+        self.bot.classList.add('blink'); setTimeout(function () { self.bot.classList.remove('blink'); }, 130); blink();
+      }, 2200 + Math.random() * 3200);
     })();
   }
+  /* Everything a rig keeps running. The app mounts a new one each time a view opens. */
+  Rig.prototype.destroy = function () {
+    this.dead = true;
+    this.stop(); this.timer.cancel();
+    this.clocks.forEach(function (c) { c.cancel(); });
+    rigs.splice(rigs.indexOf(this), 1);
+  };
+  /* Where a point on the rig is on the page, as a rectangle with no size. */
+  Rig.prototype.spot = function (p) {
+    var m = this.svg.getScreenCTM();
+    return { left: m.a * p[0] + m.e, top: m.d * p[1] + m.f, width: 0, height: 0 };
+  };
+
   Rig.prototype.setBody = function (on) {
     this.body = on;
     this.svg.classList.toggle('nobody', !on);
@@ -653,11 +689,11 @@
   /* Flat switches a pose can flip: these change at the start of a beat, they do not tween. */
   Rig.prototype.flip = function (s, b) {
     function v(k, d) { return b[k] !== undefined ? b[k] : s[k] !== undefined ? s[k] : d; }
-    var bot = this.bot, mood = v('mood', 'idle'), u = String(v('urgency', 0));
+    var bot = this.bot, mood = b.mood !== undefined ? b.mood : this.face || v('mood', 'idle'), u = String(v('urgency', 0));
     if (bot.dataset.mood !== mood) bot.dataset.mood = mood;
     if (bot.dataset.urgency !== u) bot.dataset.urgency = u;
-    if (mood === 'bored') bot.dataset.ch = '0';
-    bot.classList.toggle('cool', !!v('cool', false));
+    if (mood === 'bored' && !bot.dataset.ch) bot.dataset.ch = '0';
+    bot.classList.toggle('cool', this.cool || !!v('cool', false));
     this.layer('l', v('llay', 'afront')); this.layer('r', v('rlay', 'afront'));
     var pz = this.el[v('pl', 'front') === 'back' ? 'pback' : 'pfront'];
     if (this.el.paper.parentNode !== pz) pz.appendChild(this.el.paper);
@@ -708,12 +744,14 @@
     this.name = name; this.prev = name;
   };
 
-  Rig.prototype.play = function (name) {
+  /* o.face keeps a once-only reaction wearing the face the app asked for, unless a beat names its own. */
+  Rig.prototype.play = function (name, o) {
     var r = R[name], self = this;
-    if (!r) return;
+    if (!r || this.dead) return;
     this.stop();
     var was = this.name;
     this.name = name;
+    this.face = r.once && o ? o.face : null;
     this.p.md = 0;
     if (!r.once) this.prev = name;
     if (this.opts.onPlay) this.opts.onPlay(name, r);
@@ -862,8 +900,8 @@
   };
 
   var rigs = [];
-  window.FuzzJoints = {
-    reactions: R,
+  window.FuzzRig = {
+    reactions: R, catchAt: CATCH_AT,
     transitions: { sitDown: SIT_DOWN, getUp: GET_UP, wake: WAKE, powerOn: POWER_ON, takeOut: TAKE_OUT, putAway: PUT_AWAY, takeMic: TAKE_MIC, putMic: PUT_MIC },
     feel: FEEL, groups: GROUPS, stand: STAND, gaps: GAP,
     rig: function (host, opts) { var r = new Rig(host, opts); rigs.push(r); return r; },

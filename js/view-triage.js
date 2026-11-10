@@ -1308,7 +1308,7 @@
     var rush = !!it.dueAt, r = rush ? 1 : 0;
     var vi = pickV(ASSIGNS.length, lastAssign); lastAssign = vi; var V_ = ASSIGNS[vi];
     var b = card.querySelector('[data-act="assign"]'); if (b) { b.classList.add('squish'); setTimeout(function () { b.classList.remove('squish'); }, 180); }
-    Fuzz.setMood('eager'); Fuzz.setArm('salute'); if (V_.fx) Fuzz.fxOn(V_.fx, V_.ms); else Fuzz.pAnim('lean');
+    Fuzz.setMood('eager'); if (V_.fx) Fuzz.fxOn(V_.fx, V_.ms); else Fuzz.pAnim('lean');
     Fuzz.say(line || V_.inL[r]);
     /* The card heads for Fuzz while his reaction is still playing. */
     await sleep(rush ? 150 : 250);
@@ -1319,10 +1319,11 @@
     /* Undo is offered as soon as the change is made, since you may move on before Fuzz finishes reacting.
        Once Fuzz starts on it, it can't be undone any more; you'd pull it back from Lineup instead. */
     offer('Assigned “' + title + '” to Fuzz.', ch, waited ? 'Assigned “' + title + '” to Fuzz. It’s next up; five are running.' : null);
-    var shown = null, flown = fly(card, root.querySelector('#bot'), { scale: 0.08, rot: -18, dur: rush ? 340 : 600 }).then(function () { shown = bringNext(); });
+    Fuzz.pAnim(rush ? 'takeFast' : 'take');
+    var shown = null, flown = fly(card, Fuzz.clawSpot(), { scale: 0.08, rot: -18, dur: rush ? 340 : 600 }).then(function () { shown = bringNext(); });
     await Promise.all([flown, sleep(Math.max(rush ? 300 : 650, V_.ms * (rush ? 0.55 : 0.8)) * 0.7)]);
     Fuzz.setArm('none');
-    Fuzz.flash(); Fuzz.glitch(180); Fuzz.pAnim('gulp'); Fuzz.setMood('thinking'); stats();
+    Fuzz.flash(); Fuzz.glitch(180); Fuzz.setMood('thinking'); stats();
     Fuzz.say(V_.midL[r]);
     await sleep(rush ? 560 : 900);
     Fuzz.setMood('happy');

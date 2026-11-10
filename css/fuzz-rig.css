@@ -1,4 +1,4 @@
-/* The rig, same as spikes/fuzz-body. Shared by the comparison page and the studio. */
+/* Fuzz's body (js/fuzz-rig.js). Shared by the app, the studio and the comparison pages. */
 .rig { display: block; width: 100%; height: auto; overflow: visible; }
 .rig #bot { width: 140px; height: 126px; display: inline; overflow: visible; }
 .rig:not(.nobody) #bot > ellipse { display: none; }

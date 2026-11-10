@@ -5,7 +5,7 @@ watching the old and new versions side by side.
 
 Open `spikes/fuzz-anime/index.html` in a browser. It works straight from the file system, or from any static server
 started at the repo root. The page loads the real `css/app.css`, `css/fuzz.css` and `js/fuzz-svg.js`, and runs the
-untouched `spikes/fuzz-body/fuzz-body.js` as the Before. anime.js 4.5.0 is checked in under `vendor/`, so there is no
+untouched `spikes/fuzz-body/fuzz-body.js` as the Before. anime.js 4.5.0 is checked in under `js/vendor/`, so there is no
 install step and nothing loads from a CDN.
 
 ## What's here
@@ -25,9 +25,9 @@ install step and nothing loads from a CDN.
 ## The studio
 
 `spikes/fuzz-anime/studio.html` is Fuzz on its own, for refining the motion. It runs on the jointed rig in
-`spikes/fuzz-joints/fuzz-joints.js`, not on the hoses in this folder, so elbows and knees solve themselves and there are
+`js/fuzz-rig.js`, not on the hoses in this folder, so elbows and knees solve themselves and there are
 no arm bend fields. Your edits stay in this browser, survive a reload, and never touch the code. To keep them, use
-**Copy changes** and paste the result into `fuzz-joints.js`, or hand it to Claude.
+**Copy changes** and paste the result into `js/fuzz-rig.js`, or hand it to Claude.
 
 - **Beats:** change the timing, ease and pose of any beat, or duplicate, delete and reorder beats. Clicking into a pose
   field freezes Fuzz on that beat, so you see each change as you type. Changing timing replays the reaction.

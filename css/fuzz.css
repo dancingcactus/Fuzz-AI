@@ -11,8 +11,8 @@
 .fx i{position:absolute;width:8px;height:8px;border-radius:2px}
 
 /* Robot perch */
-.perch{position:relative;z-index:6;display:flex;align-items:flex-end;gap:10px;margin-bottom:-14px;padding-left:6px}
-.pwrap{position:relative;z-index:2;width:112px;flex:none;cursor:pointer;touch-action:manipulation;border-radius:12px}
+.perch{position:relative;z-index:6;display:flex;align-items:flex-start;gap:10px;margin-bottom:-6px;padding-left:6px}
+.pwrap{position:relative;z-index:2;width:160px;flex:none;cursor:pointer;touch-action:manipulation;border-radius:12px}
 #bot{display:block;width:112px;height:auto;overflow:visible}
 .bubble{position:relative;background:var(--surface);border:var(--bw) solid var(--line);border-radius:16px 16px 16px 4px;padding:9px 13px;font-size:14px;min-height:3.1em;max-width:340px;box-shadow:var(--shadow);margin-bottom:30px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
 /* Fuzz's spot is a fixed size so the card never moves: two lines, with any buttons beside them.
@@ -31,20 +31,6 @@
 .m,.brow-q,.eyes-star,.shades,.sweat,.sparkle,.zzz,.static,.roll,.bars,.crtoff,.eyes-happy,.brows,.eyes-heart,.bgy,.osd,.speed{display:none}
 .body-wrap{transform-box:fill-box;transform-origin:50% 100%;animation:hum 3.2s ease-in-out infinite}
 @keyframes hum{50%{transform:translateY(-1.5px)}}
-.body-wrap.hop{animation:hop .62s cubic-bezier(.3,.7,.4,1)}
-.body-wrap.squash{animation:squash .4s cubic-bezier(.3,1.5,.5,1)}
-.body-wrap.wiggle{animation:wiggle .6s ease-in-out}
-.body-wrap.lean{animation:lean .5s cubic-bezier(.3,1.4,.5,1)}
-.body-wrap.gulp{animation:gulp .5s cubic-bezier(.3,1.5,.5,1)}
-.body-wrap.tiptoe{animation:tiptoe .9s ease-in-out}
-.body-wrap.shrug{animation:shrug .8s ease-in-out}
-@keyframes hop{0%{transform:scale(1.1,.88)}28%{transform:translateY(-28px) scale(.93,1.08)}58%{transform:scale(1.12,.88)}78%{transform:scale(.97,1.04)}100%{transform:none}}
-@keyframes squash{0%{transform:none}30%{transform:scale(1.16,.82)}65%{transform:scale(.95,1.07)}100%{transform:none}}
-@keyframes wiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-6deg)}45%{transform:rotate(5deg)}70%{transform:rotate(-3deg)}}
-@keyframes lean{0%{transform:none}50%{transform:rotate(-7deg) translateY(2px) scale(1.03,.97)}100%{transform:rotate(-2deg)}}
-@keyframes gulp{0%{transform:none}25%{transform:scale(1.15,.92)}55%{transform:scale(.96,1.08)}100%{transform:none}}
-@keyframes tiptoe{0%,100%{transform:none}20%{transform:translateY(-6px) rotate(-4deg)}40%{transform:translateY(0) rotate(0)}60%{transform:translateY(-6px) rotate(4deg)}80%{transform:translateY(0)}}
-@keyframes shrug{0%,100%{transform:none}30%{transform:rotate(-6deg) translateY(-3px)}60%{transform:rotate(4deg) translateY(-2px)}}
 
 /* Screen face */
 .face{transform-box:fill-box;transform-origin:50% 50%;animation:poweron .42s cubic-bezier(.2,1.4,.4,1)}
@@ -250,8 +236,6 @@ html.calm .rays,html.calm .twk{animation:none}
 #bot[data-mood="grateful"] .ant-r{animation:open-r 2.4s ease-in-out infinite}
 @keyframes open-l{0%,100%{transform:rotate(8deg)}50%{transform:rotate(14deg)}}
 @keyframes open-r{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(-17deg)}}
-.body-wrap.lift{animation:lift 1s ease-out}
-@keyframes lift{0%{transform:none}40%{transform:translateY(-7px) scale(.99,1.03)}100%{transform:none}}
 /* bored */
 #bot[data-mood="bored"] .eye{transform:scaleY(.55)}
 #bot[data-mood="bored"] .eyes{animation:lookaround 6s ease-in-out infinite}
@@ -401,10 +385,6 @@ html.calm .breath{animation:none}
 #bot[data-fx="rev"] .knob-b{animation:click .45s steps(4) infinite reverse}
 #bot[data-fx="rev"] .ant-l{animation:buzz-l .08s ease-in-out infinite alternate}
 #bot[data-fx="rev"] .ant-r{animation:buzz-r .07s ease-in-out infinite alternate}
-.body-wrap.spin{animation:spin .95s cubic-bezier(.3,1.1,.5,1)}
-@keyframes spin{0%{transform:scale(1.08,.92)}25%{transform:translateY(-14px) rotate(180deg)}55%{transform:translateY(-10px) rotate(360deg)}80%{transform:scale(1.1,.9) rotate(360deg)}100%{transform:none}}
-.body-wrap.bow{animation:bow 1.2s ease-in-out}
-@keyframes bow{0%,100%{transform:none}30%,70%{transform:rotate(11deg) translateY(5px)}}
 #bot[data-fx="dance"] .body-wrap{animation:sway .5s ease-in-out infinite alternate}
 @keyframes sway{from{transform:rotate(-5deg) translateY(0)}to{transform:rotate(5deg) translateY(-4px)}}
 #bot[data-fx="dance"] .ant-l{animation:dance-l .24s ease-in-out infinite alternate}

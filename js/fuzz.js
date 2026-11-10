@@ -1,8 +1,8 @@
-/* Fuzz: the character engine (ported from the Fuzz Triage motion prototype) and the small
+/* Fuzz: what the views call to make Fuzz react, on top of the body in js/fuzz-rig.js, and the small
    static Fuzz faces used as the logo and in the check-in and notices. */
 (function () {
   var F = {};
-  var el = null, calm = false, sayTok = 0, workTok = 0, knobAng = 0, blinkTok = 0, ptrFn = null, opts = {};
+  var el = null, rig = null, calm = false, sayTok = 0, workTok = 0, knobAng = 0, ptrFn = null, opts = {};
 
   /* ---------- Small Fuzz (logo, notices, check-in buttons) ---------- */
   var FACES = {
@@ -35,18 +35,13 @@
   /* ---------- Mounting the animated Fuzz on the triage stage ---------- */
   F.mount = function (root, o) {
     opts = o || {};
-    el = { bot: root.querySelector('#bot'), wrap: root.querySelector('#pwrap'), bubble: root.querySelector('#bubble'), fx: root.querySelector('#fx'), stage: root.querySelector('#stage') };
+    el = { wrap: root.querySelector('#pwrap'), bubble: root.querySelector('#bubble'), fx: root.querySelector('#fx'), stage: root.querySelector('#stage') };
+    rig = window.FuzzRig.rig(el.wrap);
+    el.bot = rig.bot;
+    mood = 'idle'; urgency = 0; body = 'idle'; gesture = null;
     sayTok++; workTok++;
-    var bt = ++blinkTok;
-    (function blinker() {
-      setTimeout(function () {
-        if (bt !== blinkTok || !el) return;
-        el.bot.classList.add('blink'); setTimeout(function () { el && el.bot.classList.remove('blink'); }, 130);
-        blinker();
-      }, 2200 + Math.random() * 3200);
-    })();
     ptrFn = function (e) {
-      if (!el || el.bot.dataset.mood === 'chill') return;
+      if (!el || mood === 'chill') return;
       var r = el.bot.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * 0.5;
       var dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 160);
       var eyes = el.bot.querySelector('#eyes');
@@ -57,9 +52,10 @@
     el.wrap.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.wrap.click(); } });
   };
   F.unmount = function () {
-    blinkTok++; sayTok++; workTok++;
+    sayTok++; workTok++;
     if (ptrFn) window.removeEventListener('pointermove', ptrFn);
-    ptrFn = null; el = null;
+    if (rig) rig.destroy();
+    ptrFn = null; el = null; rig = null;
   };
   F.mounted = function () { return !!el; };
 
@@ -87,17 +83,52 @@
       F.say(['Channel 4. Nothing on.', 'Channel 9. Just static.', 'Channel 2. Test pattern.'][Math.floor(Math.random() * 3)], { type: false });
       return;
     }
-    var prev = el.bot.dataset.mood; F.pAnim('squash'); F.setMood('boop');
+    var prev = mood; F.pAnim('squash'); F.setMood('boop');
     F.say(prev === 'bored' ? 'Oh! Hi. I was just surfing channels.' : BOOPS[Math.floor(Math.random() * BOOPS.length)], { type: false });
     setTimeout(function () { if (el) F.setMood(prev === 'boop' ? 'idle' : prev); }, 450);
   }
 
   /* ---------- Primitives ---------- */
-  F.mood = function () { return el ? el.bot.dataset.mood : 'idle'; };
-  F.setMood = function (m) { if (!el) return; el.bot.dataset.mood = m; if (m !== 'rushed') el.bot.dataset.urgency = '0'; };
-  F.setUrgency = function (n) { if (el) el.bot.dataset.urgency = String(n); };
-  F.setArm = function (a) { if (el) el.bot.dataset.arm = a; };
-  F.setCool = function (on) { if (el) el.bot.classList.toggle('cool', on); };
+  /* The views say what Fuzz feels and which gesture to make, in calls of their own. The rig plays one
+     reaction at a time, so those calls settle together: a mood picks the reaction Fuzz rests in, and a
+     gesture plays first and then falls back to it. A change of mood never cuts a gesture off. */
+  var mood = 'idle', urgency = 0, body = 'idle', gesture = null, settling = false, working = 'working', lastTada = 0;
+  var BODIES = { idle: 'idle', happy: 'standHappy', eager: 'standEager', caring: 'standCaring', puzzled: 'standPuzzled', bored: 'standBored',
+    proud: 'proud', thinking: 'thinking', worried: 'worried', sheepish: 'sheepish', grateful: 'grateful', stare: 'sulk', sleepy: 'sleepy', chill: 'chill', listening: 'listen' };
+  var GESTURES = { hop: 'hop', squash: 'boop', wiggle: 'hop', tiptoe: 'lift', lean: 'lean', gulp: 'gulp', take: 'take', takeFast: 'takeFast', shrug: 'quickShrug', lift: 'lift', bow: 'bow' };
+  function bodyFor(m) {
+    if (m === 'rushed') return ['hurry', 'hurry', 'jog', 'rushed'][urgency] || 'hurry';
+    if (m === 'working') return working;
+    return BODIES[m] || body;
+  }
+  function settle() {
+    if (settling) return;
+    settling = true;
+    Promise.resolve().then(function () {
+      settling = false;
+      if (!rig) return;
+      var g = gesture, face = mood === 'listening' ? 'eager' : mood, playing = window.FuzzRig.reactions[rig.name].once;
+      gesture = null; body = bodyFor(mood);
+      if (g) { rig.prev = body; rig.play(g, { face: face }); }
+      else if (playing) { rig.prev = body; rig.face = face; }
+      else if (rig.name !== body) rig.play(body);
+      else el.bot.dataset.mood = face;
+    });
+  }
+  F.mood = function () { return el ? mood : 'idle'; };
+  F.setMood = function (m) {
+    if (!el) return;
+    if (m === 'working' && mood !== 'working') working = Math.random() < .5 ? 'working' : 'printout';
+    mood = m; if (m !== 'rushed') urgency = 0;
+    settle();
+  };
+  F.setUrgency = function (n) { if (el) { urgency = +n; settle(); } };
+  F.setArm = function (a) {
+    if (!el) return;
+    el.bot.dataset.arm = a;
+    if (a === 'salute' && !calm) { gesture = 'salute'; settle(); }
+  };
+  F.setCool = function (on) { if (el) { rig.cool = on; el.bot.classList.toggle('cool', on); } };
   F.setOsd = function (t) { var o = el && el.bot.querySelector('#osd'); if (o) o.textContent = t; };
   F.glitch = function (ms) {
     if (calm || !el) return;
@@ -111,13 +142,14 @@
   };
   F.pAnim = function (n) {
     if (calm || !el) return;
-    var w = el.bot.querySelector('.body-wrap');
-    ['hop', 'squash', 'wiggle', 'lean', 'gulp', 'tiptoe', 'shrug', 'lift', 'spin', 'bow'].forEach(function (c) { w.classList.remove(c); });
-    void w.getBoundingClientRect(); w.classList.add(n);
-    w.addEventListener('animationend', function () { w.classList.remove(n); }, { once: true });
+    /* Fuzz can't turn round, so "ta-da" takes turns between the two big finishes */
+    if (n === 'spin') gesture = (lastTada = 1 - lastTada) ? 'tada' : 'jazz';
+    else gesture = GESTURES[n] || gesture;
+    settle();
   };
   F.fxOn = function (name, ms) {
     if (!el) return; var b = el.bot;
+    if (name === 'dance' && !calm) { gesture = 'jig'; settle(); }
     b.setAttribute('data-fx', name);
     setTimeout(function () { if (b.getAttribute('data-fx') === name) b.removeAttribute('data-fx'); }, ms);
   };
@@ -150,6 +182,9 @@
   }
 
   /* o.type: false shows the line whole. o.cls styles the bubble. o.actions: buttons beside the line. */
+  /* The spot a flying card should head for, to land in Fuzz's claw */
+  F.clawSpot = function () { return { getBoundingClientRect: function () { return rig.spot(window.FuzzRig.catchAt); } }; };
+
   /* Views can listen for what Fuzz says (Triage echoes it when the perch is scrolled out of view). */
   var sayFns = [];
   F.onSay = function (fn) { sayFns.push(fn); return function () { sayFns = sayFns.filter(function (f) { return f !== fn; }); }; };
@@ -264,7 +299,7 @@
     var tok = ++workTok, i = 0, b = el.bot;
     F.setMood('bored'); b.setAttribute('data-ch', '0');
     var pos = 0, last = 0, knob = b.querySelector('.knob-b');
-    function alive() { return el && tok === workTok && ['bored', 'boop'].indexOf(b.dataset.mood) > -1; }
+    function alive() { return el && tok === workTok && ['bored', 'boop'].indexOf(mood) > -1; }
     (function step() {
       if (!alive()) return;
       var next;

@@ -42,7 +42,7 @@
     };
     try { r.start(); } catch (err) { rec = null; field = null; return false; }
     if (hooks.onChange) hooks.onChange(true);
-    Fuzz.setMood('eager'); Fuzz.pAnim('lean'); Fuzz.say('I’m all antennas. Go ahead.', { type: false });
+    Fuzz.setMood('listening'); Fuzz.say('I’m all antennas. Go ahead.', { type: false });
     return true;
   };
   /* Stop and keep what was heard */

@@ -1,5 +1,8 @@
 # Spike: Fuzz with hidden elbows and knees
 
+This rig now runs the app. It moved to `js/fuzz-rig.js` and `css/fuzz-rig.css`, with anime.js in `js/vendor/`. `js/fuzz.js` maps
+the views' moods and gestures onto its reactions. This page is kept as the before-and-after.
+
 Do real pivots fix the noodly poses left over from `spikes/fuzz-anime`, without giving up the tube look? This page lets
 you judge by watching the hoses and the new limbs side by side.
 
@@ -9,7 +12,7 @@ anime.js copy from that folder, so keep the two spikes together.
 
 ## What's here
 
-- **Hidden pivots** (`fuzz-joints.js`): each arm and leg moves as two equal segments that pivot at an elbow or knee,
+- **Hidden pivots** (`js/fuzz-rig.js`): each arm and leg moves as two equal segments that pivot at an elbow or knee,
   but it is drawn as one ringed tube that rounds the corner. The six arm rings and five leg rings are spaced along
   the whole limb, as they were on the hoses.
 - **Show hinges**: a toggle on the page draws the same pivots as pinned joints, with the tube's corner left sharp.
@@ -58,5 +61,5 @@ anime.js copy from that folder, so keep the two spikes together.
 - **Still a cheat:** arms stretch to reach. Flick antenna's arm is about two and a half times its normal length,
   though it is easier to accept on a tube than on a jointed arm.
 - **Cost:** almost nothing. A draw takes about 0.12 ms against about 0.08 ms for the hoses, on one rig in headless Chromium.
-- **Not done:** dark-theme check, follow-through on the antennas and claws, and wiring any of this into the app. The
+- **Not done:** light-theme check, and follow-through on the antennas and claws. The
   poses were judged on still frames, and nobody has judged them at full speed yet.
