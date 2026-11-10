@@ -197,7 +197,10 @@
         '<span class="person-name">' + esc(p.name) + (p.email && p.email !== p.name ? '<span class="person-sub">' + esc(p.email) + '</span>' : '') + '</span>' +
         '<ul class="person-did">' + p.did.map(function (d) {
           var meta = [d.via, d.when].filter(Boolean);
-          return '<li><span class="person-what">' + esc(d.text) + '</span>' + (meta.length ? '<span class="person-meta">' + meta.map(esc).join(' &middot; ') + '</span>' : '') +
+          var metaHTML = meta.map(esc).join(' &middot; ');
+          if (meta.length && d.url) metaHTML = '<a class="person-meta" href="' + esc(d.url) + '" target="_blank" rel="noopener" title="Open in ' + esc(d.via || 'its source') + '">' + metaHTML + '</a>';
+          else if (meta.length) metaHTML = '<span class="person-meta">' + metaHTML + '</span>';
+          return '<li><span class="person-what">' + esc(d.text) + '</span>' + metaHTML +
             (d.quote ? '<span class="person-quote">' + esc(d.quote) + '</span>' : '') + '</li>';
         }).join('') + '</ul></div></li>';
     }).join('') + '</ul>';

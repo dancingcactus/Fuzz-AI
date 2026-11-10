@@ -19,12 +19,12 @@ RANK = {"on": 1, "named": 2, "sent": 3}
 
 
 def for_task(core, t):
-    """[{name, email, contributions: [{kind, text, via, quote, ts, source_id}]}], the person the task came
+    """[{name, email, contributions: [{kind, text, via, quote, ts, source_id, link}]}], the person the task came
     from first, then whoever added the most. Each person's contributions are newest first."""
     me = core.config.get("me", {})
     book = _Book(core)
     rows = core.all(
-        "SELECT s.id, s.role, g.source, g.source_id, g.ts, g.quote, g.payload, c.payload cand FROM sources s "
+        "SELECT s.id, s.role, g.source, g.source_id, g.ts, g.quote, g.payload, COALESCE(s.link, g.link) link, c.payload cand FROM sources s "
         "JOIN signals g ON g.key=s.signal_key AND g.user_id=s.user_id "
         "LEFT JOIN candidates c ON c.id=s.candidate_id "
         "WHERE s.task_id=? AND s.user_id=? AND s.withdrawn=0 AND s.role IN ('origin','update','context') "
@@ -32,7 +32,7 @@ def for_task(core, t):
     for r in rows:
         sig, cand = r["payload"] or {}, json.loads(r["cand"] or "{}")   # payload is decoded by name; cand isn't
         msg, via = f"{r['source']}:{r['source_id']}", VIA.get(r["source"], r["source"].title())
-        here = dict(via=via, ts=r["ts"], source_id=r["id"], msg=msg, role=r["role"])
+        here = dict(via=via, ts=r["ts"], source_id=r["id"], link=r["link"], msg=msg, role=r["role"])
         sender = sig.get("from")
         if sender and not entities.sent_by_me(sender, me):
             book.add(sender, kind="sent", text=SENT[r["role"]], quote=r["quote"], **here)
@@ -117,7 +117,7 @@ class _Book:
         if known_only and key not in self.by_key:
             return
         self._row(key, p)["contributions"].append(
-            {"kind": kind, "text": text, "via": None, "ts": ts, "source_id": None, "quote": None, "_origin": False})
+            {"kind": kind, "text": text, "via": None, "ts": ts, "source_id": None, "link": None, "quote": None, "_origin": False})
 
     def people(self):
         out = []

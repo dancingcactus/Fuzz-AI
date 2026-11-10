@@ -43,6 +43,15 @@ class PeopleOnATask(CoreCase):
         self.assertEqual([(c["text"], c["quote"]) for c in dana["contributions"]],
                          [("Followed up", "Any update?"), ("Asked for this", "Q4 numbers?")])
 
+    def test_what_they_said_links_back_to_where_they_said_it(self):
+        t = self.thread({"source_id": "m1", "ts": "2026-10-20T08:00:00Z", "from": DANA, "quote": "Numbers?",
+                         "link": "https://outlook.office365.com/owa/?ItemID=m1",
+                         "candidates": [{"ask": "Send Dana the Q4 numbers"}]})
+        tasks.wait(self.core, t["id"], on="Dana")
+        (dana,) = self.who(t)
+        self.assertEqual([(c["kind"], c["link"]) for c in dana["contributions"]],
+                         [("waiting", None), ("sent", "https://outlook.office365.com/owa/?ItemID=m1")])
+
     def test_who_you_wait_on_joins_them_and_someone_new_is_added(self):
         t = self.thread({"source_id": "m1", "ts": "2026-10-20T08:00:00Z", "from": DANA, "quote": "Numbers?",
                          "candidates": [{"ask": "Send Dana the Q4 numbers"}]})
