@@ -28,9 +28,27 @@
   }
 
   /* The id to quote when chasing a bug: the core's task id when it has one, else the page's own */
+  var COPY_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5 H12.5 V13 H5.5 Z M3.5 10.5 V3 H10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var DONE_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function idTag(it) {
-    return '<p class="taskid">' + (it.coreId != null ? 'Task #' + esc(it.coreId) : 'Local ' + esc(it.id)) + '</p>';
+    var core = it.coreId != null, val = String(core ? it.coreId : it.id);
+    return '<p class="taskid"><span class="taskid-txt">' + (core ? 'Task #' : 'Local ') + esc(val) + '</span>' +
+      '<button type="button" class="taskid-copy" data-copyid="' + esc(val) + '" aria-label="Copy task number" title="Copy">' + COPY_SVG + '</button></p>';
   }
+  /* The id's copy button: the number alone goes on the clipboard, and a tick says it went */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-copyid]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var v = b.dataset.copyid, done = function () {
+      b.innerHTML = DONE_SVG; b.classList.add('done'); b.setAttribute('aria-label', 'Copied');
+      clearTimeout(b._t); b._t = setTimeout(function () { b.innerHTML = COPY_SVG; b.classList.remove('done'); b.setAttribute('aria-label', 'Copy task number'); }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, function () {});
+    else {
+      var t = document.createElement('textarea'); t.value = v; t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select(); try { if (document.execCommand('copy')) done(); } catch (x) {} t.remove();
+    }
+  }, true);
 
   /* Markdown the AI writes, drawn as HTML. Escaped first, so only these few forms become markup. */
   function inline(s) {
