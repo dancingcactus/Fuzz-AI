@@ -278,6 +278,86 @@ class TwoDays(CoreCase):
                                   candidates=[{"ask": "Send the deck"}])
         self.assertEqual(e.exception.field, "signals[0].resolved")
 
+    def hand_off(self, frm, on, sid="msg-b20", quote="James, can you find someone to cover this?", **extra):
+        tools.submit_signals(self.core, [dict({
+            "source": "email", "source_id": sid, "anchor": "email:conv-B", "ts": "2026-10-20T09:30:00Z",
+            "from": frm, "quote": quote, "waiting_on": on, "candidates": []}, **extra)])
+
+    def test_handing_it_to_someone_moves_it_to_waiting_on_them(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        self.hand_off({"name": "Justin Grover"}, "James Torio")
+        t = self.task(contract["id"])
+        self.assertEqual((t["state"], t["waiting_on"]), ("waiting", "James Torio"))
+        self.assertTrue(t["schedule_fire_at"], "it always has a check-back time")
+        self.assertFalse([c for c in self.open_cards() if c["task_id"] == contract["id"]], "not in your queue")
+        log = [x["text"] for x in events.task_log(self.core, contract["id"], 1)]
+        self.assertIn("waiting on James Torio", log[0])
+
+    def test_someone_taking_it_on_moves_it_to_waiting_on_them(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        self.hand_off({"name": "James Torio"}, "James Torio", quote="Let me talk to Jacob about covering this.")
+        self.assertEqual(self.task(contract["id"])["waiting_on"], "James Torio")
+        self.assertEqual(self.task(contract["id"])["state"], "waiting")
+
+    def test_their_reply_after_a_hand_off_brings_it_back(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        self.hand_off({"name": "Justin Grover"}, "James Torio")
+        tools.submit_signals(self.core, [{
+            "source": "email", "source_id": "msg-b21", "anchor": "email:conv-B", "ts": "2026-10-20T10:30:00Z",
+            "from": {"name": "James Torio"}, "quote": "Jacob can do it.", "candidates": []}])
+        t = self.task(contract["id"])
+        self.assertEqual(t["state"], "triage")
+        self.assertIn("Reply came in from James Torio", t["reason"])
+
+    def test_a_hand_off_on_the_way_repoints_the_wait(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        answers.answer(self.core, self.card_for(contract["id"], "task")["id"], "wait", "Marco Diaz")
+        self.hand_off({"name": "Marco Diaz", "email": "marco@acme.example"}, "James Torio",
+                      quote="James, can you take this?")
+        t = self.task(contract["id"])
+        self.assertEqual((t["state"], t["waiting_on"]), ("waiting", "James Torio"),
+                         "Marco replied, but only to pass it on")
+
+    def test_a_new_ask_already_handed_off_reopens_into_waiting(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        answers.answer(self.core, self.card_for(contract["id"], "task")["id"], "done")
+        tools.submit_signals(self.core, [{
+            "source": "email", "source_id": "msg-b22", "anchor": "email:conv-B", "ts": "2026-10-21T09:00:00Z",
+            "from": {"name": "Justin Grover"}, "quote": "I can't sign after all; working with James on cover.",
+            "waiting_on": "James Torio",
+            "candidates": [{"ask": "Find someone else to sign the vendor contract", "owner": "me"}]}])
+        items = tools.get_pending_judgments(self.core)["items"]
+        if items:
+            tools.submit_verdicts(self.core, [{"candidate_id": i["candidate_id"], "task_id": contract["id"],
+                                               "verdict": "same", "confidence": 0.95, "new_ask": True,
+                                               "reason": "test"} for i in items])
+        t = self.task(contract["id"])
+        self.assertEqual((t["state"], t["waiting_on"]), ("waiting", "James Torio"))
+        self.assertFalse([c for c in self.open_cards() if c["task_id"] == contract["id"]])
+
+    def test_a_hand_off_leaves_fuzzs_work_alone(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        answers.answer(self.core, self.card_for(contract["id"], "task")["id"], "assign")
+        self.hand_off({"name": "Justin Grover"}, "James Torio")
+        self.assertEqual(self.task(contract["id"])["state"], "queued")
+
+    def test_waiting_on_yourself_is_no_hand_off(self):
+        self.day("day1.json")
+        contract = self.by_title("vendor contract")
+        self.hand_off({"name": "Marco Diaz"}, "Justin")
+        self.assertEqual(self.task(contract["id"])["state"], "triage")
+
+    def test_a_settled_message_waits_on_no_one(self):
+        with self.assertRaises(FuzzError) as e:
+            self.hand_off({"name": "Justin"}, "James Torio", answers=True)
+        self.assertEqual(e.exception.field, "signals[0].waiting_on")
+
     def test_an_email_read_again_is_not_new(self):
         msg = {"source": "email", "source_id": "<m1@acme.example>", "version": "2026-10-20T08:00:00Z",
                "anchor": "email:conv-Q", "ts": "2026-10-20T08:00:00Z", "from": {"name": "Dana"},

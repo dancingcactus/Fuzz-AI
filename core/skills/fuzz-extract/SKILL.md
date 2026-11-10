@@ -1,7 +1,7 @@
 ---
 name: fuzz-extract
 description: Run Fuzz extraction. Reads the person's email, Slack and meeting summaries since the last run with your own connectors, turns each ask into a signal, and judges which existing Fuzz task each ask belongs to. Use when asked to "run Fuzz extraction", "pull my asks into Fuzz" or "update Fuzz from email and Slack".
-prompt_version: extract-0.12
+prompt_version: extract-0.13
 ---
 
 # Fuzz extraction
@@ -13,7 +13,7 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
 
 ## Steps
 
-1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.12`). It returns the person's
+1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.13`). It returns the person's
    names, email addresses, Slack IDs and the folders to read. Use these; never guess who they are.
 2. **`get_cursors`**: where to start reading each source. Read from there to now. A search filter
    that takes a day (Glean's `after`) leaves that day out, so pass the day **before** the cursor's
@@ -76,6 +76,15 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
      question isn't `answers`, but the asker's "yep, that was it" is `resolved`. The person's own
      message can carry it too, when it says the matter is settled ("Glad that sorted it"). Not for a
      plain thank-you that leaves the ask open, or "I'll try that".
+   - The next move on the thread is now someone else's: `"waiting_on": "<their full name>"` on the
+     signal. Two cases. The person hands it to a named person ("Is there someone who could take this?"
+     to their manager, "I'm working with James and Russ to get you coverage", "Dana, can you send them
+     the contract?"). Or someone on the thread takes it on ("Let me talk to Jacob about covering this",
+     "I'll get legal to look"). Fuzz moves the person's task to waiting on them, with a check-back time,
+     and their reply brings it back. Name the one who has to act next: in "James, can we have Sydnee take
+     this?", that's James. Keep any new ask for the person as a candidate on the same signal: a new ask
+     that's already handed off reopens straight into waiting. Not for "I'll ask around" with no one
+     named, a question the person must still answer, or a hand-off of someone else's work.
    - The person's own message (an email or invite they sent, their Slack post) is an ask only when they
      commit to something beyond the message itself ("I'll send the deck Friday"). An invite they sent,
      or their note on why they're meeting, has `"candidates": []`: the calendar already holds it.

@@ -25,11 +25,13 @@ MOVES = {
     "sending": {"done", "waiting", "review", "triage", "letgo", "merged"},
     "session": {"done", "triage", "queued", "parked", "letgo", "scheduled", "waiting", "merged"},
     # review: a draft you put off comes back for your OK
-    "scheduled": {"triage", "review", "done", "letgo", "merged", "queued", "parked"},
+    # waiting (from scheduled, parked, done, letgo): the thread hands the next move to someone else (the
+    # extractor's waiting_on); from done or letgo only with a new ask that reopens it
+    "scheduled": {"triage", "review", "done", "letgo", "merged", "queued", "parked", "waiting"},
     "waiting": {"triage", "done", "letgo", "queued", "review", "parked", "merged"},
-    "parked": {"triage", "done", "letgo", "queued", "merged"},
-    "done": {"triage"},
-    "letgo": {"triage"},
+    "parked": {"triage", "done", "letgo", "queued", "merged", "waiting"},
+    "done": {"triage", "waiting"},
+    "letgo": {"triage", "waiting"},
     "merged": set(),
 }
 
