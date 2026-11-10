@@ -343,10 +343,69 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .when.picked { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .when.picked small { color: var(--on-accent); }
 .when-more { border-style: dashed; background: transparent; }
-.exact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* The exact-time picker (js/exact-picker.js): day chips, the month behind Other day, a two-ring clock */
+.exact { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: var(--bw) solid var(--line); border-radius: 18px; background: var(--surface); }
 .exact[hidden] { display: none; }
-.exact label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); width: 100%; }
-.exact input { flex: 1 1 200px; width: auto; }
+.xp-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.xp-chip { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 64px; min-height: 56px; padding: 6px 10px;
+  border-radius: 14px; border: var(--bw2) solid var(--line); background: var(--field); color: var(--ink); font: inherit; cursor: pointer; }
+.xp-chip b { font-size: 13px; }
+.xp-chip span { font-size: 12px; color: var(--muted); }
+.xp-chip:hover { border-color: var(--accent); }
+.xp-chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+.xp-chip[aria-pressed="true"] span { color: inherit; opacity: .85; }
+.xp-chip.other { border-style: dashed; background: transparent; }
+.xp-chip.other[aria-pressed="true"] { border-style: solid; background: var(--accent); }
+.xp-calwrap { padding: 12px; border-radius: 16px; background: var(--field); width: fit-content; max-width: 100%; }
+.xp-calwrap[hidden] { display: none; }
+.xp-cal-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; }
+.xp-cal-month { font-weight: 700; font-size: 15px; padding-left: 6px; }
+.xp-cal-arrow { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--ink); display: inline-grid; place-items: center; cursor: pointer; }
+.xp-cal-arrow:hover:not(:disabled) { background: var(--surface); }
+.xp-cal-arrow:disabled { opacity: .3; cursor: default; }
+.xp-cal-grid { display: grid; grid-template-columns: repeat(7, 42px); gap: 2px; justify-items: center; }
+.xp-cal-dow { font-size: 12px; font-weight: 700; color: var(--muted); height: 30px; display: grid; place-items: center; }
+.xp-cal-day { width: 40px; height: 40px; border-radius: 50%; border: var(--bw2) solid transparent; background: transparent; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.xp-cal-day:hover:not(:disabled):not(.sel) { background: var(--surface); }
+.xp-cal-day.today { border-color: var(--accent); color: var(--link); font-weight: 700; }
+.xp-cal-day.sel { background: var(--accent); color: var(--on-accent); border-color: var(--edge); font-weight: 700; }
+.xp-cal-day:disabled { color: color-mix(in srgb, var(--muted) 45%, transparent); cursor: default; }
+.xp-body { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+.xp-dialhost { flex: none; width: min(236px, 100%); }
+.xp-dial { display: block; width: 100%; border-radius: 50%; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.xp-dial .face { fill: var(--field); }
+.xp-dial .ring-in { fill: color-mix(in srgb, var(--surface) 55%, var(--field)); }
+.xp-dial .tick { stroke: color-mix(in srgb, var(--muted) 55%, transparent); stroke-width: 1.2; }
+.xp-dial .hand { stroke-linecap: round; }
+.xp-dial .minute-hand { stroke: var(--accent); stroke-width: 2; }
+.xp-dial .hour-hand { stroke: var(--ink); stroke-width: 5; }
+.xp-dial .hub { fill: var(--ink); }
+.xp-dial .knob-h { fill: var(--accent); }
+.xp-dial .knob-m { fill: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+.xp-dial .knob-dot { fill: var(--on-accent); }
+.xp-dial .num { font-family: var(--font-body); text-anchor: middle; dominant-baseline: central; pointer-events: none; fill: var(--ink); }
+.xp-dial .num.hr { font-size: 15px; font-weight: 700; }
+.xp-dial .num.mn { font-size: 12px; fill: var(--muted); }
+.xp-dial .num.on { fill: var(--on-accent); }
+.xp-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: 1 1 180px; }
+.xp-read { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+input.xp-time { font-family: var(--font-display); font-size: 30px; font-weight: 800; width: 6ch; min-width: 0; padding: 4px 10px; border-radius: 12px; border: var(--bw2) solid var(--line);
+  background: var(--field); color: var(--ink); font-variant-numeric: tabular-nums; }
+input.xp-time:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.xp-ap { flex: none; display: flex; border: var(--bw) solid var(--line); border-radius: 12px; overflow: hidden; }
+.xp-ap button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; font-size: 14px; min-width: 52px; min-height: 40px; cursor: pointer; }
+.xp-ap button + button { border-left: var(--bw) solid var(--line); }
+.xp-ap button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--link); }
+.xp-qts { display: flex; flex-wrap: wrap; gap: 6px; }
+.xp-qt { border: var(--bw) solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px; padding: 0 12px; min-height: 34px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.xp-qt:disabled { opacity: .4; cursor: default; }
+.xp-qt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.xp-why { margin: 0; font-size: 13px; color: var(--muted); min-height: 20px; }
+.xp-why .linkbtn { padding: 0 2px; min-height: 0; font-size: 13px; }
+.xp-warn { color: var(--danger); font-weight: 600; }
+.xp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-top: 12px; border-top: var(--bw) solid var(--line); }
+.xp-summary { flex: 1 1 200px; margin: 0; font-weight: 700; }
+:is(.xp-chip, .xp-cal-day, .xp-cal-arrow, .xp-dial, .xp-ap button, .xp-qt):focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
 .sched-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
 /* The question leads; the task title sits right under it as what the question is about. */
 .ask { font-family: var(--font-display); font-size: 27px; line-height: 1.2; font-weight: 800; text-wrap: balance; margin-top: 2px; }
