@@ -62,6 +62,7 @@ SIGNAL = {
         "quote": {"type": "string", "maxLength": 600},
         "withdrawn": {"type": "boolean"},
         "answers": {"type": "boolean"},   # the person's own reply, doing what the thread asked of them
+        "resolved": {"type": "boolean"},  # the one who asked, saying it's sorted: nothing more is needed
         "candidates": {"type": "array", "items": CANDIDATE},
     },
     "additionalProperties": False,
@@ -116,6 +117,9 @@ def check_signals(signals):
         if s.get("answers") and s.get("candidates"):
             raise FuzzError(f"signals[{i}]: a reply that answers the thread has no candidates; send a new ask "
                             "in it as its own signal", f"signals[{i}].answers")
+        if s.get("resolved") and s.get("candidates"):
+            raise FuzzError(f"signals[{i}]: a message saying the ask is sorted has no candidates; send a new ask "
+                            "in it as its own signal", f"signals[{i}].resolved")
 
 
 def check_verdicts(verdicts):
