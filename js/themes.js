@@ -126,13 +126,18 @@
     if (meta) meta.setAttribute('content', p.bg);
   }
 
-  /* Random: a different theme each time Fuzz opens, never a special one (Retro, Technicolor) and never the one shown last time */
+  /* Random: one theme per day, kept through reloads until local midnight. Never a special one (Retro, Technicolor)
+     and never the same as the day before. */
   var LAST = 'fuzz.theme.last';
+  function localDay() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
   function pickRandom() {
-    var last = null; try { last = localStorage.getItem(LAST); } catch (e) {}
+    var today = localDay(), saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LAST) || 'null'); } catch (e) { /* an old plain id, or blocked storage */ }
+    if (saved && saved.day === today && THEMES.some(function (t) { return t.id === saved.id && !t.special; })) return saved.id;
+    var last = saved && saved.id;
     var pool = THEMES.filter(function (t) { return !t.special && t.id !== last; });
     var t = pool[Math.floor(Math.random() * pool.length)];
-    try { localStorage.setItem(LAST, t.id); } catch (e) {}
+    try { localStorage.setItem(LAST, JSON.stringify({ day: today, id: t.id })); } catch (e) {}
     return t.id;
   }
 

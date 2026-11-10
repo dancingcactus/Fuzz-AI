@@ -12,7 +12,7 @@
   var PREF_KEY = 'fuzz.prefs.v1';
   var prefs = { theme: 'terracotta', mode: 'auto', contrast: 'standard', codeFont: 'jetbrains', calm: false };
   var current = null, currentName = null, tempCalm = false, reduce = false;
-  /* The theme on screen: your pick, or with Random, the one picked when this page loaded */
+  /* The theme on screen: your pick, or with Random, today's pick */
   var shown = 'terracotta', backFrom = null;
 
   function load() {
@@ -25,7 +25,7 @@
   function paint() { Themes.apply(shown, prefs.mode, prefs.contrast, prefs.codeFont); save(); }
 
   var App = {
-    /* Random picks one now, so choosing it shows a change; after that, one per page load */
+    /* Random shows today's pick (picking one if today has none yet) */
     setTheme: function (id) { prefs.theme = id; shown = id === 'random' ? Themes.pickRandom() : id; paint(); },
     shownTheme: function () { return shown; },
     themePicks: themePicks,
@@ -127,7 +127,7 @@
     var mix = ['honey', 'lagoon', 'plum'].map(function (id) { return Themes.palette(id, mode, prefs.contrast).accent; });
     picks.push('<button type="button" class="pal" ' + attr + '="random" aria-pressed="' + rnd + '"><span class="pal-sw pal-rnd" style="background:' + Themes.palette('terracotta', mode, prefs.contrast).bg + ';border-color:' + Themes.palette('terracotta', mode, prefs.contrast).line + '">' +
       mix.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="pal-n">Random</span><span class="pal-f">' +
-      (today ? 'Today: ' + esc(today.name) : 'A new one each time you open Fuzz') + '</span></button>');
+      (today ? 'Today: ' + esc(today.name) : 'A new one each day') + '</span></button>');
     /* The special ones on a line of their own, after a divider: Random never picks them */
     var special = Themes.list.filter(function (t) { return t.special; });
     if (special.length) picks.push('<div class="pal-divider" role="separator"><span>Specials</span><small>Random skips these</small></div>' + special.map(pick).join(''));
