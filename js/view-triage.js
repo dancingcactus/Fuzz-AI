@@ -614,8 +614,12 @@
     }
     if (it.kind === 'dup') {
       var o = Store.item(it.dupOf);
-      h += '<div class="profiles"><div class="profile"><span class="plabel">Already in your queue</span><span class="pname">' + esc(o ? o.title : '') + '</span><span class="pdetail">' + esc(o ? o.source + ' · ' + o.who : '') + '</span><span class="pseen">' + esc(o ? o.age + ' old' : '') + '</span></div>' +
-        '<div class="profile"><span class="plabel">New just now</span><span class="pname">' + esc(it.title) + '</span><span class="pdetail">' + esc(it.source + ' · ' + it.who) + '</span><span class="pseen">' + esc(it.age) + ' old</span></div></div>';
+      h += '<div class="profiles"><div class="profile"><span class="plabel">Already in your queue</span><span class="pname">' + esc(o ? o.title : '') + '</span><span class="pdetail">' + esc(o ? o.source + ' · ' + o.who : '') + '</span><span class="pseen">' + esc(o ? o.age + ' old' : '') + '</span></div>';
+      /* The same ask that came in more than once: each one, and one answer for them all */
+      if (it.dupes) h += it.dupes.map(function (d) {
+        return '<div class="profile"><span class="plabel">Came in again</span><span class="pname">' + esc(d.title) + '</span><span class="pdetail">#' + d.id + '</span><span class="pseen">' + esc(d.at) + '</span></div>';
+      }).join('') + '</div>';
+      else h += '<div class="profile"><span class="plabel">New just now</span><span class="pname">' + esc(it.title) + '</span><span class="pdetail">' + esc(it.source + ' · ' + it.who) + '</span><span class="pseen">' + esc(it.age) + ' old</span></div></div>';
     }
     return h;
   }

@@ -652,6 +652,16 @@ identical tasks. The judge noticed in its reason and still had to answer `new`.
 | Channels only meet through entities and meaning | **A shared link is an anchor.** A ticket key or document link on two live tasks raises a `duplicate` card, whichever channels they came from. Ticket keys and document links are what stay the same across email, Slack and meetings. A link on many tasks (a wiki home page) doesn't count |
 | Merging two tasks you've spotted is only on the CLI (`fuzz merge`) | **"Same as…" in task detail** offers the matcher's likely matches for that task and merges as the `duplicate` card does. Undo is the existing split |
 
+A month in, one reminder email sent five times in one run made five tasks and four `duplicate`
+cards, all asking about the first. Merging one left three. Letting the first go as someone else's
+left all of them asking whether they were the same as a task that had gone.
+
+| Gap | Fix |
+| --- | --- |
+| The same ask again from the same sender in one run is asked about like any possible duplicate | **A repeat is folded in.** Same source, same sender (email, Slack id or name) and at least 90% of the same words: the ask is recorded `merged` into the task the first one made, with no card. Asks Fuzz or you made are never repeats |
+| Every possible duplicate of one task gets its own card | **One card per task they may be the same as.** A second possible duplicate joins the open card (`payload.dupes`), which asks "Are these 2 the same as …?". Merge or Keep separate answers for all of them, and so does the safe answer when it expires. A task folded into a card has no card of its own. When the card's own task leaves triage some other way, the card moves to the next |
+| A `duplicate` card outlives the task it asks about | **The answer follows the task.** Done or let go (someone else's too): the possible duplicates merge into it, the card is answered, and Fuzz says so in its history. Split one back out if it isn't, or undo the close to bring them all back. Merged into another task: the card asks about that one. Merged into one of the possible duplicates: the rest ask about it |
+
 ### Groups
 
 One email, Slack message or meeting often brings several asks at once: the action items from a

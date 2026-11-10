@@ -93,11 +93,15 @@ def _task_answer(core, card, t, option, value):
 
 
 def _duplicate(core, card, t, option, value):
+    """One answer for every task the card asks about (the same ask may have come in several times)."""
     from . import matching
-    if option == "merge":
-        return matching.merge(core, card["task_id"], card["other_id"], card=card)
-    if option == "keep_separate":
-        return matching.keep_separate(core, card["task_id"], card["other_id"], card=card)
+    from .matching import dupes
+    ids = [d["id"] for d in dupes.card_dupes(core, card)] or [card["task_id"]]
+    for i, tid in enumerate(ids):
+        if option == "merge":
+            matching.merge(core, tid, card["other_id"], card=card if i == 0 else None)
+        elif option == "keep_separate":
+            matching.keep_separate(core, tid, card["other_id"], card=card if i == 0 else None)
 
 
 def _entity_person(core, card, t, option, value):
@@ -248,7 +252,9 @@ def _postpone(core, card, t):
                         log=("status", "Fuzz took the safe answer, since this was postponed twice."))
             if card["kind"] == "duplicate":
                 from . import matching
-                matching.keep_separate(core, card["task_id"], card["other_id"], card=None, feedback=False)
+                from .matching import dupes
+                for d in dupes.card_dupes(core, card) or [{"id": card["task_id"]}]:
+                    matching.keep_separate(core, d["id"], card["other_id"], card=None, feedback=False)
             many = cards.asks(core, card) if card["kind"] == "is_task" else []
             for a in many:
                 ch = events.Changes()

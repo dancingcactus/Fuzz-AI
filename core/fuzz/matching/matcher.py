@@ -343,8 +343,9 @@ def _decide(ctx, cand, eligible, hits, fam):
             return record(ctx, cand, "rule", "discarded", reason=f"Ask is for {cand['owner']}, no related task")
         from . import dupes   # an ask made earlier in this run may be the same one (with no older task to judge against)
         mate = dupes.same_run(ctx, cand, getattr(ctx, "run_start", None))
-        if mate:
-            return record(ctx, cand, "rule", "possible_duplicate", mate[0], confidence=mate[2], reason=mate[1])
+        if mate:   # the same ask again from the same sender is folded in; anything else, you're asked
+            return record(ctx, cand, "rule", "merged" if mate[3] else "possible_duplicate", mate[0],
+                          confidence=mate[2], reason=mate[1])
         return record(ctx, cand, "semantic" if ctx.embed_ok else "entity", "new", reason="No anchor, entity or meaning match")
 
     item = _judgment_item(ctx, cand, keep, hits, escore, shared, sem)
@@ -421,8 +422,9 @@ def record(ctx, cand, stage, outcome, task_id=None, other_task_id=None, verdict=
                    (tid, task_id if outcome != "new" else None, did))
             if outcome != "new" and task_id is not None:
                 core.q("INSERT OR REPLACE INTO task_links VALUES (?,?,?,?,?)", (tid, task_id, outcome, confidence, reason))
-                if outcome == "possible_duplicate":
-                    cards.create(core, "duplicate", tid, other_id=task_id, reason=reason, suggested="merge")
+                if outcome == "possible_duplicate":   # joins the open card about task_id, if there is one
+                    from . import dupes
+                    dupes.card_for(core, tid, task_id, reason)
             cards.sync(core, tid)
         elif outcome in ("merged", "update"):
             attach(ctx, task_id, cand, "update", did, new_title=new_title)
@@ -652,8 +654,8 @@ def apply_verdicts(ctx, verdicts):
             from . import dupes
             item = json.loads(cand["pending_item"]) if cand["pending_item"] else {}
             mate = dupes.same_run(ctx, cand, item.get("frozen_after"))
-            if mate:
-                outcome, tid, reason = "possible_duplicate", mate[0], mate[1]
+            if mate:   # the same ask again from the same sender is folded in; anything else, you're asked
+                outcome, tid, reason = "merged" if mate[3] else "possible_duplicate", mate[0], mate[1]
         res = record(ctx, cand, "judge", outcome, tid, verdict=verdict, confidence=conf,
                      reason=reason, scores={"judge": conf}, new_title=v.get("new_title"))
         stats[res["outcome"]] = stats.get(res["outcome"], 0) + 1
@@ -673,13 +675,13 @@ def _creation_decision(core, task_id):
     return row["id"] if row else None
 
 
-def merge(core, a, b, card=None):
+def merge(core, a, b, card=None, actor="human", log=None):
     """Merge task a into task b. Records exactly what moved, so split can undo it."""
     ta, tb = tasks.live(core, a), tasks.live(core, b)
     if not ta or not tb or ta["id"] == tb["id"]:
         raise FuzzError("Both tasks must exist and differ", "task_id")
     a, b = ta["id"], tb["id"]
-    with core.tx("human"):
+    with core.tx(actor):
         srcs = core.all("SELECT * FROM sources WHERE task_id=?", (a,))
         anchors = [r["anchor"] for r in core.all("SELECT anchor FROM task_anchors WHERE task_id=?", (a,))]
         b_had = [r["anchor"] for r in core.all("SELECT anchor FROM task_anchors WHERE task_id=?", (b,))]
@@ -701,7 +703,9 @@ def merge(core, a, b, card=None):
         if card:
             cards.mark_answered(core, ch, card, "merge")
         events.emit(core, "task.merged", task_id=b, changes=ch, data={"merge_id": mid, "from": a, "into": b},
-                    log=("status", f"Merged #{a} into this task (“{ta['title']}”)."))
+                    log=("status", log or f"Merged #{a} into this task (“{ta['title']}”)."))
+        from . import dupes
+        dupes.settle(core, a)   # cards asking whether others are the same as a now ask about b
     return mid
 
 
