@@ -293,7 +293,7 @@
         : 'Pick a rough time. Fuzz finds the right moment around your day. Anything you wrote in the instructions, Fuzz looks into before it comes back.';
       return '<div class="sched-panel"><h3 id="sched-h" tabindex="-1">When should this come back?</h3><p class="meta">' + meta + '</p>' +
         '<div class="when-grid">' + tiles.join('') + '</div>' +
-        (schedMore ? '<div class="exact" id="exact" hidden><label for="exact-dt">Exact time</label><input type="datetime-local" id="exact-dt"><button type="button" class="btn small primary" data-sched="exact-go">Schedule for this time</button></div>' : '') +
+        (schedMore ? '<div class="exact" id="exact" role="group" aria-label="Exact time" hidden></div>' : '') +
         '<div class="sched-links">' + (schedMore ? '<button type="button" class="linkbtn" data-sched="exact">Pick an exact time instead</button>' : '') + '<button type="button" class="linkbtn" data-sched="cancel" aria-keyshortcuts="Escape">Back to the card</button></div></div>';
     }
     if (askingWho) {
@@ -1429,7 +1429,7 @@
     Fuzz.setMood('idle');
     await showNext(shown);
   }
-  var schedResolve = null, exactOpt = null;
+  var schedResolve = null, exactOpt = null, exactPicker = null;
   /* End of the list: no time, it stays as it is and waits behind the rest of the queue. A draft keeps your edits. */
   async function toEnd(it, text) {
     var b = card.querySelector('[data-sched="back"]'); if (b) b.classList.add('picked');
@@ -1803,11 +1803,12 @@
         if (t.dataset.sched === 'cancel') { if (schedResolve) schedResolve(-1); }
         else if (t.dataset.sched === 'back') { if (schedResolve) schedResolve(-2); }
         else if (t.dataset.sched === 'more') { schedMore = true; renderCardKeep(); var nx = card.querySelectorAll('[data-when]')[3]; if (nx) nx.focus(); }
-        else if (t.dataset.sched === 'exact') { var ex = $('#exact'); ex.hidden = !ex.hidden; var dt = $('#exact-dt'); if (!dt.value) { var d = new Date(Date.now() + 3600000); d.setMinutes(0, 0, 0); dt.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); } }
+        /* The exact-time picker (js/exact-picker.js): drawn fresh each time it opens, so its defaults use the time now */
+        else if (t.dataset.sched === 'exact') { var ex = $('#exact'); ex.hidden = !ex.hidden; if (!ex.hidden) { exactPicker = ExactPicker.mount(ex); exactPicker.focus(); } }
         else if (t.dataset.sched === 'exact-go') {
-          var v = $('#exact-dt').value; if (!v) return;
-          var when = new Date(v);
-          if (when.getTime() <= Date.now()) { Fuzz.say('That time has already gone by. Pick a later one?', { type: false }); return; }
+          if (!exactPicker) return;
+          var when = exactPicker.at();
+          if (exactPicker.past()) { Fuzz.say('That time has already gone by. Pick a later one?', { type: false }); return; }
           exactOpt = Sched.exact(when);
           if (schedResolve) schedResolve(99);
         }
