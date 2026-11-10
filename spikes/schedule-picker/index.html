@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schedule Picker Spike</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<style>
+  body { padding: 0 16px 80px; }
+  main { max-width: 1000px; margin: 0 auto; }
+  header.top { padding: 28px 0 4px; }
+  header.top h1 { font-family: var(--font-display); font-size: 26px; font-weight: 800; margin: 0; }
+  header.top p { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+  .rules { margin: 10px 0 0; padding-left: 20px; color: var(--ink); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 18px 0 8px; padding: 12px 14px;
+    background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; font-size: 14px; }
+  .toolbar label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .toolbar select, .toolbar input { font: inherit; color: var(--ink); background: var(--field); border: var(--bw) solid var(--line); border-radius: 10px; padding: 6px 8px; min-height: 36px; }
+  .toolbar .nowread { color: var(--muted); }
+  h2.design { font-family: var(--font-display); font-size: 20px; font-weight: 800; margin: 40px 0 4px; }
+  h2.design .tag { font-size: 12px; vertical-align: 3px; margin-left: 6px; }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 72ch; }
+
+  /* The stage stands in for the card's schedule panel */
+  .stage { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 22px; box-shadow: var(--shadow); padding: 18px; }
+  .stage h3 { font-family: var(--font-display); font-size: 17px; font-weight: 800; margin: 0 0 2px; }
+  .stage .meta { margin: 0 0 14px; }
+  .result { margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--ok) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--surface)); font-weight: 600; }
+  .result[hidden] { display: none; }
+
+  /* ---------- Shared pieces ---------- */
+  .cal { width: 100%; max-width: 336px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; }
+  .cal-month { font-weight: 700; font-size: 15px; padding-left: 6px; }
+  .cal-nav { display: inline-flex; gap: 2px; }
+  .cal-arrow { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--ink); display: inline-grid; place-items: center; cursor: pointer; }
+  .cal-arrow:hover:not(:disabled) { background: var(--field); }
+  .cal-arrow:disabled { opacity: .3; cursor: default; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; justify-items: center; }
+  .cal-dow { font-size: 12px; font-weight: 700; color: var(--muted); height: 32px; display: grid; place-items: center; }
+  .cal-day { width: 42px; height: 42px; border-radius: 50%; border: var(--bw2) solid transparent; background: transparent; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+  .cal-day:hover:not(:disabled):not(.sel) { background: var(--field); }
+  .cal-day.today { border-color: var(--accent); color: var(--link); font-weight: 700; }
+  .cal-day.sel { background: var(--accent); color: var(--on-accent); border-color: var(--edge); font-weight: 700; }
+  .cal-day:disabled { color: color-mix(in srgb, var(--muted) 45%, transparent); cursor: default; }
+  :is(.cal-day, .cal-arrow, .dial, .tp-f, .ap button, .daychip, .qt):focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+
+  .dial { width: 100%; max-width: 256px; display: block; border-radius: 50%; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .dial .face { fill: var(--field); }
+  .dial .hand { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+  .dial .hub { fill: var(--accent); }
+  .dial .knob { fill: var(--accent); }
+  .dial .knob-dot { fill: var(--on-accent); }
+  .dial .num { font-family: var(--font-body); font-size: 15px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .dial .num.on { fill: var(--on-accent); font-weight: 700; }
+  .dial.dual .ring-in { fill: color-mix(in srgb, var(--surface) 55%, var(--field)); }
+  .dial.dual .num.hr { font-size: 15px; font-weight: 700; }
+  .dial.dual .num.mn { font-size: 12px; fill: var(--muted); }
+  .dial.dual .num.mn.on { fill: var(--on-accent); }
+  .dial.dual .tick { stroke: color-mix(in srgb, var(--muted) 55%, transparent); stroke-width: 1.2; }
+  .dial.dual .hour-hand { stroke-width: 5; stroke: var(--ink); }
+  .dial.dual .hub { fill: var(--ink); }
+  .dial.dual .knob-h { fill: var(--accent); }
+  .dial.dual .knob-m { fill: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+  .dial.dual .minute-hand { stroke-width: 2; }
+  @media (prefers-reduced-motion: no-preference) { .dial .hand, .dial .knob { transition: none; } }
+
+  /* The big HH : MM readout with AM/PM, as in the reference */
+  .tp-head { display: flex; align-items: stretch; gap: 8px; }
+  .tp-f { font-family: var(--font-display); font-size: 48px; line-height: 1; font-weight: 700; width: 96px; height: 72px; border-radius: 12px;
+    border: 0; background: var(--field); color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .tp-f[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--link); }
+  .tp-colon { font-family: var(--font-display); font-size: 48px; font-weight: 700; align-self: center; line-height: 1; padding-bottom: 6px; }
+  .ap { display: flex; flex-direction: column; border: var(--bw) solid var(--line); border-radius: 12px; overflow: hidden; margin-left: 4px; }
+  .ap button { flex: 1; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; font-size: 14px; padding: 0 12px; min-width: 52px; cursor: pointer; }
+  .ap button + button { border-top: var(--bw) solid var(--line); }
+  .ap button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--link); }
+  .ap.row { flex-direction: row; }
+  .ap.row button + button { border-top: 0; border-left: var(--bw) solid var(--line); }
+  .ap.row button { min-height: 40px; }
+
+  .typed { display: flex; align-items: flex-end; gap: 8px; }
+  .typed label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+  .typed input { width: 96px; height: 72px; font-family: var(--font-display); font-size: 44px; font-weight: 700; text-align: center; border-radius: 12px;
+    border: var(--bw2) solid var(--line); background: var(--field); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .typed input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+  .why { font-size: 13px; color: var(--muted); margin: 8px 0 0; min-height: 20px; }
+  .why .linkbtn { padding: 0 2px; min-height: 0; font-size: 13px; }
+  .warn { color: var(--danger); font-weight: 600; }
+  .iconbtn.flat { border: 0; background: transparent; }
+  .iconbtn.flat:hover { background: var(--field); }
+
+  /* ---------- A: Two-step dialog ---------- */
+  dialog.pick { border: 0; padding: 0; border-radius: 28px; background: var(--surface); color: var(--ink); width: min(360px, calc(100vw - 32px));
+    box-shadow: 0 30px 80px -20px color-mix(in srgb, #000 55%, transparent); }
+  dialog.pick::backdrop { background: color-mix(in srgb, var(--ink) 35%, transparent); }
+  .pick-in { padding: 20px 20px 12px; }
+  .pick-label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+  .pick-big { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0 12px; border-bottom: var(--bw) solid var(--line); margin: 0 0 12px; }
+  .pick-big strong { font-family: var(--font-display); font-size: 30px; font-weight: 700; }
+  .pick-date-chip { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; padding: 4px 12px 4px 8px; min-height: 32px; border-radius: 999px; border: var(--bw) solid var(--line);
+    background: var(--field); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .pick .tp-wrap { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .pick .cal { margin: 0 auto; }
+  .pick-foot { display: flex; align-items: center; gap: 4px; padding: 6px 12px 12px 12px; }
+  .pick-foot .sp { flex: 1; }
+  .textbtn { border: 0; background: transparent; color: var(--link); font: inherit; font-weight: 700; font-size: 14px; padding: 0 14px; min-height: 40px; border-radius: 999px; cursor: pointer; }
+  .textbtn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .textbtn.solid { background: var(--accent); color: var(--on-accent); }
+  .textbtn:disabled { opacity: .4; cursor: default; }
+  .pick .why { text-align: center; }
+
+  /* ---------- B: Side by side ---------- */
+  .b-body { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .b-col h4 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .b-time { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .b-time .tp-f, .b-time .tp-colon { font-size: 40px; }
+  .b-time .tp-f { width: 84px; height: 62px; }
+  .b-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 18px; padding-top: 14px; border-top: var(--bw) solid var(--line); }
+  .b-foot .summary { flex: 1 1 220px; font-weight: 700; }
+  .b-foot .summary small { display: block; font-weight: 400; color: var(--muted); }
+  @media (max-width: 720px) { .b-body { grid-template-columns: 1fr; } .b-body .cal { margin: 0 auto; } }
+
+  /* ---------- C: Compact ---------- */
+  .days { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; }
+  .daychip { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 64px; min-height: 58px; padding: 6px 10px;
+    border-radius: 14px; border: var(--bw2) solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+  .daychip b { font-size: 13px; }
+  .daychip span { font-size: 12px; color: var(--muted); }
+  .daychip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+  .daychip[aria-pressed="true"] span { color: inherit; opacity: .85; }
+  .daychip.other { border-style: dashed; }
+  .c-cal { margin: 8px 0 4px; padding: 12px; border-radius: 16px; background: var(--field); width: fit-content; max-width: 100%; }
+  .c-cal[hidden] { display: none; }
+  .c-cal .cal-day:hover:not(:disabled):not(.sel) { background: var(--surface); }
+  .c-body { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: center; margin-top: 14px; }
+  .c-body .dial { max-width: 236px; }
+  .c-side { display: flex; flex-direction: column; gap: 12px; min-width: 220px; flex: 1; }
+  .c-read { display: flex; align-items: center; gap: 10px; }
+  .c-read input { font-family: var(--font-display); font-size: 34px; font-weight: 800; width: 140px; padding: 4px 10px; border-radius: 12px; border: var(--bw2) solid var(--line);
+    background: var(--field); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .c-read input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+  .qts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .qt { border: var(--bw) solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px; padding: 0 12px; min-height: 34px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .qt:disabled { opacity: .4; cursor: default; }
+  .qt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+  .c-hint { font-size: 12px; color: var(--muted); margin: 0; }
+
+  .notes { margin: 44px 0 0; padding: 16px 18px; border-radius: 16px; background: var(--field); font-size: 14px; }
+  .notes h2 { font-family: var(--font-display); font-size: 16px; margin: 0 0 6px; }
+  .notes ul { margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Schedule for later: picking an exact time</h1>
+    <p>Three ways to replace the plain date-time field behind “More times”. They all share one model and the same defaults:</p>
+    <ul class="rules">
+      <li><b>Today:</b> an hour from now, rounded up to the next 5 minutes.</li>
+      <li><b>Any later day:</b> 8:00 AM.</li>
+      <li>Once you set a time yourself, changing the day keeps it. “Back to the default” brings the default back.</li>
+    </ul>
+  </header>
+
+  <div class="toolbar">
+    <label>Theme <select id="theme"></select></label>
+    <label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label>Pretend it’s <input type="datetime-local" id="fake"></label>
+    <button type="button" class="btn small" id="realnow">Real time</button>
+    <span class="nowread" id="nowread" aria-live="polite"></span>
+  </div>
+
+  <!-- ===================== A ===================== -->
+  <h2 class="design">A. Two-step dialog <span class="tag tag--info">closest to the reference</span></h2>
+  <p class="sub">“Pick an exact time” opens a dialog. Pick the day, then the time on a clock: tap or drag an hour and it moves on to the minutes. The keyboard button swaps the clock for typed hours and minutes.</p>
+  <div class="stage">
+    <h3>When should this come back?</h3>
+    <p class="meta">The three likely times, End of the list and More times sit here as they do today.</p>
+    <button type="button" class="btn primary" id="a-open">Pick an exact time</button>
+    <p class="result" id="a-result" hidden></p>
+  </div>
+  <dialog class="pick" id="a-dlg" aria-labelledby="a-label">
+    <div class="pick-in" id="a-step-date">
+      <p class="pick-label" id="a-label">Pick a day</p>
+      <div class="pick-big"><strong id="a-bigdate"></strong></div>
+      <div id="a-cal"></div>
+    </div>
+    <div class="pick-in" id="a-step-time" hidden>
+      <p class="pick-label">Pick a time</p>
+      <button type="button" class="pick-date-chip" id="a-back-date" aria-label="Change the day">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        <span id="a-chipdate"></span>
+      </button>
+      <div class="tp-wrap">
+        <div class="tp-head" id="a-head"></div>
+        <div id="a-dialhost" style="width:100%;display:flex;justify-content:center"></div>
+      </div>
+      <p class="why" id="a-why"></p>
+    </div>
+    <div class="pick-foot">
+      <button type="button" class="iconbtn flat" id="a-kbd" aria-label="Type the time" title="Type the time" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M8 14h8"/></svg>
+      </button>
+      <span class="sp"></span>
+      <button type="button" class="textbtn" id="a-cancel">Cancel</button>
+      <button type="button" class="textbtn solid" id="a-next">Next</button>
+    </div>
+  </dialog>
+
+  <!-- ===================== B ===================== -->
+  <h2 class="design">B. Side by side, in the panel</h2>
+  <p class="sub">No dialog. The calendar and the clock sit together where the tiles were, and the line at the bottom always says when it comes back. Fewer steps, but it needs the width; on a phone the clock drops below the calendar.</p>
+  <div class="stage">
+    <h3>Pick an exact time</h3>
+    <div class="b-body">
+      <div class="b-col"><h4>Day</h4><div id="b-cal"></div></div>
+      <div class="b-col"><h4>Time</h4>
+        <div class="b-time">
+          <div class="tp-head" id="b-head"></div>
+          <div id="b-dialhost" style="width:100%;display:flex;justify-content:center"></div>
+        </div>
+        <p class="why" id="b-why" style="text-align:center"></p>
+      </div>
+    </div>
+    <div class="b-foot">
+      <div class="summary" id="b-summary"></div>
+      <button type="button" class="linkbtn" id="b-back">Back to the card</button>
+      <button type="button" class="btn primary" id="b-go">Schedule for this time</button>
+    </div>
+    <p class="result" id="b-result" hidden></p>
+  </div>
+
+  <!-- ===================== C ===================== -->
+  <h2 class="design">C. Compact: day chips and a two-ring clock</h2>
+  <p class="sub">The next week is one tap away as chips; “Other day” opens the month. The clock has hours inside and minutes outside, both live, so there's no switching between them. The time box takes typing too: “3”, “330p” or “15:30”.</p>
+  <div class="stage">
+    <h3>Pick an exact time</h3>
+    <div class="days" id="c-days" role="group" aria-label="Day"></div>
+    <div class="c-cal" id="c-calwrap" hidden><div id="c-cal"></div></div>
+    <div class="c-body">
+      <div id="c-dialhost"></div>
+      <div class="c-side">
+        <div class="c-read">
+          <label class="visually-hidden" for="c-time" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Time</label>
+          <input id="c-time" type="text" inputmode="text" autocomplete="off" spellcheck="false">
+          <div class="ap row" id="c-ap" role="group" aria-label="AM or PM"></div>
+        </div>
+        <div class="qts" id="c-qts" role="group" aria-label="Common times"></div>
+        <p class="why" id="c-why" style="margin:0"></p>
+        <p class="c-hint">Drag the inner ring for the hour and the outer ring for the minutes. On the clock, up and down change the hour; left and right change the minutes.</p>
+      </div>
+    </div>
+    <div class="b-foot">
+      <div class="summary" id="c-summary"></div>
+      <button type="button" class="linkbtn" id="c-back">Back to the card</button>
+      <button type="button" class="btn primary" id="c-go">Schedule for this time</button>
+    </div>
+    <p class="result" id="c-result" hidden></p>
+  </div>
+
+  <section class="notes">
+    <h2>Open questions</h2>
+    <ul>
+      <li>Should a time you set carry to a new day, as it does here, or should every change of day go back to the default?</li>
+      <li>Late at night, an hour from now runs past midnight, so picking Today lands on tomorrow at 12-something AM. Try it with “Pretend it’s”.</li>
+      <li>The clock moves in 5-minute steps. Typing (A’s keyboard button, C’s time box) takes any minute.</li>
+    </ul>
+  </section>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="picker.js"></script>
+<script>
+(function () {
+  var P = window.Picker, $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- Theme and the pretend clock ---------- */
+  var themeSel = $('theme'), modeSel = $('mode');
+  Themes.list.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; themeSel.appendChild(o); });
+  modeSel.value = Themes.resolveMode ? Themes.resolveMode('auto') : 'light';
+  function theme() { Themes.apply(themeSel.value, modeSel.value, 'standard'); }
+  themeSel.onchange = modeSel.onchange = theme; theme();
+
+  var models = [];
+  function nowRead() { var n = P.now(); $('nowread').textContent = 'Now: ' + P.fmtDate(n) + ', ' + P.fmtTime(n.getHours(), n.getMinutes()); }
+  function restartAll() { models.forEach(function (m) { m.start(); }); nowRead(); }
+  $('fake').onchange = function () { var v = $('fake').value; if (!v) return; P.pretend(new Date(v)); restartAll(); };
+  $('realnow').onclick = function () { $('fake').value = ''; P.pretend(null); restartAll(); };
+  setInterval(nowRead, 15000);
+
+  /* ---------- Shared bits of UI ---------- */
+  /* The big HH : MM with AM/PM. ctl.mode says which field the dial is setting. */
+  function head(el, model, ctl) {
+    function render() {
+      var s = model.s, pm = s.h >= 12;
+      el.innerHTML =
+        '<button type="button" class="tp-f" data-mode="hour" aria-pressed="' + (ctl.mode === 'hour') + '" aria-label="Hour, ' + P.h12(s.h) + '">' + P.pad(P.h12(s.h)) + '</button>' +
+        '<span class="tp-colon" aria-hidden="true">:</span>' +
+        '<button type="button" class="tp-f" data-mode="minute" aria-pressed="' + (ctl.mode === 'minute') + '" aria-label="Minutes, ' + P.pad(s.m) + '">' + P.pad(s.m) + '</button>' +
+        '<div class="ap" role="group" aria-label="AM or PM"><button type="button" data-ap="am" aria-pressed="' + !pm + '">AM</button><button type="button" data-ap="pm" aria-pressed="' + pm + '">PM</button></div>';
+    }
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.mode) ctl.setMode(b.dataset.mode);
+      if (b.dataset.ap) ampm(model, b.dataset.ap);
+      var f = el.querySelector(b.dataset.mode ? '[data-mode="' + b.dataset.mode + '"]' : '[data-ap="' + b.dataset.ap + '"]'); if (f) f.focus();
+    });
+    model.on(render);
+    return render;
+  }
+  function ampm(model, which) { var s = model.s; if (which === 'am' && s.h >= 12) model.setTime(s.h - 12, s.m); if (which === 'pm' && s.h < 12) model.setTime(s.h + 12, s.m); }
+  /* The line under the clock: where the time came from, or that it has passed */
+  function why(el, model) {
+    model.on(function (s) {
+      if (model.past()) { el.innerHTML = '<span class="warn">That time has passed.</span>' + (s.touched ? ' <button type="button" class="linkbtn">Back to the default</button>' : ''); }
+      else if (s.touched) el.innerHTML = 'Your time. <button type="button" class="linkbtn">Back to the default</button>';
+      else el.textContent = 'Default: ' + s.why + '.';
+    });
+    el.addEventListener('click', function (e) { if (e.target.closest('button')) model.reset(); });
+  }
+  function done(el, model) { el.hidden = false; el.textContent = 'Scheduled: comes back ' + model.label() + '. (Spike: nothing saved.)'; }
+
+  /* ===================== A: Two-step dialog ===================== */
+  (function () {
+    var m = P.Model(), dlg = $('a-dlg'), step = 'date', typing = false;
+    var ctl = { mode: 'hour', setMode: function (x) { ctl.mode = x; m.emit(); } };
+    P.calendar($('a-cal'), m);
+    var renderHead = head($('a-head'), m, ctl);
+    var dial = P.dial($('a-dialhost'), m, ctl);
+    why($('a-why'), m);
+    /* The typed alternative to the clock */
+    function typed() {
+      var s = m.s, pm = s.h >= 12;
+      $('a-head').innerHTML = '<div class="typed"><label>Hour<input id="a-th" inputmode="numeric" maxlength="2" value="' + P.h12(s.h) + '"></label>' +
+        '<span class="tp-colon" aria-hidden="true">:</span><label>Minute<input id="a-tm" inputmode="numeric" maxlength="2" value="' + P.pad(s.m) + '"></label></div>' +
+        '<div class="ap" role="group" aria-label="AM or PM"><button type="button" data-ap="am" aria-pressed="' + !pm + '">AM</button><button type="button" data-ap="pm" aria-pressed="' + pm + '">PM</button></div>';
+    }
+    $('a-head').addEventListener('change', function (e) {
+      if (!typing) return;
+      var h = parseInt($('a-th').value, 10), mi = parseInt($('a-tm').value, 10), s = m.s;
+      if (isNaN(h) || h < 1 || h > 12 || isNaN(mi) || mi < 0 || mi > 59) return;
+      m.setTime(h % 12 + (s.h >= 12 ? 12 : 0), mi);
+    });
+    m.on(function (s) {
+      $('a-bigdate').textContent = P.fmtDate(s.day);
+      $('a-chipdate').textContent = P.rel(s.day) === 'Today' || P.rel(s.day) === 'Tomorrow' ? P.rel(s.day) + ', ' + P.fmtDate(s.day) : P.fmtDate(s.day);
+      if (typing && !$('a-head').contains(document.activeElement)) typed();
+      else if (typing) { var b = $('a-head').querySelectorAll('[data-ap]'); b[0].setAttribute('aria-pressed', s.h < 12); b[1].setAttribute('aria-pressed', s.h >= 12); }
+      $('a-next').disabled = step === 'time' && m.past();
+    });
+    function show(x) {
+      step = x;
+      $('a-step-date').hidden = x !== 'date'; $('a-step-time').hidden = x !== 'time'; $('a-kbd').hidden = x !== 'time';
+      $('a-next').textContent = x === 'date' ? 'Next' : 'Schedule';
+      $('a-cancel').textContent = x === 'date' ? 'Cancel' : 'Back';
+      if (x === 'time') { ctl.mode = 'hour'; }
+      m.emit();
+      var f = x === 'date' ? $('a-cal').querySelector('.cal-day.sel') : (typing ? $('a-th') : dial.el); if (f) f.focus();
+    }
+    function setTyping(on) {
+      typing = on; dial.el.style.display = on ? 'none' : '';
+      $('a-kbd').setAttribute('aria-label', on ? 'Use the clock' : 'Type the time'); $('a-kbd').title = $('a-kbd').getAttribute('aria-label');
+      if (on) typed(); else renderHead();
+      m.emit();
+    }
+    $('a-kbd').onclick = function () { setTyping(!typing); var f = typing ? $('a-th') : dial.el; if (f) f.focus(); };
+    $('a-back-date').onclick = function () { show('date'); };
+    $('a-open').onclick = function () { $('a-result').hidden = true; m.start(); setTyping(false); dlg.showModal(); show('date'); };
+    $('a-cancel').onclick = function () { if (step === 'time') show('date'); else dlg.close(); };
+    $('a-next').onclick = function () { if (step === 'date') show('time'); else if (!m.past()) { dlg.close(); done($('a-result'), m); } };
+    m.start();
+    models.push(m);
+  })();
+
+  /* ===================== B: Side by side ===================== */
+  (function () {
+    var m = P.Model();
+    var ctl = { mode: 'hour', setMode: function (x) { ctl.mode = x; m.emit(); } };
+    P.calendar($('b-cal'), m);
+    head($('b-head'), m, ctl);
+    P.dial($('b-dialhost'), m, ctl);
+    why($('b-why'), m);
+    m.on(function () {
+      $('b-summary').innerHTML = 'Comes back ' + m.label() + '<small>' + (m.past() ? 'Pick a time later than now.' : 'Fuzz brings it back to your queue then.') + '</small>';
+      $('b-go').disabled = m.past();
+    });
+    $('b-go').onclick = function () { done($('b-result'), m); };
+    $('b-back').onclick = function () { ctl.mode = 'hour'; m.start(); $('b-result').hidden = true; };
+    m.start();
+    models.push(m);
+  })();
+
+  /* ===================== C: Compact ===================== */
+  (function () {
+    var m = P.Model(), calOpen = false;
+    P.calendar($('c-cal'), m);
+    P.dualDial($('c-dialhost'), m);
+    why($('c-why'), m);
+    var QT = [[8, 0, '8 AM'], [12, 0, 'Noon'], [13, 0, '1 PM'], [17, 0, '5 PM']];
+    function days() {
+      var t = P.sod(P.now()), s = m.s, h = '', inStrip = false;
+      for (var i = 0; i < 7; i++) {
+        var d = P.addDays(t, i), sel = P.sameDay(d, s.day); if (sel) inStrip = true;
+        var top = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : P.DOW[d.getDay()];
+        h += '<button type="button" class="daychip" data-day="' + P.key(d) + '" aria-pressed="' + sel + '"><b>' + top + '</b><span>' + P.MON[d.getMonth()] + ' ' + d.getDate() + '</span></button>';
+      }
+      var lbl = !inStrip ? P.fmtDate(s.day).split(', ')[1] : 'Pick';
+      h += '<button type="button" class="daychip other" data-other="1" aria-expanded="' + calOpen + '" aria-pressed="' + !inStrip + '"><b>Other day</b><span>' + lbl + '</span></button>';
+      return h;
+    }
+    $('c-days').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.other) { calOpen = !calOpen; $('c-calwrap').hidden = !calOpen; m.emit(); var f = calOpen && $('c-cal').querySelector('.cal-day.sel'); if (f) f.focus(); else $('c-days').querySelector('[data-other]').focus(); return; }
+      m.setDay(P.fromKey(b.dataset.day)); var g = $('c-days').querySelector('[data-day="' + b.dataset.day + '"]'); if (g) g.focus();
+    });
+    $('c-qts').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) m.setTime(+b.dataset.h, +b.dataset.m); });
+    $('c-ap').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { ampm(m, b.dataset.ap); $('c-ap').querySelector('[data-ap="' + b.dataset.ap + '"]').focus(); } });
+    /* Typed time: "3", "330", "3:30p", "15:30", "330 pm". Without am/pm, the hour keeps the current half of the day. */
+    function parse(v) {
+      var x = v.trim().toLowerCase().replace(/\s+/g, ''), ap = /p/.test(x) ? 'pm' : /a/.test(x) ? 'am' : null;
+      x = x.replace(/[apm.]/g, '');
+      var mm = /^(\d{1,2})(?::?(\d{2}))?$/.exec(x); if (!mm) return null;
+      var h = +mm[1], mi = mm[2] ? +mm[2] : 0; if (h > 23 || mi > 59) return null;
+      if (h > 12) return { h: h, m: mi };
+      if (ap === 'pm') return { h: h % 12 + 12, m: mi };
+      if (ap === 'am') return { h: h % 12, m: mi };
+      if (h === 0) return { h: 0, m: mi };
+      return { h: h % 12 + (m.s.h >= 12 ? 12 : 0), m: mi };
+    }
+    var ti = $('c-time');
+    ti.addEventListener('change', function () { var t = parse(ti.value); if (t) m.setTime(t.h, t.m); else ti.value = P.h12(m.s.h) + ':' + P.pad(m.s.m); });
+    ti.addEventListener('keydown', function (e) { if (e.key === 'Enter') ti.blur(); });
+    m.on(function (s) {
+      var dHasFocus = $('c-days').contains(document.activeElement) && document.activeElement.dataset;
+      var fk = dHasFocus ? (document.activeElement.dataset.day || (document.activeElement.dataset.other ? 'other' : '')) : '';
+      $('c-days').innerHTML = days();
+      if (fk) { var f = $('c-days').querySelector(fk === 'other' ? '[data-other]' : '[data-day="' + fk + '"]'); if (f) f.focus(); }
+      if (document.activeElement !== ti) ti.value = P.h12(s.h) + ':' + P.pad(s.m);
+      var pm = s.h >= 12;
+      $('c-ap').innerHTML = '<button type="button" data-ap="am" aria-pressed="' + !pm + '">AM</button><button type="button" data-ap="pm" aria-pressed="' + pm + '">PM</button>';
+      var now = P.now(), today = P.sameDay(s.day, now);
+      $('c-qts').innerHTML = QT.map(function (q) {
+        var past = today && new Date(s.day.getFullYear(), s.day.getMonth(), s.day.getDate(), q[0], q[1]) <= now;
+        return '<button type="button" class="qt" data-h="' + q[0] + '" data-m="' + q[1] + '"' + (past ? ' disabled' : '') + ' aria-pressed="' + (s.h === q[0] && s.m === q[1]) + '">' + q[2] + '</button>';
+      }).join('');
+      $('c-summary').innerHTML = 'Comes back ' + m.label() + '<small>' + (m.past() ? 'Pick a time later than now.' : 'Fuzz brings it back to your queue then.') + '</small>';
+      $('c-go').disabled = m.past();
+    });
+    $('c-go').onclick = function () { done($('c-result'), m); };
+    $('c-back').onclick = function () { calOpen = false; $('c-calwrap').hidden = true; m.start(); $('c-result').hidden = true; };
+    m.start();
+    models.push(m);
+  })();
+
+  nowRead();
+})();
+</script>
+</body>
+</html>
