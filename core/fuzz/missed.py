@@ -121,7 +121,8 @@ def report(core, task_id, found=None, not_found=None, actor="fuzz:executor"):
     msg["text"] = found["text"].strip()[:evals.TEXT_MAX]
     cid = evals.add_case(core, "extract", "keep", msg, {"has_my_ask": True, "ask": found["ask"].strip()[:300]},
                          f"feedback:{fid}", status="unconfirmed", signal_key=key,
-                         note=f"Fuzz missed this: {REASONS[why]}", expires_at=evals.expires(core))
+                         note=f"Fuzz missed this: {REASONS[why]}", expires_at=evals.expires(core),
+                         quote=found["quote"])
     who = (found.get("from") or {}).get("name") if isinstance(found.get("from"), dict) else None
     payload = {"case_id": cid, "feedback_id": fid, "source": found["source"], "from": who,
                "title": found.get("title") or found.get("channel"), "link": found.get("link"),

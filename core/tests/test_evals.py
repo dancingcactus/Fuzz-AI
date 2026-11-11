@@ -29,7 +29,8 @@ class Stub:
         self.prompts.append(p)
         msg = message_of(p)
         learned = p.split("## What you've learned", 1)[1] if "## What you've learned" in p else ""
-        if "is FYI" in learned or "sends is FYI" in learned:
+        # it reads a lesson the way a model might: "Priya … is FYI" makes her messages FYI, nobody else's
+        if "is FYI" in learned and "Priya" in learned and "Priya" in json.dumps(msg.get("from")):
             return json.dumps({"candidates": []})
         case = next(c for c in SEEDS if c["input"]["text"] == msg["text"])
         mine = case["expected"]["has_my_ask"]
@@ -101,20 +102,16 @@ class Harness(CoreCase):
         self.assertTrue(evals.judge('{"candidates": [{"ask": "Send it"}]}', {"has_my_ask": True})["passed"])
         self.assertFalse(evals.judge('{"candidates": [{"ask": "x", "owner": "unclear"}]}', {"has_my_ask": True})["passed"])
 
-    def test_a_scoped_lesson_reaches_only_the_messages_it_is_about(self):
+    def test_every_lesson_reaches_every_message_as_in_a_real_run(self):
         stub = Stub()
         evals.run(self.core, lessons=[BAD], repeats=1, runner=stub)
-        with_it = [message_of(p)["from"]["name"] for p in stub.prompts if BAD["rule"] in p]
-        self.assertTrue(with_it)
-        for p in stub.prompts:
-            msg = message_of(p)
-            sent = msg["from"].get("email") == "priya@acme.example"
-            self.assertEqual(BAD["rule"] in p, sent, msg["text"][:40])   # cc'd on the offsite update: not hers
+        self.assertTrue(all(BAD["rule"] in p for p in stub.prompts), "a real run can't narrow lessons per message")
 
     def test_a_case_is_never_scored_with_the_lesson_it_taught(self):
         msg = dict(SEEDS[0]["input"], text="Could you review the Q4 budget draft tonight?")
         evals.add_case(self.core, "extract", "keep", msg, {"has_my_ask": True}, "feedback:7")
-        taught = {"rule": "Budget reviews from Priya are always asks.", "feedback_ids": [7]}
+        cid = evals.cases(self.core, "extract")[-1]["id"]
+        taught = {"rule": "Budget reviews from Priya are always asks.", "case_id": cid}
         stub = Stub()
         SEEDS.append({"input": msg, "expected": {"has_my_ask": True}})
         self.addCleanup(SEEDS.pop)

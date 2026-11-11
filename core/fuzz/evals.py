@@ -36,31 +36,36 @@ MESSAGE_FIELDS = ("source", "ts", "link", "title", "from", "people", "channel")
 # ---- cases
 
 def add_case(core, surface, kind, msg, expected, origin, status="active", expires_at=None, note=None,
-             signal_key=None):
+             signal_key=None, quote=None):
     if kind not in ("keep", "skip"):
         raise FuzzError("kind must be keep or skip", "kind")
     now = core.now_iso()
-    core.q("INSERT INTO eval_cases (user_id, surface, kind, input, expected, origin, signal_key, status, created_at, "
-           "fetched_at, expires_at, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (user_id, origin) DO NOTHING",
-           (core.user_id, surface, kind, json.dumps(msg), json.dumps(expected), origin, signal_key, status, now,
-            now if status == "active" else None, expires_at, note))
+    core.q("INSERT INTO eval_cases (user_id, surface, kind, input, expected, origin, signal_key, quote, status, "
+           "created_at, fetched_at, expires_at, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+           "ON CONFLICT (user_id, origin) DO NOTHING",
+           (core.user_id, surface, kind, json.dumps(msg), json.dumps(expected), origin, signal_key,
+            (quote or "").strip()[:300] or None, status, now, now if status == "active" else None, expires_at, note))
     return core.one("SELECT id FROM eval_cases WHERE user_id=? AND origin=?", (core.user_id, origin))["id"]
 
 
-def retire(core, origin, why=None):
-    """A correction you undid takes its case with it: a wrong label is worse than none. The message's text goes
-    with it; only its outline stays, to say what the case was."""
+def retire(core, origin, why=None, withdrawn=False):
+    """The case stops counting, and the message's text goes; only its outline stays, to say what it was.
+    withdrawn: its label was taken back (Undo, a newer label), so the lesson it taught goes too. A case that
+    only expired or was never fetched keeps its lesson: the label was true."""
     c = core.one("SELECT id, input FROM eval_cases WHERE user_id=? AND origin=? AND status!='retired'",
                  (core.user_id, origin))
     if c:
-        _close(core, c, why)
+        _close(core, c, why, withdrawn)
+    elif withdrawn:   # already expired: the label still goes
+        core.q("UPDATE eval_cases SET withdrawn=1, note=COALESCE(?, note) WHERE user_id=? AND origin=?",
+               (why, core.user_id, origin))
 
 
-def _close(core, c, why):
+def _close(core, c, why, withdrawn=False):
     msg = json.loads(c["input"]) if isinstance(c["input"], str) else dict(c["input"])
     msg.pop("text", None)
-    core.q("UPDATE eval_cases SET status='retired', input=?, note=COALESCE(?, note) WHERE id=?",
-           (json.dumps(msg), why, c["id"]))
+    core.q("UPDATE eval_cases SET status='retired', input=?, note=COALESCE(?, note), withdrawn=MAX(withdrawn, ?) "
+           "WHERE id=?", (json.dumps(msg), why, 1 if withdrawn else 0, c["id"]))
 
 
 def sweep(core):
@@ -114,13 +119,13 @@ def from_not_task(core, task_id, feedback_id):
     msg.setdefault("source", sig["source"])
     owner = sig["owner"] or "me"
     return add_case(core, "extract", "skip", msg, {"has_my_ask": False, "strict": True}, f"feedback:{feedback_id}",
-                    status="pending", signal_key=sig["key"],
+                    status="pending", signal_key=sig["key"], quote=payload.get("quote"),
                     note=f"Not a task; extraction had it as {'yours' if owner == 'me' else owner}")
 
 
 def retire_for_task(core, task_id, why="You undid Not a task."):
     for f in core.all("SELECT id FROM feedback WHERE user_id=? AND kind='not_task' AND a=?", (core.user_id, task_id)):
-        retire(core, f"feedback:{f['id']}", why)
+        retire(core, f"feedback:{f['id']}", why, withdrawn=True)
 
 
 def expires(core):
@@ -138,13 +143,14 @@ def confirm(core, case_id):
     if c and c["signal_key"]:   # the newer label wins: a Not a task on the same message was wrong
         for old in core.all("SELECT id, input FROM eval_cases WHERE user_id=? AND signal_key=? AND kind='skip' "
                             "AND status!='retired'", (core.user_id, c["signal_key"])):
-            _close(core, old, "You later said this message held an ask of yours.")
+            _close(core, old, "You later said this message held an ask of yours.", withdrawn=True)
     return True
 
 
 def unconfirm(core, case_id):
     """Undo of a Yes: the case waits on the card again."""
-    core.q("UPDATE eval_cases SET status='unconfirmed' WHERE user_id=? AND id=? AND status='active'",
+    # fetched_at goes too: it marks a label you gave, and the learner reads it as one
+    core.q("UPDATE eval_cases SET status='unconfirmed', fetched_at=NULL WHERE user_id=? AND id=? AND status='active'",
            (core.user_id, case_id))
 
 
@@ -291,7 +297,7 @@ def judge(out, expected):
 # ---- a run
 
 def run(core, surface="extract", lessons=None, repeats=3, installed=False, client=None, model=None, runner=None,
-        workers=4, against=None):
+        workers=4, against=None, trying=None):
     """Score every active case `repeats` times, gate it and record the run. The gate compares with `against`
     (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
     must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
@@ -307,11 +313,19 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
     todo = cases(core, surface)
     if not todo:
         raise FuzzError(f"no active {surface} cases: run `fuzz eval seed` first", "cases")
+    if lessons is None:   # what a real run reads now, plus the one lesson you're trying, as if you'd said yes
+        lessons = learning.lessons_for(core, surface)
+        if trying is not None:
+            t = learning.get(core, trying)
+            if not t or t["surface"] != surface:
+                raise FuzzError(f"no {surface} lesson {trying}", "lesson")
+            lessons = [x for x in lessons if x["id"] != trying] + [
+                {k: t[k] for k in ("id", "kind", "case_id", "example", "rule")}]
 
     jobs = []
     for c in todo:
         msg = c["input"]
-        used = learning.for_message(lessons, msg, leave_out=_feedback_id(c["origin"]))
+        used = learning.leave_out(lessons, c["id"])   # every lesson a real run gets, but this case's own
         p = prompt(rules, msg.get("me") or me, {k: v for k, v in msg.items() if k != "me"}, used)
         jobs += [(c, p)] * repeats
 
@@ -347,11 +361,9 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
                  (core.user_id, core.now_iso(), surface, version, copy, client if runner is None else "stub",
                   model, repeats, json.dumps(lessons or []), json.dumps(list(results.values())),
                   base["id"] if base else None, 0 if reg else 1))
+    if trying is not None:   # only the lesson tried takes the result: the others ran before it without failing
+        learning.scored(core, [trying], cur.lastrowid, not reg)
     return get_run(core, cur.lastrowid)
-
-
-def _feedback_id(origin):
-    return int(origin.split(":", 1)[1]) if origin.startswith("feedback:") else None
 
 
 def get_run(core, run_id):

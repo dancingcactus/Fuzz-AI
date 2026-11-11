@@ -45,7 +45,13 @@ def whoami(core, role, prompt_version=None, client=None):
             **({"calendar": _calendar_ask(core)} if role == "executor" else {}),
             **({"deliverables_to_check": _to_check(core)} if role == "executor" else {}),
             **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
+            **({"lessons": _lessons(core, "extract")} if role == "extractor" else {}),
             **({"output_folder": outputs.folder(core)} if role == "executor" and outputs.folder(core) else {})}
+
+
+def _lessons(core, surface):
+    from . import learning   # the same text the evals score (learning.render)
+    return learning.prompt_section(core, surface)
 
 
 def _to_fetch(core):

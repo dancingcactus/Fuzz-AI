@@ -25,6 +25,8 @@ EVENT_TYPES = {
     "task.find_out",   # you asked Fuzz to find something out; the task stays yours
     # Fuzz missed this (missed.py): found a message, you said yes, asked again, or kept it as you wrote it
     "task.missed_found", "task.missed_confirmed", "task.missed_retry", "task.missed_kept",
+    # lessons (learning/): the learner adds, retires and restores them; you use or turn one off; evals score them
+    "lesson.added", "lesson.retired", "lesson.restored", "lesson.used", "lesson.turned_off", "lesson.scored",
     "task.doing", "task.paused",   # Do it now opened the working card; Pause put it back in the list
     "task.block_started", "task.block_ended", "task.block_missed", "task.block_extended",   # booked time
     "calendar.reported",   # the executor read the calendar: Focus time slots, free time and Fuzz's holds
@@ -48,7 +50,8 @@ EVENT_TYPES = {
 
 # Projected tables and their key column. user_state is keyed by (user_id, key).
 TABLES = {"tasks": "id", "groups": "id", "cards": "id", "drafts": "id", "grants": "id", "user_state": "key",
-          "deliverables": "id", "facts": "id", "knowledge": "id", "decision_log": "id", "memory_links": "id"}
+          "deliverables": "id", "facts": "id", "knowledge": "id", "decision_log": "id", "memory_links": "id",
+          "lessons": "id"}
 
 ACTORS = ("human", "fuzz:extractor", "fuzz:executor", "fuzz:sender", "fuzz:session", "fuzz:onboarding", "fuzz:recall", "system")
 
@@ -89,6 +92,9 @@ class Changes:
 
     def knowledge(self, kid, **fields):
         return self._put("knowledge", kid, fields)
+
+    def lesson(self, lid, **fields):
+        return self._put("lessons", lid, fields)
 
     def decision(self, did, **fields):
         return self._put("decision_log", did, fields)
@@ -315,6 +321,7 @@ DECISIVE = {"tasks": {"state", "assignee", "lease_owner", "notes", "question", "
             "groups": {"title", "state"}, "cards": {"status"}, "drafts": {"status", "body"}, "grants": {"kind"}, "user_state": {"value"},
             "deliverables": {"state", "tier", "title", "done_when"},
             "facts": {"status", "value", "confirmed_at"}, "knowledge": {"status"}, "decision_log": {"status", "what"},
+            "lessons": {"status"},
             "memory_links": {"removed"}}
 
 
@@ -441,4 +448,6 @@ def _absent(table, created):
         return {"status": "undone"}
     if table == "memory_links":
         return {"removed": 1}
+    if table == "lessons":
+        return {"status": "retired"}
     return {"value": None}

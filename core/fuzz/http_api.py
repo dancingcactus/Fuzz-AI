@@ -126,6 +126,8 @@ class App:
             ("GET", r"/tasks/search", self.search_tasks),
             ("GET", r"/tasks/(\d+)", self.get_task),
             ("POST", r"/tasks/(\d+)/(assign|done|park|wait|theirs|letgo|session|reopen|schedule|back|find_out)", self.task_action),
+            ("GET", r"/lessons", self.list_lessons),
+            ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
             ("GET", r"/deliverables", self.list_deliverables),
             ("POST", r"/deliverables", self.create_deliverable),
             ("GET", r"/deliverables/(\d+)", self.get_deliverable),
@@ -500,6 +502,17 @@ class App:
                   "key": body.get("key") or timeres.moment_key(body["label"]), "cancelled": bool(body.get("cancelled"))}
         label = scheduler.suggest_schedule(core, tid, anchor, body.get("reason"), actor="human")
         return {"task_id": tid, "label": label, "key": anchor["key"]}, 201
+
+    # ---- lessons: what Fuzz learned from your corrections (learning/)
+    def list_lessons(self, core, m, body, q):
+        from . import learning
+        return {"lessons": learning.listing(core)}
+
+    def lesson_action(self, core, m, body, q):
+        from . import learning
+        lid, what = int(m.group(1)), m.group(2)
+        (learning.use if what == "use" else learning.turn_off)(core, lid)
+        return {"lesson": learning.get(core, lid)}
 
     # ---- deliverables: named outcomes served by tasks from any channel
     def list_deliverables(self, core, m, body, q):

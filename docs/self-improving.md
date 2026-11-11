@@ -19,26 +19,24 @@ before it acts) and **eval cases** (a golden set that every change to a skill or
 
 Three separate pieces, so each grows on its own.
 
-1. **Signals**: events and `feedback` rows. A new signal is a new event type or feedback kind.
-2. **Learners**: one module each in `core/fuzz/learning/learners/`, found by a registry. Each declares
-   what it listens to, which surface it feeds, how much agreeing evidence promotes a lesson, and whether a
-   lesson needs a yes. A learner can also add eval cases.
+1. **Signals**: events, `feedback` rows and eval cases. A new signal is a new event type, feedback kind or
+   case origin.
+2. **Learners**: one module each in `core/fuzz/learning/learners/`, found by a registry. Each names its
+   surface and a key prefix, and `learn(core)` returns the lessons it wants now; `learning.run` adds,
+   retires and restores to match. Learners read, never write.
 
    ```python
-   LEARNER = Learner(name="not_task", listens=["feedback:not_task", "feedback:missed"],
-                     surface="extract", promote_after=3, needs_confirm=True)
+   LEARNER = Learner(name="examples", surface="extract", prefix="case:")
    ```
 
-3. **Surfaces**: where lessons are read. `lessons.for_surface(core, "extract", scope={...})` is called
-   where a prompt or decision is built. A new surface is one call.
+3. **Surfaces**: where lessons are read. `learning.lessons_for(core, surface)` and `learning.render` build
+   the text, for a real run and for the evals alike. A new surface is one call where a prompt is built.
 
-A lesson has a `scope` (global; `from`, the sender; `person`, anyone on the message, cc included; later
-source and card type), a one-sentence `rule`, `evidence` (event ids),
-`status` (proposed, active, retired) and `how` (inferred, confirmed). It changes only through
-`lesson.added`, `lesson.confirmed` and `lesson.retired` events, so Undo and `rebuild()` cover it.
+A lesson is an example (keep or skip: a message's outline and short quote) or a one-sentence rule, with
+`status` (proposed, active, off, retired), `how` (inferred, confirmed), the `case_id` it came from, and the
+last eval run that tried it. It changes only through `lesson.*` events, so Undo and `rebuild()` cover it.
 
-The "What I've learned" page groups lessons by surface and shows their evidence. It knows nothing about
-any one learner.
+The "What I've learned" section groups lessons by kind and knows nothing about any one learner.
 
 ## Evals
 
@@ -72,9 +70,8 @@ a signal with no `me` candidate means judged FYI; one owned by someone else mean
   records what it was gated against; `fuzz eval run` exits 1 when the gate fails.
 - An ask counts as the person's the way the matcher reads it: `owner` `me` or none. `unclear` doesn't.
 - Copilot's default model is recorded as null; pass `--model` when comparing runs across model changes.
-- Leave-one-out: a case is never scored with its own lesson or example in the prompt. Today it's keyed on
-  the case's one feedback id; a message with several asks writes several, so step 4 must key it on
-  `signal_key`.
+- Leave-one-out: a case is never scored with its own lesson, keyed on the case id (a never-read miss has
+  no signal key).
 
 ### Proving it on the simple example
 
@@ -113,8 +110,23 @@ a signal with no `me` candidate means judged FYI; one owned by someone else mean
    ask as yours. Not that one sends Fuzz to look again with what you said, up to two finds. Keep it as I
    wrote it ends the search. Undo of a yes puts the case back on the card. `fuzz capture --missed` tags
    one up front, for testing.
-4. **Lessons store, the `not_task` / `missed` learner, the `extract` surface and a bare lessons page**,
-   scored against the cases from steps 1–3.
+4. **Lessons** (built): a `lessons` table that changes only through events (`lesson.added`, `.retired`,
+   `.restored`, `.used`, `.turned_off`, `.scored`), so Undo and replay cover it. Learners live in
+   `core/fuzz/learning/learners/`, one file each, found by a registry; `learning.run` reconciles what they
+   want with the table on every tick (SQL only) and with `fuzz learn`. A lesson you turned off never comes
+   back; one whose label was taken back is retired, and restored if the label returns.
+   - The first learner, `examples`, makes one lesson per labelled message, not per-sender counts: a
+     confirmed miss is a keep example, active at once; a Not a task message is a skip example, proposed
+     until you say Use it. An example is the message's outline and short quote, never its text.
+   - The extract surface: the extractor's `whoami` carries `lessons`, rendered by `learning.render` as
+     quoted data, and the extract skill (extract-0.18) says how to use them inside step 4, so the evals
+     score that text too. Evals give every case every active lesson but its own (`--with-proposed` adds the
+     proposed ones), as a real run does, and each scored lesson remembers its last run and gate result.
+     A lesson whose run failed its gate can't be used.
+   - Settings has "What I've learned": Asks I missed and What isn't a task, each with Use it or Turn off.
+   - Live on Copilot (2026-11-11, extract-0.18): a Priya-only bad lesson given to every message failed only
+     her DM. An all-staff IT reminder marked Not a task failed 0/3 without lessons and passed 3/3 with one
+     IT example, with no other case worse.
 
 ## Later
 

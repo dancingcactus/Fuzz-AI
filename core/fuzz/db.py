@@ -456,6 +456,8 @@ CREATE TABLE IF NOT EXISTS eval_cases (
   expected TEXT NOT NULL,          -- {"has_my_ask": bool, "ask"?: str} (JSON)
   origin TEXT NOT NULL,            -- seed:<name> | feedback:<id>
   signal_key TEXT,                 -- the message it came from; one case per message
+  quote TEXT,                      -- the short quote a signal or a find carries: a lesson's example shows it
+  withdrawn INTEGER NOT NULL DEFAULT 0,   -- its label was taken back (Undo, a newer label), not just expired
   offers INTEGER NOT NULL DEFAULT 0,   -- how many executor runs were asked for its text
   offered_at TEXT,
   status TEXT NOT NULL,            -- pending (waiting for its full text) | active | retired
@@ -464,6 +466,22 @@ CREATE TABLE IF NOT EXISTS eval_cases (
   expires_at TEXT,
   note TEXT,
   UNIQUE (user_id, origin)
+);
+CREATE TABLE IF NOT EXISTS lessons (   -- what Fuzz learned from your corrections (learning/); projected
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  key TEXT NOT NULL,               -- the learner's stable name for it, like case:12
+  surface TEXT NOT NULL,           -- where it's read: extract
+  kind TEXT NOT NULL,              -- keep | skip (an example) | rule
+  case_id INTEGER,                 -- the eval case it came from: never scored with it (leave-one-out)
+  example TEXT,                    -- the message's outline and short quote, never its text (JSON)
+  rule TEXT NOT NULL,              -- one plain sentence, for the page
+  status TEXT NOT NULL,            -- proposed | active | off (you) | retired (its label was taken back)
+  how TEXT NOT NULL,               -- inferred | confirmed
+  created_at TEXT,
+  confirmed_at TEXT,
+  eval_run INTEGER,                -- the last eval run that scored it, and whether that run passed its gate
+  eval_ok INTEGER
 );
 CREATE TABLE IF NOT EXISTS eval_runs (
   id INTEGER PRIMARY KEY,
@@ -483,7 +501,7 @@ CREATE TABLE IF NOT EXISTS eval_runs (
 """
 
 JSON_COLS = {"quick_answers", "variant_tags", "schedule_anchor", "schedule_hints", "title_history",
-             "options", "schedule_options", "payload", "answer", "detail", "attachments", "covers", "gaps", "meta", "alternatives"}
+             "options", "schedule_options", "payload", "answer", "detail", "attachments", "covers", "gaps", "meta", "alternatives", "example"}
 
 
 def iso(dt):
@@ -529,7 +547,8 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                         ("next_step", "TEXT"), ("session_id", "TEXT"), ("session_launch", "TEXT"), ("session_at", "TEXT"),
                         ("expires_at", "TEXT")],
               # the first eval tables went out without these (2026-11-11)
-              "eval_cases": [("signal_key", "TEXT"), ("offers", "INTEGER NOT NULL DEFAULT 0"), ("offered_at", "TEXT")],
+              "eval_cases": [("signal_key", "TEXT"), ("offers", "INTEGER NOT NULL DEFAULT 0"), ("offered_at", "TEXT"),
+                             ("quote", "TEXT"), ("withdrawn", "INTEGER NOT NULL DEFAULT 0")],
               "eval_runs": [("against", "INTEGER"), ("gate_ok", "INTEGER NOT NULL DEFAULT 1")]}
 
 

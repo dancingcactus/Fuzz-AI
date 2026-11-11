@@ -330,15 +330,29 @@ def cmd_eval(a):
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
-    lessons = []
+    lessons = None   # the active lessons, as a real run reads them
     if a.lessons:
         with open(a.lessons) as f:
             lessons = json.load(f)
     run = evals.run(core, a.surface, lessons=lessons, repeats=a.repeats, installed=a.installed,
-                    client=a.client, model=a.model, against=a.against)
+                    client=a.client, model=a.model, against=a.against, trying=a.trying)
     _print(evals.summary(core, run))
     if not run["gate_ok"]:
         sys.exit(1)
+
+
+def cmd_learn(a):
+    """Bring lessons up to date with your corrections, or list them."""
+    from . import learning
+    core = _core(a)
+    if a.op == "list":
+        return _print(learning.listing(core))
+    if a.op in ("use", "off"):
+        if not a.id:
+            raise FuzzError("which lesson? pass its id", "id")
+        (learning.use if a.op == "use" else learning.turn_off)(core, a.id)
+        return _print(learning.get(core, a.id))
+    _print(learning.run(core))
 
 
 def cmd_rebuild(a):
@@ -637,12 +651,18 @@ def parser():
     s.add_argument("--apply", action="store_true", help="people: carry out the plan (without it, only show it)")
     s.set_defaults(fn=cmd_memory)
 
+    s = sub.add_parser("learn", help="lessons: bring them up to date with your corrections, list them, use or turn one off")
+    s.add_argument("op", nargs="?", default="run", choices=["run", "list", "use", "off"])
+    s.add_argument("id", nargs="?", type=int)
+    s.set_defaults(fn=cmd_learn)
+
     s = sub.add_parser("eval", help="evals: load the seed cases, list cases, score them, or show a run")
     s.add_argument("op", choices=["seed", "cases", "run", "show"])
     s.add_argument("--surface", default="extract", choices=["extract"])
     s.add_argument("--status", default="active", choices=["active", "pending", "retired"], help="cases: which ones")
     s.add_argument("--repeats", type=int, default=3, help="run: how many times each case runs")
-    s.add_argument("--lessons", help="run: a JSON file of lessons to score with")
+    s.add_argument("--lessons", help="run: a JSON file of lessons to score with (default: the active ones)")
+    s.add_argument("--try", dest="trying", type=int, help="run: score the active lessons plus this one; only it takes the result")
     s.add_argument("--installed", action="store_true", help="run: score the installed skill, not the repo's")
     s.add_argument("--client", choices=["claude-code", "copilot"])
     s.add_argument("--model")

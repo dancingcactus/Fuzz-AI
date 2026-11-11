@@ -601,6 +601,8 @@ def tick(core):
     from . import deliverables
     out["deliverables"] = deliverables.release(core)   # Monday's review, and the weekday cards
     out["memory"] = _memory_tick(core)   # the Knowledge files, memory's cards
+    from . import learning
+    out["lessons"] = learning.run(core)   # SQL only: lessons follow your corrections; scoring stays a command
     return out
 
 

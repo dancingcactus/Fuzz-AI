@@ -47,8 +47,9 @@
   V.unmount = function () { document.removeEventListener('keydown', onEsc); clearTimeout(poll); root = null; picks = null; };
 
   function load() {
-    return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; })]).then(function (r) {
-      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4] };
+    return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; }),
+      Live.lessons().catch(function () { return null; })]).then(function (r) {   /* a core from before lessons has no /lessons */
+      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null };
       return data;
     });
   }
@@ -63,13 +64,13 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What Fuzz knows about you, what he may do, and how he looks. Each part saves on its own.</p>' +
-      meHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
   var FN = null;
   function repaint(id) {
-    FN = FN || { me: meHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML };
+    FN = FN || { me: meHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML };
     var el = root && root.querySelector('#sec-' + id); if (!el) return;
     var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
     var grp = a && a.getAttribute && a.getAttribute('data-group');
@@ -314,6 +315,32 @@
       '<h3>Motion</h3><label class="check"><input type="checkbox" id="look-calm"' + (pr.calm ? ' checked' : '') + '> <span>Calm mode<small>Fades only. No flashes, confetti or gags.</small></span></label>');
   }
 
+  /* ---------- What I've learned ---------- */
+  /* Each message you corrected me on is an example I read before judging new ones. A missed ask counts as soon as
+     you confirm it; one you said held nothing waits for your OK here, since it changes what I leave out. */
+  var LEARNED = [['keep', 'Asks I missed'], ['skip', 'What isn’t a task']];
+  function learnedHTML() {
+    var all = data.lessons; if (!all) return '';
+    var body = all.length ? LEARNED.map(function (g) {
+      var rows = all.filter(function (x) { return x.kind === g[0]; }); if (!rows.length) return '';
+      return '<h3>' + g[1] + '</h3><ul class="set-apps">' + rows.map(function (x) {
+        var b = busy['lesson-' + x.id], failed = x.eval_ok === 0;
+        var tag = x.status === 'active' ? ['In use', 'ok'] : x.status === 'off' ? ['Off', 'muted'] : failed ? ['Made me worse in testing', 'warn'] : ['Waiting for your OK', 'accent'];
+        var acts = b ? '' : (x.status !== 'active' && !failed ? '<button type="button" class="btn small" data-lesson="use" data-id="' + x.id + '">' + (x.status === 'off' ? 'Turn back on' : 'Use it') + '</button>' : '') +
+          (x.status !== 'off' ? '<button type="button" class="btn small" data-lesson="off" data-id="' + x.id + '">Turn off</button>' : '');
+        return '<li class="set-app"><div><span>' + esc(x.rule) + '</span> ' + UI.pill(b || tag[0], b ? 'accent' : tag[1]) + '</div><div class="segrow">' + acts + '</div></li>';
+      }).join('') + '</ul>';
+    }).join('') : '<p class="meta">Nothing yet. When you tell me a message held nothing for you, or that I missed an ask, I learn from it here.</p>';
+    return section('learned', 'What I’ve learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
+      '<span class="meta set-said" id="said-learned" role="status"></span>');
+  }
+  function lessonAction(what, id) {
+    busy['lesson-' + id] = what === 'use' ? 'Turning on…' : 'Turning off…'; repaint('learned');
+    return Live.lessonAction(id, what).then(function () { return Live.lessons(); }).then(function (r) {
+      data.lessons = r.lessons; delete busy['lesson-' + id]; repaint('learned'); said('learned', what === 'use' ? 'On. I’ll use it from now on.' : 'Off. I won’t use it.');
+    }, function (e) { delete busy['lesson-' + id]; repaint('learned'); said('learned', 'That didn’t work: ' + e.message); });
+  }
+
   /* Your queue: bring it up to date with the core, or in the demo start it over; and switch who's using Fuzz */
   function queueHTML() {
     var live = Live.on();
@@ -339,6 +366,7 @@
   function onClick(e) {
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.app) return appAction(b.dataset.app, b.dataset.client);
+    if (b.dataset.lesson) return lessonAction(b.dataset.lesson, parseInt(b.dataset.id, 10));
     if (b.dataset.hmode) { hoursEdit.mode = b.dataset.hmode; repaint('hours'); return; }
     if (b.dataset.slots) { var n = (slotsEdit || data.slots.slots) + parseInt(b.dataset.slots, 10); slotsEdit = Math.max(1, Math.min(data.slots.max, n)); repaint('slots'); return; }
     if (b.dataset.list) return listAgain();

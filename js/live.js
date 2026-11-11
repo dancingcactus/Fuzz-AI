@@ -736,6 +736,9 @@
     saveHours: function (body) { return api('PUT', '/hours', body); },
     /* How many tasks Fuzz may work on at once: the Lineup's slots */
     slots: function () { return api('GET', '/slots'); },
+    /* What Fuzz learned from your corrections: use one, or turn it off (Undo takes either back) */
+    lessons: function () { return api('GET', '/lessons'); },
+    lessonAction: function (id, what) { return api('POST', '/lessons/' + id + '/' + what, {}); },
     saveSlots: function (n) { return api('PUT', '/slots', { slots: n }).then(function (r) { Store.setSlots(r.slots); return r; }); },
     engine: function () { return api('GET', '/engine?start=0'); },
     checkEngine: function () { return api('POST', '/engine/check', {}); },
