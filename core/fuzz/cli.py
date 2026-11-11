@@ -316,6 +316,31 @@ def cmd_memory(a):
         return _print({"applied": a.apply, "plan": who.settle(core, apply=a.apply)})
 
 
+def cmd_eval(a):
+    """The golden set: load the seed cases, list cases, or score them (docs/self-improving.md)."""
+    from . import evals
+    core = _core(a)
+    if a.op == "seed":
+        return _print({"cases": evals.seed(core, a.surface)})
+    if a.op == "cases":
+        return _print([{"id": c["id"], "kind": c["kind"], "origin": c["origin"], "status": c["status"],
+                        "note": c["note"]} for c in evals.cases(core, a.surface, a.status)])
+    if a.op == "show":
+        run = evals.get_run(core, a.run) if a.run else None
+        if not run:
+            raise FuzzError("no such eval run", "run")
+        return _print(run)
+    lessons = []
+    if a.lessons:
+        with open(a.lessons) as f:
+            lessons = json.load(f)
+    run = evals.run(core, a.surface, lessons=lessons, repeats=a.repeats, installed=a.installed,
+                    client=a.client, model=a.model, against=a.against)
+    _print(evals.summary(core, run))
+    if not run["gate_ok"]:
+        sys.exit(1)
+
+
 def cmd_rebuild(a):
     core = _core(a)
     if a.check:
@@ -610,6 +635,19 @@ def parser():
     s.add_argument("op", choices=["write", "cards", "people"])
     s.add_argument("--apply", action="store_true", help="people: carry out the plan (without it, only show it)")
     s.set_defaults(fn=cmd_memory)
+
+    s = sub.add_parser("eval", help="evals: load the seed cases, list cases, score them, or show a run")
+    s.add_argument("op", choices=["seed", "cases", "run", "show"])
+    s.add_argument("--surface", default="extract", choices=["extract"])
+    s.add_argument("--status", default="active", choices=["active", "pending", "retired"], help="cases: which ones")
+    s.add_argument("--repeats", type=int, default=3, help="run: how many times each case runs")
+    s.add_argument("--lessons", help="run: a JSON file of lessons to score with")
+    s.add_argument("--installed", action="store_true", help="run: score the installed skill, not the repo's")
+    s.add_argument("--client", choices=["claude-code", "copilot"])
+    s.add_argument("--model")
+    s.add_argument("--against", type=int, help="run: gate against this run (default: the last run that passed)")
+    s.add_argument("--run", type=int, help="show: the run id")
+    s.set_defaults(fn=cmd_eval)
 
     s = sub.add_parser("rebuild", help="replay the event log into the tasks and cards tables")
     s.add_argument("--check", action="store_true", help="only report whether replay matches")

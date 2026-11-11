@@ -204,7 +204,8 @@ def _is_task(core, card, t, option, value):
             for a in many:
                 tasks.let_go(core, a["id"], card=card if a["id"] == t["id"] else None, option="not_task",
                              why="You said this isn't a task.")
-                _not_task(core, a["id"], "is_task card")
+            for a in many:   # after they're all let go, so the message reads as holding no ask of yours
+                _not_task(core, a["id"], "is_task card", case=True)
         return
     if option == "someone_else":
         with core.tx("human"):
@@ -214,9 +215,14 @@ def _is_task(core, card, t, option, value):
         return
 
 
-def _not_task(core, task_id, note):
-    core.q("INSERT INTO feedback (user_id, ts, kind, a, note) VALUES (?,?,?,?,?)",
-           (core.user_id, core.now_iso(), "not_task", task_id, note))
+def _not_task(core, task_id, note, case=False):
+    """case: the message held nothing for you, so it becomes an eval case (docs/self-improving.md). An ask you
+    didn't tick is someone else's from a message that did hold yours: feedback only."""
+    fid = core.q("INSERT INTO feedback (user_id, ts, kind, a, note) VALUES (?,?,?,?,?)",
+                 (core.user_id, core.now_iso(), "not_task", task_id, note)).lastrowid
+    if case:
+        from . import evals
+        evals.from_not_task(core, task_id, fid)
 
 
 def _draft(core, card, t, option, value):

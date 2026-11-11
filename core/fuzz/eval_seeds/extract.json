@@ -1,0 +1,127 @@
+{
+  "about": "Invented messages for Alex Chen at an invented company. Each case says whether the message holds an ask for Alex. They exist so the eval harness works before any real correction does; real cases from Not a task and missed tasks join them.",
+  "cases": [
+    {
+      "name": "dm-direct-ask",
+      "kind": "keep",
+      "why": "A DM that names a deliverable and a day",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "slack", "ts": "2026-10-20T15:02:00Z",
+        "from": {"name": "Priya Shah", "email": "priya@acme.example", "slack_id": "UPRIYA1"},
+        "people": [{"name": "Alex Chen", "slack_id": "UALEX01"}],
+        "channel": "DM with Priya Shah",
+        "text": "Hey! Can you send me the Q3 vendor numbers by Thursday? Finance wants them before the planning review."
+      },
+      "expected": {"has_my_ask": true, "ask": "Send Priya the Q3 vendor numbers"}
+    },
+    {
+      "name": "facilities-fyi",
+      "kind": "skip",
+      "why": "An announcement to everyone with nothing to do",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "email", "ts": "2026-10-20T13:00:00Z",
+        "from": {"name": "Facilities", "email": "facilities@acme.example"},
+        "people": [{"name": "All staff", "email": "all@acme.example"}],
+        "title": "Office closed Monday",
+        "text": "Hi all,\n\nThe office will be closed Monday for HVAC maintenance. Remote work as usual; badges won't work that day.\n\nThanks,\nFacilities"
+      },
+      "expected": {"has_my_ask": false}
+    },
+    {
+      "name": "ask-for-someone-else",
+      "kind": "skip",
+      "why": "Alex is on the thread, but the ask names Dana",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "email", "ts": "2026-10-20T16:40:00Z",
+        "from": {"name": "Marcus Lee", "email": "marcus@acme.example"},
+        "people": [{"name": "Alex Chen", "email": "alex@acme.example"}, {"name": "Dana Ortiz", "email": "dana@acme.example"}],
+        "title": "Northwind renewal",
+        "text": "Thanks both. Northwind signed off on the terms. Dana, can you send them the final contract today so legal can countersign?\n\nMarcus"
+      },
+      "expected": {"has_my_ask": false}
+    },
+    {
+      "name": "can-someone-big-channel",
+      "kind": "skip",
+      "why": "\"Can someone\" to a 200-person channel: unclear, not Alex's",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "slack", "ts": "2026-10-20T17:10:00Z",
+        "from": {"name": "Jordan Park", "slack_id": "UJORD01"},
+        "channel": "#eng-all (214 members)",
+        "text": "Can someone take a look at the flaky checkout test? It's failed three of the last five runs on main."
+      },
+      "expected": {"has_my_ask": false}
+    },
+    {
+      "name": "meeting-action-item",
+      "kind": "keep",
+      "why": "A meeting action item assigned to Alex by name",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "meeting", "ts": "2026-10-20T10:30:00Z",
+        "from": {"name": "Launch sync"},
+        "people": [{"name": "Alex Chen"}, {"name": "Priya Shah"}, {"name": "Sam Rivera"}],
+        "text": "Action items:\n| Owner | Item |\n| Sam | Confirm the press date with comms |\n| Alex | Draft the launch FAQ for support |\n| Priya | Book the demo room |"
+      },
+      "expected": {"has_my_ask": true, "ask": "Draft the launch FAQ for support"}
+    },
+    {
+      "name": "thank-you",
+      "kind": "skip",
+      "why": "A thank-you closes nothing new and asks for nothing",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "slack", "ts": "2026-10-21T09:05:00Z",
+        "from": {"name": "Sam Rivera", "slack_id": "USAM001"},
+        "channel": "DM with Sam Rivera",
+        "text": "Thanks Alex, that's perfect! 🙌"
+      },
+      "expected": {"has_my_ask": false}
+    },
+    {
+      "name": "buried-ask",
+      "kind": "keep",
+      "why": "A long status update with one ask for Alex at the end",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "email", "ts": "2026-10-21T11:20:00Z",
+        "from": {"name": "Sam Rivera", "email": "sam@acme.example"},
+        "people": [{"name": "Alex Chen", "email": "alex@acme.example"}, {"name": "Priya Shah", "email": "priya@acme.example"}, {"name": "Marcus Lee", "email": "marcus@acme.example"}],
+        "title": "Offsite update",
+        "text": "Quick update on the offsite:\n\n- Venue is held through Friday\n- Catering quotes are in; going with the second one\n- Travel is booked for everyone but Marcus, who's driving\n\nAlex, could you confirm the final headcount with me before Friday so I can release the deposit?\n\nSam"
+      },
+      "expected": {"has_my_ask": true, "ask": "Confirm the offsite headcount with Sam"}
+    },
+    {
+      "name": "own-invite-note",
+      "kind": "skip",
+      "why": "Alex's own invite: the calendar already holds it",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "email", "ts": "2026-10-21T14:00:00Z",
+        "from": {"name": "Alex Chen", "email": "alex@acme.example"},
+        "people": [{"name": "Priya Shah", "email": "priya@acme.example"}],
+        "title": "Invitation: Roadmap walkthrough",
+        "text": "Setting up time to walk through the Q1 roadmap before it goes to leadership."
+      },
+      "expected": {"has_my_ask": false}
+    },
+    {
+      "name": "own-commitment",
+      "kind": "keep",
+      "why": "Alex's own message commits to something beyond itself",
+      "input": {
+        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
+        "source": "slack", "ts": "2026-10-21T15:30:00Z",
+        "from": {"name": "Alex Chen", "slack_id": "UALEX01"},
+        "channel": "#launch",
+        "text": "Good call. I'll send the revised pricing deck to the group by Friday."
+      },
+      "expected": {"has_my_ask": true, "ask": "Send the revised pricing deck by Friday"}
+    }
+  ]
+}

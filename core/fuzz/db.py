@@ -445,6 +445,41 @@ CREATE TABLE IF NOT EXISTS feedback (
   decision_id INTEGER,
   note TEXT
 );
+-- evals (docs/self-improving.md): outside the event log, like feedback, so an expired snapshot never
+-- touches rebuild()
+CREATE TABLE IF NOT EXISTS eval_cases (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  surface TEXT NOT NULL,           -- extract
+  kind TEXT NOT NULL,              -- keep | skip
+  input TEXT NOT NULL,             -- the message as the extractor saw it (JSON)
+  expected TEXT NOT NULL,          -- {"has_my_ask": bool, "ask"?: str} (JSON)
+  origin TEXT NOT NULL,            -- seed:<name> | feedback:<id>
+  signal_key TEXT,                 -- the message it came from; one case per message
+  offers INTEGER NOT NULL DEFAULT 0,   -- how many executor runs were asked for its text
+  offered_at TEXT,
+  status TEXT NOT NULL,            -- pending (waiting for its full text) | active | retired
+  created_at TEXT NOT NULL,
+  fetched_at TEXT,
+  expires_at TEXT,
+  note TEXT,
+  UNIQUE (user_id, origin)
+);
+CREATE TABLE IF NOT EXISTS eval_runs (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  ts TEXT NOT NULL,
+  surface TEXT NOT NULL,
+  skill_version TEXT,
+  skill_copy TEXT,                 -- repo | installed
+  client TEXT,
+  model TEXT,
+  repeats INTEGER NOT NULL,
+  lessons TEXT NOT NULL,           -- the lesson set the run was given (JSON)
+  results TEXT NOT NULL,           -- per case: passes, runs, outputs (JSON)
+  against INTEGER,                 -- the run it was gated against: the last that passed, or --against
+  gate_ok INTEGER NOT NULL         -- 1 when no case that passed there fails here
+);
 """
 
 JSON_COLS = {"quick_answers", "variant_tags", "schedule_anchor", "schedule_hints", "title_history",
@@ -492,7 +527,10 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                         ("pushes", "INTEGER"), ("missed_blocks", "INTEGER"),
                         ("deliverable_id", "INTEGER"), ("maybe_deliverable_id", "INTEGER"),
                         ("next_step", "TEXT"), ("session_id", "TEXT"), ("session_launch", "TEXT"), ("session_at", "TEXT"),
-                        ("expires_at", "TEXT")]}
+                        ("expires_at", "TEXT")],
+              # the first eval tables went out without these (2026-11-11)
+              "eval_cases": [("signal_key", "TEXT"), ("offers", "INTEGER NOT NULL DEFAULT 0"), ("offered_at", "TEXT")],
+              "eval_runs": [("against", "INTEGER"), ("gate_ok", "INTEGER NOT NULL DEFAULT 1")]}
 
 
 def _migrate(conn):

@@ -44,7 +44,13 @@ def whoami(core, role, prompt_version=None, client=None):
             **({"can_ask_for": _askable(core)} if role == "executor" else {}),
             **({"calendar": _calendar_ask(core)} if role == "executor" else {}),
             **({"deliverables_to_check": _to_check(core)} if role == "executor" else {}),
+            **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
             **({"output_folder": outputs.folder(core)} if role == "executor" and outputs.folder(core) else {})}
+
+
+def _to_fetch(core):
+    from . import evals
+    return evals.to_fetch(core)
 
 
 def _to_check(core):
@@ -516,7 +522,7 @@ def answer_ask(core, ask_id, text, sources=None):
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
-            "release", "list_deliverables", "report_deliverable_done", "who_is", "what_is", "why", "search_memory")
+            "release", "list_deliverables", "report_deliverable_done", "submit_eval_text", "who_is", "what_is", "why", "search_memory")
 
 
 def list_deliverables(core, since=None):
@@ -541,6 +547,13 @@ def report_deliverable_done(core, deliverable_id, evidence=None, cant_check=None
         deliverables.cant_check(core, deliverable_id, cant_check)
         return {"state": "open", "asked": True}
     return deliverables.report_done(core, deliverable_id, evidence)
+
+
+def submit_eval_text(core, case_id, text=None, cant_fetch=None):
+    """You read one of whoami's messages_to_fetch: pass its text as you read it (Fuzz keeps up to 4 KB, for
+    90 days, to test its own extraction on). You couldn't reach it: pass cant_fetch with why."""
+    from . import evals
+    return evals.submit_text(core, case_id, text, cant_fetch)
 
 
 def report_calendar(core, slots, holds=None):

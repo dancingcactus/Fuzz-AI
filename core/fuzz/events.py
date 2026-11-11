@@ -402,6 +402,9 @@ def undo(core, group=None):
             if e["type"] in ("entity.merged", "entity.kept_separate"):   # the entity tables are derived, not replayed
                 from .memory import facts as mfacts
                 mfacts.undo_entity_event(core, e)
+            if e["type"] == "task.let_go":   # Not a task taken back: its eval case was a wrong label
+                from . import evals
+                evals.retire_for_task(core, e["task_id"])
             if e["type"] == "engine.selected":
                 from . import engine
                 engine.restore_selection(core, e["payload"]["data"].get("prior"))

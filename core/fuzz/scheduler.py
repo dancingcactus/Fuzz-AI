@@ -328,7 +328,10 @@ def _slots_used(core):
 def work_waiting(core, task_id=None):
     """Whether claim_next would find anything, checked before a run starts a client to ask it."""
     expire_leases(core)
-    return bool(_eligible(core, task_id))
+    if _eligible(core, task_id):
+        return True
+    from . import evals   # a message waiting a day for its text is worth a run of its own
+    return task_id is None and evals.fetch_waiting(core)
 
 
 def extract_hours(core, now=None):

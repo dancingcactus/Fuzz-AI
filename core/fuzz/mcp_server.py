@@ -222,6 +222,14 @@ def build(core, role, task_id=None):
             don't call this."""
             return _call(tools.report_deliverable_done, core, deliverable_id, evidence, cant_check)
 
+        @srv.tool()
+        def submit_eval_text(case_id: int, text: str | None = None, cant_fetch: str | None = None) -> dict:
+            """For each of whoami's messages_to_fetch (messages the person said held no task), read the message
+            with your connectors and pass its text exactly as written: Fuzz keeps up to 4 KB for 90 days to test
+            its own extraction on, and never acts on it. Can't reach it (deleted, no access): pass cant_fetch
+            with why."""
+            return _call(tools.submit_eval_text, core, case_id, text, cant_fetch)
+
     elif role == "sender":
         @srv.tool()
         def claim_next_send() -> dict:
