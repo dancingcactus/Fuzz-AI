@@ -15,7 +15,7 @@ from datetime import timedelta
 
 from .. import cards, events, groups, states, tasks
 from ..db import FuzzError, iso, parse_iso
-from . import entities, vectors
+from . import entities, vectors, who
 
 MATCHER_VERSION = "core-0.1"
 
@@ -133,10 +133,11 @@ def ingest(ctx, signals):
                 "INSERT INTO candidates (user_id, signal_key, idx, kind, ask, owner, due, payload) VALUES (?,?,?,?,?,?,?,?)",
                 (_uid(ctx), key, i, kind, ask, c.get("owner", "me") if kind == "ask" else None, c.get("due"), json.dumps(c)))
             cid = cur.lastrowid
-            entities.resolve_candidate(core, cid, s, c, ctx.cfg.get("me", {}))
+            entities.resolve_candidate(core, cid, s, c, ctx.cfg.get("me", {}), key)
             if kind == "ask":
                 new_ids.append((cid, ask))
             counts["candidates"] += 1
+        who.record(core, s, key, ctx.cfg.get("me", {}))
         from ..memory import extract as mem_extract
         cids = [r["id"] for r in core.all("SELECT id FROM candidates WHERE user_id=? AND signal_key=?", (_uid(ctx), key))]
         for k, v in mem_extract.ingest_signal(core, s, key, cids).items():

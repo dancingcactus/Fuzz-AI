@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from .. import events
 from ..db import FuzzError, iso, parse_iso
-from ..matching import entities
+from ..matching import entities, who
 from . import facts, knowledge
 
 SETTLE_DAYS = 2
@@ -26,10 +26,10 @@ def _me(core):
     return core.config.get("me", {})
 
 
-def _person(core, p):
+def _person(core, p, ctx=None):
     if not p:
         return None
-    r = entities.resolve_person(core, p, _me(core))
+    r = entities.resolve_person(core, p, _me(core), ctx)
     return r[0] if r else None
 
 
@@ -56,11 +56,12 @@ def ingest_signal(core, s, key, cand_ids):
     if s.get("withdrawn"):
         return counts
     ts = s.get("ts")
+    ctx = who.Context(core, s, key, _me(core))
     # a meeting's "from" is its title, not a person
-    sender = _person(core, s.get("from")) if s.get("from") and s["source"] != "meeting" else None
+    sender = _person(core, s.get("from"), ctx) if s.get("from") and s["source"] != "meeting" else None
     sight(core, sender, key, "from", ts)
     for p in s.get("people") or []:
-        sight(core, _person(core, p), key, "on", ts)
+        sight(core, _person(core, p, ctx), key, "on", ts)
     for cid in cand_ids:
         for m in core.all("SELECT entity_id FROM mentions WHERE candidate_id=?", (cid,)):
             e = facts.entity(core, m["entity_id"])
@@ -75,11 +76,11 @@ def ingest_signal(core, s, key, cand_ids):
         if _try(core, counts, t, lambda t=t: _term(core, t, s, key)) is not None:
             counts["terms"] = counts.get("terms", 0) + 1
     for f in s.get("facts") or []:
-        r = _try(core, counts, f, lambda f=f: _fact(core, f, s, key, sender))
+        r = _try(core, counts, f, lambda f=f: _fact(core, f, s, key, sender, ctx))
         if r and r[1]:
             counts["facts"] = counts.get("facts", 0) + 1
     for d in s.get("decisions") or []:
-        r = _try(core, counts, d, lambda d=d: _decision(core, d, s, key, sender, meeting_id))
+        r = _try(core, counts, d, lambda d=d: _decision(core, d, s, key, sender, meeting_id, ctx))
         if r and r[1]:
             counts["decisions"] = counts.get("decisions", 0) + 1
     return counts
@@ -89,11 +90,11 @@ def _source_kind(s):
     return s["source"] if s["source"] in facts.SOURCE_KINDS else "doc"
 
 
-def _fact(core, f, s, key, sender):
-    eid = facts.resolve_about(core, f.get("about") or {}, _me(core))
+def _fact(core, f, s, key, sender, ctx=None):
+    eid = facts.resolve_about(core, f.get("about") or {}, _me(core), ctx)
     if eid is None:
         raise FuzzError("Facts about the person themself aren't kept", "about")
-    said = _person(core, f["said_by"]) if f.get("said_by") else sender
+    said = _person(core, f["said_by"], ctx) if f.get("said_by") else sender
     sight(core, eid, key, "about", s.get("ts"))
     return facts.add(core, eid, f.get("attr"), f.get("value"), how=f.get("how") or "stated", said_by=said,
                      source_kind=_source_kind(s), source_ref=key, link=s.get("link"), source_ts=s.get("ts"))
@@ -118,13 +119,13 @@ def _term(core, t, s, key):
     return eid
 
 
-def _decision(core, d, s, key, sender, meeting_id):
-    by = _person(core, d["decided_by"]) if d.get("decided_by") else None
+def _decision(core, d, s, key, sender, meeting_id, ctx=None):
+    by = _person(core, d["decided_by"], ctx) if d.get("decided_by") else None
     links = []
     if meeting_id:
         links.append(("from", "knowledge", meeting_id))
     for p in s.get("people") or []:
-        pid = _person(core, p)
+        pid = _person(core, p, ctx)
         if pid and pid != by:
             links.append(("involves", "entity", pid))
     return knowledge.add_decision(core, d.get("what"), why=d.get("why"), alternatives=d.get("alternatives"),

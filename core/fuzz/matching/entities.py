@@ -10,6 +10,8 @@ ambiguous aliases is left out of the spike: an ambiguous name stays provisional.
 import re
 from urllib.parse import parse_qs, urlparse
 
+from . import who
+
 TICKET_RE = re.compile(r"\b([A-Z][A-Z0-9]{1,9}-\d+)\b")
 GDOC_RE = re.compile(r"/d/([A-Za-z0-9_-]{10,})")
 
@@ -106,8 +108,11 @@ def same_person(a, b):
     return x == y or (" " not in x and x == y.split()[0]) or (" " not in y and y == x.split()[0])
 
 
-def resolve_person(core, person, me):
-    """Return (entity_id, strength) or None for the user themself."""
+def resolve_person(core, person, me, ctx=None):
+    """Return (entity_id, strength) or None for the user themself.
+
+    A first name alone never makes a person (who.py): its message's context (ctx, a who.Context) settles who
+    it is, or it waits on the name's holder, a name-only entity a "Which Nick?" card asks about."""
     if _is_me(person, me):
         return None
     email = (person.get("email") or "").lower() or None
@@ -140,9 +145,17 @@ def resolve_person(core, person, me):
             core.conn.execute("INSERT OR IGNORE INTO aliases VALUES (?,?)", (eid, name.lower()))
             first = name.split()[0].lower()
             core.conn.execute("INSERT OR IGNORE INTO aliases VALUES (?,?)", (eid, first))
+        signed = (person.get("signed_as") or "").strip().lower()
+        if signed and len(signed.split()) == 1:   # "Thanks, Rob": what they go by
+            core.conn.execute("INSERT OR IGNORE INTO aliases VALUES (?,?)", (eid, signed))
         return eid, "id"
     if not name:
         return None
+    if who.first_only(person):
+        eid = who.guess(core, name, ctx)
+        if eid is not None:
+            return eid, "alias"
+        return (who.holder(core, name) or _new_entity(core, "person", name, True)), "provisional"
     eid = _unique_alias(core, "person", name)
     if eid is not None:
         prov = core.conn.execute("SELECT provisional FROM entities WHERE id=?", (eid,)).fetchone()["provisional"]
@@ -195,14 +208,16 @@ def resolve_term(core, term):
     return eid, "id"
 
 
-def resolve_candidate(core, cand_id, signal, cand, me):
+def resolve_candidate(core, cand_id, signal, cand, me, key=None):
     """resolve(mentions, context) for one candidate; writes mentions. Safe to repeat."""
     people = list(cand.get("people") or []) + list(signal.get("people") or [])
     if signal.get("from"):
         people.append(signal["from"])
     found = {}
-    for p in people:
-        r = resolve_person(core, p, me)
+    ctx = who.Context(core, signal, key, me)
+    # the people known for sure first, so a first name on the same message has them as context
+    for p in sorted(people, key=who.first_only):
+        r = resolve_person(core, p, me, ctx)
         if r:
             found[r[0]] = _stronger(found.get(r[0]), r[1])
     for url in list(cand.get("links") or []) + list(signal.get("links") or []):

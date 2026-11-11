@@ -432,6 +432,11 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .pname { font-family: var(--font-display); font-weight: 800; font-size: 19px; line-height: 1.25; }
 .pdetail { font-size: 14px; color: var(--muted); }
 .pseen { font-size: 13px; color: var(--muted); }
+.psources { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: var(--bw) solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.psources li { display: flex; flex-direction: column; gap: 2px; }
+.pquote { font-size: 14px; overflow-wrap: anywhere; }
+.profile.pick { cursor: pointer; }
+.profile.pick:has(input:checked) { border-color: var(--accent, currentColor); }
 .mentions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .mentions li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border: var(--bw) solid var(--line); border-radius: 14px; background: var(--field); }
 .asks { border: 0; margin: 0 0 12px; padding: 0; min-width: 0; }

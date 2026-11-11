@@ -410,6 +410,23 @@ CREATE TABLE IF NOT EXISTS sightings (     -- where an entity came up: a signal 
   ts TEXT,
   PRIMARY KEY (user_id, entity_id, signal_key, role)
 );
+CREATE TABLE IF NOT EXISTS appearances (   -- who was on which message, by email, Slack ID or full name; derived
+  user_id INTEGER NOT NULL,
+  entity_id INTEGER NOT NULL,
+  signal_key TEXT NOT NULL,
+  thread TEXT,                     -- the email or Slack thread (the signal's anchor)
+  place TEXT,                      -- the Slack channel or DM
+  size INTEGER NOT NULL,           -- how many people were on the message
+  ts TEXT,
+  PRIMARY KEY (user_id, entity_id, signal_key)
+);
+CREATE INDEX IF NOT EXISTS appearances_by_signal ON appearances (user_id, signal_key);
+CREATE INDEX IF NOT EXISTS appearances_by_thread ON appearances (user_id, thread);
+CREATE TABLE IF NOT EXISTS appearance_signals (   -- the messages appearances has indexed
+  user_id INTEGER NOT NULL,
+  signal_key TEXT NOT NULL,
+  PRIMARY KEY (user_id, signal_key)
+);
 CREATE TABLE IF NOT EXISTS memory_refusals ( -- what the core refused from an AI run, and why; for the inspector
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,

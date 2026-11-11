@@ -183,6 +183,33 @@ class Facts(MemoryCase):
         self.assertIsNone(self.core.one("SELECT redirect_to FROM entities WHERE id=?", (pat,))["redirect_to"])
         self.assertEqual(events.check_replay(self.core), [])
 
+    def test_a_same_person_card_shows_where_each_came_up(self):
+        tools.submit_signals(self.core, [sig("s1", quote="Nick wants the roadmap by Monday", **{"from": {"name": "Nick"}})])
+        nick = self.person("Nick Ricci", "nick.ricci@acme.example")
+        tools.submit_signals(self.core, [sig("m1", source="email", ts="2026-10-21T08:00:00Z", link="https://mail.example/m1",
+                                             quote="Budget is due Friday",
+                                             **{"from": {"name": "Nick Ricci", "email": "nick.ricci@acme.example"}})])
+        mcards.raise_cards(self.core)
+        [card] = self.memory_cards("entity_person")
+        by = {p["name"]: p["sources"] for p in cards.view(self.core, cards.get(self.core, card["id"]))["payload"]["profiles"]}
+        self.assertEqual([(x["where"], x["quote"], x["link"]) for x in by["Nick Ricci"]],
+                         [("Email", "Budget is due Friday", "https://mail.example/m1")], "one line per message")
+        self.assertEqual([x["quote"] for x in by["Nick"]], ["Nick wants the roadmap by Monday"])
+        self.assertEqual(card["payload"]["entity_a"], nick)
+
+    def test_people_seen_before_memory_still_show_where(self):
+        tools.submit_signals(self.core, [sig("s1", quote="Nick wants the roadmap by Monday", **{"from": {"name": "Nick"}})])
+        self.person("Nick Ricci", "nick.ricci@acme.example")
+        self.core.q("DELETE FROM sightings")   # a store from before memory: only the matcher's mentions
+        nick = self.core.one("SELECT id FROM entities WHERE name='Nick'")["id"]
+        [cand] = self.core.all("SELECT id FROM candidates")
+        self.core.q("INSERT OR IGNORE INTO mentions VALUES (?,?,'provisional')", (cand["id"], nick))
+        mcards.raise_cards(self.core)
+        [card] = self.memory_cards("entity_person")
+        p = {x["name"]: x for x in cards.view(self.core, cards.get(self.core, card["id"]))["payload"]["profiles"]}
+        self.assertEqual([x["quote"] for x in p["Nick"]["sources"]], ["Nick wants the roadmap by Monday"])
+        self.assertEqual(p["Nick"]["seen"], "Seen 1 times")
+
     def test_kept_separate_undoes_too(self):
         entities.resolve_person(self.core, {"name": "Pat"}, self.core.config["me"])
         self.person("Patricia Lee", "patricia@acme.example")

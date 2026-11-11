@@ -7,7 +7,7 @@ out at another date without saving anything. `fuzz inspect` and GET /inspect/...
 import json
 
 from ..db import FuzzError, parse_iso
-from ..matching import entities
+from ..matching import entities, who
 from . import briefs, extract, facts, knowledge, mcards
 
 STATES = ("provisional", "stale", "disputed", "merged", "thin", "undefined")
@@ -161,6 +161,7 @@ def why_not(core, a, b):
     if ea["type"] != "person" or eb["type"] != "person":
         reasons.append("Only people are compared.")
     prov = [e for e in (ea, eb) if e["provisional"]]
+    holder = next((e for e in prov if who.is_holder(e)), None)
     if not prov:
         reasons.append("Neither is provisional: both were seen with an email or Slack ID, so the matcher trusts them.")
     elif len(prov) == 2:
@@ -173,12 +174,12 @@ def why_not(core, a, b):
         others = [x for x in core.all("SELECT * FROM entities WHERE user_id=? AND type='person' AND provisional=0 AND "
                                       "redirect_to IS NULL AND id!=?", (core.user_id, k["id"]))
                   if any(mcards._could_be(n, al) for al in _aliases(core, x["id"]))]
-        if others:
+        if others and not holder:   # a first name's card offers each one it could be
             reasons.append(f"“{p['name']}” could also be {', '.join(entities.display_name(core.conn, x) for x in others[:3])}, "
                            "so Fuzz doesn't guess.")
-    key = f"people:{min(a, b)}:{max(a, b)}"
-    asked = core.one("SELECT id, status FROM cards WHERE user_id=? AND kind='entity_person' AND json_extract(payload,'$.key')=?",
-                     (core.user_id, key))
+    key = f"who:{holder['id']}" if holder else f"people:{min(a, b)}:{max(a, b)}"
+    asked = core.one("SELECT id, status FROM cards WHERE user_id=? AND kind='entity_person' AND (json_extract(payload,'$.key')=? "
+                     "OR json_extract(payload,'$.entity_b')=?)", (core.user_id, key, holder["id"] if holder else -1))
     if asked:
         reasons.append(f"It was asked already: card {asked['id']} ({asked['status']}).")
     if not reasons:

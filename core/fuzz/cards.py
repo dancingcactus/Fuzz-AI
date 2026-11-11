@@ -386,7 +386,18 @@ def view(core, card, task=None):
     task = task if task is not None else (tasks.get(core, card["task_id"]) if card["task_id"] else None)
     other = tasks.get(core, card["other_id"]) if card.get("other_id") and card["kind"] == "duplicate" else None
     payload = card.get("payload") or {}
+    if card["kind"] == "entity_person" and card["status"] == "open":   # where each one came up, as of now
+        from .memory import mcards
+        payload = mcards.upgrade_person(core, payload)
+        payload = dict(payload, profiles=mcards.fresh_profiles(core, payload))
     prompt = card.get("prompt")
+    suggested, reason = card.get("suggested"), card.get("reason")
+    if card["kind"] == "entity_person" and card["status"] == "open" and payload.get("name"):
+        prompt = mcards.which_prompt(core, payload)
+        reason = f"“{payload['name']}” came up by first name only, and nothing on its messages says who it is."
+        top = (payload.get("profiles") or [{}, {}])[1:2] or [{}]
+        if not top[0].get("why"):   # nothing links them: Fuzz doesn't lean either way
+            suggested = None
     if card["kind"] in ("task", "draft", "nudge", "is_task") and task and task.get("question"):
         prompt = task["question"]
     many = asks(core, card) if card["kind"] == "is_task" and card["status"] == "open" else []
@@ -404,8 +415,8 @@ def view(core, card, task=None):
                                               term=payload.get("term", "this"),
                                               resource=payload.get("resource", "this"))
     out = {"id": card["id"], "kind": card["kind"], "family": FAMILY[card["kind"]], "status": card["status"],
-           "prompt": prompt, "reason": card.get("reason") or (task or {}).get("reason"),
-           "options": options(card, task or {}), "suggested": card.get("suggested"),
+           "prompt": prompt, "reason": reason or (task or {}).get("reason"),
+           "options": options(card, task or {}), "suggested": suggested,
            "postponed": card["postponed"], "payload": payload, "task": task_summary(task),
            "created_at": card.get("created_at")}
     if len(many) > 1:

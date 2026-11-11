@@ -106,17 +106,38 @@ def _duplicate(core, card, t, option, value):
 
 
 def _entity_person(core, card, t, option, value):
+    """Same person: b (the name-only one) joins the one you picked, a by default. Different, or someone else:
+    kept apart from every one the card offered, and when you name them ("Nick Moreno") the name-only one
+    becomes that person, so the next "Nick" has two to choose from."""
     p = card.get("payload") or {}
     a, b = p.get("entity_a"), p.get("entity_b")
+    offered = p.get("candidates") or [a]
     with core.tx("human"):
         ch = events.Changes()
-        cards.mark_answered(core, ch, card, option)
         if option == "same":
-            core.q("UPDATE entities SET redirect_to=?, provisional=0 WHERE id=? AND user_id=?", (a, b, core.user_id))
-            events.emit(core, "entity.merged", task_id=card["task_id"], changes=ch, data={"from": b, "into": a})
+            into = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else a
+            if into not in offered:
+                raise FuzzError("value is one of the people the card offered", "value")
+            cards.mark_answered(core, ch, card, option, into if into != a else None)
+            core.q("UPDATE entities SET redirect_to=?, provisional=0 WHERE id=? AND user_id=?", (into, b, core.user_id))
+            events.emit(core, "entity.merged", task_id=card["task_id"], changes=ch, data={"from": b, "into": into})
         else:
-            core.q("INSERT OR IGNORE INTO entity_links VALUES (?,?,?)", (a, b, "different"))
-            events.emit(core, "entity.kept_separate", task_id=card["task_id"], changes=ch, data={"a": a, "b": b})
+            name = value.strip() if option == "different" and isinstance(value, str) else ""
+            if name and len(name.split()) < 2:
+                raise FuzzError("value is their full name, first and last", "value")
+            cards.mark_answered(core, ch, card, option, name or None)
+            for o in offered:
+                core.q("INSERT OR IGNORE INTO entity_links VALUES (?,?,?)", (o, b, "different"))
+            data = {"a": a, "b": b, "others": [o for o in offered if o != a]}
+            if name:
+                old = core.one("SELECT name FROM entities WHERE id=?", (b,))["name"]
+                have = {r["alias"] for r in core.all("SELECT alias FROM aliases WHERE entity_id=?", (b,))}
+                core.q("UPDATE entities SET name=? WHERE id=? AND user_id=?", (name, b, core.user_id))
+                added = [x for x in dict.fromkeys([name.lower(), name.split()[0].lower()]) if x not in have]
+                for x in added:
+                    core.q("INSERT OR IGNORE INTO aliases VALUES (?,?)", (b, x))
+                data["renamed"] = {"from": old, "to": name, "aliases": added}
+            events.emit(core, "entity.kept_separate", task_id=card["task_id"], changes=ch, data=data)
         if card["task_id"]:
             cards.sync(core, card["task_id"])
 

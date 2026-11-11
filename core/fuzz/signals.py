@@ -8,7 +8,8 @@ import jsonschema
 from .db import FuzzError
 
 PERSON = {"type": "object", "properties": {
-    "name": {"type": "string"}, "email": {"type": "string"}, "slack_id": {"type": "string"}},
+    "name": {"type": "string"}, "email": {"type": "string"}, "slack_id": {"type": "string"},
+    "signed_as": {"type": "string", "maxLength": 40}},   # the name an email is signed with: "Thanks, Rob"
     "additionalProperties": False}
 
 MOMENT = {   # a described date from the calendar: "Before the leadership meeting", Thu 9:00

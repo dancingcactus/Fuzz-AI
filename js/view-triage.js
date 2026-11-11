@@ -645,18 +645,41 @@
     /* Fuzz's memory */
     same: 'Same person', different: 'Different people', define: 'Save definition', record: 'It was a decision',
     not_decision: 'Not a decision', first: 'The first one', second: 'The second one', neither: 'Neither' };
+  var WHO_LABEL = { same: 'That’s them', different: 'Someone else' };
   function dvButtons(it, opts) {
+    var which = it.cardKind === 'entity_person' && ((it.payload || {}).candidates || []).length;
     return '<div id="actions"><div class="actions">' + opts.map(function (o, i) {
-      return '<button type="button" class="btn' + (o === it.suggested ? ' primary' : '') + '" data-dv="' + o + '" aria-keyshortcuts="' + (i + 1) + '">' + esc(DV_LABEL[o] || o) + kbd(i + 1) + '</button>';
+      return '<button type="button" class="btn' + (o === it.suggested ? ' primary' : '') + '" data-dv="' + o + '" aria-keyshortcuts="' + (i + 1) + '">' + esc((which && WHO_LABEL[o]) || DV_LABEL[o] || o) + kbd(i + 1) + '</button>';
     }).join('') + '</div></div>';
   }
   /* Fuzz's memory: same person?, what is this?, was this a decision?, which is right? Evidence before answers. */
   var MEM_SOURCE = { email: 'email', slack: 'Slack', teams: 'Teams', meeting: 'a meeting', calendar: 'the calendar', doc: 'a document', directory: 'the directory', you: 'what you said' };
   var MEM_LEVEL = { confirmed: 'Confirmed', authoritative: 'Official', reported: 'Reported', inferred: 'Fuzz’s guess', stale: 'May be out of date' };
+  /* Where a name came up: telling two people apart takes the conversations each one was in */
+  function psourcesHTML(list) {
+    if (!list || !list.length) return '';
+    return '<ul class="psources">' + list.map(function (s) {
+      var head = [s.where, s.role, s.ts ? String(s.ts).slice(0, 10) : ''].filter(Boolean).join(' · ');
+      var text = s.quote ? '“' + esc(s.quote) + '”' : '';
+      if (/^https?:/.test(s.link || '')) text = '<a href="' + esc(s.link) + '" target="_blank" rel="noopener">' + (text || 'Open') + '</a>';
+      return '<li><span class="pseen">' + esc(head) + '</span>' + (text ? '<span class="pquote">' + text + '</span>' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
   function memoryHTML(it) {
     var p = it.payload || {}, h = '';
-    if (it.cardKind === 'entity_person') {
-      h += '<div class="profiles">' + (p.profiles || []).map(function (x) { return '<div class="profile"><span class="plabel">' + esc(x.where) + '</span><span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span><span class="pseen">' + esc(x.seen) + '</span></div>'; }).join('') + '</div>';
+    if (it.cardKind === 'entity_person' && (p.candidates || []).length) {
+      /* Which Nick?: the messages that only said "Nick", then the people it could be, likeliest first */
+      var held = (p.profiles || [])[0] || {}, cands = (p.profiles || []).slice(1);
+      h += '<div class="profile"><span class="plabel">Where it said “' + esc(p.name || held.name) + '”</span>' + psourcesHTML(held.sources) + '</div>' +
+        '<fieldset class="asks"><legend>Who it could be</legend><div class="profiles">' + cands.map(function (x, i) {
+          return '<label class="profile pick"><span class="plabel"><input type="radio" name="mem-who" value="' + x.entity_id + '"' + (i ? '' : ' checked') + '> ' + esc(x.where) + '</span>' +
+            '<span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span>' +
+            ((x.why || []).length ? '<span class="pseen">' + esc(x.why.join(' · ')) + '</span>' : '<span class="pseen">Nothing links them to these messages</span>') +
+            psourcesHTML(x.sources) + '</label>';
+        }).join('') + '</div></fieldset>' +
+        '<div class="dv-new"><label for="mem-other">Someone else? Their full name</label><input id="mem-other" type="text" autocomplete="off" placeholder="First and last name"></div>';
+    } else if (it.cardKind === 'entity_person') {
+      h += '<div class="profiles">' + (p.profiles || []).map(function (x) { return '<div class="profile"><span class="plabel">' + esc(x.where) + '</span><span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span><span class="pseen">' + esc(x.seen) + '</span>' + psourcesHTML(x.sources) + '</div>'; }).join('') + '</div>';
     } else if (it.cardKind === 'entity_term') {
       if ((p.mentions || []).length) h += '<ul class="mentions">' + p.mentions.map(function (m) { return '<li><span class="pill pill--muted">' + esc(m.where) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>';
       h += '<div class="dv-new"><label for="mem-def">What is ' + esc(p.term || 'it') + '?</label><textarea id="mem-def" rows="2" placeholder="A short definition">' + esc(p.best_guess || '') + '</textarea></div>';
@@ -707,6 +730,8 @@
     if (opt === 'track') return { title: ($('#dv-title') || {}).value, done_when: ($('#dv-dw') || {}).value, checked_by: $('#dv-you') && $('#dv-you').checked ? 'you' : 'fuzz' };
     if (opt === 'define') return (($('#mem-def') || {}).value || '').trim();
     if (opt === 'neither') return (($('#mem-neither') || {}).value || '').trim();
+    if (it.cardKind === 'entity_person' && opt === 'same') { var r = card.querySelector('input[name="mem-who"]:checked'); return r ? +r.value : undefined; }
+    if (it.cardKind === 'entity_person' && opt === 'different') return (($('#mem-other') || {}).value || '').trim() || undefined;
     return undefined;
   }
   /* "For …": its deliverable, which opens the deliverable sheet */

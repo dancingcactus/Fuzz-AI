@@ -34,10 +34,8 @@ class PeopleOnATask(CoreCase):
              "candidates": [{"ask": "Send Dana the Q4 numbers", "people": [{"name": "Dana"}]}]},
             {"source_id": "m2", "ts": "2026-10-20T08:45:00Z", "from": {"name": "Dana", "email": "dana@acme.example"},
              "quote": "Any update?", "candidates": []})
-        # "Dana" came before Dana Reyes, so they're two people until you say they're the same
-        self.assertEqual([p["name"] for p in self.who(t)], ["Dana Reyes", "Dana"])
-        a, b = [r["id"] for r in self.core.all("SELECT id FROM entities WHERE type='person' ORDER BY id")]
-        self.core.q("UPDATE entities SET redirect_to=? WHERE id=?", (b, a))   # what answering "Same person" does
+        # "Dana" on Dana Reyes's own message is her: a first name is settled by who's on the message
+        self.assertEqual(self.core.one("SELECT COUNT(*) n FROM entities WHERE type='person'")["n"], 1)
         (dana,) = self.who(t)
         self.assertEqual(dana["name"], "Dana Reyes", "the fullest name she went by")
         self.assertEqual([(c["text"], c["quote"]) for c in dana["contributions"]],

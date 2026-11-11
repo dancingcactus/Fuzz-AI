@@ -70,7 +70,7 @@ def require_entity(core, eid):
     return e
 
 
-def resolve_about(core, ref, me=None):
+def resolve_about(core, ref, me=None, ctx=None):
     """The entity a fact is about: {type, name?, email?, slack_id?}. Returns its id, or None for the person
     themself (facts about you aren't kept)."""
     if not isinstance(ref, dict):
@@ -79,7 +79,7 @@ def resolve_about(core, ref, me=None):
     me = me if me is not None else core.config.get("me", {})
     name = (ref.get("name") or "").strip()
     if typ == "person":
-        r = entities.resolve_person(core, {k: ref[k] for k in ("name", "email", "slack_id") if ref.get(k)}, me)
+        r = entities.resolve_person(core, {k: ref[k] for k in ("name", "email", "slack_id") if ref.get(k)}, me, ctx)
         return r[0] if r else None
     if not name:
         raise FuzzError(f"about.name is required for a {typ}", "about.name")
@@ -353,7 +353,13 @@ def undo_entity_event(core, e):
     if e["type"] == "entity.merged" and d.get("from"):
         core.q("UPDATE entities SET redirect_to=NULL WHERE id=? AND user_id=?", (d["from"], core.user_id))
     if e["type"] == "entity.kept_separate" and d.get("a") and d.get("b"):
-        core.q("DELETE FROM entity_links WHERE a=? AND b=?", (d["a"], d["b"]))
+        for a in [d["a"]] + list(d.get("others") or []):
+            core.q("DELETE FROM entity_links WHERE a=? AND b=?", (a, d["b"]))
+        r = d.get("renamed")
+        if r:   # you named them: they're the name-only one again
+            core.q("UPDATE entities SET name=? WHERE id=? AND user_id=?", (r["from"], d["b"], core.user_id))
+            for x in r.get("aliases") or []:
+                core.q("DELETE FROM aliases WHERE entity_id=? AND alias=?", (d["b"], x))
 
 
 def recent(core, days):

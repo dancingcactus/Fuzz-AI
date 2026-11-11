@@ -182,7 +182,7 @@ All of these are question-family cards, each with a suggested answer, a way out 
 
 | Kind | Raised when | Answers |
 | --- | --- | --- |
-| `entity_person` (exists) | A provisional, name-only person matches one known person's first name or alias ("Pat" and "Patricia Lee"), and the pair isn't in `entity_links` | Same person · Different people · Not sure yet |
+| `entity_person` (exists) | A first name's holder ("Nick": its mentions no message's context could settle, `matching/who.py`) and up to three people it could be, likeliest first, with where each came up: "Which Nick is this?". Or a name-only full name that matches one known person ("Pat Lee" and "Patricia Lee"), and the pair isn't in `entity_links` | That's them (the one picked) · Someone else (optionally their full name, which makes the holder that person) · Not sure yet |
 | `entity_term` (exists) | A new term's best guess is low confidence, or the term looks odd | Save definition `{text}` · Same as… · Not sure yet |
 | `decision` (new) | A detected decision below the confidence bar, or with an inferred source | It was a decision `{edits}` · Not a decision · Not sure yet |
 | `fact_conflict` (new) | A real conflict (above) | Use this one · Use that one · Neither `{value}` |

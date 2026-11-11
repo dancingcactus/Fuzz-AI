@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from .. import cards, events, timeres
 from ..db import FuzzError, parse_iso
-from ..matching import entities
+from ..matching import entities, who
 from . import facts, trust as trust_mod
 
 KINDS = ("entity_person", "entity_term", "decision", "fact_conflict")
@@ -149,24 +149,53 @@ def _decision_args(core, d):
 
 
 def _people(core):
-    """A provisional name-only person ("Pat") whose name starts one known person's name ("Patricia Lee"),
-    and that pair isn't already known to be different."""
+    """Who someone is. A first name's holder ("Nick": mentions not yet settled, matching/who.py) and the people
+    it could be, ranked by its messages' context. And a name-only full name ("Pat Lee") that could be one
+    known person ("Patricia Lee")."""
     out = []
-    known = core.all("SELECT * FROM entities WHERE user_id=? AND type='person' AND provisional=0 AND redirect_to IS NULL",
-                     (core.user_id,))
-    for p in core.all("SELECT * FROM entities WHERE user_id=? AND type='person' AND provisional=1 AND redirect_to IS NULL "
+    me = core.config.get("me", {})
+    for h in core.all("SELECT * FROM entities WHERE user_id=? AND type='person' AND provisional=1 AND redirect_to IS NULL "
                       "AND name IS NOT NULL ORDER BY id", (core.user_id,)):
-        n = p["name"].strip().lower()
-        if not n:
+        if _asked_about(core, h["id"]):
             continue
+        if who.is_holder(h):
+            cands = [c for c in who.candidates(core, h["name"], loose=True) if not _different(core, h["id"], c)]
+            if cands:
+                out.append(("entity_person", f"who:{h['id']}", lambda h=h, cands=cands: _which_args(core, h, cands, me)))
+            continue
+        n = h["name"].strip().lower()
+        known = core.all("SELECT * FROM entities WHERE user_id=? AND type='person' AND provisional=0 AND redirect_to IS NULL",
+                         (core.user_id,))
         hits = [k for k in known if any(_could_be(n, a["alias"]) for a in
                                         core.all("SELECT alias FROM aliases WHERE entity_id=?", (k["id"],)))]
-        hits = [k for k in hits if not _different(core, p["id"], k["id"])]
+        hits = [k for k in hits if not _different(core, h["id"], k["id"])]
         if len(hits) == 1:
             k = hits[0]
-            out.append(("entity_person", f"people:{min(k['id'], p['id'])}:{max(k['id'], p['id'])}",
-                        lambda k=k, p=p: _person_args(core, k, p)))
+            out.append(("entity_person", f"people:{min(k['id'], h['id'])}:{max(k['id'], h['id'])}",
+                        lambda k=k, h=h: _person_args(core, k, h)))
     return out
+
+
+def _asked_about(core, eid):
+    """A card already asked who this name-only person is, in any form."""
+    return core.one("SELECT 1 FROM cards WHERE user_id=? AND kind='entity_person' AND json_extract(payload,'$.entity_b')=?",
+                    (core.user_id, eid)) is not None
+
+
+def _which_args(core, h, cands, me):
+    """"Which Nick is this?": the holder's messages, and up to three people it could be, likeliest first."""
+    ranked, n = who.rank_holder(core, h["id"], me)
+    why = {r["id"]: r["why"] for r in ranked}
+    order = [r["id"] for r in ranked if r["id"] in cands] + [c for c in cands if c not in why]
+    top = order[:3]
+    rows = [core.one("SELECT * FROM entities WHERE id=?", (c,)) for c in top]
+    name = h["name"]
+    profiles = [_profile(core, h)] + [dict(_profile(core, r), why=why.get(r["id"], [])) for r in rows]
+    prompt = which_prompt(core, {"name": name, "candidates": top})
+    many = f"{n} messages" if n != 1 else "a message"
+    return {"prompt": prompt,
+            "reason": f"“{name}” came up by first name only in {many}, and nothing on them says who it is.",
+            "payload": {"entity_a": top[0], "entity_b": h["id"], "candidates": top, "name": name, "profiles": profiles}}
 
 
 def _could_be(name, alias):
@@ -187,11 +216,76 @@ def _different(core, a, b):
 def _profile(core, e):
     ident = core.one("SELECT type, value FROM identifiers WHERE entity_id=? ORDER BY type LIMIT 1", (e["id"],))
     w = facts.winners(core, e["id"])
-    seen = core.one("SELECT MAX(ts) ts, COUNT(*) n FROM sightings WHERE user_id=? AND entity_id=?", (core.user_id, e["id"]))
+    seen = core.one("SELECT COUNT(DISTINCT k) n FROM (SELECT signal_key k FROM sightings WHERE user_id=? AND entity_id=? "
+                    "UNION ALL SELECT c.signal_key FROM mentions m JOIN candidates c ON c.id=m.candidate_id "
+                    "WHERE c.user_id=? AND m.entity_id=?)", (core.user_id, e["id"], core.user_id, e["id"]))
     detail = " · ".join(x for x in (w.get("role"), w.get("team")) if x) or (ident["value"] if ident else "Name only")
     return {"entity_id": e["id"], "name": entities.display_name(core.conn, e),
             "where": {"email": "Email", "slack": "Slack"}.get((ident or {}).get("type"), "Mentioned"),
-            "detail": detail, "seen": f"Seen {seen['n']} times" if seen and seen["n"] else "Not seen yet"}
+            "detail": detail, "seen": f"Seen {seen['n']} times" if seen and seen["n"] else "Not seen yet",
+            "sources": _sources(core, e["id"])}
+
+
+ROLE = {"from": "Sent it", "on": "On it", "named": "Named", "about": "About them"}
+
+
+def _sources(core, eid, limit=3):
+    """Where this person came up, most recent first: what was said, where and when, with a link back.
+    Telling two people apart needs the context each name came up in, not just the name. Sightings only
+    began with memory, so the asks the matcher tied to them (mentions) count too, one line per message."""
+    out = []
+    for s in core.all(
+            "SELECT SUBSTR(MIN(x.role), 2) role, MAX(g.ts) ts, g.source, g.quote, g.link FROM ("
+            "  SELECT signal_key, CASE role WHEN 'from' THEN '1from' WHEN 'on' THEN '2on' WHEN 'about' THEN '3about' "
+            "  ELSE '4' || role END role FROM sightings WHERE user_id=? AND entity_id=?"
+            "  UNION ALL SELECT c.signal_key, '4named' FROM mentions m JOIN candidates c ON c.id=m.candidate_id "
+            "  WHERE c.user_id=? AND m.entity_id=?"
+            ") x JOIN signals g ON g.key=x.signal_key AND g.user_id=? "
+            "GROUP BY x.signal_key ORDER BY ts DESC LIMIT ?",
+            (core.user_id, eid, core.user_id, eid, core.user_id, limit)):
+        out.append({"where": {"email": "Email", "slack": "Slack", "teams": "Teams", "meeting": "Meeting"}
+                    .get(s["source"], (s["source"] or "").title()), "role": ROLE.get(s["role"], s["role"]),
+                    "quote": s["quote"], "link": s["link"], "ts": s["ts"]})
+    return out
+
+
+def which_prompt(core, payload):
+    name, cands = payload["name"], payload.get("candidates") or []
+    if len(cands) != 1:
+        return f"Which {name} is this?"
+    e = core.one("SELECT * FROM entities WHERE id=?", (cands[0],))
+    return f"Is “{name}” {entities.display_name(core.conn, e)}?"
+
+
+def upgrade_person(core, payload):
+    """A same-person card raised before "Which Nick?" asks it the new way when its name-only one is a first
+    name's holder: the one it offered, and room to name someone else. And no notification sender is offered."""
+    if payload.get("candidates"):
+        keep = [c for c in payload["candidates"] if not who.shared(core, c)] or payload["candidates"][:1]
+        return dict(payload, candidates=keep, entity_a=keep[0]) if keep != payload["candidates"] else payload
+    if not payload.get("entity_a") or not payload.get("entity_b"):
+        return payload
+    h = core.one("SELECT * FROM entities WHERE user_id=? AND id=?", (core.user_id, payload["entity_b"]))
+    if not who.is_holder(h):
+        return payload
+    return dict(payload, candidates=[payload["entity_a"]], name=h["name"])
+
+
+def fresh_profiles(core, payload):
+    """An open same-person card's profiles as they are now, sources included, for cards raised before
+    profiles carried them or people seen since. Falls back to what the card was raised with."""
+    if payload.get("candidates"):
+        ids = [payload.get("entity_b")] + list(payload["candidates"])
+        why = {p.get("entity_id"): p.get("why") for p in payload.get("profiles") or []}
+        rows = [core.one("SELECT * FROM entities WHERE user_id=? AND id=?", (core.user_id, i)) for i in ids]
+        if not all(rows):
+            return payload.get("profiles") or []
+        return [dict(_profile(core, r), **({"why": why[r["id"]]} if why.get(r["id"]) is not None else {})) for r in rows]
+    ids = [payload.get("entity_a"), payload.get("entity_b")]
+    rows = [core.one("SELECT * FROM entities WHERE user_id=? AND id=?", (core.user_id, i)) if i else None for i in ids]
+    if not all(rows):
+        return payload.get("profiles") or []
+    return [_profile(core, r) for r in rows]
 
 
 def _person_args(core, known, prov):

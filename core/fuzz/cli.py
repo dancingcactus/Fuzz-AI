@@ -313,6 +313,9 @@ def cmd_memory(a):
         return _print({"raised": mcards.raise_cards(core), "held": mcards.held(core)})
     if a.op == "due":
         return _print({"due": briefs.due(core)})
+    if a.op == "people":
+        from .matching import who
+        return _print({"applied": a.apply, "plan": who.settle(core, apply=a.apply)})
 
 
 def cmd_rebuild(a):
@@ -605,8 +608,9 @@ def parser():
     s.add_argument("--state")
     s.set_defaults(fn=cmd_inspect)
 
-    s = sub.add_parser("memory", help="memory: write the Knowledge files, raise its cards, emit due briefs")
-    s.add_argument("op", choices=["write", "cards", "due"])
+    s = sub.add_parser("memory", help="memory: write the Knowledge files, raise its cards, emit due briefs, settle name-only people")
+    s.add_argument("op", choices=["write", "cards", "due", "people"])
+    s.add_argument("--apply", action="store_true", help="people: carry out the plan (without it, only show it)")
     s.set_defaults(fn=cmd_memory)
 
     s = sub.add_parser("rebuild", help="replay the event log into the tasks and cards tables")
