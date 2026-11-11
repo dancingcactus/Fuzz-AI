@@ -41,7 +41,7 @@
     if (demo) {
       var s = (window.Samples || []).filter(function (x) { return x.id === demo; })[0];
       if (!s) return Promise.reject(new Error('There’s no demo file called ' + demo + '.'));
-      return Promise.resolve({ name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: s.taskTitle, url: s.path, get: function () { return fetch(s.path); } });
+      return Promise.resolve({ name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: s.taskTitle, memory: !!s.memory, url: s.path, get: function () { return fetch(s.path); } });
     }
     /* k<id>: a file in Fuzz's Knowledge folder (the people map, the glossary, a brief), which belongs to no task */
     if (!id || !/^k?\d+$/.test(id)) return Promise.reject(new Error('Open a file from the Artifacts tab in Fuzz.'));

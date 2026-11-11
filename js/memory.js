@@ -1,8 +1,10 @@
 /* Fuzz's memory in the app (docs/memory-layers.md):
    - Memory.askHTML / wireAsk: the ask box ("Who is Priya?"), answered by a headless read-only run, on the Artifacts
      page beside the Knowledge files and in the inspector.
-   - InspectView (#/inspect, only with ?lab, live mode only): a read-only view of everything memory holds and why,
-     for building and debugging it. Every panel can be copied as JSON for a bug report or a test fixture. */
+   - InspectView (#/inspect, only with ?lab): a read-only view of everything memory holds and why, for building and
+     debugging it. Every panel can be copied as JSON for a bug report or a test fixture. Without the core it shows
+     js/demo-memory.js, a snapshot of the core's inspector, and leaves out what a snapshot can't answer: the ask
+     box, trust as of another date and editing a fact. */
 (function () {
   var esc = UI.esc;
   var M = {};
@@ -37,6 +39,28 @@
   var V = {}, root = null, tab = 'entities', at = '', filt = { type: '', state: '', q: '' }, picked = null, run = null, panels = {};
   var TABS = [['entities', 'Entities'], ['knowledge', 'Knowledge'], ['decisions', 'Decisions'], ['runs', 'Runs'], ['whynot', 'Why not?'], ['briefs', 'Briefs']];
 
+  /* The inspector reads the core, or in the demo the snapshot, answering the same paths */
+  function demo() { return !(window.Live && Live.on()) && window.DemoMemory ? DemoMemory : null; }
+  function inspect(path) {
+    var D = demo();
+    if (!D) return Live.inspect(path);
+    var u = new URL(path || '/', location.origin), p = u.pathname, g = function (k) { return u.searchParams.get(k) || ''; }, m, r;
+    if (p === '/') r = D.overview;
+    else if (p === '/entities') {
+      var want = g('q').toLowerCase();
+      r = Object.assign({}, D.entities, { entities: D.entities.entities.filter(function (e) {
+        var d = D.entity[e.id], hay = [e.name].concat(d.aliases, d.identifiers.map(function (i) { return i.value; })).join(' ').toLowerCase();
+        return (!g('type') || e.type === g('type')) && (!g('state') || e.flags.indexOf(g('state')) > -1) && (!want || hay.indexOf(want) > -1);
+      }) });
+    }
+    else if ((m = p.match(/^\/entities\/(\d+)$/))) r = D.entity[m[1]];
+    else if (p === '/why_not') r = D.why_not[g('a') + '-' + g('b')];
+    else if ((m = p.match(/^\/runs\/(\d+)$/))) r = D.run[m[1]];
+    else r = { '/knowledge': D.knowledge, '/decisions': D.decisions, '/runs': D.runs, '/briefs': D.briefs }[p];
+    if (!r) return Promise.reject(new Error(p === '/why_not' ? 'The demo has no two entities with those numbers.' : 'The demo has nothing for that.'));
+    return Promise.resolve(JSON.parse(JSON.stringify(r)));
+  }
+
   function q(o) { var p = Object.keys(o).filter(function (k) { return o[k]; }).map(function (k) { return k + '=' + encodeURIComponent(o[k]); }); return p.length ? '?' + p.join('&') : ''; }
   function atIso() { return at ? at + 'T12:00:00Z' : ''; }
   function pill(level) { return '<span class="pill pill--' + (TONE[level] || 'muted') + '">' + esc(LEVEL[level] || level) + '</span>'; }
@@ -49,12 +73,12 @@
     if (!root) return;
     root.innerHTML = '<div class="tasks-head"><h1>Inspector</h1><p class="meta">Everything Fuzz’s memory holds, and why. Looking here changes nothing.</p></div>' +
       '<div class="insp-top"><div class="insp-counts" id="insp-counts"></div>' +
-      '<label class="insp-at">Trust as of <input type="date" id="insp-at" value="' + esc(at) + '"></label></div>' +
-      M.askHTML() +
+      (demo() ? '<span class="meta">Demo: an invented first week. The ask box, trust as of another date and editing need Fuzz running.</span></div>'
+        : '<label class="insp-at">Trust as of <input type="date" id="insp-at" value="' + esc(at) + '"></label></div>' + M.askHTML()) +
       '<div class="segrow" role="tablist" aria-label="Inspector">' + TABS.map(function (t) {
         return '<button type="button" class="seg" role="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === tab) + '" aria-pressed="' + (t[0] === tab) + '">' + t[1] + '</button>';
       }).join('') + '</div><div id="insp-body" class="insp-body"><p class="lempty">Loading…</p></div>';
-    Live.inspect('').then(function (o) {
+    inspect('').then(function (o) {
       var c = document.getElementById('insp-counts'); if (!c) return;
       c.innerHTML = [['entities', 'entities'], ['facts', 'live facts'], ['knowledge', 'knowledge'], ['decisions', 'decisions'], ['open_cards', 'cards open'], ['held_by_cap', 'held by the cap'], ['refusals', 'refused']]
         .map(function (k) { return '<span class="pill pill--muted">' + esc(String(o[k[0]])) + ' ' + k[1] + '</span>'; }).join('');
@@ -66,12 +90,12 @@
 
   function body() {
     if (tab === 'entities') return entities();
-    if (tab === 'knowledge') return Live.inspect('/knowledge').then(function (r) { panels.knowledge = r; setBody(copyBtn('knowledge') + knowledgeHTML(r.knowledge)); }, function (e) { setBody(fail(e)); });
-    if (tab === 'decisions') return Live.inspect('/decisions').then(function (r) { panels.decisions = r; setBody(copyBtn('decisions') + decisionsHTML(r.decisions)); }, function (e) { setBody(fail(e)); });
+    if (tab === 'knowledge') return inspect('/knowledge').then(function (r) { panels.knowledge = r; setBody(copyBtn('knowledge') + knowledgeHTML(r.knowledge)); }, function (e) { setBody(fail(e)); });
+    if (tab === 'decisions') return inspect('/decisions').then(function (r) { panels.decisions = r; setBody(copyBtn('decisions') + decisionsHTML(r.decisions)); }, function (e) { setBody(fail(e)); });
     if (tab === 'runs') return runs();
     if (tab === 'whynot') return setBody('<form class="insp-form" data-whynot><label>Entity <input name="a" inputmode="numeric" required></label><label>and entity <input name="b" inputmode="numeric" required></label>' +
       '<button class="btn small" type="submit">Why no “same person?” card</button></form><div id="insp-why"></div>');
-    if (tab === 'briefs') return Live.inspect('/briefs').then(function (r) { panels.briefs = r; setBody(copyBtn('briefs') + briefsHTML(r)); }, function (e) { setBody(fail(e)); });
+    if (tab === 'briefs') return inspect('/briefs').then(function (r) { panels.briefs = r; setBody(copyBtn('briefs') + briefsHTML(r)); }, function (e) { setBody(fail(e)); });
   }
 
   /* Entities: a list with filters, and the one you picked in full */
@@ -80,7 +104,7 @@
       '<label>Type <select name="type">' + ['', 'person', 'org', 'tool', 'term', 'document', 'ticket'].map(function (t) { return '<option value="' + t + '"' + (t === filt.type ? ' selected' : '') + '>' + (t || 'Any') + '</option>'; }).join('') + '</select></label>' +
       '<label>Only <select name="state">' + ['', 'provisional', 'stale', 'disputed', 'merged', 'thin', 'undefined'].map(function (t) { return '<option value="' + t + '"' + (t === filt.state ? ' selected' : '') + '>' + (t || 'All') + '</option>'; }).join('') + '</select></label>' +
       '<button class="btn small" type="submit">Show</button></form>';
-    Live.inspect('/entities' + q({ type: filt.type, state: filt.state, q: filt.q, at: atIso() })).then(function (r) {
+    inspect('/entities' + q({ type: filt.type, state: filt.state, q: filt.q, at: atIso() })).then(function (r) {
       panels.entities = r;
       var list = r.entities.length ? '<ul class="insp-list">' + r.entities.map(function (e) {
         return '<li><button type="button" class="insp-row' + (picked === e.id ? ' on' : '') + '" data-entity="' + e.id + '"><span class="insp-name">' + esc(e.name) + '</span>' +
@@ -94,7 +118,7 @@
 
   function detail(id) {
     picked = id;
-    Live.inspect('/entities/' + id + q({ at: atIso() })).then(function (d) {
+    inspect('/entities/' + id + q({ at: atIso() })).then(function (d) {
       panels.entity = d;
       var e = d.entity, el = document.getElementById('insp-detail'); if (!el) return;
       var h = '<div class="insp-card"><h2>' + esc(e.display_name) + ' <span class="meta">#' + e.id + ' · ' + esc(e.type) + (e.provisional ? ' · provisional' : '') + '</span></h2>' + copyBtn('entity');
@@ -103,7 +127,7 @@
       h += '<p class="meta">Aliases: ' + esc(d.aliases.join(', ') || 'none') + (d.identifiers.length ? ' · ' + d.identifiers.map(function (i) { return esc(i.type + ': ' + i.value); }).join(', ') : '') + '</p>';
       if (d.entity_links.length) h += '<p class="meta">Kept separate from #' + d.entity_links.map(function (l) { return l.a === e.id ? l.b : l.a; }).join(', #') + '</p>';
       h += '<h3>Facts</h3>' + (d.facts.length ? '<div class="insp-table" role="table">' + d.facts.map(factHTML).join('') + '</div>' : '<p class="meta">None yet.</p>');
-      h += '<form class="insp-form" data-edit="' + e.id + '"><label>Edit: attribute <input name="attr" required placeholder="role, team, definition…"></label><label>value <input name="value" required></label>' +
+      if (!demo()) h += '<form class="insp-form" data-edit="' + e.id + '"><label>Edit: attribute <input name="attr" required placeholder="role, team, definition…"></label><label>value <input name="value" required></label>' +
         '<button class="btn small" type="submit">Save as confirmed</button><span class="meta">This one writes: a fact you confirmed, which Undo takes back.</span></form>';
       if (d.knowledge.length || d.decisions.length) h += '<h3>Knowledge and decisions</h3>' + knowledgeHTML(d.knowledge) + decisionsHTML(d.decisions);
       h += '<h3>Where it came up</h3>' + (d.sightings.length ? '<ul class="insp-mini">' + d.sightings.map(function (s) {
@@ -157,7 +181,7 @@
   }
 
   function runs() {
-    Live.inspect('/runs').then(function (r) {
+    inspect('/runs').then(function (r) {
       panels.runs = r;
       var h = '<div class="insp-split"><div><ul class="insp-list">' + r.runs.map(function (x) {
         return '<li><button type="button" class="insp-row' + (run === x.id ? ' on' : '') + '" data-run="' + x.id + '"><span class="insp-name">Run ' + x.id + ' · ' + esc(x.role) + '</span>' +
@@ -170,7 +194,7 @@
 
   function runDetail(id) {
     run = id;
-    Live.inspect('/runs/' + id).then(function (d) {
+    inspect('/runs/' + id).then(function (d) {
       panels.run = d;
       var el = document.getElementById('insp-run'); if (!el) return;
       var s = d.submitted;
@@ -218,7 +242,7 @@
     if (f.matches('[data-filter]')) { e.preventDefault(); filt = { q: f.q.value.trim(), type: f.type.value, state: f.state.value }; return entities(); }
     if (f.matches('[data-whynot]')) {
       e.preventDefault();
-      Live.inspect('/why_not' + q({ a: f.a.value.trim(), b: f.b.value.trim() })).then(function (r) {
+      inspect('/why_not' + q({ a: f.a.value.trim(), b: f.b.value.trim() })).then(function (r) {
         panels.whynot = r;
         document.getElementById('insp-why').innerHTML = copyBtn('whynot') + '<p><b>' + esc(r.a.name) + '</b> and <b>' + esc(r.b.name) + '</b></p><ul class="insp-mini">' + r.reasons.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
       }, function (err) { document.getElementById('insp-why').innerHTML = fail(err); });
@@ -234,7 +258,7 @@
 
   V.mount = function (el) {
     root = document.createElement('section'); root.className = 'lineup inspector'; el.appendChild(root);
-    if (!window.Live || !Live.on()) {
+    if (!demo() && !(window.Live && Live.on())) {
       root.innerHTML = '<div class="tasks-head"><h1>Inspector</h1></div><p class="lempty">The inspector shows your real memory. Open Fuzz from the link fuzz serve prints, with ?lab.</p>';
       return;
     }

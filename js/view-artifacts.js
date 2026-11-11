@@ -34,7 +34,7 @@
       folder = 'demo';
       items = Samples.map(function (s) {
         var it = Store.item(s.task);
-        return { key: s.id, name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: it ? it.title : s.taskTitle, url: s.url };
+        return { key: s.id, name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: it ? it.title : s.taskTitle, url: s.url, memory: !!s.memory };
       });
       return paint();
     }
