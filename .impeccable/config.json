@@ -18,6 +18,15 @@
         ],
         "createdAt": "2026-10-20T21:12:46.317Z",
         "reason": "user confirmed: Warm Theme System (light --bg #FBF3E8) marked binding during init; recorded in PRODUCT.md Brand Commitments"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "spikes/deep-work/clocks.html"
+        ],
+        "createdAt": "2026-11-11T21:55:49.985Z",
+        "reason": "Claude triage: clocks.html defines no colors of its own; it uses var(--bg) and friends from the project's own themes (css/app.css, js/themes.js), so the cream comes from the app's existing Terracotta light theme, not a choice made on this page"
       }
     ]
   }

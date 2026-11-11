@@ -6,6 +6,7 @@
     tasks: { view: window.TasksView, title: 'Lineup' },
     artifacts: { view: window.ArtifactsView, title: 'Artifacts' },
     capture: { view: window.CaptureView, title: 'New task' },
+    deepwork: { view: window.DeepWorkView, title: 'Deep Work' },
     welcome: { view: window.Onboard.view, title: 'Welcome' },
     settings: { view: window.SettingsView, title: 'Settings' }
   };
@@ -64,6 +65,8 @@
       '<div class="hprog" id="hprog" hidden><span class="left" id="left" aria-hidden="true"></span>' + Progress.html('prog') + '</div>' +
       /* On narrow screens these collapse to icons (New task moves to the floating #fab); .lbl stays for screen readers. */
       '<div class="appbar-right"><a href="#/capture" data-nav="capture" class="themebtn nav-cta" title="New task (N)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New task</span></a>' +
+        /* Deep Work: the mode for doing, whenever you have time. Triage only decides. */
+        '<a href="#/deepwork" data-nav="deepwork" class="themebtn nav-deep" title="Deep Work: work through the tasks that need you and take real time"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Deep Work</span></a>' +
         '<div class="undowrap"><button type="button" class="themebtn undobtn" id="undobtn" aria-expanded="false" aria-controls="undopop" aria-haspopup="dialog" disabled>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Undo</span><span class="navcount" id="undocount"></span></button>' +
         '<div class="themepop undopop" id="undopop" role="dialog" aria-label="Recent actions" hidden></div></div>' +

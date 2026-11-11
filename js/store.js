@@ -217,6 +217,15 @@
       S.log(it, 'status', 'You took this one yourself. Fuzz keeps the sources ready.');
     },
     done: function (id) { var it = S.item(id); S.leave(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
+    /* Deep Work: yours, and it takes real time. It leaves Triage for the pool and waits for a session. */
+    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'Waiting for a Deep Work session'; S.log(it, 'status', 'You put this in Deep Work. It waits there for a session with time to do it.'); },
+    /* Done for now in a session: where you left off goes in its notes, and it moves to the back of the pool */
+    deepWorkLeftOff: function (id, note) {
+      var it = S.item(id); if (!it) return; note = (note || '').trim();
+      if (note) { it.leftOff = note; it.now = 'Left off: ' + note; }
+      state.items = state.items.filter(function (i) { return i !== it; }).concat([it]);
+      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in Deep Work. Where you left off: ' + note : 'Done for now in Deep Work.');
+    },
     session: function (id) { var it = S.item(id); S.leave(id); it.state = 'session'; it.now = 'Open in ' + S.workIn; S.log(it, 'status', 'You opened this in a working session with ' + S.workIn + '. Fuzz keeps the sources ready.'); },
     /* opt is one of S.scheduleOptions(it), or an exact time: the core's Schedule options, as the API sends them */
     /* instr: Fuzz looks into it meanwhile, and it still comes back at that time */
@@ -511,6 +520,19 @@
       it.sources = it.sources.filter(function (s) { return s !== src; });
       S.log(it, 'status', 'You removed ' + src.title + '.');
       emit({ type: 'attach', id: id });
+    },
+    /* Deep Work: something typed that isn't in the pool becomes a task that goes straight there, to work on now */
+    captureDeep: function (text) {
+      var id = 'deep' + (++captureN);
+      var it = {
+        id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'In Deep Work now', mins: 30, energy: 'normal', order: ++state.maxOrder,
+        incoming: 'You asked for this one by name in Deep Work.', aiNote: 'You started this in Deep Work, so Fuzz hasn’t had time to gather anything for it yet.',
+        log: [], sources: [], context: [], conversation: [], people: [], code: []
+      };
+      S.log(it, 'status', 'You started this in Deep Work.');
+      state.items.push(it);
+      emit({ type: 'capture', item: it });
+      return it;
     },
     parkThought: function (text) {
       var id = 'thought' + (++captureN);

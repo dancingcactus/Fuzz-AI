@@ -223,6 +223,7 @@ These match the demo's states.
 | `review` | human | A draft is waiting for your OK. |
 | `sending` | fuzz | You approved it; Fuzz's sender is sending it with its own connector. Undo takes the approval back until the sender claims it. |
 | `session` | human | Open in a working session with Claude. |
+| `deepwork` | human | Yours, and it takes real time: it waits in the Deep Work pool for a session you start when you have time. Done for now keeps where you left off in its notes. |
 | `scheduled` | human | Comes back at a human time ("when I'm back at my desk"). Stores an anchor, not just a time. |
 | `waiting` | — | Waiting on someone else. The extractor watches for the reply. |
 | `parked` | — | Kept, never nags. Can wake on a new mention. |
@@ -1218,6 +1219,7 @@ option does for that kind and writes the events. So one Undo and one log cover e
 | --- | --- | --- | --- |
 | `task` | Assign to Fuzz | `task.assigned` | `queued` |
 | | Work in Claude | `task.assigned` (to a session) | `session` |
+| | Deep Work | `task.assigned` (to deep work) | `deepwork` |
 | | Schedule `{anchor}` | `task.scheduled` | `scheduled`, see [Scheduling with human time](#scheduling-with-human-time) |
 | | Done | `task.done` | `done` |
 | | Park it | `task.parked` | `parked` |

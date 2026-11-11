@@ -138,6 +138,18 @@ def calendar(core):
     return json.loads(v) if isinstance(v, str) and v.startswith("{") else None
 
 
+def free_until(core, now=None):
+    """When the free time you're in now ends, from the calendar the executor last reported: the start of your next
+    meeting, for Deep Work's "Until 2pm". None when there's no report, or now isn't in a reported free slot."""
+    cal = calendar(core)
+    now = now or core.now()
+    for s in (cal or {}).get("slots") or []:
+        a, b = parse_iso(s["start"]), parse_iso(s["end"])
+        if a <= now < b:
+            return iso(b)
+    return None
+
+
 def stale(core):
     """Whether the executor should read the calendar again (never read, or older than refresh_hours)."""
     cal = calendar(core)

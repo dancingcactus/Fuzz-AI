@@ -58,6 +58,8 @@ def _task_answer(core, card, t, option, value):
         return
     if option == "session":
         return tasks.session(core, t["id"], card=card)
+    if option == "deep_work":   # yours, and it takes real time: it waits for a Deep Work session
+        return tasks.deep_work(core, t["id"], card=card)
     if option == "schedule":
         v = value if isinstance(value, dict) else {}
         return tasks.schedule(core, t["id"], v.get("anchor"), card=card, instructions=v.get("instructions"),

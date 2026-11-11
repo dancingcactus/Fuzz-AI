@@ -206,6 +206,12 @@
     return (d.kind === 'email.reply' ? 'Email reply' : how) + (src.title ? ' in “' + src.title + '”' : '');
   }
 
+  /* The last "Where I left off: …" in a task's notes (Pause, or Done for now in Deep Work) */
+  function leftOffOf(notes) {
+    var m = String(notes || '').match(/Where I left off: (.+)/g);
+    return m ? m[m.length - 1].replace('Where I left off: ', '').trim() : '';
+  }
+
   function toItem(t, c, it) {
     it = it || {};
     var tags = t.variant_tags || [], src = (t.sources || []).filter(function (s) { return !s.withdrawn && s.role !== 'ignored'; });
@@ -267,7 +273,9 @@
       holdRemove: !!(c && c.kind === 'hold' && c.payload && c.payload.kind === 'calendar_remove'),
       /* its deliverable ("For …"), and a part_of card asking whether it belongs to one */
       deliverable: t.deliverable || null, partOfPrompt: c && c.kind === 'part_of' ? c.prompt : '',
-      group: t.group_id ? 'g' + t.group_id : null
+      group: t.group_id ? 'g' + t.group_id : null,
+      /* Deep Work: the next step and where you left off last time, for picking it up */
+      nextStep: t.next_step || '', leftOff: leftOffOf(t.notes)
     };
     if (f.foundOut) f.aiHeading = 'You asked: ' + (t.find_out || 'what you needed');
     if (tags.indexOf('finding_out') > -1) f.now = 'Finding out: ' + (t.find_out || '');
@@ -284,6 +292,7 @@
     else if (state === 'review') f.now = 'Draft ready to review';
     else if (state === 'sending') f.now = 'Sending' + (f.sendTo ? ' to ' + f.sendTo.to : '');
     else if (state === 'session') f.now = t.next_step ? 'Next: ' + t.next_step : 'Open in ' + Store.workIn;
+    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'Waiting for a Deep Work session';
     else if (state === 'done') f.now = 'Done';
     else if (state === 'letgo') f.now = f.theirs ? 'Someone else’s' : 'Let go';
     else f.now = '';
@@ -516,6 +525,10 @@
     wrap('mine', function (id) { return decide(S.item(id), 'session', undefined, 'session'); });
     /* Work in Claude: the task moves to Current, then the core opens a Terminal session on it */
     wrap('session', function (id) { var it = S.item(id); return then(decide(it, 'session', undefined, 'session'), function () { return openSession(it); }); });
+    /* Deep Work: yours, and it takes real time, so it waits in the pool for a session. Done for now keeps
+       where you left off; stuck sends it back to Triage. */
+    wrap('deepWork', function (id) { return decide(S.item(id), 'deep_work', undefined, 'deep_work'); });
+    wrap('deepWorkLeftOff', function (id, note) { var it = S.item(id); return it && function () { return api('POST', '/tasks/' + it.coreId + '/deep_work', { left_off: (note || '').trim() }); }; });
     wrap('done', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('markDone', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('park', function (id) { return decide(S.item(id), 'park', undefined, 'park'); });
@@ -629,6 +642,14 @@
       write(function () { return api('POST', '/tasks', { text: (text || '').trim() || undefined, docs: docs || [], uploading: !!(picked && picked.length) }).then(function (r) { rename(it, r.task_id); if (r.gathering) gathering(it); return upload(r.task_id, picked || []); }); });
       return it;
     };
+    var captureDeep = S.captureDeep;
+    S.captureDeep = function (text) {
+      var it = captureDeep.apply(S, arguments);
+      gen++;
+      /* one call: straight into the pool, so it never waits as queued for Fuzz to gather */
+      write(function () { return api('POST', '/tasks', { text: text.trim(), deep_work: true }).then(function (r) { rename(it, r.task_id); }); });
+      return it;
+    };
     var parkThought = S.parkThought;
     S.parkThought = function (text) {
       var it = parkThought.apply(S, arguments);
@@ -717,6 +738,8 @@
     },
     useDemo: function () { pick('demo'); },
     /* Lineup's Open again, for a task that's already in Claude */
+    /* Deep Work: when the free time you're in ends (your next meeting), from the calendar Fuzz last read */
+    deepWorkInfo: function () { return api('GET', '/deepwork'); },
     openSession: function (id) { var it = Store.item(id); return openSession(it).catch(function (e) { Say.tell('It didn’t open: ' + e.message); }); },
     /* Who you are: every email, name and Slack ID that is yours, so Fuzz uses either account without asking */
     saveMe: function (body) { return api('PUT', '/me', body); },

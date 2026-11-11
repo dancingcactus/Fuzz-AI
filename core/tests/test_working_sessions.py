@@ -90,7 +90,7 @@ class Sessions(CoreCase):
         tid = self.sized("Write the Q4 readout", 90, 6)
         answers.answer(self.core, self.card_for(tid)["id"], "do_now")
         c = self.card_for(tid, "task")
-        self.assertEqual(cards.options(c, self.task(tid)), ["done", "pause", "assign", "session", "book", "find_out"])
+        self.assertEqual(cards.options(c, self.task(tid)), ["done", "pause", "assign", "deep_work", "session", "book", "find_out"])
         self.assertEqual(self.front()[0], "Write the Q4 readout")
         answers.answer(self.core, c["id"], "pause", "Drafted the intro; numbers next")
         t = self.task(tid)
