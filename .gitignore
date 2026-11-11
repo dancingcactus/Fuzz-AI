@@ -4,3 +4,10 @@
 
 # UI tests (tests/ui): npm install puts Playwright here
 tests/ui/node_modules/
+
+# Claude Code: personal settings and worktrees
+.claude/settings.local.json
+.claude/worktrees/
+
+# Playwright MCP: screenshots and logs from browser checks
+.playwright-mcp/
