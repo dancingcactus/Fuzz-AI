@@ -38,7 +38,7 @@
   /* 1. Wedge */
   .wedge { width: 100%; display: flex; gap: 22px; align-items: center; }
   .wedge svg { width: 150px; height: 150px; flex: none; }
-  .wedge .face { fill: var(--field); stroke: var(--line); stroke-width: 2; }
+  .wedge .rim { fill: var(--field); stroke: var(--line); stroke-width: 2; }
   .wedge .slice { fill: var(--accent); transition: d .6s ease; }
   .wedge .slice.brk { fill: var(--ok); }
   .wedge .tick { stroke: var(--line); stroke-width: 2; }
@@ -86,7 +86,7 @@
   .card.wide { grid-column: 1 / -1; }
   .dial { width: 100%; display: flex; gap: 28px; align-items: center; flex-wrap: wrap; justify-content: flex-start; }
   .dial svg { width: 220px; height: 220px; flex: none; }
-  .dial .face { fill: var(--field); stroke: var(--line); stroke-width: 1.5; }
+  .dial .rim { fill: var(--field); stroke: var(--line); stroke-width: 1.5; }
   .dial .w { fill: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
   .dial .b { fill: color-mix(in srgb, var(--ok) 70%, var(--surface)); }
   .dial .w.now { fill: var(--accent); }
@@ -129,7 +129,7 @@
       <h2 id="c1"><span class="n">1</span> The shrinking wedge</h2>
       <p class="idea">How much is left in this block, as a slice that gets eaten. Green while you’re on a break.</p>
       <div class="stage"><div class="wedge">
-        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="face" cx="50" cy="50" r="46"/><g id="wTicks"></g><path class="slice" id="wSlice"/><circle class="hub" cx="50" cy="50" r="6"/></svg>
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rim" cx="50" cy="50" r="46"/><g id="wTicks"></g><path class="slice" id="wSlice"/><circle class="hub" cx="50" cy="50" r="6"/></svg>
         <div><div class="big" id="wBig"></div><div class="small" id="wSmall"></div></div>
       </div></div>
       <div class="verdict"><span class="good">Reads as a shape, no math</span><span class="good">The best-proven form for time blindness</span><span class="bad">Only this block: you can’t see the session or the next break</span></div>
@@ -171,7 +171,7 @@
       <h2 id="c5"><span class="n">1 + 2</span> The session dial</h2>
       <p class="idea">The wedge, but for the whole session. Work is orange, breaks are green, and the pie is eaten up to the hand. With no end time it fills up instead: one lap is an hour, the next break waits ahead as a dashed slice, and each finished hour adds a ring outside.</p>
       <div class="stage"><div class="dial">
-        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="face" id="dFace" cx="50" cy="50" r="47"/><g id="dSegs"></g><line class="hand" id="dHand" x1="50" y1="50" x2="50" y2="5"/><circle class="hub" cx="50" cy="50" r="4.5"/></svg>
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rim" id="dFace" cx="50" cy="50" r="47"/><g id="dSegs"></g><line class="hand" id="dHand" x1="50" y1="50" x2="50" y2="5"/><circle class="hub" cx="50" cy="50" r="4.5"/></svg>
         <div><div class="big" id="dBig"></div><div class="small" id="dSmall"></div>
           <div class="legend"><span><i style="background:var(--accent)"></i>Work</span><span><i style="background:var(--ok)"></i>Break</span><span id="dLegend3"><i style="background:var(--field);border:1px solid var(--line)"></i>Done</span></div></div>
       </div></div>

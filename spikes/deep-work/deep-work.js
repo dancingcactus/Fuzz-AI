@@ -713,7 +713,7 @@
       return '<path class="' + cls + '" d="M50 50 L' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > span / 2 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + ' Z"/>';
     }
     function gap(x) { if (x <= dS || x >= dS + span) return ''; var q = pt(x, R); return '<line class="gap" x1="50" y1="50" x2="' + q[0].toFixed(2) + '" y2="' + q[1].toFixed(2) + '"/>'; }
-    var h = '<circle class="face" cx="50" cy="50" r="' + (open ? 41 : 47) + '"/>';
+    var h = '<circle class="rim" cx="50" cy="50" r="' + (open ? 41 : 47) + '"/>';
     if (!open) {
       proj.forEach(function (x) { h += sector(Math.max(x.s, dNow), x.e, (x.k === 'brk' ? 'b' : 'w') + (x.now ? ' now' : '')); if (x.s > dNow) h += gap(x.s); });
     } else {
