@@ -41,8 +41,13 @@ minute steps and drafts a first pass.
 4. **Between tasks.** Finishing gets a win beat (a ✓, and the steps it took), then Fuzz offers one next thing that fits
    the time left. Enter goes, O picks something else, and Esc stops. Switching away when you're stuck keeps your place
    and offers something lighter.
-5. **Time is visible and coarse.** The clock reads "About 12 min in · ~38 left", with a slow bar. It says "Break
-   after this step" when a break is waiting. Hiding the clock is an opt-out, and breaks still happen.
+5. **Time is visible and coarse: a session dial.** The whole session is a pie, eaten up to the hand. Work is orange
+   and breaks are green, so you see the next break coming and how big it is. It moves in 5-minute steps and says
+   "Break in ~10 min · ~35 min left in the session", or "Break after this step" when a break is waiting. With no end
+   time it fills up instead: one lap is an hour, the next break waits ahead as a dashed slice, and each finished
+   hour adds a ring outside. The dial is drawn from what actually happened plus the plan ahead, so snoozes and extra
+   time show up on it. Hiding the clock is an opt-out, and breaks still happen. (`clocks.html` has the other
+   concepts it was chosen from.)
 6. **Breaks are scheduled, and every time interruption takes over the screen.**
    - The rhythm is 25 minutes on and 5 off, with a 15-minute break after three. A break waits for the end of a step,
      up to 5 minutes.

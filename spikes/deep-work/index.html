@@ -89,9 +89,20 @@
   .later li.done { text-decoration: line-through; }
 
   .clock { margin-top: 16px; display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--muted); }
-  .clock .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--field); overflow: hidden; }
-  .clock .bar span { display: block; height: 100%; width: 0; background: color-mix(in srgb, var(--accent) 70%, var(--surface)); border-radius: 99px; transition: width .4s linear; }
-  .clock.hidden-clock .bar, .clock.hidden-clock .read { display: none; }
+  .clock .read { flex: 1; display: grid; gap: 1px; min-width: 0; }
+  .clock .read b { font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--ink); }
+  .clock .dial { width: 64px; height: 64px; flex: none; }
+  .clock .dial .face { fill: var(--field); stroke: color-mix(in srgb, var(--ink) 28%, transparent); stroke-width: 2; }
+  .clock .dial .w { fill: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
+  .clock .dial .b { fill: color-mix(in srgb, var(--ok) 70%, var(--surface)); }
+  .clock .dial .w.now { fill: var(--accent); }
+  .clock .dial .gap { stroke: var(--surface); stroke-width: 2.4; }
+  .clock .dial .ahead { fill: color-mix(in srgb, var(--ok) 28%, transparent); stroke: var(--ok); stroke-width: 1.4; stroke-dasharray: 3 2; }
+  .clock .dial .ring { fill: none; stroke: color-mix(in srgb, var(--accent) 70%, var(--surface)); stroke-width: 2; }
+  .clock .dial .hand { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+  .clock .dial .hub { fill: var(--surface); stroke: var(--ink); stroke-width: 2.5; }
+  .clock.hidden-clock .dial, .clock.hidden-clock .read { display: none; }
+  .clock.hidden-clock { justify-content: flex-end; }
 
   .thought { margin-top: 14px; display: flex; gap: 8px; }
   .thought input { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--field); border: var(--bw) solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; }
@@ -169,8 +180,6 @@
   .pick.free { border-style: dashed; }
   .intro .crumb, .intro .prep { margin-top: 0; margin-bottom: 12px; }
   .warming { display: flex; gap: 10px; align-items: center; color: var(--muted); padding: 30px 0; font-size: 16px; }
-  .clock .next { font-weight: 700; color: var(--link); }
-  .clock .next:empty { display: none; }
   .beat { text-align: center; padding: 10px 0 6px; }
   .beat .check { width: 64px; height: 64px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; font-size: 34px; font-weight: 800;
     background: var(--ok); color: var(--surface); animation: stepin .5s cubic-bezier(.3,1.8,.5,1); }
@@ -259,7 +268,7 @@
       <li><b>Say how long and where to start, on one screen.</b> Pick up where you left off comes first, then up to three tasks Fuzz has ready (marked by whether they fit your time), then search, or name something new and Fuzz warms it up on the spot.</li>
       <li><b>Breaks are planned into the time you give.</b> 25 minutes on, 5 off, a longer break after three. A break waits for the end of a step, up to 5 minutes. “Five more minutes” works once; the second time it’s “skip this one”.</li>
       <li><b>Every time interruption takes over the screen.</b> Break due, the break (which shows where you’ll pick up, so “I’m back” goes straight to work), time’s up, and the body check. Keys are ignored for a second so a stray keystroke can’t answer for you. Urgent cards use the same takeover in a different color (try “Send an urgent card”).</li>
-      <li><b>A coarse clock.</b> “About 12 min in · ~38 left” and a slow bar. It says “Break after this step” when one is waiting.</li>
+      <li><b>A coarse session dial.</b> The whole session is a pie eaten up to the hand: work in orange, breaks in green, so you see the next break coming. It moves in 5-minute steps, and says “Break in ~10 min · ~35 min left in the session”, or “Break after this step” when one is waiting. With no end time it fills up instead: one lap is an hour, the next break waits ahead as a dashed slice, and each finished hour adds a ring.</li>
       <li><b>One task at a time until you stop.</b> Finishing gets a win beat, then Fuzz offers one next thing. Enter goes, O picks something else, Esc stops.</li>
       <li><b>Stuck tasks go back to Triage with a fix.</b> Stalled (Stuck twice, switched away, or two sessions with no step done) comes back with a proposed split. Passed over (offered four times, never picked) comes back with a smaller first step, a hand-off, or drop it, with no guilt. Pick “Outline the Q3 planning doc” and leave without doing a step to see a stalled card; the rubric shows up as passed over after your first session.</li>
     </ul>

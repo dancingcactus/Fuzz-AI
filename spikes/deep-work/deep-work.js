@@ -284,7 +284,7 @@
   function startSession(t) {
     S.pool.forEach(function (x) { if (x !== t && x.offered) x.passed++; x.offered = false; });
     suggestions().concat(resumable()).forEach(function (x) { if (x !== t) x.passed++; });
-    S.clock = 0; S.workSince = 0; S.sinceRealBreak = 0; S.breaksTaken = 0; S.pending = null; S.forceAt = null; S.snoozed = 0; S.workClock = 0;
+    S.clock = 0; S.workSince = 0; S.sinceRealBreak = 0; S.breaksTaken = 0; S.pending = null; S.forceAt = null; S.snoozed = 0; S.workClock = 0; S.hist = []; S.curStart = 0;
     S.wrapping = false; S.thoughts = []; S.held = 0; S.log = []; S.nextHeld = 300; S.nextChat = 420;
     S.planned = S.budget; S.budgetEnd = S.budget > 0 ? S.budget * 60 : Infinity;
     S.pool.forEach(function (x) { x.stuck = 0; x.switched = false; });
@@ -320,7 +320,7 @@
       (rest ? '<details class="later"><summary>' + rest + ' more ' + (rest === 1 ? 'step' : 'steps') + ' after this (folded away on purpose)</summary><ol start="' + (t.at + 2) + '">' +
         t.steps.slice(t.at + 1).map(function (s) { return '<li>' + esc(s.t) + '</li>'; }).join('') + '</ol></details>' : '<p class="later">This is the last step.</p>') +
       ctxHtml(t) +
-      '<div class="clock' + (S.hideClock ? ' hidden-clock' : '') + '" id="clock"><span class="read" id="clockRead"></span><span class="bar"><span id="clockBar"></span></span><span class="next" id="clockNext"></span>' +
+      '<div class="clock' + (S.hideClock ? ' hidden-clock' : '') + '" id="clock"><svg class="dial" id="clockDial" viewBox="0 0 100 100" aria-hidden="true"></svg><span class="read"><b id="clockBig"></b><span id="clockSmall"></span></span>' +
       '<button type="button" class="btn small" id="clockToggle">' + (S.hideClock ? 'Show time' : 'Hide time') + '</button></div>' +
       '<form class="thought" id="thoughtForm"><input id="thought" placeholder="A stray thought? Park it here and keep going (T)" aria-label="Park a stray thought" autocomplete="off"><button class="btn" type="submit">Park it</button></form>' +
       (S.thoughts.length ? '<p class="parked">' + S.thoughts.length + ' parked for Triage: ' + S.thoughts.map(esc).join(' · ') + '</p>' : '') +
@@ -564,11 +564,12 @@
   function startBreak(manual) {
     if (S.warming) return;
     S.sheet = null; var len = nextBreakLen();
+    S.hist.push({ k: 'work', s: S.curStart, e: S.clock }); S.brkStart = S.clock;
     take('break', { left: len, idea: BREAK_IDEAS[S.breaksTaken % BREAK_IDEAS.length] });
     S.take.armed = true; renderTake();
     say('Go on. I’ve got your place.', 'sleepy');
   }
-  function countBreak() { if (S.take.counted) return; S.take.counted = true; S.breaksTaken++; S.workSince = 0; S.sinceRealBreak = 0; S.snoozed = 0; }
+  function countBreak() { if (S.take.counted) return; S.take.counted = true; S.hist.push({ k: 'brk', s: S.brkStart, e: S.clock }); S.curStart = S.clock; S.breaksTaken++; S.workSince = 0; S.sinceRealBreak = 0; S.snoozed = 0; }
   function endBreak() { countBreak(); S.take.over = true; renderTake(); say('Break’s over. Your place is right where you left it.', 'happy'); }
   function takeOpt(n) {
     var k = S.take; if (!k || !k.armed) return;
@@ -688,13 +689,46 @@
   }
 
   /* ---------- Time ---------- */
+  /* ---------- The clock: a session dial ----------
+     With an end time, the whole session is a pie eaten up to the hand: work is orange, breaks green.
+     With no end time it fills up instead: one lap is an hour, and each finished hour adds a ring.
+     It is drawn from what actually happened plus a projection of the plan, so snoozes and extra time show up. */
+  function about(left) { left = Math.ceil(left); if (left <= 1) return 'Wrapping up'; if (left < 5) return 'Under 5 min'; return '~' + (Math.round(left / 5) * 5) + ' min'; }
+  function inTxt(m) { var r = Math.round(m / 5) * 5; if (r < 5) return 'Just started'; if (r < 60) return '~' + r + ' min in'; var h = Math.floor(r / 60), mm = r % 60; return h + 'h' + (mm ? ' ' + mm + 'm' : '') + ' in'; }
   function tickClock() {
-    var r = $('clockRead'), b = $('clockBar'), nx = $('clockNext'); if (!r) return;
-    var m = Math.floor(S.clock / 60), left = leftMin();
-    r.textContent = (S.clock < 60 ? 'Just started' : 'About ' + m + ' min in') + (S.budget > 0 ? ' · ~' + Math.max(0, Math.round(left)) + ' left' : '');
-    var span = S.budget > 0 ? S.budgetEnd : WORK, val = S.budget > 0 ? S.clock : S.workSince;
-    b.style.width = Math.min(100, val / span * 100) + '%';
-    nx.textContent = S.pending === 'breakdue' || S.forceAt != null ? 'Break after this step' : S.pending === 'timeup' ? 'Time’s up after this step' : '';
+    var dial = $('clockDial'); if (!dial) return;
+    var m = S.clock / 60, open = S.budget < 0, end = open ? Infinity : S.budgetEnd / 60, hrs = Math.floor(m / 60);
+    var waiting = S.pending === 'breakdue' || S.pending === 'timeup';
+    var toBreak = waiting ? 0 : S.forceAt != null ? Math.max(0, (S.forceAt - S.workClock) / 60) : Math.max(0, (WORK - S.workSince) / 60);
+    var T = m + toBreak, cur = S.curStart / 60;
+    var dNow = waiting ? m : Math.min(m + 5, Math.max(cur, T - Math.round(toBreak / 5) * 5));   // 5-minute steps, like the words
+    var dS = open ? hrs * 60 : 0, span = open ? 60 : end, R = open ? 39 : 45;
+    var proj = [{ k: 'work', s: cur, e: T, now: true }], t = T, nb = S.breaksTaken, lim = open ? dS + span : end;
+    while (t < lim) { var bl = nb % 3 === 2 ? 15 : 5; proj.push({ k: 'brk', s: t, e: t + bl }); t += bl; nb++; proj.push({ k: 'work', s: t, e: t + 25 }); t += 25; }
+    function pt(x, r) { var an = (x - dS) / span * 2 * Math.PI; return [50 + r * Math.sin(an), 50 - r * Math.cos(an)]; }
+    function sector(a0, a1, cls) {
+      a0 = Math.max(a0, dS); a1 = Math.min(a1, dS + span); if (a1 - a0 <= 0.01) return '';
+      if (a1 - a0 >= span - 0.01) return '<circle class="' + cls + '" cx="50" cy="50" r="' + R + '"/>';
+      var p0 = pt(a0, R), p1 = pt(a1, R);
+      return '<path class="' + cls + '" d="M50 50 L' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > span / 2 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + ' Z"/>';
+    }
+    function gap(x) { if (x <= dS || x >= dS + span) return ''; var q = pt(x, R); return '<line class="gap" x1="50" y1="50" x2="' + q[0].toFixed(2) + '" y2="' + q[1].toFixed(2) + '"/>'; }
+    var h = '<circle class="face" cx="50" cy="50" r="' + (open ? 41 : 47) + '"/>';
+    if (!open) {
+      proj.forEach(function (x) { h += sector(Math.max(x.s, dNow), x.e, (x.k === 'brk' ? 'b' : 'w') + (x.now ? ' now' : '')); if (x.s > dNow) h += gap(x.s); });
+    } else {
+      S.hist.forEach(function (x) { h += sector(x.s / 60, x.e / 60, x.k === 'brk' ? 'b' : 'w'); h += gap(x.s / 60); });
+      h += sector(cur, dNow, 'w now') + gap(cur);
+      var nbk = proj[1]; if (nbk) h += sector(nbk.s, nbk.e, 'ahead');
+      for (var k = 0; k < Math.min(hrs, 3); k++) h += '<circle class="ring" cx="50" cy="50" r="' + (44 + k * 2.6) + '"/>';
+    }
+    var hp = pt(dNow, R - 1);
+    h += '<line class="hand" x1="50" y1="50" x2="' + hp[0].toFixed(2) + '" y2="' + hp[1].toFixed(2) + '"/><circle class="hub" cx="50" cy="50" r="5"/>';
+    dial.innerHTML = h;
+    var sessLeft = end - m;
+    $('clockBig').textContent = S.pending === 'timeup' ? 'Time’s up after this step' : S.pending === 'breakdue' ? 'Break after this step'
+      : !open && sessLeft <= toBreak ? 'Last block, ' + about(sessLeft).toLowerCase() + ' left' : 'Break in ' + about(toBreak).replace('Wrapping up', 'a moment');
+    $('clockSmall').textContent = open ? inTxt(m) : sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up';
   }
   function tickBreak() { var el = $('breakLeft'); if (!el || !S.take || S.take.kind !== 'break') return; var s = Math.max(0, Math.ceil(S.take.left)); el.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
   setInterval(function () {
