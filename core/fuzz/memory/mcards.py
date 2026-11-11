@@ -2,7 +2,7 @@
 
 Kinds: entity_person (are these the same person?), entity_term (what is this?), decision (was this a decision?)
 and fact_conflict (two sources disagree: which is right?). None of them is about a task. Each is raised at most
-once per subject, whatever its answer, and at most memory.daily_cards a day (more in onboarding mode). What's
+once per subject, whatever its answer, and at most memory.daily_cards (2) a day. What's
 over the cap stays as it is (an inferred definition, a proposed decision) and is asked about on a later day.
 """
 
@@ -14,8 +14,7 @@ from ..matching import entities
 from . import facts, trust as trust_mod
 
 KINDS = ("entity_person", "entity_term", "decision", "fact_conflict")
-DAILY_CARDS = 5
-ONBOARDING_CARDS = 10
+DAILY_CARDS = 2   # the same every day, onboarding or not: memory's questions never crowd out the work
 ONBOARDING_DAYS = 60
 
 
@@ -40,7 +39,7 @@ def onboarding(core):
 
 def cap(core):
     c = cfg(core)
-    return int(c.get("onboarding_cards", ONBOARDING_CARDS) if onboarding(core) else c.get("daily_cards", DAILY_CARDS))
+    return int(c.get("daily_cards", DAILY_CARDS))
 
 
 def _today_start(core):

@@ -225,18 +225,17 @@ class Cards(MemoryCase):
         self.assertEqual(self.memory_cards("entity_term"), [])
         self.assertNotIn("vendor list", briefs.glossary_md(self.core))
 
-    def test_the_daily_cap_holds_the_rest_and_onboarding_allows_more(self):
-        self.set_memory(onboarding_from="2026-01-01T00:00:00Z")   # long past: the ordinary cap
+    def test_two_a_day_whatever_the_mode(self):
         terms = [{"term": f"T{i}", "best_guess": f"Thing {i}"} for i in range(40)]
         tools.submit_signals(self.core, [sig("s1", terms=terms)])
-        self.assertEqual(len(self.memory_cards()), 5)
-        self.assertEqual(len(mcards.held(self.core)), 35)
-        self.set_memory(onboarding_from="2026-10-01T00:00:00Z")   # in the first 60 days
+        self.assertTrue(mcards.onboarding(self.core), "a new store is in onboarding mode")
+        self.assertEqual(len(self.memory_cards()), 2)
+        self.assertEqual(len(mcards.held(self.core)), 38)
         mcards.raise_cards(self.core)
-        self.assertEqual(len(self.memory_cards()), 10)
+        self.assertEqual(len(self.memory_cards()), 2, "no more today")
         self.clock.advance(days=1)
         mcards.raise_cards(self.core)
-        self.assertEqual(len(self.memory_cards()), 20, "the next day, more of what was held")
+        self.assertEqual(len(self.memory_cards()), 4, "the next day, two more of what was held")
 
     def test_never_ahead_of_a_time_sensitive_card(self):
         tid = tasks.capture(self.core, "File the expense report", due="2026-10-20T10:00:00Z")
@@ -373,7 +372,12 @@ class FirstWeek(MemoryCase):
         self.assertEqual(statuses, {"Pilot vendor B for card payments": "proposed",
                                     "Go with vendor B for card payments": "recorded"})
         kinds = sorted(c["kind"] for c in self.memory_cards())
-        self.assertEqual(kinds, ["decision", "entity_person", "entity_term", "entity_term", "fact_conflict"])
+        self.assertEqual(kinds, ["decision", "fact_conflict"], "two a day, the ones that matter most first")
+        self.assertEqual(sorted(h["kind"] for h in mcards.held(self.core)), ["entity_person", "entity_term", "entity_term"])
+        for _ in range(2):
+            self.clock.advance(days=1)
+            mcards.raise_cards(self.core)
+        self.assertEqual(len(self.memory_cards()), 5, "the rest over the next two days")
         kn = {k["kind"]: k for k in self.core.all("SELECT * FROM knowledge")}
         self.assertIn("Who owns the ORN runbook?", kn["meeting"]["summary_md"])
         self.assertIn("Concur", kn["learning"]["summary_md"])
@@ -610,6 +614,9 @@ class Inspector(MemoryCase):
     def test_why_not(self):
         pat = entities.lookup_person(self.core, {"name": "Pat"})
         tricia = recall.find(self.core, "patricia lee")[0]
+        self.assertIn("Held back by today's card cap", " ".join(inspect.why_not(self.core, pat, tricia)["reasons"]))
+        self.clock.advance(days=1)
+        mcards.raise_cards(self.core)
         self.assertIn("It was asked already", " ".join(inspect.why_not(self.core, pat, tricia)["reasons"]))
         priya = recall.find(self.core, "priya shah")[0]
         self.assertIn("Neither is provisional", " ".join(inspect.why_not(self.core, priya, tricia)["reasons"]))
@@ -722,3 +729,22 @@ class AskRun(CoreCase):
         avail = cp[cp.index("--available-tools") + 1:]
         self.assertEqual(avail, ["fuzz-ask"])
         self.assertIn("ask_id: a1", cp[cp.index("-p") + 1])
+
+
+class ExecutorLookups(MemoryCase):
+    def test_the_executor_can_look_things_up_without_raising_trust(self):
+        import asyncio
+        from mcp import Client
+        from fuzz import mcp_server
+        p = self.person("Priya Shah", "priya@acme.example")
+        fid, _ = facts.add(self.core, p, "owns", "Billing", how="inferred")
+
+        async def go(role):
+            async with Client(mcp_server.build(self.core, role)) as c:
+                r = await c.call_tool("who_is", {"name": "Priya"})
+                return json.loads(r.content[0].text)
+        r = asyncio.run(go("executor"))
+        self.assertEqual(r["facts"][0]["fact_id"], fid)
+        self.assertEqual(facts.views(self.core, [fid]), {}, "the executor reading it isn't you seeing it")
+        asyncio.run(go("recall"))
+        self.assertEqual(len(facts.views(self.core, [fid])[fid]), 1, "your own Claude answering you is")

@@ -279,7 +279,8 @@ personality layer can react to each kind differently.
 
 ## Executor tools (MCP)
 
-Kept small on purpose. Past about fifteen tools, a model starts choosing the wrong one.
+Each role gets only the tools its job needs. There's no fixed cap: add a tool when it does a job no
+existing one does, and give it a name and description that can't be mistaken for another.
 
 | Tool | Does | Notes |
 | --- | --- | --- |

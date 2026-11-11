@@ -131,6 +131,8 @@ All three are thin layers over the same library, so they can't drift apart.
 **Memory** ([`docs/memory-layers.md`](../docs/memory-layers.md)):
 - The extractor also has `get_lookups`, `submit_facts`, `submit_knowledge` and `report_meetings`, and signals carry
   `facts`, `terms`, `decisions` and `meeting`.
+- The executor can look things up with `who_is`, `what_is`, `why` and `search_memory`. Its lookups don't count as
+  showing you a fact.
 - `fuzz mcp --role recall` (`who_is`, `what_is`, `why`, `search_memory`, `meeting_brief`, `correct`) is
   installed into your own Claude Code or Copilot with the `fuzz-recall` skill. It has no launchd job.
 - `--role ask` is the same tools minus `correct`, plus `answer_ask`, for the app's ask box (`POST /ask`).
@@ -368,8 +370,7 @@ deliverable is `check_due` and shows in the executor's `whoami.deliverables_to_c
 pick (`week_plan`), this week's steps and new-and-loose suggestions (three or more tasks sharing a
 ticket or document), all first in the queue; a rough Monday only the pick, the rest Tuesday. Other
 weekdays, background ones get a card each, sized by the check-in. The active ones' tasks are the
-week's focus. The executor has 17 tools now: the design names `list_deliverables` and
-`report_deliverable_done`.
+week's focus. The executor also has `list_deliverables` and `report_deliverable_done`.
 
 ### Looking into a task you scheduled
 

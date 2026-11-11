@@ -188,7 +188,7 @@ All of these are question-family cards, each with a suggested answer, a way out 
 | `fact_conflict` (new) | A real conflict (above) | Use this one · Use that one · Neither `{value}` |
 
 **Card flood guard.** A new job brings hundreds of names and terms. Memory cards are capped at
-`memory.daily_cards` (5 a day; 10 in onboarding mode). They're never put ahead of time-sensitive cards, and
+`memory.daily_cards` (2 a day, onboarding or not). They're never put ahead of time-sensitive cards, and
 are kept lowest stakes first. Anything over the cap stays Inferred and visible, and rides on exposure
 instead of a card. High-confidence decisions from the decision-maker's own words are recorded without a card
 and show in the next brief and answer.
@@ -249,8 +249,9 @@ Copilot like the other roles, along with a `fuzz-recall` skill.
 
 Every result carries `sources` (link, who, when) and a `trust` label. The skill tells Claude to cite them,
 and to say "Fuzz's guess" for Inferred and "Disputed" where it applies. Every call writes `fact_views`. The
-executor gets no new tools (the design keeps it at 17). Instead, `get_task` carries `memory`: the task's
-people and the known terms in its words, each fact with its `fact_id` and trust label, ready for `relied_on`.
+executor gets `who_is`, `what_is`, `why` and `search_memory` too (read-only, and its lookups don't count as
+showing you a fact). `get_task` also carries `memory`: the task's people and the known terms in its words, each
+fact with its `fact_id` and trust label, ready for `relied_on`.
 
 **In the app.** `POST /ask {question}` starts a headless run of the `ask` role: the recall tools **except
 `correct`**, since nobody is present in a headless run to vouch for an edit, plus `answer_ask`. The answer
@@ -374,7 +375,8 @@ UI checks go against the live server at `127.0.0.1`.
 - **Replay**: `rebuild --check` is clean after a fixture run that touches every new table.
 - **Isolation**: two users' facts, knowledge and decisions never cross, in recall tools or over HTTP.
 - **Role scoping**: recall sees only its own tools. Its only write is `correct`. The `ask` role has no
-  `correct`. The executor's tools are unchanged. Installer tests cover the new role for both clients, against a stubbed home and
+  `correct`. The executor gets `who_is`, `what_is`, `why` and `search_memory`, never `correct`, and its lookups
+  write no `fact_views`. Installer tests cover the new role for both clients, against a stubbed home and
   launchd (per the installer-leak note).
 - **Brief timing**: with a fake calendar, `brief.due` fires once, 5 minutes before the start. A moved or
   cancelled meeting, once the calendar is reported again, moves or stops it. A calendar report more than an

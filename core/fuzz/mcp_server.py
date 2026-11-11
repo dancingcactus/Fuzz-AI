@@ -245,20 +245,21 @@ def build(core, role, task_id=None):
             for the human. The draft goes back to them for review."""
             return _call(tools.send_failed, core, task_id, draft_id, why)
 
-    if role in ("recall", "ask"):
+    if role in ("recall", "ask", "executor"):
+        shown = role != "executor"   # the executor reading a fact isn't the person seeing it (exposure)
+
         @srv.tool()
         def who_is(name: str) -> dict:
-            """A person by name, email or alias: their working facts (each with a trust label and sources), recent
-            interactions, open items both ways, and related notes and decisions."""
-            return _call(tools.who_is, core, name)
+            """A person by name, email or alias: their working facts (each with a fact_id, a trust label and
+            sources), recent interactions, open items both ways, and related notes and decisions."""
+            return _call(tools.who_is, core, name, shown)
 
         @srv.tool()
         def what_is(term: str) -> dict:
-            """An acronym, internal name, tool or company: its definition with trust and sources, aliases, and
-            where it came up."""
-            return _call(tools.what_is, core, term)
+            """An acronym, internal name, tool or company: its definition with fact_id, trust and sources,
+            aliases, and where it came up."""
+            return _call(tools.what_is, core, term, shown)
 
-    if role in ("recall", "ask"):
         @srv.tool()
         def why(question: str) -> dict:
             """Decisions and knowledge (meeting notes, thread digests, references, learnings) that answer a
@@ -267,9 +268,10 @@ def build(core, role, task_id=None):
 
         @srv.tool()
         def search_memory(query: str) -> dict:
-            """Search across people, terms, facts, knowledge and decisions."""
+            """Search across people, terms, facts, knowledge and decisions ("who owns billing?")."""
             return _call(tools.search_memory, core, query)
 
+    if role in ("recall", "ask"):
         @srv.tool()
         def meeting_brief(meeting: str) -> dict:
             """The brief for an upcoming meeting (by title or calendar id): who's coming, what Fuzz knows about

@@ -1,7 +1,7 @@
 ---
 name: fuzz-executor
 description: Work through the Fuzz task queue as Fuzz's executor. Claims a task, gathers context on one just captured or takes the next step on one assigned, and writes the result back as a draft, a brief, a handback or a permission request. Use when asked to "work through my Fuzz queue", "run the Fuzz executor" or "take the next step on Fuzz task 14".
-prompt_version: executor-0.18
+prompt_version: executor-0.19
 ---
 
 # Fuzz executor
@@ -15,7 +15,7 @@ connector, for example) to research a task. Never use any tool to change anythin
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.18`). It tells you every
+1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.19`). It tells you every
    name, email address and Slack ID that is the person's, today's date, the local time and their
    time zone.
 2. Call `claim_next_task`. The scheduler picks the task; don't pick one yourself. If it returns no
@@ -131,7 +131,10 @@ they assign it to you.
 - **Fuzz's memory.** `get_task`'s `memory` says who the task's people are (role, team, what they own) and what the
   terms in it mean, each fact with a `fact_id` and a trust label. Use it before guessing who to send something to
   or what an acronym means. When a draft leans on a fact (the person you picked as recipient, a definition you
-  used), pass its `fact_id` in `save_draft`'s `relied_on`. A fact labelled **Fuzz's guess** never decides on its own: the card
+  used), pass its `fact_id` in `save_draft`'s `relied_on`. For anyone or anything the task doesn't already
+  cover, look it up: `who_is` (a person), `what_is` (a word, tool or company), `why` (a past decision or what's
+  known about a topic) and `search_memory` ("who owns billing?"). Cite what you used in the brief, and say
+  "Fuzz's guess" for anything labelled so. A fact labelled **Fuzz's guess** never decides on its own: the card
   tells the person you guessed and asks them to check it first.
 
 - **You can't send, post or delete anything.** Drafts are the only way out, and the person approves

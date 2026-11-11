@@ -1,6 +1,6 @@
 """The AI roles' tools as plain functions. mcp_server.py exposes them; tests and scripted runs call them too.
 
-Kept small on purpose (past about fifteen tools a model starts choosing the wrong one), and kept
+Each role gets only the tools its job needs, with clear names and descriptions, and they're kept
 quiet: writes return counts and ids, never an echo; reads return short pages.
 The executor and extractor have no send, post or delete tool. The sender has none of Fuzz's either:
 it sends an approved draft with its client's own connector, then says so with mark_sent.
@@ -488,14 +488,15 @@ def report_meetings(core, meetings):
     return extract.report_meetings(core, meetings, actor=core._actor or "fuzz:extractor")
 
 
-def who_is(core, name):
+def who_is(core, name, record=True):
+    """record: count it as shown to the person (exposure). Not when the executor looks it up for itself."""
     from .memory import recall
-    return recall.who_is(core, name)
+    return recall.who_is(core, name, record=record)
 
 
-def what_is(core, term):
+def what_is(core, term, record=True):
     from .memory import recall
-    return recall.what_is(core, term)
+    return recall.what_is(core, term, record=record)
 
 
 def why(core, question):
@@ -525,7 +526,7 @@ def answer_ask(core, ask_id, text, sources=None):
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
-            "release", "list_deliverables", "report_deliverable_done")
+            "release", "list_deliverables", "report_deliverable_done", "who_is", "what_is", "why", "search_memory")
 
 
 def list_deliverables(core, since=None):
@@ -555,7 +556,7 @@ def report_deliverable_done(core, deliverable_id, evidence=None, cant_check=None
 def report_calendar(core, slots, holds=None):
     """What the executor read from the calendar with its own connector (the core never reads it): free time and
     Focus time events ahead, and what became of Fuzz's holds. It reaches the executor as suggest_schedule's
-    calendar argument, not a tool of its own: past about fifteen tools a model picks the wrong one."""
+    calendar argument, not a tool of its own."""
     from . import booking
     if not isinstance(slots, list):
         raise FuzzError("slots is a list of {start, end, title?}: your free time and Focus time events", "slots")
