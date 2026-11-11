@@ -178,8 +178,8 @@
     var s = data.slots; if (!s) return '';   /* a core from before /slots */
     var n = slotsEdit || s.slots, pips = '';
     for (var i = 1; i <= s.max; i++) pips += '<i class="' + (i <= n ? 'on' : '') + '"></i>';
-    return '<div class="set-sub" id="sec-slots"><hr class="set-rule"><h3 id="sec-slots-h">How many at once</h3>' +
-      '<p class="meta">How many tasks I work on at the same time. The rest wait as Next up until a slot opens.</p>' +
+    return '<div class="set-sub" id="sec-slots"><hr class="set-rule">' +
+      '<p class="meta" id="sec-slots-h">How many tasks I work on at the same time. The rest wait as Next up until a slot opens.</p>' +
       '<form data-form="slots" aria-labelledby="sec-slots-h"><div class="segrow set-slots" role="group" aria-label="Slots">' +
         '<button type="button" class="seg" data-slots="-1" aria-label="One fewer"' + (n <= 1 ? ' disabled' : '') + '>−</button>' +
         '<output id="slots-n" aria-live="polite"><b>' + n + '</b> ' + (n === 1 ? 'slot' : 'slots') + '</output>' +
