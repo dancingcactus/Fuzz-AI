@@ -628,6 +628,10 @@ a.person-meta:hover { color: var(--ink); text-decoration-color: currentColor; }
 .pips { display: inline-flex; gap: 4px; }
 .pips i { width: 10px; height: 10px; border-radius: 3px; border: var(--bw2) solid var(--muted); }
 .pips i.on { background: var(--accent); border-color: var(--accent); }
+.set-slots { align-items: center; gap: 10px; }
+.set-slots output { min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.set-slots .seg { min-width: 2.5em; }
+.set-slots .pips { margin-left: 6px; }
 .lane-step { font-size: 13.5px; color: var(--link); line-height: 1.4; }
 .steps { display: inline-flex; gap: 4px; }
 .steps i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }

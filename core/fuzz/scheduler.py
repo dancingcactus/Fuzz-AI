@@ -20,6 +20,19 @@ def budget(core):
     return core.config["budget"]
 
 
+MAX_SLOTS = 10   # the most tasks Fuzz may hold at once; Settings offers 1 to this
+
+
+def set_slots(core, n):
+    """How many tasks Fuzz may work on at once (budget.max_working), from Settings."""
+    if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= MAX_SLOTS:
+        raise FuzzError(f"slots is a whole number from 1 to {MAX_SLOTS}", "slots")
+    cfg = core.config
+    cfg["budget"] = dict(cfg.get("budget") or {}, max_working=n)
+    core.save_config(cfg)
+    return n
+
+
 def lease_until(core):
     return iso(core.now() + timedelta(minutes=budget(core)["lease_minutes"]))
 

@@ -4,6 +4,7 @@
    About you        your other names, emails and Slack IDs (PUT /me)
    App              the app Fuzz works through: status, install, repair, switch (/engine)
    Working hours    when Fuzz reads for new asks (PUT /hours), the same choices as Fuzz's first question
+   At once          how many tasks Fuzz may work on at the same time, his slots (PUT /slots, 1 to 10)
    What Fuzz can …  one row per source, in plain words, with Reading and Sending switches; the tool-by-tool
                     list folds away under Details (PUT /setup/tools; List again runs discovery)
    Files            the one folder Fuzz may write to (PUT /setup/folder)
@@ -11,7 +12,7 @@
    Your queue       refresh (or reset the demo), switch account; then the tour */
 (function () {
   var esc = UI.esc;
-  var V = {}, root = null, data = null, poll = 0, busy = {}, hoursEdit = null, open = {}, picks = null;
+  var V = {}, root = null, data = null, poll = 0, busy = {}, hoursEdit = null, slotsEdit = null, open = {}, picks = null;
   var LINKS = { 'claude-code': 'https://claude.com/product/claude-code', copilot: 'https://github.com/features/copilot/cli' };
 
   function plain(server) { return /^claude\.ai /i.test(server || '') ? server.slice(10) : (server || 'Other'); }
@@ -46,8 +47,8 @@
   V.unmount = function () { document.removeEventListener('keydown', onEsc); clearTimeout(poll); root = null; picks = null; };
 
   function load() {
-    return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true)]).then(function (r) {
-      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3] };
+    return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; })]).then(function (r) {
+      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4] };
       return data;
     });
   }
@@ -62,15 +63,15 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What Fuzz knows about you, what he may do, and how he looks. Each part saves on its own.</p>' +
-      meHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + appHTML() + hoursHTML() + slotsHTML() + sourcesHTML() + folderHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
   var FN = null;
   function repaint(id) {
-    FN = FN || { me: meHTML, app: appHTML, hours: hoursHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML };
+    FN = FN || { me: meHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML };
     var el = root && root.querySelector('#sec-' + id); if (!el) return;
-    var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
+    var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
     var grp = a && a.getAttribute && a.getAttribute('data-group');
     el.outerHTML = FN[id]();
     if (key) { var back = root.querySelector('#sec-' + id + ' ' + (key.indexOf('[id=') === 0 ? '#' + a.id : key) + (grp ? '[data-group="' + grp + '"]' : '')); if (back) back.focus({ preventScroll: true }); }
@@ -169,6 +170,24 @@
     if (e.mode !== 'none' && e.until <= e.from) return Promise.reject(new Error('That ends before it starts. Pick an end time after the start.'));
     var body = e.mode === 'none' ? { hours: null, weekends: true } : { hours: [e.from, e.until], weekends: e.mode === 'everyday' };
     return Live.saveHours(body).then(function (h) { data.hours = h; hoursEdit = null; return 'Saved.'; });
+  }
+
+  /* ---------- How many at once: Fuzz's slots ---------- */
+  function slotsHTML() {
+    var s = data.slots; if (!s) return '';   /* a core from before /slots */
+    var n = slotsEdit || s.slots, pips = '';
+    for (var i = 1; i <= s.max; i++) pips += '<i class="' + (i <= n ? 'on' : '') + '"></i>';
+    return section('slots', 'How many at once', 'How many tasks I work on at the same time. The rest wait as Next up until a slot opens.',
+      '<form data-form="slots"><div class="segrow set-slots" role="group" aria-label="Slots">' +
+        '<button type="button" class="seg" data-slots="-1" aria-label="One fewer"' + (n <= 1 ? ' disabled' : '') + '>−</button>' +
+        '<output id="slots-n" aria-live="polite"><b>' + n + '</b> ' + (n === 1 ? 'slot' : 'slots') + '</output>' +
+        '<button type="button" class="seg" data-slots="1" aria-label="One more"' + (n >= s.max ? ' disabled' : '') + '>+</button>' +
+        '<span class="pips" aria-hidden="true">' + pips + '</span></div>' +
+      '<p class="meta">Up to ' + s.max + '.</p>' + saveBtn('slots') + '</form>');
+  }
+  function saveSlots() {
+    var n = slotsEdit || data.slots.slots;
+    return Live.saveSlots(n).then(function (r) { data.slots = r; slotsEdit = null; return 'Saved. I’ll take up to ' + r.slots + ' at once.'; });
   }
 
   /* ---------- What Fuzz can read and send ---------- */
@@ -306,7 +325,7 @@
   }
 
   /* ---------- Events ---------- */
-  var SAVE = { me: saveMe, hours: saveHours, sources: saveSources, folder: saveFolder };
+  var SAVE = { me: saveMe, hours: saveHours, slots: saveSlots, sources: saveSources, folder: saveFolder };
   function onSubmit(e) {
     var f = e.target.dataset.form; if (!f) return;
     e.preventDefault();
@@ -319,6 +338,7 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.app) return appAction(b.dataset.app, b.dataset.client);
     if (b.dataset.hmode) { hoursEdit.mode = b.dataset.hmode; repaint('hours'); return; }
+    if (b.dataset.slots) { var n = (slotsEdit || data.slots.slots) + parseInt(b.dataset.slots, 10); slotsEdit = Math.max(1, Math.min(data.slots.max, n)); repaint('slots'); return; }
     if (b.dataset.list) return listAgain();
     if (b.dataset.choose) return chooseFolder();
     if (b.dataset.back) return App.leaveSettings();

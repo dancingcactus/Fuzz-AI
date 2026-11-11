@@ -52,6 +52,17 @@ class Api(Server):
         self.assertEqual(self.req("GET", "/../README.md", token=False)[0], 404)
         self.assertEqual(self.req("GET", "/core/fuzz/db.py", token=False)[0], 404)
 
+    def test_slots_from_settings(self):
+        self.assertEqual(self.req("GET", "/slots")[1], {"slots": 2, "max": 10})
+        self.assertEqual(self.req("PUT", "/slots", {"slots": 5})[1]["slots"], 5)
+        self.assertEqual(self.req("GET", "/tasks")[1]["max_working"], 5)
+        for bad in (0, 11, 2.5, "3", True, None):
+            status, err = self.req("PUT", "/slots", {"slots": bad})
+            self.assertEqual((status, err["field"]), (400, "slots"), bad)
+        self.assertEqual(self.req("GET", "/slots")[1]["slots"], 5)
+        from fuzz import config
+        self.assertEqual(config.load(self.home)["budget"]["max_working"], 5)   # kept in config.json
+
     def test_capture_assign_run_approve_undo(self):
         status, body = self.req("POST", "/tasks", {"text": "Do the corporate compliance video"})
         self.assertEqual(status, 201)

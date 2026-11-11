@@ -154,6 +154,8 @@ class App:
             ("POST", r"/onboarding/kickoff", self.onboarding_kickoff),
             ("GET", r"/hours", self.hours_get),
             ("PUT", r"/hours", self.hours_put),
+            ("GET", r"/slots", self.slots_get),
+            ("PUT", r"/slots", self.slots_put),
             ("GET", r"/groups", self.list_groups),
             ("POST", r"/groups/(\d+)/(rename|take_out|wrap|finish_later)", self.group_action),
             ("GET", r"/cards", self.list_cards),
@@ -592,6 +594,14 @@ class App:
 
     def tick(self, core, m, body, q):
         return scheduler.tick(core)
+
+    def slots_get(self, core, m, body, q):
+        return {"slots": scheduler.budget(core)["max_working"], "max": scheduler.MAX_SLOTS}
+
+    def slots_put(self, core, m, body, q):
+        """{slots}: how many tasks Fuzz may work on at once, 1 to scheduler.MAX_SLOTS."""
+        scheduler.set_slots(core, body.get("slots"))
+        return self.slots_get(core, m, body, q)
 
     def me_get(self, core, m, body, q):
         return {k: core.config["me"].get(k, []) for k in config.ME_KEYS}

@@ -699,6 +699,9 @@
     me: function () { return api('GET', '/me'); },
     hours: function () { return api('GET', '/hours'); },
     saveHours: function (body) { return api('PUT', '/hours', body); },
+    /* How many tasks Fuzz may work on at once: the Lineup's slots */
+    slots: function () { return api('GET', '/slots'); },
+    saveSlots: function (n) { return api('PUT', '/slots', { slots: n }).then(function (r) { Store.setSlots(r.slots); return r; }); },
     engine: function () { return api('GET', '/engine?start=0'); },
     checkEngine: function () { return api('POST', '/engine/check', {}); },
     chooseEngine: function (client) { return api('PUT', '/engine', { client: client }); },
