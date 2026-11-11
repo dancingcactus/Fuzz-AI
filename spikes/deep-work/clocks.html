@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Work Clocks</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<style>
+  body { padding: 0 16px 80px; }
+  main { max-width: 1040px; margin: 0 auto; }
+  header.top { padding: 28px 0 4px; }
+  header.top h1 { font-family: var(--font-display); font-size: 26px; font-weight: 800; margin: 0; }
+  header.top p { color: var(--muted); max-width: 72ch; margin: 6px 0 0; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 18px 0 8px; padding: 12px 14px;
+    background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; font-size: 14px; }
+  .toolbar label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .toolbar select { font: inherit; color: var(--ink); background: var(--field); border: var(--bw) solid var(--line); border-radius: 10px; padding: 6px 8px; min-height: 36px; }
+  .scrub { display: flex; gap: 12px; align-items: center; margin: 0 0 18px; padding: 10px 14px; font-size: 14px; color: var(--muted);
+    background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; }
+  .scrub input { flex: 1; accent-color: var(--accent); min-width: 0; }
+  .scrub b { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 9.5em; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); }
+  .card { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 22px; box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; }
+  .card h2 { font-family: var(--font-display); font-size: 19px; font-weight: 800; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+  .card h2 .n { color: var(--link); }
+  .card .idea { color: var(--muted); margin: 4px 0 14px; font-size: 14px; }
+  .stage { flex: 1; min-height: 190px; border-radius: 16px; background: var(--bg); padding: 18px; display: grid; place-items: center; position: relative; overflow: hidden; }
+  .verdict { margin-top: 12px; font-size: 13.5px; display: grid; gap: 4px; }
+  .verdict span::before { font-weight: 800; margin-right: 6px; }
+  .verdict .good::before { content: "+"; color: var(--ok); }
+  .verdict .bad::before { content: "−"; color: var(--danger); }
+
+  /* 1. Wedge */
+  .wedge { width: 100%; display: flex; gap: 22px; align-items: center; }
+  .wedge svg { width: 150px; height: 150px; flex: none; }
+  .wedge .face { fill: var(--field); stroke: var(--line); stroke-width: 2; }
+  .wedge .slice { fill: var(--accent); transition: d .6s ease; }
+  .wedge .slice.brk { fill: var(--ok); }
+  .wedge .tick { stroke: var(--line); stroke-width: 2; }
+  .wedge .hub { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+  .big { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1.15; }
+  .small { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  /* 2. Track */
+  .track { width: 100%; }
+  .bar { display: flex; gap: 6px; align-items: stretch; height: 26px; }
+  .seg { position: relative; border-radius: 8px; background: var(--field); overflow: hidden; border: var(--bw) solid var(--line); }
+  .seg > i { position: absolute; inset: 0 auto 0 0; width: 0; background: color-mix(in srgb, var(--accent) 75%, var(--surface)); transition: width .6s ease; }
+  .seg.brk { background: color-mix(in srgb, var(--ok) 18%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); display: grid; place-items: center; font-size: 13px; }
+  .seg.brk > i { background: color-mix(in srgb, var(--ok) 60%, var(--surface)); }
+  .seg .ticks { position: absolute; inset: 0; background-image: linear-gradient(to right, transparent calc(100% - 1.5px), color-mix(in srgb, var(--ink) 18%, transparent) 0); }
+  .seg.now { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .seg.brk.now { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 35%, transparent); }
+  .seg.more { flex: 0 0 34px !important; display: grid; place-items: center; color: var(--muted); background: transparent; border-style: dashed; }
+  .marker { position: relative; height: 18px; margin-top: 9px; }
+  .marker b { position: absolute; top: 0; transform: translateX(-50%); transition: left .6s ease; color: var(--accent); font-size: 14px; line-height: 1; }
+  .trackcap { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* 3. Ambient */
+  .amb { position: absolute; inset: 0; border-radius: 16px; transition: box-shadow 2s ease, background 2s ease; }
+  .mock { position: relative; width: 100%; max-width: 380px; }
+  .mock .lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .mock .stepm { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin: 4px 0 12px; }
+  .mock .lines i { display: block; height: 10px; border-radius: 6px; background: var(--field); margin: 8px 0; }
+  .phase { display: inline-flex; gap: 8px; align-items: center; font-weight: 700; font-size: 14px; margin-top: 10px; transition: color 2s; }
+  .phase .dots { display: inline-flex; gap: 4px; }
+  .phase .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); transition: background 1s; }
+  .phase .dots i.on { background: currentColor; }
+
+  /* 4. Fuzz */
+  .fz { width: 100%; display: flex; gap: 18px; align-items: center; }
+  .fz .pwrap { width: 130px; flex: none; transition: filter 2s ease; }
+  .fz #bot { width: 124px; }
+  .fz .bubble { max-width: 260px; min-height: 0; }
+  .fz .meter { display: flex; gap: 4px; margin-top: 8px; }
+  .fz .meter i { width: 18px; height: 6px; border-radius: 3px; background: var(--line); transition: background 1s; }
+  .fz .meter i.on { background: var(--glow, var(--accent)); }
+
+
+  /* 5. Session dial */
+  .card.wide { grid-column: 1 / -1; }
+  .dial { width: 100%; display: flex; gap: 28px; align-items: center; flex-wrap: wrap; justify-content: flex-start; }
+  .dial svg { width: 220px; height: 220px; flex: none; }
+  .dial .face { fill: var(--field); stroke: var(--line); stroke-width: 1.5; }
+  .dial .w { fill: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
+  .dial .b { fill: color-mix(in srgb, var(--ok) 70%, var(--surface)); }
+  .dial .w.now { fill: var(--accent); }
+  .dial .b.now { fill: var(--ok); }
+  .dial .gap { stroke: var(--surface); stroke-width: 1.6; }
+  .dial .ahead { fill: color-mix(in srgb, var(--ok) 28%, transparent); stroke: var(--ok); stroke-width: .8; stroke-dasharray: 2 1.5; }
+  .dial .ring { fill: none; stroke: color-mix(in srgb, var(--accent) 70%, var(--surface)); stroke-width: 1.6; }
+  .dial .hand { stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; }
+  .dial .hub { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+  .dial .cup { font-size: 7px; text-anchor: middle; dominant-baseline: central; }
+  .dial .legend { display: flex; gap: 14px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .dial .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  .notes { margin: 28px 0 0; padding: 16px 18px; border-radius: 16px; background: var(--field); font-size: 14px; }
+  .notes h2 { font-family: var(--font-display); font-size: 16px; margin: 0 0 6px; }
+  .notes ul { margin: 0; padding-left: 20px; }
+  .btn:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+  @media (max-width: 560px) { .wedge { flex-direction: column; align-items: flex-start; } .wedge svg { width: 130px; height: 130px; } .fz { flex-direction: column; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Deep Work clocks: four ways to see time</h1>
+    <p>One session drives all four. They move in 5-minute steps, never seconds, and none needs you to read a number to know where you are. Play it fast, or drag the slider to any moment, and notice which one you can read in a half-second glance.</p>
+  </header>
+
+  <div class="toolbar">
+    <label>Theme <select id="theme"></select></label>
+    <label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label>Session <select id="budget"><option value="25">25 min</option><option value="50" selected>50 min</option><option value="90">90 min</option><option value="-1">Until I stop</option></select></label>
+    <label>Time runs <select id="speed"><option value="1">Real time</option><option value="60">60× faster</option><option value="300" selected>300× faster</option></select></label>
+    <button type="button" class="btn small" id="play">Pause</button>
+  </div>
+  <div class="scrub"><b id="now"></b><input type="range" id="slider" min="0" max="3000" step="1" value="0" aria-label="Session time"></div>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="c1">
+      <h2 id="c1"><span class="n">1</span> The shrinking wedge</h2>
+      <p class="idea">How much is left in this block, as a slice that gets eaten. Green while you’re on a break.</p>
+      <div class="stage"><div class="wedge">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="face" cx="50" cy="50" r="46"/><g id="wTicks"></g><path class="slice" id="wSlice"/><circle class="hub" cx="50" cy="50" r="6"/></svg>
+        <div><div class="big" id="wBig"></div><div class="small" id="wSmall"></div></div>
+      </div></div>
+      <div class="verdict"><span class="good">Reads as a shape, no math</span><span class="good">The best-proven form for time blindness</span><span class="bad">Only this block: you can’t see the session or the next break</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="c2">
+      <h2 id="c2"><span class="n">2</span> The session track</h2>
+      <p class="idea">The whole plan as one bar. Work blocks, break notches, and a marker for where you are. With no end time it grows instead: everything you’ve done so far, plus the next break.</p>
+      <div class="stage"><div class="track">
+        <div class="bar" id="tBar"></div>
+        <div class="marker"><b id="tMark">▲</b></div>
+        <div class="trackcap"><span class="big" id="tBig" style="font-size:19px"></span><span class="small" id="tSmall"></span></div>
+      </div></div>
+      <div class="verdict"><span class="good">The next break never ambushes you</span><span class="good">Answers “how long until I can stop?”</span><span class="bad">The most to take in; busy at 90 minutes</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="c3">
+      <h2 id="c3"><span class="n">3</span> Ambient drift</h2>
+      <p class="idea">No clock. The frame warms through the block, and one phrase says where you are. With no end time the whole panel gets a little deeper each hour, even after a break.</p>
+      <div class="stage"><div class="amb" id="aFrame"></div><div class="mock">
+        <div class="lbl">Step 3 of 5</div><div class="stepm">Write three reasons, one line each</div>
+        <div class="lines"><i style="width:92%"></i><i style="width:70%"></i><i style="width:80%"></i></div>
+        <div class="phase" id="aPhase"><span class="dots"><i></i><i></i><i></i><i></i></span><span id="aWord"></span></div>
+      </div></div>
+      <div class="verdict"><span class="good">Lives in peripheral vision; never pulls your eye</span><span class="good">Feels like weather, not a deadline</span><span class="bad">No number when you need one (“can I finish before 2pm?”)</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="c4">
+      <h2 id="c4"><span class="n">4</span> Fuzz is the clock</h2>
+      <p class="idea">Fuzz’s energy runs down with the block. It perks up after a break, and gets sleepy as the session ends. With no end time, each break perks it up a little less.</p>
+      <div class="stage"><div class="fz">
+        <div class="pwrap" id="pwrap"></div>
+        <div><div class="bubble"><span class="line" id="fSay"></span></div><div class="meter" id="fMeter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div></div>
+      <div class="verdict"><span class="good">Reads as a feeling, instantly</span><span class="good">A body double: Fuzz needs the break too</span><span class="bad">Cute can hide the information; can’t tell you the time</span></div>
+    </section>
+
+    <section class="card wide" aria-labelledby="c5">
+      <h2 id="c5"><span class="n">1 + 2</span> The session dial</h2>
+      <p class="idea">The wedge, but for the whole session. Work is orange, breaks are green, and the pie is eaten up to the hand. With no end time it fills up instead: one lap is an hour, the next break waits ahead as a dashed slice, and each finished hour adds a ring outside.</p>
+      <div class="stage"><div class="dial">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="face" id="dFace" cx="50" cy="50" r="47"/><g id="dSegs"></g><line class="hand" id="dHand" x1="50" y1="50" x2="50" y2="5"/><circle class="hub" cx="50" cy="50" r="4.5"/></svg>
+        <div><div class="big" id="dBig"></div><div class="small" id="dSmall"></div>
+          <div class="legend"><span><i style="background:var(--accent)"></i>Work</span><span><i style="background:var(--ok)"></i>Break</span><span id="dLegend3"><i style="background:var(--field);border:1px solid var(--line)"></i>Done</span></div></div>
+      </div></div>
+      <div class="verdict"><span class="good">Still reads as a shape: how much pie is left</span><span class="good">You can see the next break coming, and how big it is</span><span class="bad">Slices get thin at 90 minutes; the current block is less exact than the plain wedge</span></div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <h2>How to compare them</h2>
+    <ul>
+      <li><b>The half-second test.</b> Look away, then glance at each for a moment. Which one told you where you are without reading?</li>
+      <li><b>The 2pm test.</b> You have a meeting in 20 minutes. Which one tells you whether to start the next task?</li>
+      <li><b>The ambush test.</b> Drag to two minutes before a break. Which one let you see it coming?</li>
+      <li><b>The open-session test.</b> Pick “Until I stop” and drag to 2 hours. Which one makes it obvious you’ve been at it that long?</li>
+      <li><b>The flow test.</b> Set real time and work on something else for ten minutes with this open. Which one pulled your eye too often?</li>
+      <li>They aren’t exclusive. The session dial is 1 and 2 combined; the ambient frame could sit on top of any of them.</li>
+    </ul>
+  </div>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var themeSel = $('theme'), modeSel = $('mode');
+  Themes.list.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; themeSel.appendChild(o); });
+  modeSel.value = Themes.resolveMode ? Themes.resolveMode('auto') : 'light';
+  function theme() { Themes.apply(themeSel.value, modeSel.value, 'standard'); }
+  themeSel.onchange = modeSel.onchange = theme; theme();
+  $('pwrap').innerHTML = window.FUZZ_SVG;
+  var bot = document.getElementById('bot');
+
+  /* ---------- The plan: 25 on, 5 off, 15 after three; the last block absorbs a short tail ---------- */
+  function plan(b) {
+    var segs = [], t = 0, n = 0, end = b > 0 ? b : 210;
+    while (t < end) {
+      var w = Math.min(25, end - t); if (b > 0 && end - t - w < 10) w = end - t;
+      segs.push({ k: 'work', s: t, e: t + w }); t += w; n++;
+      if (t < end) { var bl = n % 3 === 0 ? 15 : 5; if (b > 0) bl = Math.min(bl, end - t); segs.push({ k: 'brk', s: t, e: t + bl }); t += bl; }
+    }
+    return segs;
+  }
+  var budget = 50, segs = plan(50), total = 50, min = 0, playing = true;
+  function setBudget() {
+    budget = +$('budget').value; segs = plan(budget); total = segs[segs.length - 1].e;
+    $('slider').max = total * 60; min = Math.min(min, total - 0.01); draw();
+  }
+  $('budget').onchange = setBudget;
+  $('play').onclick = function () { playing = !playing; this.textContent = playing ? 'Pause' : 'Play'; };
+  $('slider').oninput = function () { min = this.value / 60; draw(); };
+
+  function segAt(m) { for (var i = 0; i < segs.length; i++) if (m < segs[i].e) return i; return segs.length - 1; }
+  function about(left) { left = Math.ceil(left); if (left <= 1) return 'Wrapping up'; if (left < 5) return 'Under 5 min'; return '~' + (Math.round(left / 5) * 5) + ' min'; }
+  var PHASES = ['Fresh start', 'Settled in', 'Past halfway', 'Last stretch'];
+  /* Coarse elapsed time, for open sessions: "~20 min in", "1h 25m in" */
+  function inTxt(m) { var r = Math.round(m / 5) * 5; if (r < 5) return 'Just started'; if (r < 60) return '~' + r + ' min in'; var h = Math.floor(r / 60), mm = r % 60; return h + 'h' + (mm ? ' ' + mm + 'm' : '') + ' in'; }
+
+  function draw() {
+    var i = segAt(min), sg = segs[i], len = sg.e - sg.s, into = min - sg.s, left = sg.e - min;
+    var brk = sg.k === 'brk';
+    var frac = brk ? Math.min(1, into / len) : Math.max(0, Math.min(1, 1 - Math.round(left / 5) * 5 / len));  // same 5-minute rounding as the words; breaks are short, so they move smoothly
+    var q = brk ? -1 : Math.min(3, Math.floor((into / len) * 4));
+    var nextBreak = segs.slice(i + 1).filter(function (x) { return x.k === 'brk'; })[0];
+    var sessLeft = budget > 0 ? total - min : Infinity, open = budget < 0, hrs = Math.floor(min / 60);
+    var blocksDone = segs.filter(function (x) { return x.k === 'work' && x.e <= min; }).length;
+    $('now').textContent = (budget > 0 ? Math.floor(min) + ' of ' + budget + ' min' : Math.floor(min) + ' min in') + (brk ? ' · break' : '');
+    $('slider').value = Math.round(min * 60);
+
+    /* 1. Wedge: remaining of this block */
+    var rem = 1 - frac, a = rem * 2 * Math.PI, x = 50 + 46 * Math.sin(a), y = 50 - 46 * Math.cos(a);
+    var d = rem >= .999 ? 'M50 50 m0 -46 a46 46 0 1 1 0 92 a46 46 0 1 1 0 -92 Z' : rem <= 0 ? '' : 'M50 50 L50 4 A46 46 0 ' + (rem > .5 ? 1 : 0) + ' 1 ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Z';
+    // the wedge shows what is left, measured clockwise from 12
+    $('wSlice').setAttribute('d', d); $('wSlice').setAttribute('class', 'slice' + (brk ? ' brk' : ''));
+    $('wBig').textContent = brk ? 'On a break' : about(left) + ' left';
+    $('wSmall').textContent = (brk ? about(left) + ' to go' : 'in this ' + Math.round(len) + '-minute block') + (open ? ' · ' + inTxt(min) : '');
+
+    /* 2. Track: the session, or with no end, everything so far plus the next break */
+    var nbIdx = brk ? i : segs.indexOf(nextBreak);
+    var show = budget > 0 ? segs : segs.slice(0, (nbIdx < 0 ? i : nbIdx) + 1);
+    $('tBar').innerHTML = show.map(function (s) {
+      var j = segs.indexOf(s), w = s.e - s.s, f = j < i ? 1 : j > i ? 0 : frac;
+      return '<div class="seg' + (s.k === 'brk' ? ' brk' : '') + (j === i ? ' now' : '') + '" style="flex:' + w + ' 1 0"><i style="width:' + (f * 100) + '%"></i>' +
+        (s.k === 'work' ? '<span class="ticks" style="background-size:' + (100 * 5 / w) + '% 100%"></span>' : '<span style="position:relative">☕</span>') + '</div>';
+    }).join('') + (budget > 0 ? '' : '<div class="seg more" style="flex:0 0 34px">…</div>');
+    var bar = $('tBar').getBoundingClientRect(), cur = $('tBar').querySelector('.now');
+    if (cur) { var r = cur.getBoundingClientRect(); $('tMark').style.left = (r.left - bar.left + r.width * frac) + 'px'; }
+    $('tBig').textContent = brk ? 'On a break, ' + about(left).toLowerCase() + ' to go' : nextBreak ? 'Break in ' + about(left) : 'Last block, ' + about(left).toLowerCase() + ' left';
+    $('tSmall').textContent = budget > 0 ? (sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up') : inTxt(min) + ' · ' + blocksDone + (blocksDone === 1 ? ' block' : ' blocks') + ' done';
+
+    /* 3. Ambient: the frame warms through the block, in four steps */
+    var warm = brk ? 0 : [6, 22, 42, 68][q];
+    $('aFrame').style.boxShadow = brk ? 'inset 0 0 0 6px color-mix(in srgb, var(--ok) 55%, transparent)' : 'inset 0 0 0 ' + (4 + q * 2) + 'px color-mix(in srgb, var(--accent) ' + warm + '%, transparent)';
+    var deep = open ? Math.min(3, hrs) * 5 : 0;   // open sessions: the whole room gets a little deeper each hour, even after a break
+    $('aFrame').style.background = brk ? 'color-mix(in srgb, var(--ok) ' + (8 + deep) + '%, var(--bg))' : 'color-mix(in srgb, var(--accent) ' + (Math.round(warm / 6) + deep) + '%, var(--bg))';
+    $('aWord').textContent = (brk ? 'On a break' : PHASES[q]) + (open && hrs ? ' · ' + (hrs === 1 ? 'over an hour in' : 'over ' + hrs + ' hours in') : '');
+    $('aPhase').style.color = brk ? 'var(--ok)' : q >= 3 ? 'var(--accent)' : 'var(--muted)';
+    $('aPhase').querySelectorAll('.dots i').forEach(function (el, k) { el.classList.toggle('on', !brk && k <= q); });
+
+    /* 4. Fuzz: energy runs down with the block */
+    var moods = ['eager', 'working', 'idle', 'sleepy'], lines = ['Fresh! Let’s go.', 'Head down. I’m right here.', 'Past halfway. Steady.', nextBreak ? 'Getting sleepy… break soon.' : 'Getting sleepy… almost done.'];
+    var mood = brk ? 'chill' : moods[q];
+    if (bot.dataset.mood !== mood) bot.dataset.mood = mood;
+    var tired = open ? Math.min(3, hrs) : 0;   // open sessions: a break perks Fuzz up, but less each hour
+    if (open && hrs && q === 0) lines[0] = 'Better. Still, we’ve been at it ' + inTxt(min).replace(' in', '') + '.';
+    $('fSay').textContent = brk ? (open && hrs ? 'Break. A long session; I need this one.' : 'Break. I’m resting my screen too.') : lines[q];
+    $('pwrap').style.filter = brk ? 'saturate(.6)' : 'brightness(' + ([1, .97, .9, .8][q] - tired * .06).toFixed(2) + ')';
+    var energy = brk ? 0 : Math.max(1, 5 - tired - Math.min(4, Math.floor((into / len) * 5)));
+    $('fMeter').querySelectorAll('i').forEach(function (el, k) { el.classList.toggle('on', k < energy); });
+
+    /* 5. Session dial. With an end: the whole plan as a pie, eaten up to now.
+          With no end: one lap is an hour and it fills up instead; each finished hour adds a ring outside. */
+    var dNow = brk ? min : Math.max(sg.s, sg.e - Math.round(left / 5) * 5);   // same 5-minute steps as the words
+    var dS = open ? hrs * 60 : 0, span = open ? 60 : total, R = open ? 39 : 45;
+    function pt(m, r) { var an = (m - dS) / span * 2 * Math.PI; return [50 + r * Math.sin(an), 50 - r * Math.cos(an)]; }
+    function sector(m0, m1, cls) {
+      if (m1 - m0 <= 0.01) return '';
+      if (m1 - m0 >= span - 0.01) return '<circle class="' + cls + '" cx="50" cy="50" r="' + R + '"/>';
+      var p0 = pt(m0, R), p1 = pt(m1, R);
+      return '<path class="' + cls + '" d="M50 50 L' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (m1 - m0 > span / 2 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + ' Z"/>';
+    }
+    function gap(m) { var q1 = pt(m, R); return '<line class="gap" x1="50" y1="50" x2="' + q1[0].toFixed(2) + '" y2="' + q1[1].toFixed(2) + '"/>'; }
+    var dh = '', lapEnd = dS + span;
+    $('dFace').setAttribute('r', open ? 41 : 47);
+    $('dLegend3').innerHTML = open ? '<i style="background:none;border:1.5px solid var(--accent);border-radius:50%"></i>An hour done' : '<i style="background:var(--field);border:1px solid var(--line)"></i>Done';
+    if (!open) {
+      segs.forEach(function (x, j) { var a0 = Math.max(x.s, dNow), a1 = x.e; if (a1 > a0) dh += sector(a0, a1, (x.k === 'brk' ? 'b' : 'w') + (j === i ? ' now' : '')); });
+      segs.forEach(function (x) { if (x.s > dNow && x.s < lapEnd) dh += gap(x.s); });
+    } else {
+      segs.forEach(function (x, j) { var a0 = Math.max(x.s, dS), a1 = Math.min(x.e, dNow); if (a1 > a0) dh += sector(a0, a1, (x.k === 'brk' ? 'b' : 'w') + (j === i ? ' now' : '')); });
+      segs.forEach(function (x) { if (x.s > dS && x.s < dNow) dh += gap(x.s); });
+      var nb = brk ? null : nextBreak;
+      if (nb && nb.s < lapEnd) dh += sector(nb.s, Math.min(nb.e, lapEnd), 'ahead');
+      for (var h = 0; h < Math.min(hrs, 3); h++) dh += '<circle class="ring" cx="50" cy="50" r="' + (44 + h * 2.6) + '"/>';
+    }
+    $('dSegs').innerHTML = dh;
+    var hp = pt(dNow, R - 1); $('dHand').setAttribute('x2', hp[0].toFixed(2)); $('dHand').setAttribute('y2', hp[1].toFixed(2));
+    $('dBig').textContent = brk ? 'On a break, ' + about(left).toLowerCase() + ' to go' : nextBreak ? 'Break in ' + about(left) : 'Last block, ' + about(left).toLowerCase() + ' left';
+    $('dSmall').textContent = budget > 0 ? (sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up') : inTxt(min) + ' · one lap is an hour';
+  }
+
+  /* ---------- Ticks on the dial: one per 5 minutes of a 25-minute block ---------- */
+  var tk = ''; for (var k = 0; k < 5; k++) { var an = k / 5 * 2 * Math.PI; tk += '<line class="tick" x1="' + (50 + 40 * Math.sin(an)).toFixed(1) + '" y1="' + (50 - 40 * Math.cos(an)).toFixed(1) + '" x2="' + (50 + 46 * Math.sin(an)).toFixed(1) + '" y2="' + (50 - 46 * Math.cos(an)).toFixed(1) + '"/>'; }
+  $('wTicks').innerHTML = tk;
+
+  var last = performance.now();
+  function loop(now) {
+    var dt = (now - last) / 1000; last = now;
+    if (playing) { min += dt * (+$('speed').value) / 60; if (min >= total) min = 0; draw(); }
+    requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize', draw);
+  setBudget(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

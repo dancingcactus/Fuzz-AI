@@ -150,6 +150,67 @@
   .tabpanel .thought { margin-top: 10px; }
   .tabpanel .thought input { background: var(--surface); }
 
+
+  /* ---------- Revised flow ---------- */
+  .dw-top .linkbtn { font: inherit; font-weight: 700; color: var(--link); background: var(--surface); border: var(--bw) solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .dw-top .linkbtn[hidden] { display: none; }
+  .celebrate { text-align: center; padding: 34px 20px; position: relative; overflow: hidden; }
+  .celebrate h2 { font-size: 32px; }
+  .celebrate .big { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ok); margin: 6px 0 8px; }
+  .burst { position: absolute; left: 50%; top: 40px; pointer-events: none; }
+  .burst i { position: absolute; width: 8px; height: 14px; border-radius: 3px; background: var(--accent); opacity: 0; animation: pop 1.4s cubic-bezier(.2,.8,.3,1) calc(var(--i) * 25ms) forwards; }
+  .burst i:nth-child(3n) { background: var(--ok); } .burst i:nth-child(3n+1) { background: var(--amber); }
+  @keyframes pop { 0% { opacity: 1; transform: translate(0,0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x), 120px) rotate(var(--r)); } }
+  .quiet { text-align: center; color: var(--muted); margin: 18px 0 0; font-size: 14.5px; }
+  .linkish { font: inherit; color: var(--link); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .planline { font-size: 13.5px; color: var(--muted); margin: 8px 0 0; }
+  .pick .meta { display: inline-flex; gap: 8px; align-items: center; }
+  .pick .est { font-size: 13px; color: var(--muted); }
+  .pick.free { border-style: dashed; }
+  .intro .crumb, .intro .prep { margin-top: 0; margin-bottom: 12px; }
+  .warming { display: flex; gap: 10px; align-items: center; color: var(--muted); padding: 30px 0; font-size: 16px; }
+  .clock .next { font-weight: 700; color: var(--link); }
+  .clock .next:empty { display: none; }
+  .beat { text-align: center; padding: 10px 0 6px; }
+  .beat .check { width: 64px; height: 64px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; font-size: 34px; font-weight: 800;
+    background: var(--ok); color: var(--surface); animation: stepin .5s cubic-bezier(.3,1.8,.5,1); }
+  .beat.soft h2 { font-size: 19px; }
+  .offer { margin-top: 16px; padding: 14px 16px; border-radius: 16px; border: var(--bw2) dashed color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  .offer .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; }
+  .offer .txt { font-family: var(--font-display); font-weight: 800; font-size: 19px; margin: 2px 0 4px; }
+  .sentback { margin-top: 14px; padding: 16px; border-radius: 18px; border: var(--bw2) solid var(--line); background: var(--surface); }
+  .sbhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .proposal { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--field); font-size: 14.5px; }
+  .proposal .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .proposal ol { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+  .okline { color: var(--ok); font-weight: 600; }
+
+  /* Takeover: every time interruption covers the whole screen */
+  body.taken { overflow: hidden; }
+  .take { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px 16px; overflow: auto;
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg)); animation: fadein .35s ease-out; }
+  .take.urgent { background: color-mix(in srgb, var(--danger) 22%, var(--bg)); box-shadow: inset 0 0 0 10px var(--danger); }
+  .take[hidden] { display: none; }
+  @keyframes fadein { from { opacity: 0; } }
+  .take-in { width: min(640px, 100%); text-align: center; }
+  .take .eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--link); margin: 0 0 8px; }
+  .take.urgent .eyebrow { color: var(--danger); }
+  .take h2 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 38px); line-height: 1.15; margin: 0 0 10px; }
+  .take .lead { font-size: 18px; margin: 0 0 8px; }
+  .take .lead.step { font-family: var(--font-display); font-weight: 800; font-size: 24px; }
+  .take .why { color: var(--muted); margin: 0 0 6px; }
+  .take .bigtime { font-size: clamp(64px, 14vw, 120px); margin: 0 0 8px; }
+  .take .opts { margin-top: 22px; text-align: left; }
+  .take .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .take .btn.primary small, .take .btn.primary .k { color: inherit; opacity: .85; }
+  .take .btn:disabled { opacity: .45; cursor: default; }
+  .take .backto { margin: 22px auto 0; padding: 14px 16px; border-radius: 16px; text-align: left; background: color-mix(in srgb, var(--surface) 70%, transparent); border: var(--bw) solid var(--line); }
+  .take .backto .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; }
+  .take .backto .txt { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin: 2px 0 4px; }
+  .take .backto .why { margin: 0 0 2px; }
+  .take .guard { min-height: 1.4em; font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+  @media (prefers-reduced-motion: reduce) { .take, .burst i, .beat .check { animation: none; } .burst { display: none; } }
+
   .notes { margin: 36px 0 0; padding: 16px 18px; border-radius: 16px; background: var(--field); font-size: 14px; }
   .notes h2 { font-family: var(--font-display); font-size: 16px; margin: 0 0 6px; }
   .notes h2 + ul { margin-bottom: 14px; }
@@ -162,7 +223,7 @@
 <main>
   <header class="top">
     <h1>Deep Work: a mode for doing, separate from triage</h1>
-    <p>Triage decides. Deep Work does. When triage is clear, Fuzz hands you a task it has already warmed up, shows you one step at a time, keeps you company, and holds everything else back. Nothing is saved; Reset starts over.</p>
+    <p>Triage decides, once or twice a day. Deep Work does, whenever you have time. You say how long and where to start, Fuzz plans the breaks in, and you work one task at a time until you stop. Tasks that stall or keep getting passed over go back to Triage with a fix. Nothing is saved; Reset starts over.</p>
   </header>
 
   <div class="toolbar">
@@ -170,6 +231,7 @@
     <label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <label>Time runs <select id="speed"><option value="1">Real time</option><option value="20">20× faster</option><option value="60" selected>60× faster</option></select></label>
     <label>Fuzz while you work <select id="fuzzmode"><option value="quiet">Quiet company</option><option value="chatty">Chatty</option></select></label>
+    <button type="button" class="btn small" id="urgent">Send an urgent card</button>
     <button type="button" class="btn small" id="reset">Reset</button>
   </div>
 
@@ -180,6 +242,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="4" width="4" height="16" rx="1.5"/><rect x="15" y="4" width="4" height="16" rx="1.5"/></svg>
         <span id="heldText"></span>
       </span>
+      <button type="button" class="linkbtn" id="enterDW">Deep Work <kbd>D</kbd></button>
     </div>
     <div class="perch">
       <div class="pwrap" id="pwrap"></div>
@@ -191,28 +254,28 @@
   <div class="notes">
     <h2>What this spike is testing</h2>
     <ul>
-      <li><b>One decision to start.</b> Fuzz picks the task and pre-selects a 25-minute block. Enter starts it. You can still choose something else, but nothing makes you.</li>
-      <li><b>Starting is the hard part, so Fuzz does it.</b> Every task in Up next arrives with sources gathered, the first step written as a 5–10 minute action, and a draft to push against.</li>
-      <li><b>One step on screen.</b> The rest of the plan is folded away. The dots only fill up.</li>
-      <li><b>No ticking seconds.</b> The clock reads “about 12 min in” and can be hidden. Time running out is a check-in, not an alarm, and “On a roll” is always the first choice (hyperfocus is allowed).</li>
-      <li><b>Stray thoughts don’t break the flow.</b> T parks one without leaving, and parked thoughts land in Triage afterwards.</li>
-      <li><b>Stuck has a way out other than quitting.</b> Make the step smaller, let Fuzz take a first pass, skip ahead, or switch to something lighter.</li>
-      <li><b>Everything about the task is one tap away, and folded by default.</b> People, Sources, Context (Fuzz’s brief) and History sit under the step, so you never leave Deep Work to go digging, but they don’t compete with the step until you open them.</li>
-      <li><b>Ask Fuzz instead of searching.</b> Q asks a question about the task. Fuzz looks through the sources and answers with where it found it. If the answer isn’t there, Fuzz offers to draft the question to the person who would know; the draft waits in Triage for your OK.</li>
-      <li><b>Leaving is cheap, and so is coming back.</b> “Done for now” saves where you stopped. The task goes back to the top of Up next with that note on it. Try “Outline the Q3 planning doc” to see a resume.</li>
+      <li><b>Triage isn’t a gate.</b> Clearing it is its own win, with a celebration and one quiet line offering Deep Work. The Deep Work button (D) works any time, triage clear or not.</li>
+      <li><b>The pool is Fuzz’s call.</b> Deep work holds tasks that need you and take real time. Small things stay in Triage; things Fuzz can do, it does.</li>
+      <li><b>Say how long and where to start, on one screen.</b> Pick up where you left off comes first, then up to three tasks Fuzz has ready (marked by whether they fit your time), then search, or name something new and Fuzz warms it up on the spot.</li>
+      <li><b>Breaks are planned into the time you give.</b> 25 minutes on, 5 off, a longer break after three. A break waits for the end of a step, up to 5 minutes. “Five more minutes” works once; the second time it’s “skip this one”.</li>
+      <li><b>Every time interruption takes over the screen.</b> Break due, the break (which shows where you’ll pick up, so “I’m back” goes straight to work), time’s up, and the body check. Keys are ignored for a second so a stray keystroke can’t answer for you. Urgent cards use the same takeover in a different color (try “Send an urgent card”).</li>
+      <li><b>A coarse clock.</b> “About 12 min in · ~38 left” and a slow bar. It says “Break after this step” when one is waiting.</li>
+      <li><b>One task at a time until you stop.</b> Finishing gets a win beat, then Fuzz offers one next thing. Enter goes, O picks something else, Esc stops.</li>
+      <li><b>Stuck tasks go back to Triage with a fix.</b> Stalled (Stuck twice, switched away, or two sessions with no step done) comes back with a proposed split. Passed over (offered four times, never picked) comes back with a smaller first step, a hand-off, or drop it, with no guilt. Pick “Outline the Q3 planning doc” and leave without doing a step to see a stalled card; the rubric shows up as passed over after your first session.</li>
     </ul>
+    <p>Comparing clock designs? See <a href="clocks.html">four concepts for the clock</a>.</p>
     <h2>Open questions</h2>
     <ul>
-      <li>Is Up next capped at 3 the right shape, or should Deep Work start straight from Lineup’s “Yours”?</li>
-      <li>Should cards held during Deep Work break through when they’re urgent (a draft due in an hour)?</li>
+      <li>Is 25/5 the right rhythm, or should it learn from when you actually take breaks?</li>
+      <li>Should a takeover ever wait longer than 5 minutes for the end of a step?</li>
+      <li>How many times does Fuzz offer a task before “passed over” is fair? Four is a guess.</li>
+      <li>Should the stalled and passed-over cards jump to the front of Triage, or wait their turn?</li>
       <li>Quiet or chatty Fuzz while you work? Does a visible Fuzz help as a body double or pull your eye?</li>
-      <li>What does Fuzz really need to prep a task well, and how long does that take before it says “Ready”?</li>
-      <li>Should a question Fuzz can’t answer pause the step, or let you keep going while it waits for a reply?</li>
-      <li>Should the context panel sit beside the step on wide screens, or stay folded under it?</li>
-      <li>Does “Done for now” need the note at all, or is Fuzz’s guess (the step you were on) enough?</li>
+      <li>What does Fuzz really need to prep a task well, and how many tasks should it keep warm at once?</li>
     </ul>
   </div>
 </main>
+<div class="take" id="take" hidden></div>
 
 <script src="../../js/themes.js"></script>
 <script src="../../js/fuzz-svg.js"></script>
