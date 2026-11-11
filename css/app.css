@@ -1044,6 +1044,8 @@ body.onb-bare .onb { padding-top: 10vh; }
 .set-sec h3 { font-size: 14px; margin: 8px 0 0; color: var(--muted); }
 .set-sec .meta { margin: 0; line-height: 1.5; }
 .set-sec form { display: flex; flex-direction: column; gap: 12px; }
+.set-sub { display: flex; flex-direction: column; gap: 12px; }
+.set-rule { border: 0; border-top: var(--bw) solid var(--line); margin: 8px 0 0; width: 100%; }
 .set-sec input[type="text"], .set-sec select { font: inherit; font-size: 16px; padding: 10px 14px; min-height: 44px; border: var(--bw) solid var(--line); border-radius: 14px; background: var(--field); color: var(--ink); max-width: 100%; }
 .set-sec .field label { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--ink); }
 .set-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

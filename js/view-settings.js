@@ -2,9 +2,9 @@
    each, saved on its own. Replaces the old four-step guided setup and the header's quick settings.
 
    About you        your other names, emails and Slack IDs (PUT /me)
-   App              the app Fuzz works through: status, install, repair, switch (/engine)
+   App              the app Fuzz works through: status, install, repair, switch (/engine); then, under a rule,
+                    how many tasks he works on at once, his slots (PUT /slots, 1 to 10)
    Working hours    when Fuzz reads for new asks (PUT /hours), the same choices as Fuzz's first question
-   At once          how many tasks Fuzz may work on at the same time, his slots (PUT /slots, 1 to 10)
    What Fuzz can …  one row per source, in plain words, with Reading and Sending switches; the tool-by-tool
                     list folds away under Details (PUT /setup/tools; List again runs discovery)
    Files            the one folder Fuzz may write to (PUT /setup/folder)
@@ -63,7 +63,7 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What Fuzz knows about you, what he may do, and how he looks. Each part saves on its own.</p>' +
-      meHTML() + appHTML() + hoursHTML() + slotsHTML() + sourcesHTML() + folderHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
@@ -112,7 +112,7 @@
         ' ' + UI.pill(tag[0], tag[1]) + (c.first_fix && c.installed && c.summary !== 'ready' && !b ? '<small>' + esc(c.first_fix) + '</small>' : '') + '</div><div class="segrow">' + acts + '</div></li>';
     }).join('');
     return section('app', 'App', 'The app I do my work inside, with what you’ve connected there.', '<ul class="set-apps">' + rows + '</ul>' +
-      '<div class="set-actions"><button type="button" class="btn small" data-app="check"' + (busy.check ? ' disabled' : '') + '>' + (busy.check ? 'Checking…' : 'Check again') + '</button><span class="meta set-said" id="said-app" role="status"></span></div>');
+      '<div class="set-actions"><button type="button" class="btn small" data-app="check"' + (busy.check ? ' disabled' : '') + '>' + (busy.check ? 'Checking…' : 'Check again') + '</button><span class="meta set-said" id="said-app" role="status"></span></div>' + slotsHTML());
   }
   /* Installing reloads launchd's jobs, `fuzz serve` among them: wait for a new server, or a quiet few seconds */
   function restarted(before) {
@@ -172,18 +172,20 @@
     return Live.saveHours(body).then(function (h) { data.hours = h; hoursEdit = null; return 'Saved.'; });
   }
 
-  /* ---------- How many at once: Fuzz's slots ---------- */
+  /* ---------- How many at once: Fuzz's slots, in the App section under a rule. Its own block (#sec-slots),
+     so stepping the count redraws only this and not the app list. ---------- */
   function slotsHTML() {
     var s = data.slots; if (!s) return '';   /* a core from before /slots */
     var n = slotsEdit || s.slots, pips = '';
     for (var i = 1; i <= s.max; i++) pips += '<i class="' + (i <= n ? 'on' : '') + '"></i>';
-    return section('slots', 'How many at once', 'How many tasks I work on at the same time. The rest wait as Next up until a slot opens.',
-      '<form data-form="slots"><div class="segrow set-slots" role="group" aria-label="Slots">' +
+    return '<div class="set-sub" id="sec-slots"><hr class="set-rule"><h3 id="sec-slots-h">How many at once</h3>' +
+      '<p class="meta">How many tasks I work on at the same time. The rest wait as Next up until a slot opens.</p>' +
+      '<form data-form="slots" aria-labelledby="sec-slots-h"><div class="segrow set-slots" role="group" aria-label="Slots">' +
         '<button type="button" class="seg" data-slots="-1" aria-label="One fewer"' + (n <= 1 ? ' disabled' : '') + '>−</button>' +
         '<output id="slots-n" aria-live="polite"><b>' + n + '</b> ' + (n === 1 ? 'slot' : 'slots') + '</output>' +
         '<button type="button" class="seg" data-slots="1" aria-label="One more"' + (n >= s.max ? ' disabled' : '') + '>+</button>' +
         '<span class="pips" aria-hidden="true">' + pips + '</span></div>' +
-      '<p class="meta">Up to ' + s.max + '.</p>' + saveBtn('slots') + '</form>');
+      '<p class="meta">Up to ' + s.max + '.</p>' + saveBtn('slots') + '</form></div>';
   }
   function saveSlots() {
     var n = slotsEdit || data.slots.slots;
