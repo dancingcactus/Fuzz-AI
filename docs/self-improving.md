@@ -50,8 +50,11 @@ sender, people, channel or title, and its `text`, re-fetched and capped near 4 K
 `active` | `retired`), `fetched_at`, `expires_at` (90 days for real cases; seeds don't expire), `note`.
 
 - **Skip**: Not a task. Undoing that answer retires the case.
-- **Keep**: a confirmed missed task whose reason is "judged FYI" or "judged someone else's".
-- **Not cases**: a task let go within 24 hours (weak label), and a miss extraction never saw (coverage).
+- **Keep**: every missed task you confirm. The label is yours and true whatever extraction did; why it was
+  missed (never read, judged FYI, unclear or someone else's, or had as yours) is a note, from matching the
+  find to the stored signals by `source_id` or link. Matching never decides whether a case exists: two
+  model runs name a message their own way, and a missed match would silently lose the example.
+- **Not cases**: a task let go within 24 hours (weak label).
 - A case is `pending` until the executor re-fetches the full message, and only `active` cases are scored.
 
 Why extraction missed something is read from the signals table, not guessed: no signal means never seen;
@@ -101,8 +104,15 @@ a signal with no `me` candidate means judged FYI; one owned by someone else mean
      became of that task; such a message makes no case.
    - These cases are strict: an `unclear` ask fails them, because "Is this yours?" is what you corrected.
      The seeds aren't: "can someone…" may stay unclear.
-3. **Missed tasks**: "Fuzz missed this" in New task, the executor's search, the "Is it this one?" card,
-   the `missed` feedback kind, and keep cases.
+3. **Missed tasks** (built): there's no new control. You add an ordinary task saying Fuzz missed an ask
+   ("Find Dana's email about the venue contract, you missed it"); the executor (executor-0.21) recognises
+   it, searches, and calls `report_missed` with the message, or `not_found`. The text goes straight into
+   an `unconfirmed` case, never into an event, card or brief; the card carries a short quote. "Is it this
+   one?" (`missed.py`): That's the one makes the case active, retitles the task to the ask, links the
+   message, retires any Not a task case on the same message, and lets the task go if Fuzz already had the
+   ask as yours. Not that one sends Fuzz to look again with what you said, up to two finds. Keep it as I
+   wrote it ends the search. Undo of a yes puts the case back on the card. `fuzz capture --missed` tags
+   one up front, for testing.
 4. **Lessons store, the `not_task` / `missed` learner, the `extract` surface and a bare lessons page**,
    scored against the cases from steps 1–3.
 

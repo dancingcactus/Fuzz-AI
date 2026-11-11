@@ -5,7 +5,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import answers, evals, events, learning, scheduler, tasks, tools
+from fuzz import answers, cards, evals, events, learning, missed, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 SEEDS = json.loads((evals.SEEDS / "extract.json").read_text())["cases"]
@@ -296,6 +296,178 @@ class FromNotTask(CoreCase):
         run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
         mine = [r for r in run["results"] if r["origin"].startswith("feedback:")]
         self.assertEqual([r["passed"] for r in mine], [True])
+
+
+class Missed(CoreCase):
+    """Fuzz missed this: the executor finds the message, you confirm it, and it becomes a keep case."""
+
+    TEXT = "Hi Justin, could you send me the venue contract by Friday? Legal needs a copy. Thanks, Dana"
+
+    def found(self, **kw):
+        return dict({"source": "email", "source_id": "<venue-1@acme.example>", "link": "https://mail/venue-1",
+                     "ts": "2026-10-19T14:00:00Z", "from": {"name": "Dana Ortiz", "email": "dana@acme.example"},
+                     "title": "Venue contract", "quote": "could you send me the venue contract by Friday?",
+                     "text": self.TEXT, "ask": "Send Dana the venue contract"}, **kw)
+
+    def capture(self):
+        tid = tasks.capture(self.core, "Dana asked me for the venue contract last week", missed=True)
+        got = tools.claim_next_task(self.core)["task"]
+        self.assertEqual(got["id"], tid)
+        return tid, got
+
+    def card(self, tid):
+        return self.card_for(tid, "missed")
+
+    def test_a_missed_task_goes_to_fuzz_to_find_the_message(self):
+        tid, got = self.capture()
+        self.assertEqual(got["missed"], {"ask": "Dana asked me for the venue contract last week", "tries": 0})
+        self.assertFalse(got["may_finish"])
+        self.assertIn("missed", self.task(tid)["variant_tags"])
+
+    def test_found_asks_is_it_this_one_and_yes_makes_a_keep_case(self):
+        tid, _ = self.capture()
+        out = tools.report_missed(self.core, tid, self.found())
+        self.assertEqual((out["found"], out["why"]), (True, "never_seen"))
+        c = cards.view(self.core, self.card(tid))
+        self.assertEqual((c["prompt"], c["suggested"]), ("Is it this one?", "yes"))
+        self.assertIn("venue contract by Friday", c["reason"])
+        self.assertEqual(evals.cases(self.core, "extract"), [], "not counted until you say yes")
+        answers.answer(self.core, c["id"], "yes")
+        [case] = evals.cases(self.core, "extract")
+        self.assertEqual((case["kind"], case["expected"]["has_my_ask"], case["input"]["text"]), ("keep", True, self.TEXT))
+        self.assertIn("never read it", case["note"])
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["title"], t["ask"]), ("triage", "Send Dana the venue contract",
+                                                             "Send Dana the venue contract"))
+        self.assertFalse({"missed", "missed_found"} & set(t["variant_tags"]))
+        self.card_for(tid, "task")
+        self.assertIn("https://mail/venue-1", [s["link"] for s in self.core.all("SELECT link FROM sources WHERE task_id=?", (tid,))])
+
+    def test_an_ordinary_task_whose_words_say_fuzz_missed_it_works_the_same(self):
+        tid = tasks.capture(self.core, "You missed Dana's email about the venue contract", gather=True)
+        self.assertEqual(tools.claim_next_task(self.core)["task"]["id"], tid)
+        self.assertTrue(tools.report_missed(self.core, tid, self.found())["found"])
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        self.assertEqual(self.task(tid)["title"], "Send Dana the venue contract")
+        self.assertEqual(len(evals.cases(self.core, "extract")), 1)
+
+    def test_report_missed_needs_the_task_held(self):
+        tid = tasks.capture(self.core, "You missed Dana's email")
+        with self.assertRaises(FuzzError):
+            tools.report_missed(self.core, tid, self.found())
+
+    def test_the_message_text_never_enters_the_event_log(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        log = json.dumps([r["payload"] for r in self.core.all("SELECT payload FROM events")])
+        self.assertNotIn("Legal needs a copy", log)
+
+    def test_undo_of_yes_puts_the_case_back_on_the_card(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        events.undo(self.core)
+        self.assertEqual(evals.cases(self.core, "extract"), [])
+        self.assertEqual(len(evals.cases(self.core, "extract", status="unconfirmed")), 1)
+        self.assertEqual(self.core.all("SELECT id FROM sources WHERE task_id=? AND role='link' AND withdrawn=0", (tid,)), [])
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        self.assertEqual(len(evals.cases(self.core, "extract")), 1)
+        self.assertEqual(events.check_replay(self.core), [])
+
+    def test_not_that_one_looks_again_then_keeps_it_as_you_wrote_it(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        answers.answer(self.core, self.card(tid)["id"], "not_quite", "It was on Slack, not email")
+        t = self.task(tid)
+        self.assertEqual(t["state"], "queued")
+        self.assertIn("It was on Slack", t["notes"])
+        got = tools.claim_next_task(self.core)["task"]
+        self.assertEqual(got["missed"]["tries"], 1)
+        tools.report_missed(self.core, tid, self.found(source="slack", source_id="C1:1.2"))
+        answers.answer(self.core, self.card(tid)["id"], "not_quite")
+        t = self.task(tid)
+        self.assertEqual(t["state"], "triage")
+        self.assertFalse({"missed", "missed_found", "gather"} & set(t["variant_tags"]))
+        self.card_for(tid, "task")
+        self.assertEqual(evals.cases(self.core, "extract"), [])
+
+    def test_keep_it_as_i_wrote_it(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        answers.answer(self.core, self.card(tid)["id"], "skip")
+        self.card_for(tid, "task")
+        self.assertEqual(evals.cases(self.core, "extract"), [])
+
+    def test_not_found_leaves_the_task_as_you_wrote_it(self):
+        tid, _ = self.capture()
+        self.assertFalse(tools.report_missed(self.core, tid, not_found="searched email and Slack for Dana")["found"])
+        self.card_for(tid, "task")
+        self.assertNotIn("missed", self.task(tid)["variant_tags"])
+
+    def test_a_find_is_checked_like_a_signal(self):
+        tid, _ = self.capture()
+        for bad in ({"text": ""}, {"quote": None}, {"ask": " "}, {"source": "fax"}, {"link": "javascript:alert(1)"},
+                    {"from": "Dana"}, {"people": [{"name": "Dana", "shoe": 9}]}, {"title": 5}):
+            with self.assertRaises(FuzzError, msg=bad):
+                tools.report_missed(self.core, tid, self.found(**bad))
+        self.assertEqual(evals.cases(self.core, "extract", status="unconfirmed"), [])
+
+    def test_a_task_moved_on_while_asking_keeps_its_card_and_drops_the_text(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        tasks.park(self.core, tid)
+        self.assertNotIn("missed_found", self.task(tid)["variant_tags"])
+        [c] = evals.cases(self.core, "extract", status="retired")
+        self.assertNotIn("text", c["input"])
+        tasks.bring_back(self.core, tid)
+        self.card_for(tid, "task")
+
+    def test_turned_down_finds_drop_their_text_and_undo_says_so(self):
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        answers.answer(self.core, self.card(tid)["id"], "skip")
+        [c] = evals.cases(self.core, "extract", status="retired")
+        self.assertNotIn("text", c["input"])
+        events.undo(self.core)
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        self.assertEqual(evals.cases(self.core, "extract"), [])
+        self.assertIn("wasn't kept", self.core.one("SELECT payload FROM events WHERE type='task.missed_confirmed'")
+                      ["payload"]["log"]["text"])
+
+    def stored(self, candidates, sid="<venue-1@acme.example>"):
+        tools.submit_signals(self.core, [{"source": "email", "source_id": sid, "anchor": "email:venue",
+                                          "ts": "2026-10-19T14:00:00Z", "from": {"name": "Dana Ortiz"},
+                                          "link": "https://mail/venue-1", "candidates": candidates}])
+
+    def test_why_it_was_missed_comes_from_what_extraction_stored(self):
+        self.stored([])
+        tid, _ = self.capture()
+        self.assertEqual(tools.report_missed(self.core, tid, self.found())["why"], "judged_fyi")
+        self.assertEqual(missed.reason(self.core, missed.match(self.core, self.found(source_id="other"))),
+                         ("judged_fyi", None), "the link is enough to match")
+
+    def test_a_find_retires_a_not_a_task_on_the_same_message(self):
+        self.stored([{"ask": "Send the venue contract", "owner": "unclear"}])
+        other = self.core.one("SELECT id FROM tasks WHERE ask='Send the venue contract'")["id"]
+        answers.answer(self.core, self.card_for(other, "is_task")["id"], "not_task")
+        self.assertEqual(len(evals.cases(self.core, "extract", status="pending")), 1)
+        tid, _ = self.capture()
+        self.assertEqual(tools.report_missed(self.core, tid, self.found())["why"], "judged_unclear")
+        answers.answer(self.core, self.card(tid)["id"], "yes")
+        self.assertEqual([c["kind"] for c in evals.cases(self.core, "extract")], ["keep"])
+        self.assertEqual(evals.cases(self.core, "extract", status="pending"), [])
+
+    def test_a_message_fuzz_already_had_as_yours_points_to_that_task(self):
+        self.stored([{"ask": "Send Dana the venue contract", "owner": "me"}])
+        had = self.core.one("SELECT id FROM tasks WHERE ask='Send Dana the venue contract'")["id"]
+        tid, _ = self.capture()
+        tools.report_missed(self.core, tid, self.found())
+        c = cards.view(self.core, self.card(tid))
+        self.assertIn("You already have this", c["reason"])
+        answers.answer(self.core, c["id"], "yes")
+        self.assertEqual(self.task(tid)["state"], "letgo")
+        self.assertEqual(self.task(had)["state"], "triage")
 
 
 class Prompt(unittest.TestCase):

@@ -102,7 +102,10 @@ def move(core, ch, t, to, card=None, add_tags=(), remove_tags=(), **fields):
     if t["state"] == "triage" and to != "triage":
         if "put_off" in (pend.get("variant_tags") or t.get("variant_tags") or []):
             fields.setdefault("reschedules", 0)   # it asked what's in the way and you answered: the count starts over
-        remove |= cards.TRIAGE_TAGS | {"unconfirmed"}
+        remove |= cards.TRIAGE_TAGS | {"unconfirmed", "missed", "missed_found"}
+        if "missed_found" in (pend.get("variant_tags") or t.get("variant_tags") or []):
+            from . import missed   # "Is it this one?" left unanswered: the message it showed isn't kept
+            missed.drop_finds(core, t["id"], "The task moved on before you said.")
         fields.setdefault("reason", None)
         fields.setdefault("quick_answers", None)
     if to not in ("queued", "working"):
@@ -141,9 +144,14 @@ def _one(core, actor, type, t, to, log, card=None, option=None, value=None, data
 
 # ---------------------------------------------------------------- capture
 
-def capture(core, text, docs=None, actor="human", due=None, gather=False, uploading=False):
+NOTE_MISSED = "You said Fuzz missed this. It's finding the message it came from."
+
+
+def capture(core, text, docs=None, actor="human", due=None, gather=False, uploading=False, missed=False):
     """gather: Fuzz looks the task up with its read-only tools before it reaches triage, so the card can
     show what it found. It waits as queued for Fuzz with the gather tag until then.
+    missed: you say it reached you and Fuzz never made a task of it. Fuzz looks for the message whatever
+    gathering is set to, and asks "Is it this one?" (missed.py).
     uploading: the docs' files are on their way (files.attach), so Fuzz waits a little for them."""
     from . import files
     text = (text or "").strip()
@@ -151,16 +159,22 @@ def capture(core, text, docs=None, actor="human", due=None, gather=False, upload
     if not text and not docs:
         raise FuzzError("Say what the task is, or attach a document", "text")
     title = (text or docs[0]).splitlines()[0][:TITLE_MAX]
+    if missed and not text:
+        raise FuzzError("Say what the ask was, so Fuzz can find it", "text")
+    gather = gather or missed
     with core.tx(actor):
         tid = core.new_id("tasks")
         now = core.now_iso()
         ch = events.Changes()
         ch.task(tid, state="queued" if gather else "triage", assignee="fuzz" if gather else "human", title=title,
                 ask=text or None, owner="me", due=due, order_key=next_order(core),
-                variant_tags=(["gather"] if gather else []) + (["uploading"] if uploading and docs else []), created_at=now, state_changed_at=now,
+                variant_tags=(["gather"] if gather else []) + (["missed"] if missed else [])
+                + (["uploading"] if uploading and docs else []), created_at=now, state_changed_at=now,
+                **({"notes": NOTE_MISSED} if missed else {}),
                 title_history=[], steps_used=0, attempts=0, deadline_level=0)
-        events.emit(core, "task.captured", task_id=tid, changes=ch, data={"docs": docs},
-                    log=("status", "You captured this task." if actor == "human" else "Fuzz captured this task."))
+        events.emit(core, "task.captured", task_id=tid, changes=ch, data={"docs": docs, **({"missed": True} if missed else {})},
+                    log=("status", NOTE_MISSED if missed else "You captured this task." if actor == "human"
+                         else "Fuzz captured this task."))
         for d in docs:   # each upload fills its row (files.attach)
             core.q("INSERT INTO sources (user_id, task_id, role, title) VALUES (?,?,?,?)",
                    (core.user_id, tid, "attachment", d))

@@ -615,6 +615,14 @@
       var said = it.sources.filter(function (s) { return s.quote; });
       if (said.length) h += '<ul class="mentions">' + said.map(function (s) { return '<li><span class="pill pill--muted">' + esc(s.title || s.type) + '</span><span>' + esc(s.quote) + '</span></li>'; }).join('') + '</ul>';
     }
+    /* Is it this one? The message Fuzz found, where and from whom, and whether you already have it */
+    if (it.kind === 'entity' && it.entity === 'missed' && it.found) {
+      var fd = it.found;
+      h += '<ul class="mentions"><li><span class="pill pill--muted">' + esc(fd.where) + '</span><span>' + esc(fd.quote) + '</span></li></ul>';
+      if (fd.link) h += '<p class="meta"><a href="' + esc(fd.link) + '" target="_blank" rel="noopener">Open the message</a></p>';
+      if (fd.ask && !fd.already) h += '<p class="meta">That’s the one makes this task “' + esc(fd.ask) + '”, and Fuzz learns from having missed it.</p>';
+      if (fd.already) h += '<p class="meta">You already have this as “' + esc(fd.already) + '”. That’s the one keeps that task and lets this one go.</p>';
+    }
     if (it.kind === 'dup') {
       var o = Store.item(it.dupOf);
       h += '<div class="profiles"><div class="profile"><span class="plabel">Already in your queue</span><span class="pname">' + esc(o ? o.title : '') + '</span><span class="pdetail">' + esc(o ? o.source + ' · ' + o.who : '') + '</span><span class="pseen">' + esc(o ? o.age + ' old' : '') + '</span></div>';

@@ -96,7 +96,10 @@ def _task_brief(core, t):
             "planning_wait": ({"on": t.get("waiting_on"), "default": tasks._when(core, t["schedule_fire_at"])}
                               if scheduler.gathering(t) and "plan_wait" in (t.get("variant_tags") or []) else None),
             "may_finish": scheduler.gathering(t) and core.config["gather"]["finish_results"]
-                          and not {"review", "plan_wait", "finding_out", "first_step"} & set(t.get("variant_tags") or []),
+                          and not {"review", "plan_wait", "finding_out", "first_step", "missed"} & set(t.get("variant_tags") or []),
+            # Fuzz missed this: find the message the ask came from and report_missed; nothing else
+            "missed": ({"ask": t["ask"], "tries": _missed_tries(core, t["id"])}
+                       if "missed" in (t.get("variant_tags") or []) else None),
             # Find out…: answer this one question into the brief, as a step; the task stays theirs
             "finding_out": t.get("find_out") if "finding_out" in (t.get("variant_tags") or []) else None,
             # Just the first step: write the checklist (step 1 about two minutes), then finish_gathering
@@ -522,7 +525,7 @@ def answer_ask(core, ask_id, text, sources=None):
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
-            "release", "list_deliverables", "report_deliverable_done", "submit_eval_text", "who_is", "what_is", "why", "search_memory")
+            "release", "list_deliverables", "report_deliverable_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory")
 
 
 def list_deliverables(core, since=None):
@@ -547,6 +550,18 @@ def report_deliverable_done(core, deliverable_id, evidence=None, cant_check=None
         deliverables.cant_check(core, deliverable_id, cant_check)
         return {"state": "open", "asked": True}
     return deliverables.report_done(core, deliverable_id, evidence)
+
+
+def _missed_tries(core, task_id):
+    from . import missed
+    return missed.tries(core, task_id)
+
+
+def report_missed(core, task_id, found=None, not_found=None):
+    """A task Fuzz missed (get_task's missed): the message you found, or not_found with what you searched."""
+    from . import missed
+    scheduler.require_lease(core, task_id)
+    return missed.report(core, task_id, found, not_found)
 
 
 def submit_eval_text(core, case_id, text=None, cant_fetch=None):

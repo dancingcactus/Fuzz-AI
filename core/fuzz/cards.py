@@ -11,7 +11,8 @@ FAMILY = {"task": "routing", "duplicate": "question", "entity_person": "question
           "is_task": "question", "draft": "approval", "nudge": "approval", "permission": "approval",
           "hold": "approval",   # a hold on your calendar for booked time (or taking one off)
           "part_of": "deliverables", "deliverable": "deliverables", "deliverable_new": "deliverables",
-          "week_plan": "deliverables", "decision": "question", "fact_conflict": "question"}
+          "week_plan": "deliverables", "decision": "question", "fact_conflict": "question",
+          "missed": "question"}   # Is it this one? the message Fuzz found for an ask it missed (missed.py)
 
 OPTIONS = {
     "duplicate": ["merge", "keep_separate", "not_sure"],
@@ -28,6 +29,7 @@ OPTIONS = {
     "week_plan": ["keep_these", "keep_steps", "not_now"],
     "decision": ["record", "not_decision", "not_sure"],          # Was this a decision? (memory/mcards.py)
     "fact_conflict": ["first", "second", "neither", "not_sure"],  # two sources disagree: which is right?
+    "missed": ["yes", "not_quite", "skip"],                       # Is it this one? (missed.py)
 }
 # schedule is Later (bring it back then); book is Book time (hold the time). do_now, after_others and
 # first_step are a big task's choices with book; decide and draft_it answer "What's in the way?"
@@ -46,7 +48,7 @@ SCHEDULED = ("task", "draft", "nudge")   # cards that carry Schedule options ("N
 SUGGESTED = {"duplicate": "merge", "entity_person": "same", "entity_term": "define", "is_task": "mine",
              "draft": "approve", "nudge": "approve", "permission": "allow_once", "hold": "approve",
              "part_of": "yes", "deliverable": "keep_going", "deliverable_new": "track", "week_plan": "keep_these",
-             "decision": "record", "fact_conflict": "first"}
+             "decision": "record", "fact_conflict": "first", "missed": "yes"}
 
 PROMPTS = {
     "task": "What should happen to this?",
@@ -64,6 +66,7 @@ PROMPTS = {
     "week_plan": "Which are this week’s active ones?",
     "decision": "Was this a decision?",
     "fact_conflict": "Which is right?",
+    "missed": "Is it this one?",
 }
 PUT_OFF_PROMPT = "This keeps coming back. Is something in the way?"
 
@@ -152,6 +155,8 @@ def sync(core, task_id, where="back"):
         folded = dupes.folded_into(core, t)
         if folded:
             return folded["id"]
+    if t["state"] == "triage" and not open_ and "missed_found" in tags:
+        return None   # its "Is it this one?" card is made with the find (missed.report) and comes back with Undo
     if t["state"] == "triage" and not open_ and "unconfirmed" in tags:
         # Asks from one message that may not be yours share one card, so a broadcast email is one answer
         c = _asking_card(core, t)

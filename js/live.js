@@ -172,8 +172,11 @@
     entity_person: { primary: ['same', 'Same person'], secondary: ['different', 'Different people'], dismissed: 'not_sure' },
     entity_term: { primary: ['define', 'Save definition'], dismissed: 'not_sure', note: true },
     duplicate: { primary: ['merge', 'Merge'], secondary: ['keep_separate', 'Keep separate'], dismissed: 'not_sure' },
-    permission: { primary: ['allow_once', 'Allow once'], secondary: ['always_allow', 'Always allow'], third: ['deny', 'Don’t allow'], dismissed: 'deny' }
+    permission: { primary: ['allow_once', 'Allow once'], secondary: ['always_allow', 'Always allow'], third: ['deny', 'Don’t allow'], dismissed: 'deny' },
+    /* Fuzz missed this: the message it found for an ask you told it about */
+    missed: { primary: ['yes', 'That’s the one'], secondary: ['not_quite', 'Not that one'], third: ['skip', 'Keep it as I wrote it'], dismissed: 'skip' }
   };
+  var MISSED_FROM = { email: 'Email', slack: 'Slack', meeting: 'Meeting' };
 
   /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
   var MEMORY_KINDS = ['entity_person', 'entity_term', 'decision', 'fact_conflict'];
@@ -297,7 +300,15 @@
       f.incoming = c.reason || f.incoming; f.boxLabel = q.note ? 'What is it?' : c.kind === 'permission' ? 'Anything else Fuzz needs?' : 'Anything that helps?'; f.placeholder = '';
       f.profiles = []; f.mentions = []; f.meta = '';
       /* Is it yours? needs what Fuzz found about the task itself; the reason already reads above the answers */
-      if (c.kind !== 'is_task') { f.aiHeading = 'Why Fuzz asked'; f.aiNote = c.reason || f.aiNote; }
+      if (c.kind !== 'is_task' && c.kind !== 'missed') { f.aiHeading = 'Why Fuzz asked'; f.aiNote = c.reason || f.aiNote; }
+      /* Is it this one? You see what you said, then the message Fuzz found; Not that one takes a hint */
+      if (c.kind === 'missed') {
+        var mp = c.payload || {};
+        f.incoming = 'I looked for the message you meant and found this.';
+        f.found = { where: [MISSED_FROM[mp.source] || 'Message', mp.from, mp.title].filter(Boolean).join(' · '), quote: mp.quote || '',
+                    link: mp.link || '', already: mp.already ? mp.already.title : '', ask: mp.ask || '' };
+        f.boxLabel = 'Not that one? Say where it was'; f.placeholder = 'For example: it was on Slack, the week before';
+      } else delete it.found;
       /* the reason reads once, as why he asked; above it, what he'll never do with it */
       if (isKickoff(c)) f.incoming = 'I only read with it. Nothing goes out without your yes, and Settings can turn it off.';
       /* Several asks from one message that may not be yours: one card, and you tick the ones that are */
@@ -312,7 +323,7 @@
         f.primary = 'Merge them all'; f.secondary = 'Keep them separate';
       } else delete it.dupes;
     } else {
-      ['entity', 'dupOf', 'primary', 'secondary', 'third', 'answers', 'boxLabel', 'placeholder', 'profiles', 'mentions', 'asks', 'dupes'].forEach(function (k) { delete it[k]; });
+      ['entity', 'dupOf', 'primary', 'secondary', 'third', 'answers', 'boxLabel', 'placeholder', 'profiles', 'mentions', 'asks', 'dupes', 'found'].forEach(function (k) { delete it[k]; });
     }
     /* What you typed but haven't sent stays; everything else is the core's */
     return Object.assign(it, f);
@@ -592,7 +603,7 @@
     S.resolve = function (id, which) {
       var it = S.item(id), q = it.kickoffAsk ? KICKOFF_ASK : QUESTION[it.cardKind];
       var opt = q && (which === 'dismissed' ? q.dismissed : (q[which] || [])[0]), note = document.getElementById('note');
-      var text = (note && note.value.trim()) || '', value = opt === 'define' ? text || undefined : undefined;
+      var text = (note && note.value.trim()) || '', value = opt === 'define' || opt === 'not_quite' ? text || undefined : undefined;
       if (opt === 'mine' && it.asks) value = [].map.call(document.querySelectorAll('[data-ask]:checked'), function (b) { return +b.dataset.ask; });
       S.leave(id); it.state = 'resolved'; it.resolution = which;
       /* the onboarding's reading permissions finish in the core, which starts the first read itself */

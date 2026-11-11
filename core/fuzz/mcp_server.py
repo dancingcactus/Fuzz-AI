@@ -230,6 +230,17 @@ def build(core, role, task_id=None):
             with why."""
             return _call(tools.submit_eval_text, core, case_id, text, cant_fetch)
 
+        @srv.tool()
+        def report_missed(task_id: int, found: dict[str, Any] | None = None, not_found: str | None = None) -> dict:
+            """For a task whose get_task has `missed`: the person says an ask reached them and Fuzz never made a
+            task of it. Search their email, Slack and meeting summaries for the message, then pass found:
+            {source: email|slack|meeting, source_id (an email's Message-ID, a Slack message's channel:ts, a
+            meeting's file#row), link, ts, from: {name, email}, title (or channel), quote (under 300
+            characters), text (the message exactly as written, without quoted replies or signature), ask (the
+            ask for them, a short imperative)}. Fuzz asks them "Is it this one?". Can't find it: pass not_found
+            with what you searched. Never put the message in the brief, a step or the notes."""
+            return _call(tools.report_missed, core, task_id, found, not_found)
+
     elif role == "sender":
         @srv.tool()
         def claim_next_send() -> dict:

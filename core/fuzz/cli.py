@@ -182,7 +182,7 @@ def cmd_capture(a):
     for p in a.file or []:
         if not os.path.isfile(p):
             raise FuzzError(f"No file {p}", "file")
-    tid = tasks.capture(core, " ".join(a.text), a.doc, due=a.due, gather=gathers(core.config))
+    tid = tasks.capture(core, " ".join(a.text), a.doc, due=a.due, gather=gathers(core.config), missed=a.missed)
     _print({"task_id": tid, "files": [_attach(core, tid, p) for p in a.file or []]})
 
 
@@ -563,6 +563,7 @@ def parser():
     s.add_argument("--doc", action="append", help="a document's name only (the demo's behaviour)")
     s.add_argument("--file", action="append", help="attach a file (Fuzz keeps a copy for the executor)")
     s.add_argument("--due")
+    s.add_argument("--missed", action="store_true", help="Fuzz missed this ask: it finds the message and asks if it's the one")
     s.set_defaults(fn=cmd_capture)
 
     s = sub.add_parser("attach", help="attach a file to a task")

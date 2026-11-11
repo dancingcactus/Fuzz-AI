@@ -23,6 +23,8 @@ EVENT_TYPES = {
     "task.file_written", "task.file_deleted", "task.link_added", "task.review_due", "task.kept_parked", "task.check_back_set",
     "task.session_opened", "task.next_step", "task.session_ended",
     "task.find_out",   # you asked Fuzz to find something out; the task stays yours
+    # Fuzz missed this (missed.py): found a message, you said yes, asked again, or kept it as you wrote it
+    "task.missed_found", "task.missed_confirmed", "task.missed_retry", "task.missed_kept",
     "task.doing", "task.paused",   # Do it now opened the working card; Pause put it back in the list
     "task.block_started", "task.block_ended", "task.block_missed", "task.block_extended",   # booked time
     "calendar.reported",   # the executor read the calendar: Focus time slots, free time and Fuzz's holds
@@ -405,6 +407,12 @@ def undo(core, group=None):
             if e["type"] == "task.let_go":   # Not a task taken back: its eval case was a wrong label
                 from . import evals
                 evals.retire_for_task(core, e["task_id"])
+            if e["type"] == "task.missed_confirmed":   # Yes taken back: the case waits on the card again
+                from . import evals
+                d = e["payload"].get("data") or {}
+                evals.unconfirm(core, d.get("case_id"))
+                if d.get("link_source"):
+                    core.q("UPDATE sources SET withdrawn=1 WHERE id=? AND user_id=?", (d["link_source"], core.user_id))
             if e["type"] == "engine.selected":
                 from . import engine
                 engine.restore_selection(core, e["payload"]["data"].get("prior"))

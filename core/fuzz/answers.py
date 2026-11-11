@@ -176,6 +176,11 @@ def _fact_conflict(core, card, t, option, value):
     return mcards.answer_conflict(core, card, option, value)
 
 
+def _missed(core, card, t, option, value):
+    from . import missed
+    return missed.answer(core, card, t, option, value)
+
+
 def _is_task(core, card, t, option, value):
     """One card can ask about several asks from the same message. Mine takes the ids you ticked (all of
     them without a list); the ones you didn't tick are someone else's. The other answers cover them all."""
@@ -259,7 +264,7 @@ HANDLERS = {"task": _task_answer, "duplicate": _duplicate, "entity_person": _ent
             "entity_term": _entity_term, "is_task": _is_task, "draft": _draft, "nudge": _draft,
             "permission": _permission, "hold": _hold, "part_of": _deliverable, "deliverable": _deliverable,
             "deliverable_new": _deliverable, "week_plan": _deliverable, "decision": _decision,
-            "fact_conflict": _fact_conflict}
+            "fact_conflict": _fact_conflict, "missed": _missed}
 
 
 def answer(core, card_id, option, value=None):

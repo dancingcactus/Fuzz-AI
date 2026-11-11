@@ -211,9 +211,10 @@ class App:
         return {"tasks": [task_view(core, t) for t in tasks.search_finished(core, q.get("q"), q.get("limit") or 50)]}
 
     def capture(self, core, m, body, q):
-        gather = config.gathers(core.config)
+        missed = bool(body.get("missed"))   # Fuzz missed this: it looks for the message whatever gathering is set to
+        gather = config.gathers(core.config) or missed
         tid = tasks.capture(core, body.get("text"), body.get("docs"), due=body.get("due"), gather=gather,
-                            uploading=bool(body.get("uploading")))
+                            uploading=bool(body.get("uploading")), missed=missed)
         if gather:
             kick_executor(self, core)
         return {"task_id": tid, "gathering": gather}, 201

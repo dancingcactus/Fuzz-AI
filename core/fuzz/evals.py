@@ -123,6 +123,31 @@ def retire_for_task(core, task_id, why="You undid Not a task."):
         retire(core, f"feedback:{f['id']}", why)
 
 
+def expires(core):
+    return iso(core.now() + timedelta(days=KEEP_DAYS))
+
+
+def confirm(core, case_id):
+    """You said a found message was the one: its case counts, for KEEP_DAYS from now. False when the case is
+    gone (turned down before an Undo brought the card back): its text wasn't kept."""
+    n = core.q("UPDATE eval_cases SET status='active', fetched_at=?, expires_at=? WHERE user_id=? AND id=? "
+               "AND status='unconfirmed'", (core.now_iso(), expires(core), core.user_id, case_id)).rowcount
+    if not n:
+        return False
+    c = core.one("SELECT signal_key FROM eval_cases WHERE user_id=? AND id=?", (core.user_id, case_id))
+    if c and c["signal_key"]:   # the newer label wins: a Not a task on the same message was wrong
+        for old in core.all("SELECT id, input FROM eval_cases WHERE user_id=? AND signal_key=? AND kind='skip' "
+                            "AND status!='retired'", (core.user_id, c["signal_key"])):
+            _close(core, old, "You later said this message held an ask of yours.")
+    return True
+
+
+def unconfirm(core, case_id):
+    """Undo of a Yes: the case waits on the card again."""
+    core.q("UPDATE eval_cases SET status='unconfirmed' WHERE user_id=? AND id=? AND status='active'",
+           (core.user_id, case_id))
+
+
 def _fetchable(core):
     sweep(core)
     return core.all("SELECT e.id, e.input, e.created_at, e.offered_at, s.source, s.source_id, s.anchor, s.link, s.ts "
@@ -166,9 +191,8 @@ def submit_text(core, case_id, text=None, cant_fetch=None):
         raise FuzzError("pass text (the message as you read it) or cant_fetch (why you couldn't)", "text")
     msg = json.loads(c["input"]) if isinstance(c["input"], str) else c["input"]
     msg["text"] = text.strip()[:TEXT_MAX]
-    expires = iso(core.now() + timedelta(days=KEEP_DAYS))
     core.q("UPDATE eval_cases SET input=?, status='active', fetched_at=?, expires_at=? WHERE id=?",
-           (json.dumps(msg), core.now_iso(), expires, case_id))
+           (json.dumps(msg), core.now_iso(), expires(core), case_id))
     return {"case_id": case_id, "status": "active"}
 
 
