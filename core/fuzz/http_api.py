@@ -141,6 +141,23 @@ class App:
             ("GET", r"/files/(\d+)", self.download),
             ("GET", r"/artifacts", self.list_artifacts),
             ("GET", r"/artifacts/(\d+)", self.get_artifact),
+            ("GET", r"/artifacts/k(\d+)", self.get_memory_artifact),
+            ("GET", r"/files/k(\d+)", self.download_memory_file),
+            # memory (docs/memory-layers.md): the inspector (read-only), the person and term sheet, the ask box
+            ("GET", r"/inspect", self.inspect_overview),
+            ("GET", r"/inspect/entities", self.inspect_entities),
+            ("GET", r"/inspect/entities/(\d+)", self.inspect_entity),
+            ("GET", r"/inspect/facts/(\d+)", self.inspect_fact),
+            ("GET", r"/inspect/why_not", self.inspect_why_not),
+            ("GET", r"/inspect/knowledge", self.inspect_knowledge),
+            ("GET", r"/inspect/decisions", self.inspect_decisions),
+            ("GET", r"/inspect/runs", self.inspect_runs),
+            ("GET", r"/inspect/runs/(\d+)", self.inspect_run),
+            ("GET", r"/inspect/briefs", self.inspect_briefs),
+            ("GET", r"/entities/(\d+)", self.entity_sheet),
+            ("POST", r"/entities/(\d+)/facts", self.entity_edit),
+            ("POST", r"/facts/(\d+)/(confirm|reject)", self.fact_action),
+            ("POST", r"/ask", self.ask),
             ("DELETE", r"/artifacts/(\d+)", self.delete_artifact),
             ("GET", r"/setup", self.setup_get),
             ("POST", r"/setup/discover", self.setup_discover),
@@ -266,9 +283,102 @@ class App:
         return {"_file": s["path"], "_name": os.path.basename(s["path"]), "_type": s["mime"]}
 
     def list_artifacts(self, core, m, body, q):
-        """What Fuzz wrote in your output folder, for the Artifacts tab. folder is null when there's none."""
+        """What Fuzz wrote in your output folder, for the Artifacts tab, with the Knowledge/ files (no task; their
+        source_id is k<id>). folder is null when there's none."""
         from . import outputs
-        return {"folder": outputs.folder(core), "artifacts": outputs.artifacts(core)}
+        from .memory import briefs
+        arts = outputs.artifacts(core) + [_memory_view(f) for f in briefs.files(core)]
+        return {"folder": outputs.folder(core), "artifacts": sorted(arts, key=lambda a: a["updated_at"], reverse=True)}
+
+    def get_memory_artifact(self, core, m, body, q):
+        from .memory import briefs
+        f = briefs.get_file(core, int(m.group(1)))
+        if f is None:
+            raise FuzzError(f"No file k{m.group(1)}", "source_id", 404)
+        return _memory_view(f)
+
+    def download_memory_file(self, core, m, body, q):
+        from .memory import briefs
+        f = briefs.get_file(core, int(m.group(1)))
+        if f is None:
+            raise FuzzError(f"No file k{m.group(1)}", "source_id", 404)
+        return {"_file": f["path"], "_name": os.path.basename(f["path"]), "_type": "text/markdown"}
+
+    # ---- memory: the inspector is read-only (no events, no fact_views, no files)
+    def inspect_overview(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.overview(core)
+
+    def inspect_entities(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.entities_list(core, q.get("type") or None, q.get("q") or None, q.get("state") or None, q.get("at") or None)
+
+    def inspect_entity(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.entity_detail(core, int(m.group(1)), q.get("at") or None)
+
+    def inspect_fact(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.fact_detail(core, int(m.group(1)), q.get("at") or None)
+
+    def inspect_why_not(self, core, m, body, q):
+        from .memory import inspect
+        try:
+            a, b = int(q.get("a")), int(q.get("b"))
+        except (TypeError, ValueError):
+            raise FuzzError("a and b are entity ids", "a")
+        return inspect.why_not(core, a, b)
+
+    def inspect_knowledge(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.knowledge_list(core)
+
+    def inspect_decisions(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.decisions_list(core)
+
+    def inspect_runs(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.runs_list(core)
+
+    def inspect_run(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.run_detail(core, int(m.group(1)))
+
+    def inspect_briefs(self, core, m, body, q):
+        from .memory import inspect
+        return inspect.briefs_state(core)
+
+    def entity_sheet(self, core, m, body, q):
+        """A person or term sheet: what Fuzz knows, with sources and trust. Opening it counts as seeing its facts."""
+        from .memory import facts, recall
+        e = facts.require_entity(core, int(m.group(1)))
+        return recall._entity_answer(core, facts.follow(core, e["id"]), surface="sheet")
+
+    def entity_edit(self, core, m, body, q):
+        """Edit on the sheet: you say what it is, a confirmed fact that Undo can take back."""
+        from .memory import facts
+        fid = facts.edit(core, facts.follow(core, int(m.group(1))), body.get("attr"), body.get("value"))
+        return {"fact_id": fid}, 201
+
+    def fact_action(self, core, m, body, q):
+        from .memory import facts
+        (facts.confirm if m.group(2) == "confirm" else facts.reject)(core, int(m.group(1)))
+        return {"fact_id": int(m.group(1)), "done": m.group(2)}
+
+    def ask(self, core, m, body, q):
+        """The ask box: a headless run of the read-only ask role answers, as memory.answered on the event stream."""
+        from .memory import recall
+        question = (body.get("question") or "").strip()
+        if not question:
+            raise FuzzError("question is what you want to know", "question")
+        if len(question) > 500:
+            raise FuzzError("question is at most 500 characters", "question")
+        if not config.role_engine(core.config, "ask")[0]:
+            raise FuzzError("Fuzz needs Claude Code or Copilot to answer. Set one up in Settings › Engine.", "engine", 409)
+        ask_id = recall.new_ask_id()
+        engine.run_now(core, "ask", ask=(ask_id, question))
+        return {"ask_id": ask_id}, 202
 
     def get_artifact(self, core, m, body, q):
         """One file's name, type and task, for the viewer (artifact.html). The bytes come from /files/<id>."""
@@ -638,6 +748,17 @@ class App:
 
     def engine_action(self, core, m, body, q):
         return engine.action(core, m.group(1), m.group(2), body.get("roles"), bool(body.get("link")))
+
+
+def _memory_view(f):
+    """A Knowledge/ file as the Artifacts tab lists it: no task, so it's under Fuzz's memory."""
+    try:
+        size = os.path.getsize(f["path"])
+    except OSError:
+        size = None
+    return {"source_id": f"k{f['id']}", "name": os.path.basename(f["path"]), "mime": "text/markdown", "size": size,
+            "kind": "markdown", "role": "memory", "updated_at": f["updated_at"], "memory": f["kind"],
+            "task": {"id": None, "title": "Fuzz’s memory", "state": None}}
 
 
 def make_handler(app):

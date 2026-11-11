@@ -137,6 +137,13 @@ def ingest(ctx, signals):
             if kind == "ask":
                 new_ids.append((cid, ask))
             counts["candidates"] += 1
+        from ..memory import extract as mem_extract
+        cids = [r["id"] for r in core.all("SELECT id FROM candidates WHERE user_id=? AND signal_key=?", (_uid(ctx), key))]
+        for k, v in mem_extract.ingest_signal(core, s, key, cids).items():
+            if k == "refusals":
+                ctx.notes += [f"memory refused: {r}" for r in v]
+            else:
+                counts[f"memory_{k}"] = counts.get(f"memory_{k}", 0) + v
         vecs = ctx.embed([a for _, a in new_ids]) if new_ids else None
         if vecs:
             for (cid, _), v in zip(new_ids, vecs):

@@ -32,6 +32,11 @@ EVENT_TYPES = {
     "group.created", "group.linked", "group.unlinked", "group.renamed", "group.wrapped",
     "group.collected", "group.working",   # working through a group: Fuzz has the answers / the run goes on
     "entity.merged", "entity.kept_separate", "entity.defined",
+    # memory (docs/memory-layers.md)
+    "fact.added", "fact.confirmed", "fact.edited", "fact.rejected",
+    "knowledge.added", "knowledge.rejected", "memory.linked",
+    "decision.detected", "decision.recorded", "decision.rejected", "decision.reversed",
+    "brief.due", "memory.answered",
     "card.created", "card.answered", "card.postponed", "card.expired", "card.updated",
     "permission.asked", "permission.granted", "permission.denied",
     "checkin.due", "checkin.answered",
@@ -41,9 +46,9 @@ EVENT_TYPES = {
 
 # Projected tables and their key column. user_state is keyed by (user_id, key).
 TABLES = {"tasks": "id", "groups": "id", "cards": "id", "drafts": "id", "grants": "id", "user_state": "key",
-          "deliverables": "id"}
+          "deliverables": "id", "facts": "id", "knowledge": "id", "decision_log": "id", "memory_links": "id"}
 
-ACTORS = ("human", "fuzz:extractor", "fuzz:executor", "fuzz:sender", "fuzz:session", "fuzz:onboarding", "system")
+ACTORS = ("human", "fuzz:extractor", "fuzz:executor", "fuzz:sender", "fuzz:session", "fuzz:onboarding", "fuzz:recall", "system")
 
 LOG_KINDS = ("research", "action", "guidance", "status", "sent", "blocked")
 
@@ -76,6 +81,18 @@ class Changes:
 
     def deliverable(self, did, **fields):
         return self._put("deliverables", did, fields)
+
+    def fact(self, fid, **fields):
+        return self._put("facts", fid, fields)
+
+    def knowledge(self, kid, **fields):
+        return self._put("knowledge", kid, fields)
+
+    def decision(self, did, **fields):
+        return self._put("decision_log", did, fields)
+
+    def mlink(self, lid, **fields):
+        return self._put("memory_links", lid, fields)
 
     def state(self, key, value):
         return self._put("user_state", key, {"value": value})
@@ -294,7 +311,9 @@ def _groups(core, limit=200):
 DECISIVE = {"tasks": {"state", "assignee", "lease_owner", "notes", "question", "schedule_anchor", "title",
                       "merged_into", "waiting_on", "quick_answers"},
             "groups": {"title", "state"}, "cards": {"status"}, "drafts": {"status", "body"}, "grants": {"kind"}, "user_state": {"value"},
-            "deliverables": {"state", "tier", "title", "done_when"}}
+            "deliverables": {"state", "tier", "title", "done_when"},
+            "facts": {"status", "value", "confirmed_at"}, "knowledge": {"status"}, "decision_log": {"status", "what"},
+            "memory_links": {"removed"}}
 
 
 def _restore_plan(evs):
@@ -380,6 +399,9 @@ def undo(core, group=None):
             if e["type"] == "task.merged":
                 from . import matching  # the side tables a merge moved
                 matching.unmerge_side_tables(core, e["payload"]["data"]["merge_id"])
+            if e["type"] in ("entity.merged", "entity.kept_separate"):   # the entity tables are derived, not replayed
+                from .memory import facts as mfacts
+                mfacts.undo_entity_event(core, e)
             if e["type"] == "engine.selected":
                 from . import engine
                 engine.restore_selection(core, e["payload"]["data"].get("prior"))
@@ -404,4 +426,8 @@ def _absent(table, created):
         return {"kind": "revoked"}
     if table == "deliverables":
         return {"state": "dropped"}
+    if table in ("facts", "knowledge", "decision_log"):
+        return {"status": "undone"}
+    if table == "memory_links":
+        return {"removed": 1}
     return {"value": None}

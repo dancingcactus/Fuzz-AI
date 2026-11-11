@@ -85,7 +85,7 @@ class Copilot(Adapter):
         return path
 
     def headless_command(self, role, config_path, model=None, task_id=None, verbose=False, files_dir=None,
-                         send_tools=None, read_tools=None, write_dir=None):
+                         send_tools=None, read_tools=None, write_dir=None, ask=None):
         """Allow Fuzz's server, deny the shell and file writes. Deny always wins. The sender may also call
         the send tools you listed, the executor the read tools. With write_dir, file writes are allowed
         inside that folder only, instead of denied.
@@ -94,7 +94,7 @@ class Copilot(Adapter):
         when files_dir is given: Copilot loads your own MCP servers too, and allowing a tool doesn't
         hide the others. The extractor reads your sources with your connectors, so it sees them all, and
         may call the read tools without asking: with nobody there to approve, any other tool is refused."""
-        prompt = skill_body(role) + "\n\n" + self.prompt(role, task_id)
+        prompt = skill_body(role) + "\n\n" + self.prompt(role, task_id, ask)
         extra = list((send_tools if role == "sender" else read_tools if role in ("executor", "extractor") else None)
                      or [])
         argv = [self.exe, "-p", prompt, RUN_CONFIG_FLAG, f"@{config_path}",
@@ -102,7 +102,7 @@ class Copilot(Adapter):
         argv += ["--allow-tool", f"write({str(write_dir).rstrip('/')}/**)"] if write_dir else ["--deny-tool", "write"]
         for t in extra:
             argv += ["--allow-tool", allow_rule(t)]
-        if role in ("executor", "sender"):
+        if role in ("executor", "sender", "ask"):
             available = [self.mcp_name(role)] + [available_name(t) for t in extra]
             if files_dir or write_dir:
                 available.append(READ_FILE_TOOL)

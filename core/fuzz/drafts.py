@@ -18,7 +18,7 @@ BODY_MAX = 32 * 1024
 
 
 def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:executor", attach=None, reply_to=None,
-               covers=None):
+               covers=None, relied_on=None):
     """attach: file names in the task's output folder, for the sender to attach when it sends.
     reply_to: the id of the task's source whose thread it goes in. target is only who it's to.
     covers: the other tasks of a group claim this one reply answers. They wait in review with it, and
@@ -35,6 +35,7 @@ def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:execut
     attach = _attachments(core, t["id"], kind, attach)
     reply_to = _thread(core, t["id"], kind, reply_to)
     covered = _covered(core, t, covers, final)
+    meta = _relied_on(core, relied_on)
     if not final and _comes_back(core, t)[0] is None:
         raise FuzzError("A prep note needs to know when the real step is due. Call suggest_schedule with that "
                         "time (or update_brief with due), then save the note again", "final")
@@ -46,7 +47,7 @@ def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:execut
             ch.draft(d["id"], status="withdrawn")
         ch.draft(did, task_id=t["id"], kind=kind, target=target, body=body, status="pending",
                  created_at=core.now_iso(), final=1 if final else 0, attachments=attach or None,
-                 reply_to=reply_to, covers=[c["id"] for c in covered] or None)
+                 reply_to=reply_to, covers=[c["id"] for c in covered] or None, meta=meta)
         tasks.move(core, ch, t, "review")
         for c in covered:   # answered in this one reply: they wait for your OK with it, with no card of their own
             tasks.move(core, ch, c, "review", question=None)
@@ -60,6 +61,31 @@ def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:execut
                     log=("action", log))
         cards.sync(core, t["id"])
     return did
+
+
+def _relied_on(core, relied_on):
+    """Rule 4 (docs/memory-layers.md): the facts the draft leaned on, like who to send it to. An inferred fact
+    you haven't confirmed can't drive a send on its own, so the card says Fuzz guessed and suggests Edit."""
+    if not relied_on:
+        return None
+    from .memory import facts
+    from .matching import entities
+    if not isinstance(relied_on, list) or not all(isinstance(i, int) for i in relied_on):
+        raise FuzzError("relied_on is a list of fact ids, from who_is or what_is", "relied_on")
+    guessed = []
+    for fid in relied_on:
+        f = core.one("SELECT * FROM facts WHERE id=? AND user_id=?", (fid, core.user_id))
+        if f is None:
+            raise FuzzError(f"No fact {fid}: use the fact_id from who_is or what_is", "relied_on")
+        if facts.is_unconfirmed_inference(core, fid):
+            e = facts.entity(core, facts.follow(core, f["entity_id"]))
+            guessed.append({"fact_id": fid, "text": f"{entities.display_name(core.conn, e)}: "
+                                                    f"{f['attr'].replace('_', ' ')} {f['value']}"})
+    return {"relied_on": relied_on, "guessed": guessed} if guessed else {"relied_on": relied_on}
+
+
+def guessed(d):
+    return ((d or {}).get("meta") or {}).get("guessed") or []
 
 
 def _covered(core, t, covers, final):

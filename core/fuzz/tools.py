@@ -103,7 +103,18 @@ def _task_brief(core, t):
             "output_files": [f["name"] for f in outputs.listing(core, t["id"])],
             "schedule_hints": t.get("schedule_hints") or [],
             "group": groups.brief(core, t),
+            "memory": _task_memory(core, t),
             "log": [{"kind": x["kind"], "text": x["text"]} for x in events.task_log(core, t["id"], LOG_ON_GET)]}
+
+
+def _task_memory(core, t):
+    """What Fuzz's memory knows about the task's people and the terms in it, each fact with its fact_id and trust,
+    so the executor needs no tools of its own for it (it keeps few) and can cite fact_ids in relied_on."""
+    from .memory import recall
+    try:
+        return recall.for_task(core, t)
+    except Exception as e:   # memory is context; it never keeps a task from being worked
+        return {"error": str(e)}
 
 
 def _source_ref(s):
@@ -169,12 +180,12 @@ def add_source(core, task_id, title, link):
     return {"source_id": sid, "added": added}
 
 
-def save_draft(core, task_id, kind, target, body, final=True, attach=None, reply_to=None, covers=None):
+def save_draft(core, task_id, kind, target, body, final=True, attach=None, reply_to=None, covers=None, relied_on=None):
     with _lease(core, task_id) as t:
         scheduler.refuse_while_gathering(t)
         outputs.record(core, task_id)
         did = drafts.save_draft(core, task_id, kind, target, body, final, attach=attach, reply_to=reply_to,
-                                covers=covers)
+                                covers=covers, relied_on=relied_on)
     return {"draft_id": did, "state": "review"}
 
 
@@ -420,6 +431,7 @@ def submit_signals(core, signals_):
     with core.tx("fuzz:extractor"):
         counts = matching.ingest(ctx, signals_)
         outcomes = matching.propose(ctx)
+    _memory_cards(core)
     pending = core.one("SELECT COUNT(*) n FROM candidates WHERE user_id=? AND status='pending'", (core.user_id,))["n"]
     out = dict(counts, outcomes=outcomes, pending_judgments=pending)
     if ctx.notes:
@@ -438,6 +450,77 @@ def submit_verdicts(core, verdicts):
         stats = matching.apply_verdicts(ctx, verdicts)
     pending = core.one("SELECT COUNT(*) n FROM candidates WHERE user_id=? AND status='pending'", (core.user_id,))["n"]
     return dict(outcomes=stats, pending_judgments=pending)
+
+
+# ---------------------------------------------------------------- memory (docs/memory-layers.md)
+
+def _memory_cards(core):
+    from .memory import mcards
+    if (core.config.get("memory") or {}).get("cards", True):
+        mcards.raise_cards(core)
+
+
+def get_lookups(core):
+    from .memory import extract
+    return extract.lookups(core)
+
+
+def submit_facts(core, facts_):
+    from .memory import extract
+    signals.check_facts(facts_)
+    with core.tx("fuzz:extractor"):
+        out = extract.submit_facts(core, facts_)
+    _memory_cards(core)
+    return out
+
+
+def submit_knowledge(core, items):
+    from .memory import extract
+    signals.check_knowledge(items)
+    with core.tx("fuzz:extractor"):
+        out = extract.submit_knowledge(core, items)
+    _memory_cards(core)
+    return out
+
+
+def report_meetings(core, meetings):
+    from .memory import extract
+    return extract.report_meetings(core, meetings, actor=core._actor or "fuzz:extractor")
+
+
+def who_is(core, name):
+    from .memory import recall
+    return recall.who_is(core, name)
+
+
+def what_is(core, term):
+    from .memory import recall
+    return recall.what_is(core, term)
+
+
+def why(core, question):
+    from .memory import recall
+    return recall.why(core, question)
+
+
+def search_memory(core, query):
+    from .memory import recall
+    return recall.search(core, query)
+
+
+def meeting_brief(core, meeting):
+    from .memory import recall
+    return recall.brief(core, meeting)
+
+
+def correct(core, attr, value, fact_id=None, entity_id=None, name=None):
+    from .memory import recall
+    return recall.correct(core, attr, value, fact_id=fact_id, entity_id=entity_id, name=name)
+
+
+def answer_ask(core, ask_id, text, sources=None):
+    from .memory import recall
+    return recall.answer(core, ask_id, text, sources)
 
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
@@ -479,7 +562,10 @@ def report_calendar(core, slots, holds=None):
     if holds is not None and not isinstance(holds, list):
         raise FuzzError("holds is a list of {event_id, start?, end?, cancelled?}", "holds")
     return booking.report(core, slots, holds)
-EXTRACTOR = ("whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts")
+EXTRACTOR = ("whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
+             "submit_facts", "submit_knowledge", "report_meetings")
 SENDER = ("whoami", "claim_next_send", "mark_sent", "send_failed")
 SESSION = ("get_task", "read_source", "log_progress", "set_next_step", "add_source", "end_session")
-ROLES = {"executor": EXECUTOR, "extractor": EXTRACTOR, "sender": SENDER, "session": SESSION}
+RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "meeting_brief", "correct")
+ASK = ("whoami", "who_is", "what_is", "why", "search_memory", "meeting_brief", "answer_ask")   # headless: no correct
+ROLES = {"executor": EXECUTOR, "extractor": EXTRACTOR, "sender": SENDER, "session": SESSION, "recall": RECALL, "ask": ASK}

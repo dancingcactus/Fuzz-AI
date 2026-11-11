@@ -641,15 +641,44 @@
   /* Deliverable cards: one decision each, like any question card */
   var DV_LABEL = { keep_going: 'Keep going', make_active: 'Make it active', its_done: 'It’s done', let_go: 'Let it go',
     not_sure: 'Not sure yet', reopen: 'Reopen it', new_one: 'Start a new one', keep_these: 'Keep these', keep_steps: 'Keep these steps',
-    not_now: 'Not now', track: 'Track it', no: 'No', yes: 'Yes' };
+    not_now: 'Not now', track: 'Track it', no: 'No', yes: 'Yes',
+    /* Fuzz's memory */
+    same: 'Same person', different: 'Different people', define: 'Save definition', record: 'It was a decision',
+    not_decision: 'Not a decision', first: 'The first one', second: 'The second one', neither: 'Neither' };
   function dvButtons(it, opts) {
     return '<div id="actions"><div class="actions">' + opts.map(function (o, i) {
       return '<button type="button" class="btn' + (o === it.suggested ? ' primary' : '') + '" data-dv="' + o + '" aria-keyshortcuts="' + (i + 1) + '">' + esc(DV_LABEL[o] || o) + kbd(i + 1) + '</button>';
     }).join('') + '</div></div>';
   }
+  /* Fuzz's memory: same person?, what is this?, was this a decision?, which is right? Evidence before answers. */
+  var MEM_SOURCE = { email: 'email', slack: 'Slack', teams: 'Teams', meeting: 'a meeting', calendar: 'the calendar', doc: 'a document', directory: 'the directory', you: 'what you said' };
+  var MEM_LEVEL = { confirmed: 'Confirmed', authoritative: 'Official', reported: 'Reported', inferred: 'Fuzz’s guess', stale: 'May be out of date' };
+  function memoryHTML(it) {
+    var p = it.payload || {}, h = '';
+    if (it.cardKind === 'entity_person') {
+      h += '<div class="profiles">' + (p.profiles || []).map(function (x) { return '<div class="profile"><span class="plabel">' + esc(x.where) + '</span><span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span><span class="pseen">' + esc(x.seen) + '</span></div>'; }).join('') + '</div>';
+    } else if (it.cardKind === 'entity_term') {
+      if ((p.mentions || []).length) h += '<ul class="mentions">' + p.mentions.map(function (m) { return '<li><span class="pill pill--muted">' + esc(m.where) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>';
+      h += '<div class="dv-new"><label for="mem-def">What is ' + esc(p.term || 'it') + '?</label><textarea id="mem-def" rows="2" placeholder="A short definition">' + esc(p.best_guess || '') + '</textarea></div>';
+    } else if (it.cardKind === 'decision') {
+      h += '<section class="dv-steps"><h3>' + esc(p.what || '') + '</h3>' +
+        (p.why ? '<p class="meta">Why: ' + esc(p.why) + '</p>' : '') +
+        ((p.alternatives || []).length ? '<p class="meta">Also considered: ' + esc(p.alternatives.join(', ')) + '</p>' : '') +
+        '<p class="meta">' + esc([p.decided_by ? 'Decided by ' + p.decided_by : '', p.decided_at ? String(p.decided_at).slice(0, 10) : ''].filter(Boolean).join(' · ')) +
+        (/^https?:/.test(p.link || '') ? ' · <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Where it came from</a>' : '') + '</p></section>';
+    } else if (it.cardKind === 'fact_conflict') {
+      h += '<div class="profiles">' + (p.facts || []).map(function (f, i) {
+        return '<div class="profile"><span class="plabel">' + (i ? 'Second' : 'First') + ' · ' + esc(MEM_LEVEL[f.level] || f.level) + '</span><span class="pname">' + esc(f.value) + '</span>' +
+          '<span class="pdetail">' + esc([f.said_by ? f.said_by + ' said' : '', MEM_SOURCE[f.source_kind] || f.source_kind].filter(Boolean).join(', in ')) + '</span><span class="pseen">' + esc(f.source_ts ? String(f.source_ts).slice(0, 10) : '') + '</span></div>';
+      }).join('') + '</div>' +
+        '<div class="dv-new"><label for="mem-neither">Neither? What is it?</label><input id="mem-neither" type="text" autocomplete="off"></div>';
+    }
+    return h;
+  }
   function delivHTML(it) {
-    var p = it.payload || {}, h = '<div class="tagrow"><span class="src">Your deliverables</span></div>' + askHTML(it.ask);
+    var p = it.payload || {}, h = '<div class="tagrow"><span class="src">' + esc(it.source || 'Your deliverables') + '</span></div>' + askHTML(it.ask);
     if (it.incoming) h += '<p class="dlg-what">' + esc(it.incoming) + '</p>';
+    if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []);
     if (it.cardKind === 'week_plan' && p.steps) {
       h += (p.all || []).map(function (d) {
         return '<section class="dv-steps"><h3>' + esc(d.title) + '</h3>' + (d.open && d.open.length ? '<p class="meta">Open: ' + esc(d.open.slice(0, 4).join(' · ')) + '</p>' : '') +
@@ -676,6 +705,8 @@
       var v = {}; card.querySelectorAll('[data-dvsteps]').forEach(function (ta) { var lines = ta.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); if (lines.length) v[ta.dataset.dvsteps] = lines; }); return v;
     }
     if (opt === 'track') return { title: ($('#dv-title') || {}).value, done_when: ($('#dv-dw') || {}).value, checked_by: $('#dv-you') && $('#dv-you').checked ? 'you' : 'fuzz' };
+    if (opt === 'define') return (($('#mem-def') || {}).value || '').trim();
+    if (opt === 'neither') return (($('#mem-neither') || {}).value || '').trim();
     return undefined;
   }
   /* "For …": its deliverable, which opens the deliverable sheet */
@@ -1787,6 +1818,8 @@
       var dv = e.target.closest('[data-dv]');
       if (dv && card.contains(dv)) {
         var dit = cur(), dopt = dv.dataset.dv, dval = dvValue(dit, dopt);
+        if (dopt === 'define' && !dval) { var dd = $('#mem-def'); if (dd) dd.focus(); Fuzz.say('What does it mean? A few words is plenty.', { type: false }); return; }
+        if (dopt === 'neither' && !dval) { var dn = $('#mem-neither'); if (dn) dn.focus(); Fuzz.say('What is it, then? Type it in and press Neither again.', { type: false }); return; }
         if (dopt === 'track' && !(dval.title || '').trim()) { var dtl = $('#dv-title'); if (dtl) dtl.focus(); Fuzz.say('Give it a name first.', { type: false }); return; }
         if (dopt === 'track' && dval.checked_by === 'fuzz' && !(dval.done_when || '').trim()) { var ddw = $('#dv-dw'); if (ddw) ddw.focus(); Fuzz.say('How will we know it’s done? Or tick the box and you check it.', { type: false }); return; }
         if (dopt === 'track' && !(dval.done_when || '').trim()) dval.done_when = 'You say it’s done';

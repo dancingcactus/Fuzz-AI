@@ -16,7 +16,10 @@ from fuzz.db import FuzzError
 EXECUTOR = {"whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
             "release", "list_deliverables", "report_deliverable_done"}
-EXTRACTOR = {"whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts"}
+EXTRACTOR = {"whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
+             "submit_facts", "submit_knowledge", "report_meetings"}
+RECALL = {"whoami", "who_is", "what_is", "why", "search_memory", "meeting_brief", "correct"}
+ASK = RECALL - {"correct"} | {"answer_ask"}
 
 
 def run(coro):
@@ -38,6 +41,8 @@ class RoleScoping(CoreCase):
     def test_each_role_sees_only_its_tools(self):
         self.assertEqual(run(tool_names(mcp_server.build(self.core, "executor"))), EXECUTOR)
         self.assertEqual(run(tool_names(mcp_server.build(self.core, "extractor"))), EXTRACTOR)
+        self.assertEqual(run(tool_names(mcp_server.build(self.core, "recall"))), RECALL)
+        self.assertEqual(run(tool_names(mcp_server.build(self.core, "ask"))), ASK, "a headless ask can't correct")
         self.assertLessEqual(len(EXECUTOR), 17, "past about fifteen tools a model picks the wrong one (the design names 17)")
 
     def test_no_tool_reaches_outside(self):

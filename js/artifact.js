@@ -43,14 +43,15 @@
       if (!s) return Promise.reject(new Error('There’s no demo file called ' + demo + '.'));
       return Promise.resolve({ name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: s.taskTitle, url: s.path, get: function () { return fetch(s.path); } });
     }
-    if (!id || !/^\d+$/.test(id)) return Promise.reject(new Error('Open a file from the Artifacts tab in Fuzz.'));
+    /* k<id>: a file in Fuzz's Knowledge folder (the people map, the glossary, a brief), which belongs to no task */
+    if (!id || !/^k?\d+$/.test(id)) return Promise.reject(new Error('Open a file from the Artifacts tab in Fuzz.'));
     if (!token) return Promise.reject(new Error('This browser isn’t connected to Fuzz. Open the link `fuzz serve` prints, then try again.'));
     var auth = { headers: { Authorization: 'Bearer ' + token } };
     return fetch('/artifacts/' + id, auth).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (!r.ok) throw new Error(r.status === 404 ? 'This file isn’t in your Fuzz folder any more.' : r.status === 401 ? 'Fuzz didn’t recognise this browser. Open the link `fuzz serve` prints, then try again.' : (j.error || 'Fuzz couldn’t open it.'));
         return { id: id, name: j.name, kind: j.kind || kindOf(j.name), size: j.size, updated: Date.parse(j.updated_at), task: j.task && j.task.title,
-          taskId: j.task && j.task.id, mine: j.role === 'attachment',
+          taskId: j.task && j.task.id, mine: j.role === 'attachment', memory: j.role === 'memory',
           url: '/files/' + id + '?token=' + encodeURIComponent(token), get: function () { return fetch('/files/' + id, auth); } };
       });
     });
@@ -72,10 +73,10 @@
     var meta = [LABEL[f.kind] || 'File', sizeText(f.size), f.updated ? 'Updated ' + agoText(f.updated) : ''].filter(Boolean).join(' · ');
     bar.innerHTML = '<div class="av-left">' + backHTML() +
       '<div class="av-title"><h1>' + esc(f.name) + '</h1><p class="meta">' + esc(meta) + (f.task ? ' · For <span class="av-task">' + esc(f.task) + '</span>' : '') + '</p></div></div>' +
-      '<div class="appbar-right">' + (f.id ? '<button type="button" class="themebtn av-del" data-del>' + ICON_TRASH + '<span>' + (f.mine ? 'Remove' : 'Delete') + '</span></button>' : '') +
+      '<div class="appbar-right">' + (f.id && !f.memory ? '<button type="button" class="themebtn av-del" data-del>' + ICON_TRASH + '<span>' + (f.mine ? 'Remove' : 'Delete') + '</span></button>' : '') +
       '<a class="themebtn av-dl" href="' + esc(f.url) + '" download="' + esc(f.name) + '">' + ICON_DOWN + '<span>Download</span></a></div>';
     document.title = f.name + ' · Fuzz';
-    if (f.id) bar.querySelector('[data-del]').addEventListener('click', function () { ask(f); });
+    if (f.id && !f.memory) bar.querySelector('[data-del]').addEventListener('click', function () { ask(f); });
   }
 
   /* ---------- Deleting ---------- */

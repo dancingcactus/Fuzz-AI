@@ -1112,3 +1112,39 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 
 .set-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding-left: 0; margin-bottom: -10px; text-decoration: none; }
 .set-back kbd { margin-left: 6px; }
+
+/* ---------- Fuzz's memory: the ask box (Artifacts, Inspector) and the inspector (#/inspect, with ?lab) ---------- */
+.memask { margin: 0 0 16px; display: grid; gap: 6px; }
+.memask label { font-weight: 600; }
+.memask-row { display: flex; gap: 8px; }
+.memask-row input { flex: 1; min-width: 0; }
+.memask-a:empty { display: none; }
+.memask-a { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.memask-a p { margin: 0 0 4px; }
+.inspector .insp-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 0 0 12px; }
+.insp-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.insp-at { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+.insp-at input { width: auto; }
+.insp-body { margin-top: 12px; display: grid; gap: 10px; }
+.inspector [data-copy] { justify-self: start; width: auto; }
+.insp-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.insp-form label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 160px; }
+.insp-split { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .insp-split { grid-template-columns: 1fr; } }
+.insp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 70vh; overflow: auto; }
+.insp-row { width: 100%; text-align: left; display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.insp-row.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.insp-name { font-weight: 700; overflow-wrap: anywhere; }
+.insp-flags { display: flex; flex-wrap: wrap; gap: 4px; }
+.insp-card { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.insp-card h2 { font-size: 18px; margin: 0; }
+.insp-card h3 { font-size: 14px; margin: 8px 0 0; }
+.insp-table { display: grid; gap: 8px; }
+.insp-fact { display: grid; grid-template-columns: 110px 1fr; gap: 2px 10px; padding: 8px 0; border-top: var(--bw) solid var(--line); }
+.insp-fact > :nth-child(n+3) { grid-column: 2; }
+.insp-fact.dim { opacity: .7; }
+.insp-attr { font-family: var(--font-code); font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.insp-why { font-family: var(--font-code); font-size: 12px; overflow-wrap: anywhere; }
+.insp-mini { margin: 0; padding-left: 18px; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.insp-sum { font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .insp-fact { grid-template-columns: 1fr; } .insp-fact > :nth-child(n+3) { grid-column: 1; } }

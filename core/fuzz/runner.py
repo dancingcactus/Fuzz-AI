@@ -20,9 +20,11 @@ def _prompt_version(adapter, role):
 
 
 def run_role(core, role, client=None, model=None, task_id=None, scripted_=False, verbose=False, trigger="manual",
-             signals=None, say=print):
-    if role not in ("executor", "extractor", "sender"):
-        raise FuzzError("role must be executor, extractor or sender", "role")
+             signals=None, say=print, ask=None):
+    if role not in ("executor", "extractor", "sender", "ask"):
+        raise FuzzError("role must be executor, extractor, sender or ask", "role")
+    if role == "ask" and not ask:
+        raise FuzzError("an ask run needs --ask-id and --question", "question")
     if task_id and role != "executor":
         raise FuzzError("--task works only for the executor", "task")
     if role == "sender" and not scheduler.sends_waiting(core):
@@ -56,12 +58,15 @@ def run_role(core, role, client=None, model=None, task_id=None, scripted_=False,
             elif role == "sender":
                 res = scripted.run_sender(core, say_)
                 outcome = "ok" if res["tasks"] else "nothing_to_do"
+            elif role == "ask":
+                res = scripted.run_ask(core, ask, say_)
+                outcome = "ok"
             else:
                 res = scripted.run_extractor(core, signals, say_)
                 outcome = "ok"
             detail = res
         else:
-            outcome, detail = _headless(core, adapter, role, rid, model, task_id, verbose, say)
+            outcome, detail = _headless(core, adapter, role, rid, model, task_id, verbose, say, ask)
     except Exception as e:
         detail = {"error": str(e)}
         raise
@@ -74,7 +79,7 @@ def run_role(core, role, client=None, model=None, task_id=None, scripted_=False,
     return {"run_id": rid, "outcome": outcome, "client": client_name, "model": model, **detail}
 
 
-def _headless(core, adapter, role, rid, model, task_id, verbose, say):
+def _headless(core, adapter, role, rid, model, task_id, verbose, say, ask=None):
     if not adapter.find()["found"]:
         raise FuzzError(f"{adapter.label} isn't installed on this machine (no `{adapter.exe}` on PATH)", "client")
     run_dir = os.path.join(core.home, "runs", str(rid))
@@ -96,7 +101,7 @@ def _headless(core, adapter, role, rid, model, task_id, verbose, say):
     if role == "executor":   # and the folder it may write to
         write_dir = out
     argv = adapter.headless_command(role, cfg_path, model, task_id, verbose, files_dir, send_tools=send_tools,
-                                    read_tools=read_tools, write_dir=write_dir)
+                                    read_tools=read_tools, write_dir=write_dir, ask=ask)
     with open(os.path.join(run_dir, "argv.json"), "w") as f:
         json.dump(argv, f, indent=2)
     proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,

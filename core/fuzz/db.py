@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS signals (
 CREATE TABLE IF NOT EXISTS entities (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,
-  type TEXT NOT NULL,              -- person | org | document | ticket | term
+  type TEXT NOT NULL,              -- person | org | document | ticket | term | tool
   name TEXT,
   provisional INTEGER NOT NULL DEFAULT 1,
   redirect_to INTEGER,
@@ -323,6 +323,101 @@ CREATE TABLE IF NOT EXISTS screen_times (   -- when each card was on screen and 
   away_s INTEGER,
   how TEXT                         -- what ended it: the answer, or skipped
 );
+-- memory: entities' facts, knowledge and decisions (docs/memory-layers.md). facts, knowledge, decision_log and
+-- memory_links are projected (replayed from events); memory_files, fact_views and memory_refusals are derived.
+CREATE TABLE IF NOT EXISTS facts (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  entity_id INTEGER NOT NULL,
+  attr TEXT NOT NULL,              -- from the allowlist for the entity's type (memory/facts.py)
+  value TEXT NOT NULL,
+  how TEXT NOT NULL,               -- stated | extracted | inferred | edited
+  authority TEXT NOT NULL,         -- owner | official | other | you
+  said_by INTEGER,                 -- person entity, when known
+  source_kind TEXT,                -- email | slack | meeting | calendar | doc | directory | you
+  source_ref TEXT,                 -- signal key, URL or directory id: a link back, never a copy
+  link TEXT,
+  source_ts TEXT,
+  captured_at TEXT NOT NULL,
+  status TEXT NOT NULL,            -- live | rejected | undone (superseded and disputed are worked out when read)
+  confirmed_at TEXT                -- you confirmed or edited it
+);
+CREATE TABLE IF NOT EXISTS knowledge (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- meeting | thread | reference | learning
+  title TEXT,
+  summary_md TEXT,                 -- a summary and open questions, never the full text
+  source_ref TEXT,
+  link TEXT,
+  source_ts TEXT,
+  captured_at TEXT NOT NULL,
+  how TEXT NOT NULL,
+  authority TEXT NOT NULL,
+  status TEXT NOT NULL             -- live | rejected | undone
+);
+CREATE TABLE IF NOT EXISTS decision_log (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  what TEXT NOT NULL,
+  why TEXT,
+  alternatives TEXT,               -- json list
+  decided_by INTEGER,              -- person entity
+  decided_at TEXT,
+  source_ref TEXT,
+  link TEXT,
+  how TEXT NOT NULL,
+  authority TEXT NOT NULL,
+  confidence REAL,
+  status TEXT NOT NULL,            -- proposed | recorded | rejected | reversed | undone
+  reverses INTEGER,                -- the earlier decision this one overturns
+  captured_at TEXT NOT NULL,
+  confirmed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS memory_links (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  item_type TEXT NOT NULL,         -- knowledge | decision
+  item_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- about | attendee | decided_by | involves | task | group (later: workstream)
+  target_type TEXT NOT NULL,       -- entity | task | group
+  target_id INTEGER NOT NULL,
+  removed INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS memory_files (   -- Knowledge/ files, which belong to no task
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- people | glossary | decisions | brief
+  title TEXT,
+  path TEXT NOT NULL,
+  meeting_key TEXT,
+  starts_at TEXT,
+  digest TEXT,                     -- of the content, so an unchanged file isn't rewritten
+  updated_at TEXT,
+  UNIQUE (user_id, path)
+);
+CREATE TABLE IF NOT EXISTS fact_views (     -- when a fact was shown to you, for exposure (rule 6); not events
+  user_id INTEGER NOT NULL,
+  fact_id INTEGER NOT NULL,
+  shown_at TEXT NOT NULL,
+  surface TEXT                     -- brief | recall | sheet | card
+);
+CREATE TABLE IF NOT EXISTS sightings (     -- where an entity came up: a signal that named it; derived, for recall
+  user_id INTEGER NOT NULL,
+  entity_id INTEGER NOT NULL,
+  signal_key TEXT NOT NULL,
+  role TEXT NOT NULL,              -- from | on | named | term | about
+  ts TEXT,
+  PRIMARY KEY (user_id, entity_id, signal_key, role)
+);
+CREATE TABLE IF NOT EXISTS memory_refusals ( -- what the core refused from an AI run, and why; for the inspector
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  run_id INTEGER,
+  ts TEXT NOT NULL,
+  item TEXT NOT NULL,              -- json
+  reason TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS feedback (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,
@@ -336,7 +431,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 """
 
 JSON_COLS = {"quick_answers", "variant_tags", "schedule_anchor", "schedule_hints", "title_history",
-             "options", "schedule_options", "payload", "answer", "detail", "attachments", "covers", "gaps", "meta"}
+             "options", "schedule_options", "payload", "answer", "detail", "attachments", "covers", "gaps", "meta", "alternatives"}
 
 
 def iso(dt):

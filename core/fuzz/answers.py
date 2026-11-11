@@ -13,7 +13,8 @@ UNCLEAR = ("This keeps getting put off, so something about it is probably unclea
            "asked and what done looks like, and find the smallest first step. If one thing is still unclear, hand it "
            "back with that one question.")
 SAFE = {"duplicate": "keep_separate", "entity_person": "different", "entity_term": None, "is_task": "mine",
-        "part_of": "no", "deliverable": "keep_going", "deliverable_new": "no"}
+        "part_of": "no", "deliverable": "keep_going", "deliverable_new": "no",
+        "decision": "not_decision", "fact_conflict": None}
 
 
 def _task_answer(core, card, t, option, value):
@@ -121,23 +122,37 @@ def _entity_person(core, card, t, option, value):
 
 
 def _entity_term(core, card, t, option, value):
+    from .memory import facts
     p = card.get("payload") or {}
     eid = p.get("entity_id")
     with core.tx("human"):
-        ch = events.Changes()
-        cards.mark_answered(core, ch, card, option, value)
         if option == "define":
             if not isinstance(value, str) or not value.strip():
                 raise FuzzError("value is the definition", "value")
-            core.q("UPDATE entities SET definition=?, provisional=0 WHERE id=? AND user_id=?", (value.strip(), eid, core.user_id))
-            events.emit(core, "entity.defined", task_id=card["task_id"], changes=ch, data={"entity_id": eid})
+            e = facts.require_entity(core, eid)
+            # a fact you wrote: it wins over Fuzz's guess, and Undo takes it back
+            facts.edit(core, eid, "what_it_is" if e["type"] == "tool" else "definition", value, card=card, option="define")
+            core.q("UPDATE entities SET provisional=0 WHERE id=? AND user_id=?", (eid, core.user_id))
+            events.emit(core, "entity.defined", task_id=card["task_id"], data={"entity_id": eid})
         else:
             if not isinstance(value, int):
                 raise FuzzError("value is the id of the existing entity", "value")
+            ch = events.Changes()
+            cards.mark_answered(core, ch, card, option, value)
             core.q("UPDATE entities SET redirect_to=? WHERE id=? AND user_id=?", (value, eid, core.user_id))
             events.emit(core, "entity.merged", task_id=card["task_id"], changes=ch, data={"from": eid, "into": value})
         if card["task_id"]:
             cards.sync(core, card["task_id"])
+
+
+def _decision(core, card, t, option, value):
+    from .memory import mcards
+    return mcards.answer_decision(core, card, option, value)
+
+
+def _fact_conflict(core, card, t, option, value):
+    from .memory import mcards
+    return mcards.answer_conflict(core, card, option, value)
 
 
 def _is_task(core, card, t, option, value):
@@ -216,7 +231,8 @@ def _deliverable(core, card, t, option, value):
 HANDLERS = {"task": _task_answer, "duplicate": _duplicate, "entity_person": _entity_person,
             "entity_term": _entity_term, "is_task": _is_task, "draft": _draft, "nudge": _draft,
             "permission": _permission, "hold": _hold, "part_of": _deliverable, "deliverable": _deliverable,
-            "deliverable_new": _deliverable, "week_plan": _deliverable}
+            "deliverable_new": _deliverable, "week_plan": _deliverable, "decision": _decision,
+            "fact_conflict": _fact_conflict}
 
 
 def answer(core, card_id, option, value=None):

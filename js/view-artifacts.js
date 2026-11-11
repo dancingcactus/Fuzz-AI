@@ -11,7 +11,9 @@
     ['docs', 'Documents', ['markdown', 'word', 'text', 'html']],
     ['slides', 'Slides', ['slides']],
     ['pdf', 'PDFs', ['pdf']],
-    ['other', 'Other', ['table', 'image', 'other']]
+    ['other', 'Other', ['table', 'image', 'other']],
+    /* the people map, the glossary, the decisions and the briefs before meetings, which belong to no task */
+    ['memory', 'Fuzz’s memory', 'memory']
   ];
   var BADGE = { markdown: 'MD', word: 'DOC', slides: 'PPT', pdf: 'PDF', table: 'CSV', image: 'IMG', html: 'WEB', text: 'TXT', other: 'FILE' };
   var KIND = { markdown: 'Markdown', word: 'Word document', slides: 'Slides', pdf: 'PDF', table: 'Table', image: 'Picture', html: 'Web page', text: 'Text', other: 'File' };
@@ -39,7 +41,7 @@
     Live.artifacts().then(function (r) {
       failed = null; folder = r.folder;
       items = r.artifacts.map(function (a) {
-        return { key: String(a.source_id), name: a.name, kind: a.kind, size: a.size, updated: Date.parse(a.updated_at), task: a.task.title, url: 'artifact.html?id=' + a.source_id };
+        return { key: String(a.source_id), name: a.name, kind: a.kind, size: a.size, updated: Date.parse(a.updated_at), task: a.task.title, url: 'artifact.html?id=' + a.source_id, memory: a.role === 'memory' };
       });
     }).catch(function (e) { failed = e.message; }).then(function () { if (root) paint(); });
   }
@@ -49,7 +51,7 @@
   function rowHTML(a) {
     return '<li><a class="lrow arow" href="' + esc(a.url) + '" aria-label="' + esc(a.name + ', ' + KIND[a.kind]) + '">' +
       '<span class="afile afile--' + esc(a.kind) + '" aria-hidden="true">' + BADGE[a.kind] + '</span>' +
-      '<span class="lrow-main"><span class="rt">' + esc(a.name) + '</span><span class="rs">For ' + esc(a.task || 'a task') + '</span></span>' +
+      '<span class="lrow-main"><span class="rt">' + esc(a.name) + '</span><span class="rs">' + (a.memory ? 'In Fuzz’s memory' : 'For ' + esc(a.task || 'a task')) + '</span></span>' +
       '<span class="lrow-side"><span class="lrow-sub">' + esc(agoText(a.updated)) + '</span><span class="lrow-sub">' + esc(sizeText(a.size)) + '</span></span>' +
       '<span class="arow-go">' + ICON_OPEN + '</span></a></li>';
   }
@@ -59,13 +61,13 @@
     var hay = (a.name + ' ' + (a.task || '')).toLowerCase();
     return query.toLowerCase().split(/\s+/).every(function (w) { return hay.indexOf(w) > -1; });
   }
-  function ofKind(x) { return function (a) { return !x[2] || x[2].indexOf(a.kind) > -1; }; }
+  function ofKind(x) { return function (a) { return x[2] === 'memory' ? !!a.memory : !x[2] || x[2].indexOf(a.kind) > -1; }; }
 
   function paint() {
     var head = '<div class="tasks-head"><h1>Artifacts</h1><p class="meta">What Fuzz has written for your tasks: documents, decks, checklists.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">Fuzz couldn’t list your files: ' + esc(failed) + '</p>'; return; }
     if (!items) { root.innerHTML = head + '<p class="lempty">Looking in your Fuzz folder…</p>'; return; }
-    if (folder === null) {
+    if (folder === null && !items.length) {   /* Fuzz's memory still lists its Knowledge files without one */
       root.innerHTML = head + '<div class="empty aempty"><p>Fuzz has nowhere to write files yet. Pick a folder and he’ll keep each task’s documents there.</p><a class="btn small linklike" href="#/settings">Pick a folder in Settings</a></div>';
       return;
     }
@@ -75,7 +77,7 @@
     }
     /* the search box is built once, so typing in it, or a refresh while Fuzz writes, keeps your place */
     if (!root.querySelector('#aq')) {
-      root.innerHTML = head + '<div class="asearch"><label class="sr" for="aq">Search artifacts</label>' +
+      root.innerHTML = head + (Live.on() && window.Memory ? Memory.askHTML() : '') + '<div class="asearch"><label class="sr" for="aq">Search artifacts</label>' +
         '<input id="aq" type="search" autocomplete="off" placeholder="Search by file or task" value="' + esc(query) + '"></div>' +
         '<div class="alist"></div>';
     }
@@ -100,6 +102,7 @@
     root.addEventListener('click', onClick);
     root.addEventListener('input', onInput);
     root.addEventListener('keydown', onKey);
+    if (window.Memory) Memory.wireAsk(root);
     paint(); load();
     unsub = Live.on() ? Live.onEvent(soon) : Store.on(function (e) { if (e.type === 'reset') load(); });
   };

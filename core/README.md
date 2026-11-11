@@ -128,6 +128,16 @@ All three are thin layers over the same library, so they can't drift apart.
 
 `suggest_schedule` also takes a moment (see Calendar times).
 
+**Memory** ([`docs/memory-layers.md`](../docs/memory-layers.md)):
+- The extractor also has `get_lookups`, `submit_facts`, `submit_knowledge` and `report_meetings`, and signals carry
+  `facts`, `terms`, `decisions` and `meeting`.
+- `fuzz mcp --role recall` (`who_is`, `what_is`, `why`, `search_memory`, `meeting_brief`, `correct`) is
+  installed into your own Claude Code or Copilot with the `fuzz-recall` skill. It has no launchd job.
+- `--role ask` is the same tools minus `correct`, plus `answer_ask`, for the app's ask box (`POST /ask`).
+- `GET /inspect/…` and `fuzz inspect …` are the read-only inspector. In the UI it's `#/inspect`, opened with `?lab`.
+- The people map, the glossary, the decisions and the meeting briefs are written to `Knowledge/` in the output
+  folder (or `knowledge/` in the store). They show under Artifacts as `k<id>`.
+
 No role has a Fuzz tool that sends, posts or deletes. The sender sends with its client's own connector. `update_brief` writes the task's `context_md` (a Markdown
 brief for tasks with no draft), `summary` (a sentence or two on what Fuzz did or found, shown above the brief) and `question` (the one thing Fuzz is asking you now).
 

@@ -9,6 +9,8 @@
     welcome: { view: window.Onboard.view, title: 'Welcome' },
     settings: { view: window.SettingsView, title: 'Settings' }
   };
+  /* Memory's inspector is a developer tool, like the mood lab: only with ?lab, and not in the nav */
+  if (window.Memory && Memory.lab && window.InspectView) ROUTES.inspect = { view: window.InspectView, title: 'Inspector' };
   var PREF_KEY = 'fuzz.prefs.v1';
   var prefs = { theme: 'terracotta', mode: 'auto', contrast: 'standard', codeFont: 'jetbrains', calm: false };
   var current = null, currentName = null, tempCalm = false, reduce = false;

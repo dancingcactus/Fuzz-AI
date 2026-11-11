@@ -17,7 +17,7 @@ from . import adapters, events
 from .adapters.base import PKG_PARENT, ROLE_SKILLS, SKILLS_SRC, skill_version
 from .db import FuzzError
 
-ROLES = ("executor", "extractor", "sender")
+ROLES = ("executor", "extractor", "sender", "recall")   # recall: Fuzz's memory in your own Claude, with no job of its own
 LAUNCHD_INTERVAL = {"executor": 15 * 60, "extractor": 60 * 60, "sender": 2 * 60}   # the sender exits at once if nothing waits
 
 
@@ -88,7 +88,7 @@ def install(core, client, roles=ROLES, link=False, launchd=None, actor="human"):
     roles = list(roles)
     for r in roles:
         if r not in ROLES:
-            raise FuzzError("roles are executor, extractor and sender", "roles")
+            raise FuzzError("roles are executor, extractor, sender and recall", "roles")
     man = load_manifest(core)
     entry = man.get(client) or {"skills": [], "mcp": [], "roles": []}
     ours = _ours(man)
@@ -207,7 +207,7 @@ def _write_launchd(core, prior=None, roles=ROLES):
     created = list((prior or {}).get("created", []))
     _mkdirs(agents, created)
     jobs = {f"com.fuzz.u{core.user_id}.serve": _plist(core, f"com.fuzz.u{core.user_id}.serve", ["serve"], keepalive=True)}
-    for role in roles:
+    for role in [r for r in roles if r in LAUNCHD_INTERVAL]:   # recall runs only when you ask your own Claude
         label = f"com.fuzz.u{core.user_id}.{role}"
         jobs[label] = _plist(core, label, ["run", role, "--trigger", "launchd"], interval=LAUNCHD_INTERVAL[role])
     paths = []

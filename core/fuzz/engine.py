@@ -26,6 +26,8 @@ def action(core, client, what, roles=None, link=False):
         if entry is None:
             raise FuzzError("Install it first", "client", 409)
         roles = roles or entry.get("roles")
+        if {"executor", "extractor", "sender"} <= set(roles or []):   # an update brings roles added since
+            roles = list(dict.fromkeys(list(roles) + list(installer.ROLES)))
         link = any(s.get("link") for s in entry.get("skills", []))
     return installer.install(core, client, roles=roles or installer.ROLES, link=link)
 
@@ -50,9 +52,11 @@ def restore_selection(core, prior):
     doctor.clear_cache()
 
 
-def run_now(core, role, task_id=None, scripted=False):
-    """Start `fuzz run` in the background, the way launchd would."""
+def run_now(core, role, task_id=None, scripted=False, ask=None):
+    """Start `fuzz run` in the background, the way launchd would. ask: (ask_id, question) for the ask box."""
     args = [sys.executable, "-m", "fuzz", "run", role, "--trigger", "ui"]
+    if ask:
+        args += ["--ask-id", ask[0], "--question", ask[1]]
     if task_id:
         args += ["--task", str(task_id)]
     if scripted:

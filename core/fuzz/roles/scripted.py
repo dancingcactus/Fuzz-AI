@@ -105,10 +105,15 @@ def _scripted_verdict(item):
 
 
 async def _extractor(core, signals, say):
+    # signals: a list, or {"signals", "facts", "knowledge", "meetings"} for memory's second pass too
+    extra = signals if isinstance(signals, dict) else {}
+    signals = (extra.get("signals") or []) if extra else signals
     async with Client(mcp_server.build(core, "extractor")) as c:
         await _call(c, "whoami", {"prompt_version": PROMPT_VERSION, "client": "scripted"})
         await _call(c, "get_cursors")
         out = {"submitted": None, "verdicts": 0}
+        if extra.get("meetings"):
+            out["meetings"] = await _call(c, "report_meetings", {"meetings": extra["meetings"]})
         if signals:
             out["submitted"] = await _call(c, "submit_signals", {"signals": signals})
             say(f"Submitted {len(signals)} signals: {out['submitted']['outcomes']}")
@@ -120,7 +125,40 @@ async def _extractor(core, signals, say):
             r = await _call(c, "submit_verdicts", {"verdicts": verdicts})
             out["verdicts"] += len(verdicts)
             say(f"Judged {len(verdicts)}: {r['outcomes']}")
+        out["lookups"] = {k: len(v) for k, v in (await _call(c, "get_lookups")).items() if isinstance(v, list)}
+        if extra.get("facts"):
+            out["facts"] = await _call(c, "submit_facts", {"facts": extra["facts"]})
+            say(f"Looked up {len(extra['facts'])} facts: {out['facts']}")
+        if extra.get("knowledge"):
+            out["knowledge"] = await _call(c, "submit_knowledge", {"items": extra["knowledge"]})
+            say(f"Summarised {len(extra['knowledge'])}: {out['knowledge']}")
     return out
+
+
+async def _ask(core, ask, say):
+    """Look up the first name-like word of the question and answer with what's found, citing it."""
+    ask_id, question = ask
+    async with Client(mcp_server.build(core, "ask")) as c:
+        await _call(c, "whoami", {"prompt_version": PROMPT_VERSION, "client": "scripted"})
+        words = [w.strip("?.,!") for w in question.split()]
+        names = [w for w in words[1:] if w[:1].isupper()] or words[-1:]
+        r = await _call(c, "who_is", {"name": names[0]})
+        if not r.get("found"):
+            r = await _call(c, "what_is", {"term": names[0]})
+        if r.get("found"):
+            bits = [f"{f['attr'].replace('_', ' ')}: {f['value']}" + ("" if f["level"] not in ("inferred", "stale")
+                                                                       else f" ({f['trust']})") for f in r["facts"][:4]]
+            text = f"{r['name']}: " + ("; ".join(bits) or "Fuzz knows the name but nothing more yet.")
+            sources = [{"title": s.get("kind"), "link": s.get("link")} for f in r["facts"][:4] for s in f["sources"][:1]]
+        else:
+            text, sources = r.get("say") or "Fuzz has nothing on that yet.", []
+        await _call(c, "answer_ask", {"ask_id": ask_id, "text": text, "sources": sources})
+        say(text)
+    return {"answered": ask_id}
+
+
+def run_ask(core, ask, say=lambda s: None):
+    return asyncio.run(_ask(core, ask, say))
 
 
 def run_executor(core, task_id=None, say=lambda s: None):
@@ -128,7 +166,7 @@ def run_executor(core, task_id=None, say=lambda s: None):
 
 
 def run_extractor(core, signals=None, say=lambda s: None):
-    return asyncio.run(_extractor(core, signals or [], say))
+    return asyncio.run(_extractor(core, signals if isinstance(signals, dict) else (signals or []), say))
 
 
 def run_sender(core, say=lambda s: None):

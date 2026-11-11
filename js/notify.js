@@ -12,6 +12,11 @@
     var b = document.createElement('button'); b.type = 'button'; b.textContent = label;
     b.addEventListener('click', fn); return b;
   }
+  /* A link in Fuzz's line, like a meeting's brief: opens in a new tab, styled as a button */
+  function linkTo(l) {
+    var a = document.createElement('a'); a.href = l.href; a.textContent = l.label; a.className = 'btn small';
+    a.target = '_blank'; a.rel = 'noopener'; return a;
+  }
   function short(t) { t = String(t).replace(/[.!]+$/, ''); return t.length > 100 ? t.slice(0, 97) + '…' : t; }
 
   /* ---------- Undo ---------- */
@@ -63,6 +68,7 @@
     if (busyFn && busyFn() && tries < 20) { setTimeout(function () { if (Fuzz.mounted()) onPerch(text, o, tries + 1); else onDock(text, o); }, 800); return; }
     var actions = [];
     if (o.undo && history[0]) actions.push(button('Undo', history[0].run));
+    if (o.link) actions.push(linkTo(o.link));
     Fuzz.say(text, { type: false, actions: actions });
   }
   function onDock(text, o) {
@@ -74,13 +80,14 @@
     var bub = document.createElement('div'); bub.className = 'bubble pop';
     var span = document.createElement('span'); span.textContent = text; bub.appendChild(span);
     if (o.undo && history[0]) bub.appendChild(button('Undo', history[0].run));
+    if (o.link) bub.appendChild(linkTo(o.link));
     var close = button('Dismiss', S.hideDock); close.className = 'dock-x'; close.setAttribute('aria-label', 'Dismiss'); close.innerHTML = '&times;'; bub.appendChild(close);
     var av = document.createElement('div'); av.className = 'dock-av'; av.innerHTML = Fuzz.mini(o.stay ? 'okay' : 'good', { cls: 'dock-fz' });
     d.appendChild(bub); d.appendChild(av); d.hidden = false;
     if (!o.stay) dockTimer = setTimeout(S.hideDock, o.ms || (o.undo ? 12000 : 7000));
   }
 
-  /* o: { undo: fn, blocked: fn, label: name in the Undo list (defaults to text), ms,
+  /* o: { undo: fn, blocked: fn, label: name in the Undo list (defaults to text), ms, link: {label, href},
          stay: something went wrong; it waits in the corner until you dismiss it, even on Triage,
          where the perch's next line would replace it before you could read it } */
   S.tell = function (text, o) {

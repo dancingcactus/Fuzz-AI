@@ -175,6 +175,32 @@
     permission: { primary: ['allow_once', 'Allow once'], secondary: ['always_allow', 'Always allow'], third: ['deny', 'Don’t allow'], dismissed: 'deny' }
   };
 
+  /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
+  var MEMORY_KINDS = ['entity_person', 'entity_term', 'decision', 'fact_conflict'];
+
+  /* Memory's events, from the stream: a meeting's brief about to start, and the ask box's answers. Said once
+     each, and only while fresh (the stream replays the log when it connects). */
+  var askWaiting = {}, memSaid = {};
+  function memoryEvent(e) {
+    if (!e || memSaid[e.id]) return;
+    memSaid[e.id] = true;
+    var d = e.data || {}, age = Date.now() - Date.parse(e.ts);
+    if (e.type === 'memory.answered') {
+      var w = askWaiting[d.ask_id];
+      if (w) { delete askWaiting[d.ask_id]; w(d); }
+      return;
+    }
+    if (e.type === 'brief.due' && age < 15 * 60000 && d.url) {
+      var seen = {};
+      try { seen = JSON.parse(localStorage.getItem('fuzz.briefs.said') || '{}'); } catch (x) {}
+      if (seen[d.meeting_key]) return;
+      seen[d.meeting_key] = Date.now();
+      try { localStorage.setItem('fuzz.briefs.said', JSON.stringify(seen)); } catch (x) {}
+      var mins = d.in_mins > 0 ? ' in ' + d.in_mins + ' min' : ' now';
+      Say.tell(d.title + mins + '. Here’s who’s coming.', { link: { label: 'Open the brief', href: d.url }, ms: 5 * 60000 });
+    }
+  }
+
   /* The onboarding's "find your asks" task asks one card per source: reading only, so Yes or No */
   var KICKOFF_ASK = { primary: ['always_allow', 'Yes, read it'], secondary: ['deny', 'Not this one'], dismissed: 'deny' };
   function isKickoff(c) { return c.kind === 'permission' && !!(c.payload && c.payload.kickoff); }
@@ -380,13 +406,17 @@
     });
     /* Captures still on their way to the core stay */
     st.items.forEach(function (i) { if (!i.coreId && !keep[i.id] && i.kind !== 'deliv') items.push(i); });
-    /* Deliverable cards about no single task (last week, this week's pick and steps, a new one to track) */
+    /* Cards about no single task: deliverables (last week, this week's pick and steps, a new one to track) and
+       Fuzz's memory (same person?, what is this?, was this a decision?, which is right?) */
     cards.forEach(function (c) {
-      if (c.task || ['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0) return;
+      var memory = MEMORY_KINDS.indexOf(c.kind) > -1;
+      if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory)) return;
       var id = 'c' + c.id;
-      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: c.options || [], state: 'triage',
+      /* "Same as an existing one" needs a picker this card doesn't have yet; Not sure yet is the way out */
+      var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
+      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: memory ? 'Fuzz’s memory' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
@@ -440,7 +470,11 @@
           buf += dec.decode(x.value, { stream: true });
           var frames = buf.split('\n\n'); buf = frames.pop();
           var was = lastId;
-          frames.forEach(function (f) { var m = /^id: (\d+)/m.exec(f); if (m) lastId = Math.max(lastId, +m[1]); });
+          frames.forEach(function (f) {
+            var m = /^id: (\d+)/m.exec(f); if (m) lastId = Math.max(lastId, +m[1]);
+            var t = /^event: (brief\.due|memory\.answered)$/m.exec(f), dt = /^data: (.*)$/m.exec(f);
+            if (t && dt) { try { memoryEvent(JSON.parse(dt[1])); } catch (x) {} }
+          });
           if (lastId > was) { moved(); if (ch) ch.postMessage(lastId); }
           pump();
         }).catch(retry);
@@ -733,6 +767,23 @@
     /* One of those, whole, so its dialog shows the log and sources */
     loadFinished: function (coreId) { return api('GET', '/tasks/' + coreId).then(function (t) { return Store.keepAside(toItem(t, null, null)); }); },
     onEvent: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
+    /* Fuzz's memory (docs/memory-layers.md). Each resolves to null on a core from before memory, so a page
+       newer than its server just shows nothing there. */
+    inspect: function (path) { return api('GET', '/inspect' + (path || '')); },
+    entity: function (id) { return api('GET', '/entities/' + id); },
+    editFact: function (id, attr, value) { return api('POST', '/entities/' + id + '/facts', { attr: attr, value: value }); },
+    factAction: function (id, what) { return api('POST', '/facts/' + id + '/' + what, {}); },
+    /* The ask box: the answer comes back on the event stream. Resolves to {text, sources}, or rejects. */
+    ask: function (question) {
+      return api('POST', '/ask', { question: question }).then(function (r) {
+        return new Promise(function (resolve, reject) {
+          askWaiting[r.ask_id] = resolve;
+          setTimeout(function () {
+            if (askWaiting[r.ask_id]) { delete askWaiting[r.ask_id]; reject(new Error('Fuzz didn’t answer in time. Try again in a moment.')); }
+          }, 180000);
+        });
+      });
+    },
     /* start runs the app. Live mode waits for the first load so the queue isn't empty for a moment. */
     boot: function (start) {
       if (location.protocol === 'file:') return start();

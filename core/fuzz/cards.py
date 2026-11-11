@@ -11,7 +11,7 @@ FAMILY = {"task": "routing", "duplicate": "question", "entity_person": "question
           "is_task": "question", "draft": "approval", "nudge": "approval", "permission": "approval",
           "hold": "approval",   # a hold on your calendar for booked time (or taking one off)
           "part_of": "deliverables", "deliverable": "deliverables", "deliverable_new": "deliverables",
-          "week_plan": "deliverables"}
+          "week_plan": "deliverables", "decision": "question", "fact_conflict": "question"}
 
 OPTIONS = {
     "duplicate": ["merge", "keep_separate", "not_sure"],
@@ -26,6 +26,8 @@ OPTIONS = {
     "deliverable": ["keep_going", "make_active", "its_done", "let_go", "not_sure"],   # the card's own ask narrows them
     "deliverable_new": ["track", "no", "not_sure"],
     "week_plan": ["keep_these", "keep_steps", "not_now"],
+    "decision": ["record", "not_decision", "not_sure"],          # Was this a decision? (memory/mcards.py)
+    "fact_conflict": ["first", "second", "neither", "not_sure"],  # two sources disagree: which is right?
 }
 # schedule is Later (bring it back then); book is Book time (hold the time). do_now, after_others and
 # first_step are a big task's choices with book; decide and draft_it answer "What's in the way?"
@@ -43,7 +45,8 @@ SCHEDULED = ("task", "draft", "nudge")   # cards that carry Schedule options ("N
 
 SUGGESTED = {"duplicate": "merge", "entity_person": "same", "entity_term": "define", "is_task": "mine",
              "draft": "approve", "nudge": "approve", "permission": "allow_once", "hold": "approve",
-             "part_of": "yes", "deliverable": "keep_going", "deliverable_new": "track", "week_plan": "keep_these"}
+             "part_of": "yes", "deliverable": "keep_going", "deliverable_new": "track", "week_plan": "keep_these",
+             "decision": "record", "fact_conflict": "first"}
 
 PROMPTS = {
     "task": "What should happen to this?",
@@ -59,6 +62,8 @@ PROMPTS = {
     "deliverable": "Where is this deliverable?",
     "deliverable_new": "Track these tasks as one deliverable?",
     "week_plan": "Which are this week’s active ones?",
+    "decision": "Was this a decision?",
+    "fact_conflict": "Which is right?",
 }
 PUT_OFF_PROMPT = "This keeps coming back. Is something in the way?"
 
@@ -199,6 +204,11 @@ def sync(core, task_id, where="back"):
                      "'calendar_remove') ORDER BY id DESC LIMIT 1", (task_id,))
         if d:
             kind = "nudge" if d["kind"].startswith("nudge") else "draft"
+            from .drafts import guessed
+            g = guessed(d)
+            if g:   # rule 4: a guess can't drive a send on its own, so Edit comes first
+                return create(core, kind, task_id, payload={"draft_id": d["id"], "guessed": g}, suggested="edit",
+                              reason="Fuzz guessed " + "; ".join(x["text"] for x in g) + ". Check it before it goes.")
             return create(core, kind, task_id, payload={"draft_id": d["id"]})
     return None
 

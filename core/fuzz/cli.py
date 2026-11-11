@@ -158,8 +158,14 @@ def cmd_run(a):
     sigs = []
     for path in a.signals or []:
         with open(path) as f:
-            sigs += json.load(f)
-    res = run_role(core, a.role, a.client, a.model, a.task, a.scripted, a.verbose, a.trigger, sigs)
+            data = json.load(f)
+        if isinstance(data, dict):   # memory's fixtures: {"signals", "facts", "knowledge", "meetings"}
+            sigs = data if not sigs else dict(data, signals=(sigs if isinstance(sigs, list) else sigs.get("signals", []))
+                                              + data.get("signals", []))
+        else:
+            sigs = sigs + data if isinstance(sigs, list) else dict(sigs, signals=sigs.get("signals", []) + data)
+    ask = (a.ask_id, a.question) if a.role == "ask" else None
+    res = run_role(core, a.role, a.client, a.model, a.task, a.scripted, a.verbose, a.trigger, sigs, ask=ask)
     _print(res)
 
 
@@ -263,6 +269,50 @@ def cmd_wake(a):
 def cmd_checkin(a):
     from . import checkins
     _print(checkins.record(_core(a), a.answer, a.follow_up))
+
+
+def cmd_inspect(a):
+    """The inspector's JSON (read-only), the same as GET /inspect/... ."""
+    from .memory import inspect, recall
+    core = _core(a)
+    if a.what == "overview":
+        return _print(inspect.overview(core))
+    if a.what == "entities":
+        return _print(inspect.entities_list(core, a.type, a.q, a.state, a.at))
+    if a.what == "entity":
+        ref = a.args[0] if a.args else None
+        if ref is None:
+            raise SystemExit("fuzz inspect entity <id|name>")
+        if not ref.isdigit():
+            hits = recall.find(core, ref, ("person", "org", "tool", "term", "document", "ticket"))
+            if not hits:
+                raise SystemExit(f"No entity matches {ref!r}")
+            ref = hits[0]
+        return _print(inspect.entity_detail(core, int(ref), a.at))
+    if a.what == "fact":
+        return _print(inspect.fact_detail(core, int(a.args[0]), a.at))
+    if a.what == "why-not":
+        return _print(inspect.why_not(core, int(a.args[0]), int(a.args[1])))
+    if a.what == "run":
+        return _print(inspect.run_detail(core, int(a.args[0])) if a.args else inspect.runs_list(core))
+    if a.what == "knowledge":
+        return _print(inspect.knowledge_list(core))
+    if a.what == "decisions":
+        return _print(inspect.decisions_list(core))
+    if a.what == "briefs":
+        return _print(inspect.briefs_state(core))
+
+
+def cmd_memory(a):
+    """Write the Knowledge/ files now, raise memory's cards, or emit any brief that's due."""
+    from .memory import briefs, mcards
+    core = _core(a)
+    if a.op == "write":
+        return _print(briefs.write_all(core))
+    if a.op == "cards":
+        return _print({"raised": mcards.raise_cards(core), "held": mcards.held(core)})
+    if a.op == "due":
+        return _print({"due": briefs.due(core)})
 
 
 def cmd_rebuild(a):
@@ -459,7 +509,7 @@ def parser():
     s.set_defaults(fn=cmd_start)
 
     s = sub.add_parser("mcp", help="run the MCP server over stdio (started by an AI client)")
-    s.add_argument("--role", required=True, choices=["executor", "extractor", "sender", "session"])
+    s.add_argument("--role", required=True, choices=["executor", "extractor", "sender", "session", "recall", "ask"])
     s.add_argument("--run", type=int)
     s.add_argument("--task", type=int, help="the session role's one task")
     s.set_defaults(fn=cmd_mcp)
@@ -470,8 +520,10 @@ def parser():
     s.set_defaults(fn=cmd_session_closed)
 
     s = sub.add_parser("run", help="run a role headless, the same way launchd does")
-    s.add_argument("role", choices=["executor", "extractor", "sender"])
+    s.add_argument("role", choices=["executor", "extractor", "sender", "ask"])
     s.add_argument("--client", choices=["claude-code", "copilot"])
+    s.add_argument("--ask-id", help="ask: the id the answer goes back under")
+    s.add_argument("--question", help="ask: the person's question")
     s.add_argument("--model")
     s.add_argument("--task", type=int)
     s.add_argument("--scripted", action="store_true", help="canned output: checks the core without calling a model")
@@ -542,6 +594,20 @@ def parser():
     s.add_argument("answer", choices=["good", "okay", "tired", "overloaded"])
     s.add_argument("--follow-up", choices=["take_5", "hold_rest", "quick_first"])
     s.set_defaults(fn=cmd_checkin)
+
+    s = sub.add_parser("inspect", help="memory's inspector, read-only: entities, facts, runs, briefs (JSON)")
+    s.add_argument("what", choices=["overview", "entities", "entity", "fact", "why-not", "run", "knowledge", "decisions",
+                                    "briefs"])
+    s.add_argument("args", nargs="*")
+    s.add_argument("--at", help="work trust out at this date (nothing is saved)")
+    s.add_argument("--type")
+    s.add_argument("--q")
+    s.add_argument("--state")
+    s.set_defaults(fn=cmd_inspect)
+
+    s = sub.add_parser("memory", help="memory: write the Knowledge files, raise its cards, emit due briefs")
+    s.add_argument("op", choices=["write", "cards", "due"])
+    s.set_defaults(fn=cmd_memory)
 
     s = sub.add_parser("rebuild", help="replay the event log into the tasks and cards tables")
     s.add_argument("--check", action="store_true", help="only report whether replay matches")

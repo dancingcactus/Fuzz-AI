@@ -42,7 +42,7 @@ class ClaudeCode(Adapter):
         return path
 
     def headless_command(self, role, config_path, model=None, task_id=None, verbose=False, files_dir=None,
-                         send_tools=None, read_tools=None, write_dir=None):
+                         send_tools=None, read_tools=None, write_dir=None, ask=None):
         """Only Fuzz's server and its tools, nothing else allowed, nobody to ask. With files_dir, Read is the
         one built-in tool, allowed only inside that folder (`//` makes the rule's path absolute). With
         write_dir, Write and Edit join it, allowed only inside the output folder.
@@ -62,7 +62,7 @@ class ClaudeCode(Adapter):
         if write_dir:
             tools += ["Write", "Edit"]
             allowed += [f"Write(/{str(write_dir).rstrip('/')}/**)", f"Edit(/{str(write_dir).rstrip('/')}/**)"]
-        argv = [self.exe, "-p", self.prompt(role, task_id),
+        argv = [self.exe, "-p", self.prompt(role, task_id, ask),
                 "--mcp-config", str(config_path), *([] if extra or role == "sender" else ["--strict-mcp-config"]),
                 "--tools", ",".join(tools),
                 "--allowedTools", *allowed,

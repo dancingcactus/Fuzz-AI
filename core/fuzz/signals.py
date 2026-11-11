@@ -46,6 +46,42 @@ CANDIDATE = {
     "additionalProperties": False,
 }
 
+ABOUT = {   # what a fact is about: a person (by email or Slack ID when known), a company, a tool or a term
+    "type": "object", "required": ["type"],
+    "properties": {"type": {"enum": ["person", "org", "tool", "term"]}, "name": {"type": "string", "maxLength": 200},
+                   "email": {"type": "string"}, "slack_id": {"type": "string"}, "domain": {"type": "string"}},
+    "additionalProperties": False}
+
+FACT = {   # a working fact about an entity; attr from the allowlist for its type (the core refuses the rest)
+    "type": "object", "required": ["about", "attr", "value"],
+    "properties": {"about": ABOUT, "attr": {"type": "string", "maxLength": 40},
+                   "value": {"type": "string", "minLength": 1, "maxLength": 500},
+                   "how": {"enum": ["stated", "inferred"]}, "said_by": PERSON},
+    "additionalProperties": False}
+
+TERM = {   # an acronym or internal name, with Fuzz's best guess at what it means
+    "type": "object", "required": ["term"],
+    "properties": {"term": {"type": "string", "minLength": 1, "maxLength": 120}, "kind": {"enum": ["term", "tool"]},
+                   "aliases": {"type": "array", "items": {"type": "string", "maxLength": 120}},
+                   "best_guess": {"type": "string", "maxLength": 500}},
+    "additionalProperties": False}
+
+DECISION = {
+    "type": "object", "required": ["what", "confidence"],
+    "properties": {"what": {"type": "string", "minLength": 1, "maxLength": 300}, "why": {"type": "string", "maxLength": 1000},
+                   "alternatives": {"type": "array", "items": {"type": "string", "maxLength": 200}},
+                   "decided_by": PERSON, "said_by": PERSON, "decided_at": {"type": "string"},
+                   "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                   "how": {"enum": ["stated", "inferred"]}, "reverses": {"type": "integer"}},
+    "additionalProperties": False}
+
+MEETING = {   # the meeting as a whole, on any of its signals (one knowledge item per meeting file)
+    "type": "object", "required": ["summary"],
+    "properties": {"title": {"type": "string", "maxLength": 200}, "attendees": {"type": "array", "items": PERSON},
+                   "summary": {"type": "string", "minLength": 1, "maxLength": 4000},
+                   "open_questions": {"type": "array", "items": {"type": "string", "maxLength": 300}}},
+    "additionalProperties": False}
+
 SIGNAL = {
     "type": "object",
     "required": ["source", "source_id"],
@@ -68,9 +104,31 @@ SIGNAL = {
         # the next move on the thread is this person's, not the person's: they were handed it, or took it on
         "waiting_on": {"type": "string", "minLength": 1, "maxLength": 120},
         "candidates": {"type": "array", "items": CANDIDATE},
+        # memory (docs/memory-layers.md)
+        "facts": {"type": "array", "items": FACT},
+        "terms": {"type": "array", "items": TERM},
+        "decisions": {"type": "array", "items": DECISION},
+        "meeting": MEETING,
     },
     "additionalProperties": False,
 }
+
+KNOWLEDGE = {
+    "type": "object", "required": ["kind", "summary_md"],
+    "properties": {"kind": {"enum": ["thread", "reference", "learning"]}, "title": {"type": "string", "maxLength": 200},
+                   "summary_md": {"type": "string", "minLength": 1, "maxLength": 4000},
+                   "source_ref": {"type": "string"}, "link": {"type": "string"}, "source_ts": {"type": "string"},
+                   "about": {"type": "array", "items": ABOUT}, "decisions": {"type": "array", "items": DECISION}},
+    "additionalProperties": False}
+
+LOOKED_UP = {   # a fact from the second pass: the org directory, a wiki page, a search
+    "type": "object", "required": ["about", "attr", "value"],
+    "properties": {"about": ABOUT, "attr": {"type": "string", "maxLength": 40},
+                   "value": {"type": "string", "minLength": 1, "maxLength": 500},
+                   "how": {"enum": ["stated", "inferred"]}, "said_by": PERSON,
+                   "source_kind": {"enum": ["directory", "doc", "email", "slack", "teams", "meeting", "calendar"]},
+                   "source_ref": {"type": "string"}, "link": {"type": "string"}, "source_ts": {"type": "string"}},
+    "additionalProperties": False}
 
 VERDICT = {
     "type": "object",
@@ -135,3 +193,11 @@ def check_verdicts(verdicts):
         if v["verdict"] != "new" and v.get("task_id") is None:
             raise FuzzError(f"verdicts[{i}].task_id is required when the verdict is {v['verdict']}",
                             f"verdicts[{i}].task_id")
+
+
+def check_knowledge(items):
+    _check(items, KNOWLEDGE, "items", 50)
+
+
+def check_facts(items):
+    _check(items, LOOKED_UP, "facts", 200)

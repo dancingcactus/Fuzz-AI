@@ -597,6 +597,17 @@ def tick(core):
     out["blocks"] = booking.tick(core)   # prep before a block, its end or a missed one, holds no longer needed
     from . import deliverables
     out["deliverables"] = deliverables.release(core)   # Monday's review, and the weekday cards
+    out["memory"] = _memory_tick(core)   # a brief before a meeting, the Knowledge files, memory's cards
+    return out
+
+
+def _memory_tick(core):
+    from .memory import briefs, mcards
+    out = briefs.tick(core)
+    last = getattr(core, "_memory_cards_at", None)
+    if (core.config.get("memory") or {}).get("cards", True) and (last is None or (core.now() - last).total_seconds() >= 900):
+        out["cards"] = len(mcards.raise_cards(core))   # what the cap held back yesterday comes today
+        core._memory_cards_at = core.now()
     return out
 
 

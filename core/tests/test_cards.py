@@ -57,7 +57,8 @@ class CardTable(CoreCase):
         tid = tasks.capture(self.core, "Ask Sam about the venue")
         q = self.core.q
         e1 = q("INSERT INTO entities (user_id, type, name, provisional) VALUES (1,'person','Sam Ortiz',0)").lastrowid
-        e2 = q("INSERT INTO entities (user_id, type, name, provisional) VALUES (1,'person','Sam',1)").lastrowid
+        e2 = q("INSERT INTO entities (user_id, type, name, provisional) VALUES (1,?,?,1)",
+               ("term", "Lantern") if kind == "entity_term" else ("person", "Sam")).lastrowid
         payload = {"entity_a": e1, "entity_b": e2} if kind == "entity_person" else {"entity_id": e2, "term": "Lantern"}
         with self.core.tx("fuzz:extractor"):
             cid = cards.create(self.core, kind, tid, payload=payload)
@@ -118,7 +119,7 @@ class CardTable(CoreCase):
     def test_entities(self):
         self.check(self.entity("entity_person"), "same", ["entity.merged"])
         self.check(self.entity("entity_person"), "different", ["entity.kept_separate"])
-        self.check(self.entity("entity_term"), "define", ["entity.defined"], value="Our Q4 analytics launch")
+        self.check(self.entity("entity_term"), "define", ["fact.edited", "entity.defined"], value="Our Q4 analytics launch")
 
     def test_is_task(self):
         self.check(self._is_task(), "mine", ["task.confirmed"], "triage")

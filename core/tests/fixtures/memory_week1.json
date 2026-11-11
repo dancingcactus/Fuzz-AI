@@ -1,0 +1,331 @@
+{
+ "_about": "A first week at a new job: people, a directory, jargon, a recap, a decision in the owner's own words, a conflict, a name-only Pat, and one fact the privacy guardrail refuses. All invented.",
+ "meetings": [
+  {
+   "id": "evt-staff-1",
+   "title": "Staff sync",
+   "start": "2026-10-21T08:00:00Z",
+   "end": "2026-10-21T08:30:00Z",
+   "series": "staff-sync",
+   "attendees": [
+    {
+     "name": "Justin",
+     "email": "justin@acme.example"
+    },
+    {
+     "name": "Priya Shah",
+     "email": "priya@acme.example"
+    },
+    {
+     "name": "Marcus Lee",
+     "email": "marcus@acme.example"
+    },
+    {
+     "name": "Alex Kim",
+     "email": "alex@acme.example"
+    }
+   ]
+  }
+ ],
+ "signals": [
+  {
+   "source": "email",
+   "source_id": "m-1",
+   "version": "2026-10-19T15:00:00Z",
+   "anchor": "email:conv-1",
+   "ts": "2026-10-19T15:00:00Z",
+   "title": "Welcome aboard",
+   "link": "https://mail.example/m-1",
+   "from": {
+    "name": "Priya Shah",
+    "email": "priya@acme.example"
+   },
+   "people": [
+    {
+     "name": "Justin",
+     "email": "justin@acme.example"
+    }
+   ],
+   "quote": "Welcome! I lead billing. The ORN reconciliation runs nightly; ping me before touching it.",
+   "candidates": [],
+   "facts": [
+    {
+     "about": {
+      "type": "person",
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     "attr": "role",
+     "value": "Billing lead",
+     "how": "stated"
+    },
+    {
+     "about": {
+      "type": "person",
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     "attr": "how_met",
+     "value": "Welcomed you on your first day",
+     "how": "stated"
+    }
+   ],
+   "terms": [
+    {
+     "term": "ORN",
+     "kind": "tool",
+     "aliases": [
+      "orion"
+     ],
+     "best_guess": "The nightly billing reconciliation job"
+    }
+   ]
+  },
+  {
+   "source": "slack",
+   "source_id": "C1:1001.1",
+   "version": "1001.1",
+   "anchor": "slack:C1:1001.1",
+   "ts": "2026-10-19T16:00:00Z",
+   "from": {
+    "name": "Dana Reyes",
+    "slack_id": "UDANA"
+   },
+   "people": [
+    {
+     "name": "Justin",
+     "slack_id": "WEXAMPLE1"
+    }
+   ],
+   "quote": "Marcus is the Payments PM, and Priya basically owns everything billing. QBR deck due Friday.",
+   "candidates": [
+    {
+     "ask": "Send Dana the QBR numbers",
+     "owner": "me",
+     "topics": [
+      "qbr"
+     ]
+    }
+   ],
+   "facts": [
+    {
+     "about": {
+      "type": "person",
+      "name": "Marcus Lee",
+      "email": "marcus@acme.example"
+     },
+     "attr": "role",
+     "value": "Payments PM",
+     "how": "stated"
+    },
+    {
+     "about": {
+      "type": "person",
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     "attr": "owns",
+     "value": "Billing",
+     "how": "inferred"
+    },
+    {
+     "about": {
+      "type": "person",
+      "name": "Dana Reyes",
+      "slack_id": "UDANA"
+     },
+     "attr": "health",
+     "value": "Out sick a lot",
+     "how": "stated"
+    }
+   ],
+   "terms": [
+    {
+     "term": "QBR",
+     "best_guess": "Quarterly business review"
+    }
+   ]
+  },
+  {
+   "source": "slack",
+   "source_id": "C2:2001.1",
+   "version": "2001.1",
+   "anchor": "slack:C2:2001.1",
+   "ts": "2026-10-20T08:00:00Z",
+   "from": {
+    "name": "Sam Ortiz",
+    "slack_id": "USAM"
+   },
+   "people": [
+    {
+     "name": "Justin",
+     "slack_id": "WEXAMPLE1"
+    }
+   ],
+   "quote": "Marcus runs Platform now, he's the Platform PM. Pat will send you the ORN runbook.",
+   "candidates": [],
+   "facts": [
+    {
+     "about": {
+      "type": "person",
+      "name": "Marcus Lee",
+      "email": "marcus@acme.example"
+     },
+     "attr": "role",
+     "value": "Platform PM",
+     "how": "stated"
+    }
+   ]
+  },
+  {
+   "source": "meeting",
+   "source_id": "2026-10-20 Staff sync#vendor",
+   "version": "1",
+   "anchor": "meeting:2026-10-20 Staff sync#vendor",
+   "ts": "2026-10-20T08:30:00Z",
+   "from": {
+    "name": "Staff sync"
+   },
+   "people": [
+    {
+     "name": "Priya Shah",
+     "email": "priya@acme.example"
+    },
+    {
+     "name": "Marcus Lee",
+     "email": "marcus@acme.example"
+    },
+    {
+     "name": "Pat"
+    }
+   ],
+   "quote": "Agreed to pilot vendor B for card payments.",
+   "candidates": [],
+   "meeting": {
+    "title": "Staff sync",
+    "attendees": [
+     {
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     {
+      "name": "Marcus Lee",
+      "email": "marcus@acme.example"
+     },
+     {
+      "name": "Pat"
+     }
+    ],
+    "summary": "Billing walked through the vendor shortlist and agreed to pilot vendor B for card payments.",
+    "open_questions": [
+     "Who owns the ORN runbook?"
+    ]
+   },
+   "decisions": [
+    {
+     "what": "Pilot vendor B for card payments",
+     "why": "Lower fees and a sandbox",
+     "alternatives": [
+      "Vendor A"
+     ],
+     "decided_by": {
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     "confidence": 0.7
+    }
+   ],
+   "terms": [
+    {
+     "term": "ORN",
+     "kind": "tool"
+    }
+   ]
+  },
+  {
+   "source": "email",
+   "source_id": "m-2",
+   "version": "2026-10-20T08:45:00Z",
+   "anchor": "email:conv-2",
+   "ts": "2026-10-20T08:45:00Z",
+   "title": "Vendor decision",
+   "link": "https://mail.example/m-2",
+   "from": {
+    "name": "Priya Shah",
+    "email": "priya@acme.example"
+   },
+   "people": [
+    {
+     "name": "Justin",
+     "email": "justin@acme.example"
+    }
+   ],
+   "quote": "We're going with vendor B for card payments. Contract next week.",
+   "candidates": [],
+   "decisions": [
+    {
+     "what": "Go with vendor B for card payments",
+     "why": "Lower fees and a sandbox",
+     "alternatives": [
+      "Vendor A"
+     ],
+     "decided_by": {
+      "name": "Priya Shah",
+      "email": "priya@acme.example"
+     },
+     "confidence": 0.95
+    }
+   ]
+  },
+  {
+   "source": "email",
+   "source_id": "m-3",
+   "version": "2026-10-20T08:50:00Z",
+   "anchor": "email:conv-3",
+   "ts": "2026-10-20T08:50:00Z",
+   "from": {
+    "name": "Patricia Lee",
+    "email": "patricia@acme.example"
+   },
+   "people": [
+    {
+     "name": "Justin",
+     "email": "justin@acme.example"
+    }
+   ],
+   "quote": "Runbook attached.",
+   "candidates": []
+  }
+ ],
+ "facts": [
+  {
+   "about": {
+    "type": "person",
+    "name": "Priya Shah",
+    "email": "priya@acme.example"
+   },
+   "attr": "team",
+   "value": "Finance Systems",
+   "source_kind": "directory",
+   "source_ref": "dir:priya"
+  },
+  {
+   "about": {
+    "type": "person",
+    "name": "Marcus Lee",
+    "email": "marcus@acme.example"
+   },
+   "attr": "team",
+   "value": "Payments",
+   "source_kind": "directory",
+   "source_ref": "dir:marcus"
+  }
+ ],
+ "knowledge": [
+  {
+   "kind": "learning",
+   "title": "Expense approvals",
+   "summary_md": "Expenses go to your manager in Concur; anything over $500 also needs Finance."
+  }
+ ]
+}

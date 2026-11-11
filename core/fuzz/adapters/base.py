@@ -11,7 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROLE_SKILLS = {"executor": "fuzz-executor", "extractor": "fuzz-extract", "sender": "fuzz-send"}
+ROLE_SKILLS = {"executor": "fuzz-executor", "extractor": "fuzz-extract", "sender": "fuzz-send",
+               "recall": "fuzz-recall", "ask": "fuzz-recall"}   # ask: the app's ask box, the same skill read-only
 SKILLS_SRC = Path(__file__).resolve().parents[2] / "skills"
 PKG_PARENT = str(Path(__file__).resolve().parents[2])   # the folder holding the fuzz package
 
@@ -20,6 +21,8 @@ PROMPTS = {
                  "claim_next_task and work each task until there is nothing to claim."),
     "extractor": ("Run Fuzz extraction using the fuzz-extract instructions. Call whoami and get_cursors, read the "
                   "sources, submit signals, judge the pending shortlists and submit verdicts."),
+    "ask": ("Answer the person's question from Fuzz's memory using the fuzz-recall instructions, then call answer_ask "
+            "once with your reply."),
     "sender": ("Send the drafts the human approved, using the fuzz-send instructions. Call whoami, then "
                "claim_next_send and send each one until there is nothing to claim."),
 }
@@ -105,7 +108,7 @@ class Adapter:
         raise NotImplementedError
 
     def headless_command(self, role, config_path, model=None, task_id=None, verbose=False, files_dir=None,
-                         send_tools=None, read_tools=None, write_dir=None):
+                         send_tools=None, read_tools=None, write_dir=None, ask=None):
         """files_dir: the user's attachments folder, the only place the run may read files from.
         send_tools: for the sender, the connector tools it may call to send, as this client names them.
         read_tools: for the executor and the extractor, the connector tools it may call to look things up.
@@ -132,10 +135,12 @@ class Adapter:
         """A tool as the model sees it, written the way read.tools and send.tools take it."""
         return tool
 
-    def prompt(self, role, task_id=None):
+    def prompt(self, role, task_id=None, ask=None):
         p = PROMPTS[role]
         if task_id and role == "executor":
             p += f" Work only task {task_id}: pass task_id={task_id} to claim_next_task."
+        if ask and role == "ask":   # (ask_id, question); the question is the person's, quoted as data
+            p += f" ask_id: {ask[0]}. The question, in the person's words: {json.dumps(ask[1])}"
         return p
 
     def run_ok(self, returncode, output):
