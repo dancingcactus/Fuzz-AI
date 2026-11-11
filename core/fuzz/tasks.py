@@ -147,8 +147,11 @@ def _one(core, actor, type, t, to, log, card=None, option=None, value=None, data
 NOTE_MISSED = "You said Fuzz missed this. It's finding the message it came from."
 
 
-def capture(core, text, docs=None, actor="human", due=None, gather=False, uploading=False, missed=False):
-    """gather: Fuzz looks the task up with its read-only tools before it reaches triage, so the card can
+def capture(core, text, docs=None, actor="human", due=None, gather=False, uploading=False, missed=False,
+            deep_work=False):
+    """deep_work: typed in a Deep Work session, so it goes straight to the pool, to work on now. Nothing to
+    gather first (you're about to do it) and no card.
+    gather: Fuzz looks the task up with its read-only tools before it reaches triage, so the card can
     show what it found. It waits as queued for Fuzz with the gather tag until then.
     missed: you say it reached you and Fuzz never made a task of it. Fuzz looks for the message whatever
     gathering is set to, and asks "Is it this one?" (missed.py).
@@ -161,25 +164,26 @@ def capture(core, text, docs=None, actor="human", due=None, gather=False, upload
     title = (text or docs[0]).splitlines()[0][:TITLE_MAX]
     if missed and not text:
         raise FuzzError("Say what the ask was, so Fuzz can find it", "text")
-    gather = gather or missed
+    gather = (gather or missed) and not deep_work
+    state = "deepwork" if deep_work else "queued" if gather else "triage"
     with core.tx(actor):
         tid = core.new_id("tasks")
         now = core.now_iso()
         ch = events.Changes()
-        ch.task(tid, state="queued" if gather else "triage", assignee="fuzz" if gather else "human", title=title,
+        ch.task(tid, state=state, assignee=states.ASSIGNEE[state], title=title,
                 ask=text or None, owner="me", due=due, order_key=next_order(core),
                 variant_tags=(["gather"] if gather else []) + (["missed"] if missed else [])
                 + (["uploading"] if uploading and docs else []), created_at=now, state_changed_at=now,
                 **({"notes": NOTE_MISSED} if missed else {}),
                 title_history=[], steps_used=0, attempts=0, deadline_level=0)
         events.emit(core, "task.captured", task_id=tid, changes=ch, data={"docs": docs, **({"missed": True} if missed else {})},
-                    log=("status", NOTE_MISSED if missed else "You captured this task." if actor == "human"
-                         else "Fuzz captured this task."))
+                    log=("status", NOTE_MISSED if missed else "You started this in Deep Work." if deep_work
+                         else "You captured this task." if actor == "human" else "Fuzz captured this task."))
         for d in docs:   # each upload fills its row (files.attach)
             core.q("INSERT INTO sources (user_id, task_id, role, title) VALUES (?,?,?,?)",
                    (core.user_id, tid, "attachment", d))
         cards.sync(core, tid)
-    if not gather and actor == "human":   # with gathering, it's matched once Fuzz has looked it up
+    if not gather and not deep_work and actor == "human":   # with gathering, it's matched once Fuzz has looked it up
         from .matching import dupes
         dupes.check_captured(core, tid)
     return tid
@@ -250,6 +254,26 @@ def session(core, task_id, card=None):
     return _one(core, "human", "task.assigned", t, "session",
                 ("status", f"You opened this in a working session with {label(core)}. Fuzz keeps the sources ready."),
                 card=card, option="session", data={"to": "session"}, question=None)
+
+
+def deep_work(core, task_id, card=None, left_off=None):
+    """Yours, and it takes real time: out of Triage into the Deep Work pool, for a session you start
+    when you have the time. Triage only decides; the doing happens there.
+    left_off: on a task already in the pool, "Done for now" in a session keeps where you left off in its notes,
+    and it goes to the back of the pool's order."""
+    t = require(core, task_id)
+    said = (left_off if isinstance(left_off, str) else (left_off or {}).get("notes") or "").strip()
+    if t["state"] == "deepwork":
+        f = {"notes": ((t.get("notes") or "") + f"\nWhere I left off: {said}").strip()} if said else {}
+        with core.tx("human"):
+            ch = events.Changes()
+            ch.task(t["id"], order_key=next_order(core), **f)
+            return events.emit(core, "task.paused", task_id=t["id"], changes=ch,
+                               log=("guidance", f"Done for now in Deep Work. Where you left off: {said}") if said
+                               else ("status", "Done for now in Deep Work."))
+    return _one(core, "human", "task.assigned", t, "deepwork",
+                ("status", "You put this in Deep Work. It waits there for a session with time to do it."),
+                card=card, option="deep_work", data={"to": "deepwork"}, question=None)
 
 
 def done(core, task_id, card=None, option="done"):

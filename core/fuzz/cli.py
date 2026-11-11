@@ -224,6 +224,7 @@ def cmd_task_action(a):
     fn = {"assign": lambda: tasks.assign(core, a.id, a.value), "done": lambda: tasks.done(core, a.id),
           "park": lambda: tasks.park(core, a.id), "letgo": lambda: tasks.let_go(core, a.id),
           "wait": lambda: tasks.wait(core, a.id, a.value), "session": lambda: tasks.session(core, a.id),
+          "deep_work": lambda: tasks.deep_work(core, a.id),
           "schedule": lambda: tasks.schedule(core, a.id, _value(a.value)),
           "reopen": lambda: tasks.bring_back(core, a.id, "front", "You brought this back.", "task.reopened")}[a.action]
     fn()
@@ -603,7 +604,7 @@ def parser():
 
     s = sub.add_parser("task", help="act on a task directly (debugging)")
     s.add_argument("id", type=int)
-    s.add_argument("action", choices=["assign", "done", "park", "letgo", "wait", "session", "schedule", "reopen"])
+    s.add_argument("action", choices=["assign", "done", "park", "letgo", "wait", "session", "deep_work", "schedule", "reopen"])
     s.add_argument("--value")
     s.set_defaults(fn=cmd_task_action)
 

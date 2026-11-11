@@ -33,11 +33,11 @@ OPTIONS = {
 }
 # schedule is Later (bring it back then); book is Book time (hold the time). do_now, after_others and
 # first_step are a big task's choices with book; decide and draft_it answer "What's in the way?"
-TASK_OPTIONS = ["assign", "session", "schedule", "done", "park", "wait", "someone_else", "drop", "find_out",
+TASK_OPTIONS = ["assign", "deep_work", "session", "schedule", "done", "park", "wait", "someone_else", "drop", "find_out",
                 "book", "do_now", "after_others", "first_step", "decide", "draft_it"]
 BIG_LEAD = ["do_now", "book", "after_others", "first_step"]   # a big task's card leads with these
-DOING_OPTIONS = ["done", "pause", "assign", "session", "book", "find_out"]   # the working card's ways out
-WAY_OPTIONS = ["find_out", "do_now", "book", "first_step", "decide", "draft_it", "after_others", "drop"]
+DOING_OPTIONS = ["done", "pause", "assign", "deep_work", "session", "book", "find_out"]   # the working card's ways out
+WAY_OPTIONS = ["find_out", "do_now", "deep_work", "book", "first_step", "decide", "draft_it", "after_others", "drop"]
 REVIEW_OPTIONS = ["keep_parked", "now", "schedule", "drop"]   # a parked task back to ask "Still want this?"
 CHECK_BACK_OPTIONS = ["got_it", "nudge", "keep_waiting", "drop"]   # a waiting task back to ask "Did they get back to you?"
 # a task you've scheduled again and again, back to ask what's in the way: unclear (Fuzz works out the

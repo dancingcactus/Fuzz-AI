@@ -301,7 +301,7 @@ def wrap(core, group_id):
 
 HELD, TOGETHER = "held", "together"
 SAID = {"assign": "Fuzz", "quick": "Fuzz", "unclear": "Fuzz works out the first step", "nudge": "Fuzz nudges them",
-        "session": "Working session", "schedule": "Later", "done": "Done", "park": "Parked", "wait": "Waiting",
+        "session": "Working session", "deep_work": "Deep Work", "schedule": "Later", "done": "Done", "park": "Parked", "wait": "Waiting",
         "keep_waiting": "Still waiting", "someone_else": "Not mine", "drop": "Let go", "not_task": "Not a task",
         "mine": "Yours", "merge": "Merged", "keep_separate": "Kept separate", "keep": "Kept", "keep_parked": "Parked",
         "now": "Yours", "got_it": "They got back to you"}

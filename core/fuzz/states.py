@@ -2,17 +2,17 @@
 
 from .db import FuzzError
 
-STATES = ("triage", "queued", "working", "review", "sending", "session", "scheduled", "waiting", "parked",
-          "done", "letgo", "merged")
+STATES = ("triage", "queued", "working", "review", "sending", "session", "deepwork", "scheduled", "waiting",
+          "parked", "done", "letgo", "merged")
 
 CLOSED = ("done", "letgo")
-LIVE = ("triage", "queued", "working", "review", "sending", "session", "scheduled", "waiting", "parked")
+LIVE = ("triage", "queued", "working", "review", "sending", "session", "deepwork", "scheduled", "waiting", "parked")
 
 ASSIGNEE = {"triage": "human", "queued": "fuzz", "working": "fuzz", "review": "human", "sending": "fuzz",
-            "session": "session", "scheduled": "human", "waiting": None, "parked": None,
+            "session": "session", "deepwork": "human", "scheduled": "human", "waiting": None, "parked": None,
             "done": None, "letgo": None, "merged": None}
 
-_ANY_HUMAN = {"triage", "queued", "session", "scheduled", "waiting", "parked", "done", "letgo", "merged"}
+_ANY_HUMAN = {"triage", "queued", "session", "deepwork", "scheduled", "waiting", "parked", "done", "letgo", "merged"}
 
 MOVES = {
     "triage": _ANY_HUMAN,
@@ -24,6 +24,8 @@ MOVES = {
     # approved: Fuzz's sender sends it with its own connectors, or it comes back to review if it can't
     "sending": {"done", "waiting", "review", "triage", "letgo", "merged"},
     "session": {"done", "triage", "queued", "parked", "letgo", "scheduled", "waiting", "merged"},
+    # deepwork: yours, and it takes real time, so it waits for a Deep Work session instead of Triage
+    "deepwork": {"done", "triage", "queued", "parked", "letgo", "session", "scheduled", "waiting", "merged"},
     # review: a draft you put off comes back for your OK
     # waiting (from scheduled, parked, done, letgo): the thread hands the next move to someone else (the
     # extractor's waiting_on); from done or letgo only with a new ask that reopens it
