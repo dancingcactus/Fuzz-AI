@@ -37,7 +37,7 @@
 
   /* ---------- the inspector ---------- */
   var V = {}, root = null, tab = 'entities', at = '', filt = { type: '', state: '', q: '' }, picked = null, run = null, panels = {};
-  var TABS = [['entities', 'Entities'], ['knowledge', 'Knowledge'], ['decisions', 'Decisions'], ['runs', 'Runs'], ['whynot', 'Why not?'], ['briefs', 'Briefs']];
+  var TABS = [['entities', 'Entities'], ['knowledge', 'Knowledge'], ['decisions', 'Decisions'], ['runs', 'Runs'], ['whynot', 'Why not?'], ['files', 'Files']];
 
   /* The inspector reads the core, or in the demo the snapshot, answering the same paths */
   function demo() { return !(window.Live && Live.on()) && window.DemoMemory ? DemoMemory : null; }
@@ -56,7 +56,7 @@
     else if ((m = p.match(/^\/entities\/(\d+)$/))) r = D.entity[m[1]];
     else if (p === '/why_not') r = D.why_not[g('a') + '-' + g('b')];
     else if ((m = p.match(/^\/runs\/(\d+)$/))) r = D.run[m[1]];
-    else r = { '/knowledge': D.knowledge, '/decisions': D.decisions, '/runs': D.runs, '/briefs': D.briefs }[p];
+    else r = { '/knowledge': D.knowledge, '/decisions': D.decisions, '/runs': D.runs, '/files': D.files_state }[p];
     if (!r) return Promise.reject(new Error(p === '/why_not' ? 'The demo has no two entities with those numbers.' : 'The demo has nothing for that.'));
     return Promise.resolve(JSON.parse(JSON.stringify(r)));
   }
@@ -95,7 +95,7 @@
     if (tab === 'runs') return runs();
     if (tab === 'whynot') return setBody('<form class="insp-form" data-whynot><label>Entity <input name="a" inputmode="numeric" required></label><label>and entity <input name="b" inputmode="numeric" required></label>' +
       '<button class="btn small" type="submit">Why no “same person?” card</button></form><div id="insp-why"></div>');
-    if (tab === 'briefs') return inspect('/briefs').then(function (r) { panels.briefs = r; setBody(copyBtn('briefs') + briefsHTML(r)); }, function (e) { setBody(fail(e)); });
+    if (tab === 'files') return inspect('/files').then(function (r) { panels.files = r; setBody(copyBtn('files') + filesHTML(r)); }, function (e) { setBody(fail(e)); });
   }
 
   /* Entities: a list with filters, and the one you picked in full */
@@ -209,14 +209,8 @@
     }, function (err) { var el = document.getElementById('insp-run'); if (el) el.innerHTML = fail(err); });
   }
 
-  function briefsHTML(r) {
-    var h = '<p class="meta">Calendar read ' + (r.read_at ? when(r.read_at) : 'never') + (r.read_now ? ' · due for a re-read' : '') +
-      ' · onboarding mode ' + (r.onboarding ? 'on (since ' + when(r.onboarding_from) + ')' : 'off') + ' · memory cards today ' + r.cards_today + ' of ' + r.card_cap + '</p>';
-    h += '<h3>Meetings</h3>' + (r.meetings.length ? '<ul class="insp-mini">' + r.meetings.map(function (m) {
-      return '<li><b>' + esc(m.meeting.title) + '</b> ' + when(m.meeting.start) + ' <span class="meta">· ' + (m.wants_brief ? 'brief at ' + when(m.fires_at) : 'no brief needed') +
-        (m.fired ? ' · said ' + when(m.fired.ts) : '') + ' · ' + (m.meeting.attendees || []).length + ' people</span>' +
-        (m.file ? ' <a href="' + esc(m.file.url) + '">Open the brief</a>' : '') + '</li>';
-    }).join('') + '</ul>' : '<p class="meta">No meetings reported.</p>');
+  function filesHTML(r) {
+    var h = '<p class="meta">Onboarding mode ' + (r.onboarding ? 'on (since ' + when(r.onboarding_from) + ')' : 'off') + ' · memory cards today ' + r.cards_today + ' of ' + r.card_cap + '</p>';
     h += '<h3>Knowledge files</h3>' + (r.files.length ? '<ul class="insp-mini">' + r.files.map(function (f) {
       return '<li><a href="' + esc(f.url) + '">' + esc(f.title || f.path) + '</a> <span class="meta">' + esc(f.kind) + ' · written ' + when(f.updated_at) + '</span></li>';
     }).join('') + '</ul>' : '<p class="meta">None written yet.</p>');

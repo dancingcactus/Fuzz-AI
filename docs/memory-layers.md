@@ -13,7 +13,8 @@ In:
 - **Knowledge**: meeting notes, thread digests, reference summaries and learnings.
 - **The decision log**, including reversals.
 - **Retrieval** through Claude (an MCP role) and the app (an ask box), with citations and trust labels.
-- **Onboarding mode**: a people map, a glossary and a brief before each meeting.
+- **Onboarding mode**: a people map and a glossary. (A brief before each meeting was built, then taken out;
+  see Meeting briefs below.)
 
 Out for now:
 
@@ -30,7 +31,7 @@ Out for now:
 | Where trust lives | Worked out when read, from stored facts, the clock and exposure. Never stored as a column | Decay depends on today's date, so a stored value would go stale |
 | Event sourcing | `facts`, `knowledge` and `decision_log` join `events.TABLES`, so they replay and Undo works. `entities`, `aliases` and `identifiers` stay derived, as they are today | Confirmations and corrections have to undo and survive `fuzz rebuild --check` |
 | Table name | `decision_log`. The matcher's `decisions` table keeps its name | Avoids renaming a table that is in use |
-| Briefs, people map and glossary | Markdown files in the output folder under `Knowledge/`. About 5 minutes before a meeting, Fuzz gives a link to its brief | Your answer. Keeps to "no new destinations": they show under Artifacts |
+| People map, glossary and decisions | Markdown files in the output folder under `Knowledge/` | Your answer. Keeps to "no new destinations": they show under Artifacts |
 | Ask Claude | Both: a read-only `fuzz-recall` MCP role and skill for Claude Code and Copilot, and an ask box in the app that runs the same tools headless | Your answer |
 | "Docs Justin opens" | Limited to docs that are linked or sent in an approved source | Opening a doc isn't something Fuzz can observe |
 | Authoritative sources | The org directory (title, team, manager), and the owner's own words | Your sources: org directory, email and calendar, Slack or Teams, meeting transcripts and wiki |
@@ -46,8 +47,7 @@ Out for now:
   "recent interactions".
 - Meetings reach the extractor only as action-item rows. There is no summary, decision or attendee list for
   the meeting as a whole.
-- The executor reports the calendar into `user_state['calendar']` (`booking.calendar`). Brief timing reads
-  it from there.
+- The executor reports the calendar into `user_state['calendar']` (`booking.calendar`).
 - There is no digest and no ask surface.
 
 ## Data model
@@ -68,7 +68,7 @@ CREATE TABLE facts (
   status TEXT NOT NULL,         -- live | rejected | undone (superseded and disputed are worked out when read)
   confirmed_at TEXT             -- you confirmed or edited it
 );
-CREATE TABLE fact_views (       -- when a fact was shown to you (brief, answer, sheet); for rule 6, not events
+CREATE TABLE fact_views (       -- when a fact was shown to you (answer, sheet); for rule 6, not events
   user_id INTEGER, fact_id INTEGER, shown_at TEXT, surface TEXT);
 
 CREATE TABLE knowledge (
@@ -92,7 +92,7 @@ CREATE TABLE memory_links (     -- knowledge or decision ↔ entity, task or gro
   item_type TEXT, item_id INTEGER, kind TEXT, target_type TEXT, target_id INTEGER, removed INTEGER DEFAULT 0);
 CREATE TABLE memory_files (     -- files in Knowledge/, which belong to no task
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL,
-  kind TEXT NOT NULL,           -- people | glossary | decisions | brief
+  kind TEXT NOT NULL,           -- people | glossary | decisions (brief: from the removed meeting briefs)
   title TEXT, path TEXT NOT NULL, meeting_key TEXT, starts_at TEXT, updated_at TEXT);
 ```
 
@@ -191,9 +191,9 @@ All of these are question-family cards, each with a suggested answer, a way out 
 `memory.daily_cards` (2 a day, onboarding or not). They're never put ahead of time-sensitive cards, and
 are kept lowest stakes first. Anything over the cap stays Inferred and visible, and rides on exposure
 instead of a card. High-confidence decisions from the decision-maker's own words are recorded without a card
-and show in the next brief and answer.
+and show in the next answer.
 
-## Briefs, people map and glossary
+## People map, glossary and decisions
 
 These go in the output folder, under `Knowledge/`, and show under Artifacts as kind `markdown`:
 
@@ -201,12 +201,9 @@ These go in the output folder, under `Knowledge/`, and show under Artifacts as k
   between you. Inferred and stale facts are labelled.
 - `Knowledge/Glossary.md`: alphabetical, with aliases. Best guesses are marked "Fuzz's guess".
 - `Knowledge/Decisions.md`: newest first, with reversals linked.
-- `Knowledge/Briefs/<date> <meeting>.md`: who's attending, what Fuzz knows about each person (with trust),
-  open items with them, terms likely to come up, and earlier decisions and notes from the same series.
 
 The **core** writes these files from the tables. No model is needed, so they're cheap to rewrite whenever
-something changes. A brief is written when the calendar shows a meeting in the next 24 hours, and again
-just before it.
+something changes.
 
 **Listing them under Artifacts.** Today `/artifacts` lists `sources` rows with `role = 'output'` joined to
 their task, and `sources.task_id` is `NOT NULL`. A file under `Knowledge/` has no task, so these files are
@@ -217,21 +214,11 @@ kept in `memory_files` instead:
 
 When `output.folder` is `-`, the files go in `<FUZZ_HOME>/knowledge/` and are listed the same way.
 
-**The link at meeting time.** The ticker that `fuzz serve` already runs emits `brief.due` 5 minutes before
-the meeting starts (`memory.brief_lead_mins`). Its payload is the `/artifacts/k<id>` link. The UI's live
-event stream has Fuzz say "Staff sync in 5. Here's who's coming" with that link, which opens the brief in
-`artifact.html`. This isn't a card: there's no decision. When no Fuzz tab is open, a desktop notification is
-the fallback (see Open questions).
-
-**Fresh times.** Fuzz knows only the calendar the executor last reported, and `booking.refresh_hours` is 12.
-So when a meeting starts within 2 hours and that report is more than an hour old, the core marks the
-calendar as due for a re-read (`get_lookups`' `meetings.read_now`), and the extractor's next hourly run reads
-it again with `report_meetings`. The executor only reports the calendar while it holds a task, so on a quiet
-day it would never refresh it. A meeting moved after the last
-read keeps its old brief time until then. The tests use that same rule.
-
-In onboarding mode (the first 60 days after `memory.onboarding_from`), every meeting gets a brief. After
-that, only meetings with someone new, or with an open item or decision on the agenda, get one.
+**Meeting briefs (taken out).** A brief before each meeting, with a link from Fuzz 5 minutes before it
+started, was built and then taken out on 2026-11-11: the model for what a brief should be wasn't right yet.
+With it went `brief.due`, `meeting_brief`, the extractor's calendar read (`report_meetings` and
+`meetings.read_now`) and the inspector's Briefs panel. `brief.due` stays a known event type so old logs replay,
+and files a store already wrote for briefs stay on disk but are no longer listed.
 
 ## Retrieval
 
@@ -244,7 +231,6 @@ Copilot like the other roles, along with a `fuzz-recall` skill.
 | `what_is(term)` | The definition, aliases, and where it came up |
 | `why(question)` | Matching decisions and knowledge, ranked with the existing vectors |
 | `search_memory(query)` | Across entities, facts, knowledge and decisions |
-| `meeting_brief(meeting)` | That meeting's brief, written on demand |
 | `correct(fact_id or entity, attr, value)` | The one write: an `edited` fact as `human`, since this is Justin in his own session. It can be undone |
 
 Every result carries `sources` (link, who, when) and a `trust` label. The skill tells Claude to cite them,
@@ -279,7 +265,7 @@ CLI, `fuzz inspect`, prints the same JSON from the same library functions, for t
 | **Knowledge and decisions** | Each item with its summary, link, `how` and `authority`, status, its `memory_links`, and for decisions the `reverses` chain |
 | **Runs** | Per extractor run: what it submitted (facts, terms, decisions, meeting summaries), what the core accepted, and what it refused, with the reason (outside the privacy allowlist, schema error, unresolved `about`). The cards it raised, and the ones **held back by the daily cap** |
 | **Why not?** | Pick two entities and ask why no "same person?" card was raised: already kept separate, names don't match by prefix, a merge already in place, or the cap was reached. Pick a fact to see why it lost a conflict |
-| **Briefs** | Upcoming meetings from the last calendar report, when each `brief.due` will fire, whether the calendar is due for a re-read, and the brief's file |
+| **Files** | The Knowledge files, whether onboarding mode is on, and today's memory cards against the cap |
 
 Every panel has **Copy as JSON**, so a bad case can be pasted into a bug report or saved as a test fixture.
 
@@ -288,7 +274,7 @@ Every panel has **Copy as JSON**, so a bad case can be pasted into a bug report 
 ```
 GET /inspect/entities?type=&q=&state=        GET /inspect/entities/{id}?at=
 GET /inspect/facts/{id}?at=                  GET /inspect/why_not?a=&b=
-GET /inspect/knowledge   GET /inspect/decisions   GET /inspect/runs/{id}   GET /inspect/briefs
+GET /inspect/knowledge   GET /inspect/decisions   GET /inspect/runs/{id}   GET /inspect/files
 ```
 
 The CLI has `fuzz inspect entity <id|name> [--at DATE]`, `fuzz inspect fact <id>`,
@@ -322,7 +308,7 @@ Each step ends with:
     fixtures, then `get_lookups` and `submit_facts` for the directory.
 21. **Briefs and onboarding mode.** `memory_files` and its place under Artifacts, the `Knowledge/` writer
     (`People.md`, `Glossary.md`, briefs), brief timing and `brief.due`, the calendar re-read, Fuzz's line and
-    link in the UI, and onboarding thresholds.
+    link in the UI, and onboarding thresholds. (The briefs were taken out later; see Meeting briefs.)
 22. **Retrieval.** The `fuzz-recall` role, its tools, skill and installer entries, `doctor` checks, then
     `/ask` (without `correct`), `/entities/{id}` and the person and term sheet.
 23. **Knowledge.** The `knowledge` table, meeting notes from `meeting`, settled-thread digests, reference
@@ -378,11 +364,8 @@ UI checks go against the live server at `127.0.0.1`.
   `correct`. The executor gets `who_is`, `what_is`, `why` and `search_memory`, never `correct`, and its lookups
   write no `fact_views`. Installer tests cover the new role for both clients, against a stubbed home and
   launchd (per the installer-leak note).
-- **Brief timing**: with a fake calendar, `brief.due` fires once, 5 minutes before the start. A moved or
-  cancelled meeting, once the calendar is reported again, moves or stops it. A calendar report more than an
-  hour old with a meeting inside 2 hours marks it due for a re-read. The brief appears in `GET /artifacts`
-  with no task and opens at `/artifacts/k<id>`, including with `output.folder` set to `-`. It lists the
-  attendees and their open items.
+- **Knowledge files**: they appear in `GET /artifacts` with no task and open at `/artifacts/k<id>`, including
+  with `output.folder` set to `-`.
 
 **End-to-end, scripted.** A "first week at the new job" fixture set: about 30 signals across email, Slack,
 meetings and a directory dump, with a Pat and Patricia Lee pair, a role change, two conflicting launch
@@ -406,8 +389,7 @@ design doc's model comparison. This doesn't run in the default test pass.
 meeting summaries, tracked per `prompt_version`. The set includes non-work details about colleagues
 (weekend plans, health), which must never come out as facts. A drop blocks a prompt change.
 
-**Live UI**: a brief's link appears 5 minutes before a fixture meeting and opens in `artifact.html`; the
-person sheet's Edit writes a Confirmed fact; the ask box answers with sources.
+**Live UI**: the person sheet's Edit writes a Confirmed fact; the ask box answers with sources.
 
 ## As built (2026-11-10)
 
@@ -419,8 +401,8 @@ the design above:
   `core/tests/test_memory.py`, with the first-week fixture in `core/tests/fixtures/memory_week1.json`.
 - **Derived tables**, kept out of replay: `sightings` (where each entity came up, for "last talked" and "where it
   came up"), `memory_refusals` (what the core refused, and why), `fact_views` and `memory_files`.
-- **Meetings for briefs** come from the extractor's `report_meetings`, not the executor's calendar report, which
-  has free time only and no attendees.
+- **Meeting briefs** were taken out on 2026-11-11, with the extractor's calendar read that fed them (see
+  Meeting briefs).
 - **Only terms the extractor flags** (`terms`) get "What is this?" cards and a glossary entry. The matcher's
   `topics` ("vendor list") are not jargon.
 - **The `entity_term` card's "Same as…"** answer isn't offered in the UI yet: it needs an entity picker.
@@ -428,7 +410,6 @@ the design above:
   `memory.cards: false` turns them off.
 - **Defaults for the open questions below:**
   - Onboarding mode starts when the store was created; set `memory.onboarding_from` to the start date.
-  - When no Fuzz tab is open at brief time, there's no notification yet.
   - There's no retention limit yet.
 - **Not built yet:**
   - The real-model evals: the 20-question recall check and the extraction precision and recall set. Until they
@@ -438,7 +419,7 @@ the design above:
   - The ask box in the small Fuzz on every page. It's on Artifacts and in the inspector for now.
   - Golden files. The People, Glossary and Decisions files are checked line by line instead.
 - **Commands:**
-  - `fuzz memory write|cards|due` runs those passes by hand.
+  - `fuzz memory write|cards|people` runs those passes by hand.
   - `fuzz inspect …` is the inspector in the terminal.
   - `fuzz run ask --ask-id … --question …` is the ask box's run.
 
@@ -446,9 +427,7 @@ the design above:
 
 1. **Start date.** When does the new job start? It sets `memory.onboarding_from`, and whether steps 18 to 21
    need to land before it.
-2. **When no Fuzz tab is open at brief time**: a macOS notification with the link, nothing, or something
-   else?
-3. **The employer's data rules**: is a local summary of meetings and threads allowed, and for how long? This
+2. **The employer's data rules**: is a local summary of meetings and threads allowed, and for how long? This
    sets a retention setting for `knowledge` and `facts` that come from source systems.
-4. **Teams or Slack, and the transcript format**: which tools reach them at the new job? The skill's
+3. **Teams or Slack, and the transcript format**: which tools reach them at the new job? The skill's
    connector notes depend on it.

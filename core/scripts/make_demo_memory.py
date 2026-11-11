@@ -70,11 +70,8 @@ def snapshot(core):
         s = files[f["id"]]
         return dict(f, path=s["name"], url="artifact.html?demo=" + s["id"])
 
-    st = inspect.briefs_state(core)
+    st = inspect.files_state(core)
     st["files"] = [sample(f) for f in st["files"]]
-    for m in st["meetings"]:
-        if m["file"]:
-            m["file"] = sample(m["file"])
     ents = inspect.entities_list(core)
     ids = [e["id"] for e in ents["entities"]]
     runs = inspect.runs_list(core)
@@ -87,7 +84,7 @@ def snapshot(core):
         "decisions": inspect.decisions_list(core),
         "runs": runs,
         "run": {str(r["id"]): inspect.run_detail(core, r["id"]) for r in runs["runs"]},
-        "briefs": st,
+        "files_state": st,
         "files": sorted(files.values(), key=lambda s: s["id"]),
     }, files
 

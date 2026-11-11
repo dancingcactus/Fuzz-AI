@@ -387,7 +387,7 @@ CREATE TABLE IF NOT EXISTS memory_links (
 CREATE TABLE IF NOT EXISTS memory_files (   -- Knowledge/ files, which belong to no task
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,
-  kind TEXT NOT NULL,              -- people | glossary | decisions | brief
+  kind TEXT NOT NULL,              -- people | glossary | decisions (brief: from the removed meeting briefs)
   title TEXT,
   path TEXT NOT NULL,
   meeting_key TEXT,

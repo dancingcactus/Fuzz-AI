@@ -43,7 +43,7 @@
       if (!s) return Promise.reject(new Error('There’s no demo file called ' + demo + '.'));
       return Promise.resolve({ name: s.name, kind: s.kind, size: s.size, updated: s.updated, task: s.taskTitle, memory: !!s.memory, url: s.path, get: function () { return fetch(s.path); } });
     }
-    /* k<id>: a file in Fuzz's Knowledge folder (the people map, the glossary, a brief), which belongs to no task */
+    /* k<id>: a file in Fuzz's Knowledge folder (the people map, the glossary, the decisions), which belongs to no task */
     if (!id || !/^k?\d+$/.test(id)) return Promise.reject(new Error('Open a file from the Artifacts tab in Fuzz.'));
     if (!token) return Promise.reject(new Error('This browser isn’t connected to Fuzz. Open the link `fuzz serve` prints, then try again.'));
     var auth = { headers: { Authorization: 'Bearer ' + token } };

@@ -597,7 +597,7 @@ def tick(core):
     out["blocks"] = booking.tick(core)   # prep before a block, its end or a missed one, holds no longer needed
     from . import deliverables
     out["deliverables"] = deliverables.release(core)   # Monday's review, and the weekday cards
-    out["memory"] = _memory_tick(core)   # a brief before a meeting, the Knowledge files, memory's cards
+    out["memory"] = _memory_tick(core)   # the Knowledge files, memory's cards
     return out
 
 

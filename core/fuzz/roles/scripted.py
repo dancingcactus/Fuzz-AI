@@ -105,15 +105,13 @@ def _scripted_verdict(item):
 
 
 async def _extractor(core, signals, say):
-    # signals: a list, or {"signals", "facts", "knowledge", "meetings"} for memory's second pass too
+    # signals: a list, or {"signals", "facts", "knowledge"} for memory's second pass too
     extra = signals if isinstance(signals, dict) else {}
     signals = (extra.get("signals") or []) if extra else signals
     async with Client(mcp_server.build(core, "extractor")) as c:
         await _call(c, "whoami", {"prompt_version": PROMPT_VERSION, "client": "scripted"})
         await _call(c, "get_cursors")
         out = {"submitted": None, "verdicts": 0}
-        if extra.get("meetings"):
-            out["meetings"] = await _call(c, "report_meetings", {"meetings": extra["meetings"]})
         if signals:
             out["submitted"] = await _call(c, "submit_signals", {"signals": signals})
             say(f"Submitted {len(signals)} signals: {out['submitted']['outcomes']}")

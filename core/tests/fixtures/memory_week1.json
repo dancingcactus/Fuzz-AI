@@ -1,32 +1,5 @@
 {
  "_about": "A first week at a new job: people, a directory, jargon, a recap, a decision in the owner's own words, a conflict, a name-only Pat, and one fact the privacy guardrail refuses. All invented.",
- "meetings": [
-  {
-   "id": "evt-staff-1",
-   "title": "Staff sync",
-   "start": "2026-10-21T08:00:00Z",
-   "end": "2026-10-21T08:30:00Z",
-   "series": "staff-sync",
-   "attendees": [
-    {
-     "name": "Justin",
-     "email": "justin@acme.example"
-    },
-    {
-     "name": "Priya Shah",
-     "email": "priya@acme.example"
-    },
-    {
-     "name": "Marcus Lee",
-     "email": "marcus@acme.example"
-    },
-    {
-     "name": "Alex Kim",
-     "email": "alex@acme.example"
-    }
-   ]
-  }
- ],
  "signals": [
   {
    "source": "email",

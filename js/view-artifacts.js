@@ -12,7 +12,7 @@
     ['slides', 'Slides', ['slides']],
     ['pdf', 'PDFs', ['pdf']],
     ['other', 'Other', ['table', 'image', 'other']],
-    /* the people map, the glossary, the decisions and the briefs before meetings, which belong to no task */
+    /* the people map, the glossary and the decisions, which belong to no task */
     ['memory', 'Fuzz’s memory', 'memory']
   ];
   var BADGE = { markdown: 'MD', word: 'DOC', slides: 'PPT', pdf: 'PDF', table: 'CSV', image: 'IMG', html: 'WEB', text: 'TXT', other: 'FILE' };

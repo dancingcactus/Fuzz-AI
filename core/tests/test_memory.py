@@ -1,5 +1,5 @@
 """Memory (docs/memory-layers.md): facts with provenance and trust, conflicts, the privacy guardrail, memory's cards
-and their cap, decisions and reversals, rule 4 on drafts, extraction, briefs, recall and the inspector."""
+and their cap, decisions and reversals, rule 4 on drafts, extraction, the Knowledge files, recall and the inspector."""
 
 import json
 import os
@@ -424,12 +424,6 @@ class FirstWeek(MemoryCase):
         dec = briefs.decisions_md(self.core)
         self.assertIn("## Go with vendor B for card payments", dec)
         self.assertIn("## Pilot vendor B for card payments *(not confirmed)*", dec)
-        self.assertEqual(len(ids["briefs"]), 1, "Staff sync tomorrow, in onboarding mode")
-        brief = open(briefs.get_file(self.core, ids["briefs"][0])["path"]).read()
-        self.assertIn("### Priya Shah", brief)
-        self.assertIn("### Alex Kim\n- New to Fuzz", brief)
-        self.assertIn("**ORN**", brief, "a term that came up with these people")
-        self.assertIn("pilot vendor B", brief, "last time's notes from the same series")
         mtime = os.path.getmtime(briefs.get_file(self.core, ids["people"])["path"])
         briefs.write_all(self.core)
         self.assertEqual(os.path.getmtime(briefs.get_file(self.core, ids["people"])["path"]), mtime,
@@ -442,7 +436,7 @@ class FirstWeek(MemoryCase):
         self.assertNotIn("Justin", names)
         self.assertIn("QBR", lk["known_terms"])
         self.assertIn("Go with vendor B for card payments", [d["what"] for d in lk["decisions"]])
-        self.assertFalse(lk["meetings"]["read_now"], "just reported")
+        self.assertNotIn("meetings", lk, "no calendar read since meeting briefs were taken out")
 
     def test_settled_threads_are_offered_for_a_digest(self):
         msgs = [sig(f"t{i}", source="email", ts=f"2026-10-16T0{i}:00:00Z", anchor="email:conv-9", title="Pricing") for i in range(5)]
@@ -454,77 +448,21 @@ class FirstWeek(MemoryCase):
         self.assertEqual(extract.settled_threads(self.core), [])
 
 
-# ---------------------------------------------------------------- briefs
+# ---------------------------------------------------------------- the Knowledge files
 
-class Briefs(MemoryCase):
-    def report(self, start, attendees=None, mid="evt-1"):
-        extract.report_meetings(self.core, [{"id": mid, "title": "Staff sync", "start": start,
-                                             "end": start.replace(":00:00Z", ":30:00Z"),
-                                             "attendees": attendees or [{"name": "Priya Shah", "email": "priya@acme.example"}]}],
-                                actor="fuzz:extractor")
-
-    def due_events(self):
-        return [json.loads(r["payload"])["data"] for r in self.core.conn.execute(
-            "SELECT payload FROM events WHERE type='brief.due' ORDER BY id")]
-
-    def test_due_five_minutes_before_once(self):
-        self.report("2026-10-20T10:00:00Z")
-        self.clock.t = datetime(2026, 10, 20, 9, 50, tzinfo=timezone.utc)
-        scheduler.tick(self.core)
-        self.assertEqual(self.due_events(), [])
-        self.clock.t = datetime(2026, 10, 20, 9, 56, tzinfo=timezone.utc)
-        scheduler.tick(self.core)
-        scheduler.tick(self.core)
-        [d] = self.due_events()
-        self.assertEqual((d["title"], d["in_mins"]), ("Staff sync", 4))
-        self.assertTrue(d["url"].startswith("artifact.html?id=k"))
-        f = briefs.get_file(self.core, int(d["file_id"][1:]))
-        self.assertIn("Priya Shah", open(f["path"]).read())
-
-    def test_a_moved_meeting_moves_it_once_reported_and_a_cancelled_one_stops(self):
-        self.report("2026-10-20T10:00:00Z")
-        self.report("2026-10-20T11:00:00Z")   # moved, as the next calendar read says
-        self.clock.t = datetime(2026, 10, 20, 9, 56, tzinfo=timezone.utc)
-        briefs.due(self.core)
-        self.assertEqual(self.due_events(), [])
-        self.clock.t = datetime(2026, 10, 20, 10, 56, tzinfo=timezone.utc)
-        briefs.due(self.core)
-        self.assertEqual(len(self.due_events()), 1)
-        extract.report_meetings(self.core, [], actor="fuzz:extractor")   # cancelled
-        self.clock.t = datetime(2026, 10, 21, 10, 56, tzinfo=timezone.utc)
-        self.assertEqual(briefs.due(self.core), [])
-
-    def test_the_calendar_is_read_again_when_a_meeting_is_close(self):
-        self.assertTrue(extract.meetings_stale(self.core), "never read")
-        self.report("2026-10-20T12:00:00Z")
-        self.assertFalse(extract.meetings_stale(self.core))
-        self.clock.t = datetime(2026, 10, 20, 10, 30, tzinfo=timezone.utc)
-        self.assertTrue(extract.meetings_stale(self.core), "a meeting within 2 hours and a report over an hour old")
-
-    def test_after_onboarding_only_meetings_with_someone_new_or_something_open(self):
-        self.set_memory(onboarding_from="2026-01-01T00:00:00Z")
-        p = self.person("Priya Shah", "priya@acme.example")
-        extract.sight(self.core, p, "slack:x:1:1", "from", "2026-10-19T09:00:00Z")
-        self.report("2026-10-20T10:00:00Z")
-        m = extract.meetings(self.core)["meetings"][0]
-        self.assertFalse(briefs.wants_brief(self.core, m), "someone known, nothing open")
-        self.report("2026-10-20T10:00:00Z", [{"name": "New Person", "email": "new@acme.example"}])
-        self.assertTrue(briefs.wants_brief(self.core, extract.meetings(self.core)["meetings"][0]))
-
-    def test_delivery_counts_as_showing_its_facts(self):
-        p = self.person("Priya Shah", "priya@acme.example")
-        fid, _ = facts.add(self.core, p, "role", "Billing lead", source_kind="directory")
-        self.report("2026-10-20T10:00:00Z")
-        briefs.write_all(self.core)
-        self.assertEqual(facts.views(self.core, [fid]), {}, "writing the file isn't showing it")
-        self.clock.t = datetime(2026, 10, 20, 9, 56, tzinfo=timezone.utc)
-        briefs.due(self.core)
-        self.assertEqual(len(facts.views(self.core, [fid])[fid]), 1)
-
+class KnowledgeFiles(MemoryCase):
     def test_no_output_folder_uses_fuzz_home(self):
-        self.report("2026-10-20T10:00:00Z")
         ids = briefs.write_all(self.core)
         self.assertTrue(briefs.get_file(self.core, ids["people"])["path"].startswith(os.path.join(self.home, "knowledge")))
+
+    def test_files_left_from_meeting_briefs_are_no_longer_listed(self):
+        path = os.path.join(self.home, "knowledge", "Briefs", "old.md")
+        os.makedirs(os.path.dirname(path))
+        open(path, "w").write("# Staff sync\n")
+        fid = self.core.q("INSERT INTO memory_files (user_id, kind, title, path, digest, updated_at) VALUES "
+                          "(1, 'brief', 'Brief: Staff sync', ?, 'x', '2026-10-20T09:00:00Z')", (path,)).lastrowid
+        self.assertIsNone(briefs.get_file(self.core, fid))
+        self.assertNotIn(fid, [f["id"] for f in briefs.files(self.core)])
 
 
 # ---------------------------------------------------------------- recall
@@ -599,7 +537,7 @@ class Inspector(MemoryCase):
             inspect.knowledge_list(self.core)
             inspect.decisions_list(self.core)
             inspect.run_detail(self.core, run)
-            inspect.briefs_state(self.core)
+            inspect.files_state(self.core)
         self.assertEqual(self.state(), before)
 
     def test_time_travel_shows_staleness(self):
@@ -617,7 +555,7 @@ class Inspector(MemoryCase):
             "knowledge": bool(inspect.knowledge_list(self.core)["knowledge"]),
             "decision_log": bool(inspect.decisions_list(self.core)["decisions"]),
             "memory_links": any(k["links"] for k in inspect.knowledge_list(self.core)["knowledge"]),
-            "memory_files": bool(inspect.briefs_state(self.core)["files"]),
+            "memory_files": bool(inspect.files_state(self.core)["files"]),
             "sightings": bool(d["sightings"]),
             "memory_refusals": bool(inspect.run_detail(self.core, self.core.one(
                 "SELECT id FROM runs WHERE role='extractor'")["id"])["refused"]),
@@ -692,7 +630,7 @@ class Http(MemoryCase):
     def test_knowledge_files_are_artifacts_with_no_task(self):
         status, body = self.req("GET", "/artifacts")
         mem = [a for a in body["artifacts"] if a["role"] == "memory"]
-        self.assertEqual(sorted(a["name"] for a in mem)[:3], ["2026-10-21 0800 Staff sync.md", "Decisions.md", "Glossary.md"])
+        self.assertEqual(sorted(a["name"] for a in mem), ["Decisions.md", "Glossary.md", "People.md"])
         people = next(a for a in mem if a["name"] == "People.md")
         self.assertEqual((people["task"]["id"], people["kind"]), (None, "markdown"))
         self.assertTrue(people["source_id"].startswith("k"))
@@ -719,7 +657,7 @@ class Http(MemoryCase):
                                                   at="2027-01-01T00:00:00Z", type=None, q=None, state=None))
         self.assertEqual(json.loads(buf.getvalue()), lib)
         for path in ("/inspect", "/inspect/entities?state=disputed", "/inspect/knowledge", "/inspect/decisions",
-                     "/inspect/runs", "/inspect/briefs", f"/inspect/why_not?a={priya}&b={priya}"):
+                     "/inspect/runs", "/inspect/files", f"/inspect/why_not?a={priya}&b={priya}"):
             self.assertEqual(self.req("GET", path)[0], 200, path)
         self.assertEqual(len(self.req("GET", "/inspect/entities?state=disputed")[1]["entities"]), 1)
 

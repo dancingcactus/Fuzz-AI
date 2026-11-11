@@ -1,7 +1,7 @@
 ---
 name: fuzz-recall
-description: Answer from Fuzz's memory - who someone is, what an acronym or internal name means, what was decided and why, what's known about a project, and the brief for an upcoming meeting. Use when asked "who is Priya?", "what does ORN mean?", "why did we pick vendor B?", "what did I promise Sam?", "brief me for staff sync" or "what do we know about the Q2 launch?".
-prompt_version: recall-0.1
+description: Answer from Fuzz's memory - who someone is, what an acronym or internal name means, what was decided and why, and what's known about a project. Use when asked "who is Priya?", "what does ORN mean?", "why did we pick vendor B?", "what did I promise Sam?" or "what do we know about the Q2 launch?".
+prompt_version: recall-0.2
 ---
 
 # Fuzz recall
@@ -11,12 +11,11 @@ built from the person's email, Slack, meetings and the org directory. It keeps s
 
 ## Steps
 
-1. **`whoami`**, passing this skill's `prompt_version` (`recall-0.1`).
+1. **`whoami`**, passing this skill's `prompt_version` (`recall-0.2`).
 2. Pick the tool for the question:
    - a person ("who is…", "what did I promise…", "who's my contact at Acme?") → `who_is`
    - a word, acronym, tool or company → `what_is`
    - "why did we…", "what do we know about…", "what was decided about…" → `why`
-   - a meeting ("brief me for…") → `meeting_brief`
    - anything else, or nothing found → `search_memory`, then the specific tool on what it finds.
 3. Answer in a few plain sentences. Lead with the answer, then what it rests on.
 

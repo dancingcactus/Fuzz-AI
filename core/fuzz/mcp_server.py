@@ -271,13 +271,6 @@ def build(core, role, task_id=None):
             """Search across people, terms, facts, knowledge and decisions ("who owns billing?")."""
             return _call(tools.search_memory, core, query)
 
-    if role in ("recall", "ask"):
-        @srv.tool()
-        def meeting_brief(meeting: str) -> dict:
-            """The brief for an upcoming meeting (by title or calendar id): who's coming, what Fuzz knows about
-            each, terms that may come up, and last time's notes. Includes the link to its file."""
-            return _call(tools.meeting_brief, core, meeting)
-
     if role == "recall":
         @srv.tool()
         def correct(attr: str, value: str, fact_id: int | None = None, entity_id: int | None = None,
@@ -335,12 +328,6 @@ def build(core, role, task_id=None):
             summary_md, source_ref (a thread's anchor, as get_lookups gave it), link, source_ts?, about?: [...],
             decisions?: [...]}. A summary and a link, never a copy."""
             return _call(tools.submit_knowledge, core, items)
-
-        @srv.tool()
-        def report_meetings(meetings: list[dict[str, Any]]) -> dict:
-            """The person's meetings for the next days from the calendar: [{id, title, start, end, attendees:
-            [{name, email}], series?, link?}]. Replaces the last report. Fuzz writes a brief before each one."""
-            return _call(tools.report_meetings, core, meetings)
 
     return srv
 

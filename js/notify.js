@@ -12,7 +12,7 @@
     var b = document.createElement('button'); b.type = 'button'; b.textContent = label;
     b.addEventListener('click', fn); return b;
   }
-  /* A link in Fuzz's line, like a meeting's brief: opens in a new tab, styled as a button */
+  /* A link in Fuzz's line: opens in a new tab, styled as a button */
   function linkTo(l) {
     var a = document.createElement('a'); a.href = l.href; a.textContent = l.label; a.className = 'btn small';
     a.target = '_blank'; a.rel = 'noopener'; return a;

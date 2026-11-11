@@ -1,26 +1,22 @@
-"""The Knowledge/ files: the people map, the glossary, the decision log and a brief before each meeting.
+"""The Knowledge/ files: the people map, the glossary and the decision log.
 
 The core writes them from the tables, with no model, into Knowledge/ in the output folder (or knowledge/ in
 Fuzz's home when there's none), and keeps them in memory_files so they show under Artifacts. A file is rewritten
-only when its content changes, so it doesn't jump to the top of Artifacts every minute.
+only when its content changes, so it doesn't jump to the top of Artifacts every minute. Writing a file
+doesn't count as showing you its facts.
 
-About 5 minutes before a meeting (memory.brief_lead_mins), the tick emits brief.due once, with the link to its
-brief; the UI has Fuzz say it. That delivery counts as showing you the brief's facts (exposure, rule 6). Writing
-a file doesn't.
+Meeting briefs used to live here too; they were taken out until there's a better model for them. Files a
+store wrote for them (kind 'brief') are left alone on disk and no longer listed.
 """
 
 import hashlib
 import os
 import re
-from datetime import timedelta
 
-from .. import events, outputs, timeres
-from ..db import iso, parse_iso
+from .. import outputs
 from ..matching import entities
-from . import extract, facts, knowledge, mcards
+from . import facts, knowledge
 
-LEAD_MINS = 5
-BRIEF_AHEAD_HOURS = 24
 LABEL = {"confirmed": "", "authoritative": "", "reported": "", "inferred": " *(Fuzz's guess)*",
          "stale": " *(may be out of date)*"}
 CLOSED = ("done", "letgo", "merged")
@@ -61,12 +57,13 @@ def _write(core, kind, title, rel, body, meeting_key=None, starts_at=None):
 
 
 def files(core):
-    return [f for f in core.all("SELECT * FROM memory_files WHERE user_id=? ORDER BY updated_at DESC", (core.user_id,))
+    return [f for f in core.all("SELECT * FROM memory_files WHERE user_id=? AND kind!='brief' ORDER BY updated_at DESC",
+                                (core.user_id,))
             if os.path.isfile(f["path"])]
 
 
 def get_file(core, fid):
-    f = core.one("SELECT * FROM memory_files WHERE id=? AND user_id=?", (fid, core.user_id))
+    f = core.one("SELECT * FROM memory_files WHERE id=? AND user_id=? AND kind!='brief'", (fid, core.user_id))
     return f if f and os.path.isfile(f["path"]) else None
 
 
@@ -205,153 +202,18 @@ def decisions_md(core):
     return "\n".join(out).rstrip() + "\n"
 
 
-def meeting_key(m):
-    return f"{m['id']}@{m['start']}"
-
-
-def _attendee_ids(core, m):
-    me = core.config.get("me", {})
-    out = []
-    for p in m.get("attendees") or []:
-        if entities._is_me(p, me):
-            continue
-        eid = entities.lookup_person(core, p)
-        out.append((p, eid))
-    return out
-
-
-def wants_brief(core, m):
-    """Every meeting in onboarding mode; after that, one with someone new or something open with someone."""
-    if mcards.onboarding(core):
-        return True
-    for p, eid in _attendee_ids(core, m):
-        if eid is None or not last_seen(core, eid):
-            return True
-        if open_items(core, eid):
-            return True
-    return False
-
-
-def brief_md(core, m):
-    tz = timeres.local_tz(core)
-    start = parse_iso(m["start"]).astimezone(tz)
-    out = [f"# {m['title']}", "", start.strftime("%A %d %B, %H:%M"), ""]
-    people = _attendee_ids(core, m)
-    out += [f"## Who's coming ({len(people)})", ""]
-    shown, eids = [], []
-    for p, eid in people:
-        if eid:
-            s = person_summary(core, eid)
-            out += [_person_block(core, s, "###"), ""]
-            shown += [f["id"] for fs in s["facts"].values() for f in fs]
-            eids.append(eid)
-        else:
-            out += [f"### {p.get('name') or p.get('email')}", "- New to Fuzz: no record yet.", ""]
-    terms = likely_terms(core, eids)
-    if terms:
-        out += ["## Terms that may come up", ""]
-        for t in terms:
-            out.append(f"- **{t['name']}** — {t['line']}")
-            shown += t["fact_ids"]
-        out.append("")
-    earlier = series_notes(core, m)
-    if earlier:
-        out += ["## Last time", ""]
-        for k in earlier:
-            out += [f"**{(k['source_ts'] or k['captured_at'])[:10]}** — {k['summary_md']}", ""]
-    out.append("*Inferred facts are marked as Fuzz's guess. Ask Fuzz where any of this came from.*")
-    return "\n".join(out).rstrip() + "\n", shown
-
-
-def likely_terms(core, eids, days=30, limit=8):
-    """Terms that came up in messages with these people in the last month, most often first."""
-    if not eids:
-        return []
-    ids = [i for e in eids for i in facts.closure(core, e)]
-    since = iso(core.now() - timedelta(days=days))
-    rows = core.all(f"SELECT t.entity_id, COUNT(*) n FROM sightings t JOIN sightings p ON p.signal_key=t.signal_key AND "
-                    f"p.user_id=t.user_id WHERE t.user_id=? AND t.role='term' AND p.entity_id IN ({','.join('?' * len(ids))}) "
-                    f"AND t.ts>=? GROUP BY t.entity_id ORDER BY n DESC LIMIT ?", (core.user_id, *ids, since, limit))
-    out = []
-    for r in rows:
-        e = facts.entity(core, facts.follow(core, r["entity_id"]))
-        d = next((f for f in facts.for_entity(core, e["id"]) if f["state"] == "winner" and f["attr"] in ("definition", "what_it_is")), None)
-        out.append({"name": e["name"], "line": _fact_line(d) if d else "*not known yet*", "fact_ids": [d["id"]] if d else []})
-    return out
-
-
-def series_notes(core, m, limit=2):
-    title = facts.norm(m["title"])
-    rows = core.all("SELECT * FROM knowledge WHERE user_id=? AND kind='meeting' AND status='live' ORDER BY COALESCE(source_ts, captured_at) DESC",
-                    (core.user_id,))
-    return [k for k in rows if facts.norm(k["title"]) == title][:limit]
-
-
 def write_all(core):
-    """(Re)write the people map, the glossary, the decisions and the briefs for the next 24 hours."""
-    ids = {"people": _write(core, "people", "People", "People.md", people_md(core)),
-           "glossary": _write(core, "glossary", "Glossary", "Glossary.md", glossary_md(core)),
-           "decisions": _write(core, "decisions", "Decisions", "Decisions.md", decisions_md(core))}
-    briefs = []
-    now = core.now()
-    for m in upcoming(core, hours=float(_cfg(core).get("brief_ahead_hours", BRIEF_AHEAD_HOURS))):
-        if not wants_brief(core, m):
-            continue
-        body, _ = brief_md(core, m)
-        day = parse_iso(m["start"]).astimezone(timeres.local_tz(core)).strftime("%Y-%m-%d %H%M")
-        briefs.append(_write(core, "brief", f"Brief: {m['title']}", os.path.join("Briefs", f"{day} {_safe(m['title'])}.md"),
-                             body, meeting_key=meeting_key(m), starts_at=m["start"]))
-    ids["briefs"] = briefs
-    del now
-    return ids
-
-
-def upcoming(core, hours=24):
-    m = extract.meetings(core) or {}
-    now = core.now()
-    end = now + timedelta(hours=hours)
-    return sorted([x for x in m.get("meetings") or [] if now <= parse_iso(x["start"]) <= end], key=lambda x: x["start"])
-
-
-def brief_for(core, m):
-    """The brief's file for a meeting, brought up to date now (rewritten only if something changed)."""
-    body, _ = brief_md(core, m)
-    day = parse_iso(m["start"]).astimezone(timeres.local_tz(core)).strftime("%Y-%m-%d %H%M")
-    fid = _write(core, "brief", f"Brief: {m['title']}", os.path.join("Briefs", f"{day} {_safe(m['title'])}.md"), body,
-                 meeting_key=meeting_key(m), starts_at=m["start"])
-    return get_file(core, fid)
-
-
-def due(core):
-    """brief.due for each meeting starting within the lead time that wants a brief, once per meeting."""
-    lead = float(_cfg(core).get("brief_lead_mins", LEAD_MINS))
-    now = core.now()
-    sent = []
-    for m in upcoming(core, hours=lead / 60.0):
-        key = meeting_key(m)
-        if core.one("SELECT 1 FROM events WHERE user_id=? AND type='brief.due' AND json_extract(payload,'$.data.meeting_key')=?",
-                    (core.user_id, key)):
-            continue
-        if not wants_brief(core, m):
-            continue
-        f = brief_for(core, m)
-        _, shown = brief_md(core, m)
-        mins = max(int((parse_iso(m["start"]) - now).total_seconds() // 60), 0)
-        with core.tx("system"):
-            events.emit(core, "brief.due", data={"meeting_key": key, "title": m["title"], "start": m["start"],
-                                                 "in_mins": mins, "file_id": f"k{f['id']}",
-                                                 "url": f"artifact.html?id=k{f['id']}"})
-            facts.record_views(core, shown, "brief")
-        sent.append(key)
-    return sent
+    """(Re)write the people map, the glossary and the decisions."""
+    return {"people": _write(core, "people", "People", "People.md", people_md(core)),
+            "glossary": _write(core, "glossary", "Glossary", "Glossary.md", glossary_md(core)),
+            "decisions": _write(core, "decisions", "Decisions", "Decisions.md", decisions_md(core))}
 
 
 def tick(core):
-    """From the scheduler's tick: brief.due when one is close, and the files rewritten every few minutes."""
+    """From the scheduler's tick: the files rewritten every few minutes."""
     facts.ensure_migrated(core)
-    out = {"briefs_due": len(due(core))}
     last = getattr(core, "_memory_written", None)
     if last is None or (core.now() - last).total_seconds() >= 300:
         write_all(core)
         core._memory_written = core.now()
-    return out
+    return {}

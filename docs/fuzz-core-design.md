@@ -1610,7 +1610,7 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
     deliverable sheet.
 
 18. **Entities and knowledge** (steps 18 to 25): facts with provenance and trust, entity cards, extraction of facts,
-    terms and decisions, the `fuzz-recall` role and ask box, the decision log, and briefs. See
+    terms and decisions, the `fuzz-recall` role and ask box, and the decision log. See
     [`memory-layers.md`](memory-layers.md#build-order).
 
 ## Open questions

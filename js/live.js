@@ -178,26 +178,16 @@
   /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
   var MEMORY_KINDS = ['entity_person', 'entity_term', 'decision', 'fact_conflict'];
 
-  /* Memory's events, from the stream: a meeting's brief about to start, and the ask box's answers. Said once
-     each, and only while fresh (the stream replays the log when it connects). */
+  /* Memory's events, from the stream: the ask box's answers. Each taken once (the stream replays the log when
+     it connects). */
   var askWaiting = {}, memSaid = {};
   function memoryEvent(e) {
     if (!e || memSaid[e.id]) return;
     memSaid[e.id] = true;
-    var d = e.data || {}, age = Date.now() - Date.parse(e.ts);
+    var d = e.data || {};
     if (e.type === 'memory.answered') {
       var w = askWaiting[d.ask_id];
       if (w) { delete askWaiting[d.ask_id]; w(d); }
-      return;
-    }
-    if (e.type === 'brief.due' && age < 15 * 60000 && d.url) {
-      var seen = {};
-      try { seen = JSON.parse(localStorage.getItem('fuzz.briefs.said') || '{}'); } catch (x) {}
-      if (seen[d.meeting_key]) return;
-      seen[d.meeting_key] = Date.now();
-      try { localStorage.setItem('fuzz.briefs.said', JSON.stringify(seen)); } catch (x) {}
-      var mins = d.in_mins > 0 ? ' in ' + d.in_mins + ' min' : ' now';
-      Say.tell(d.title + mins + '. Here’s who’s coming.', { link: { label: 'Open the brief', href: d.url }, ms: 5 * 60000 });
     }
   }
 

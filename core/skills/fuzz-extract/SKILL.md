@@ -1,7 +1,7 @@
 ---
 name: fuzz-extract
 description: Run Fuzz extraction. Reads the person's email, Slack and meeting summaries since the last run with your own connectors, turns each ask into a signal, and judges which existing Fuzz task each ask belongs to. Use when asked to "run Fuzz extraction", "pull my asks into Fuzz" or "update Fuzz from email and Slack".
-prompt_version: extract-0.16
+prompt_version: extract-0.17
 ---
 
 # Fuzz extraction
@@ -13,7 +13,7 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
 
 ## Steps
 
-1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.16`). It returns the person's
+1. **`whoami`**, passing this skill's `prompt_version` (`extract-0.17`). It returns the person's
    names, email addresses, Slack IDs and the folders to read. Use these; never guess who they are.
 2. **`get_cursors`**: where to start reading each source. Read from there to now. A search filter
    that takes a day (Glean's `after`) leaves that day out, so pass the day **before** the cursor's
@@ -143,9 +143,6 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
    - `links`: open each doc or wiki page and send `{"kind": "reference", "link", "title", "summary_md"}`.
    - "How things work here" facts you met on the way (who approves what, which channel for what):
      `{"kind": "learning", "title", "summary_md"}`.
-   - `meetings.read_now`: read the calendar for the next `days` and send every meeting with `report_meetings`:
-     `[{"id", "title", "start", "end", "attendees": [{"name", "email"}], "series"}]`. Fuzz writes a brief
-     before each one.
    Skip what you can't reach and say so in your final message.
 
 ## Rules

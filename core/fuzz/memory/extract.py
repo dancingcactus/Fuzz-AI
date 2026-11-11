@@ -1,5 +1,5 @@
 """What the extractor hands memory: facts, terms, decisions and meeting summaries on signals, then a second pass
-(get_lookups, submit_facts, submit_knowledge, report_meetings) that fills in from context.
+(get_lookups, submit_facts, submit_knowledge) that fills in from context.
 
 Anything the core refuses (a person fact outside the allowlist, an unresolvable subject) doesn't fail the batch:
 it's recorded in memory_refusals with the reason, counted in the reply, and shown in the inspector.
@@ -8,8 +8,7 @@ it's recorded in memory_refusals with the reason, counted in the reply, and show
 import json
 from datetime import timedelta
 
-from .. import events
-from ..db import FuzzError, iso, parse_iso
+from ..db import FuzzError, iso
 from ..matching import entities, who
 from . import facts, knowledge
 
@@ -188,8 +187,7 @@ def lookups(core):
                 for d in core.all("SELECT * FROM decision_log WHERE user_id=? AND status IN ('recorded','proposed') "
                                   "ORDER BY id DESC LIMIT ?", (core.user_id, lim["decisions"]))],
             "known_terms": [r["name"] for r in core.all("SELECT name FROM entities WHERE user_id=? AND type IN ('term','tool') "
-                                                        "AND redirect_to IS NULL AND name IS NOT NULL ORDER BY name", (core.user_id,))],
-            "meetings": {"read_now": meetings_stale(core), "days": 2}}
+                                                        "AND redirect_to IS NULL AND name IS NOT NULL ORDER BY name", (core.user_id,))]}
 
 
 def settled_threads(core, limit=5):
@@ -276,49 +274,3 @@ def submit_knowledge(core, items):
         if r is not None:
             counts["knowledge" if r else "updated"] += 1
     return counts
-
-
-# ---------------------------------------------------------------- meetings, for briefs
-
-def meetings(core):
-    row = core.one("SELECT value FROM user_state WHERE user_id=? AND key='meetings'", (core.user_id,))
-    v = (row or {}).get("value")
-    return json.loads(v) if isinstance(v, str) and v.startswith("{") else None
-
-
-def meetings_stale(core):
-    """Read the calendar again: never read, older than 6 hours, or a meeting starts within 2 hours and the
-    report is more than an hour old (a meeting moved since then would keep its old brief time)."""
-    m = meetings(core)
-    if m is None:
-        return True
-    at = parse_iso(m["at"])
-    now = core.now()
-    if at < now - timedelta(hours=6):
-        return True
-    soon = any(now <= parse_iso(x["start"]) <= now + timedelta(hours=2) for x in m.get("meetings") or [])
-    return soon and at < now - timedelta(hours=1)
-
-
-def report_meetings(core, items, actor=None):
-    """The meetings in the next days, as read from the calendar with the AI's own connector:
-    [{id, title, start, end, attendees: [{name, email}], series?}]. Replaces the last report."""
-    if not isinstance(items, list):
-        raise FuzzError("meetings is a list of {id, title, start, end, attendees}", "meetings")
-    clean = []
-    for i, m in enumerate(items):
-        try:
-            a, b = parse_iso(m.get("start")), parse_iso(m.get("end"))
-        except (TypeError, ValueError, AttributeError):
-            a = b = None
-        if not m.get("id") or not a or not b or b < a:
-            raise FuzzError(f"meetings[{i}] needs id, start and end (ISO times)", f"meetings[{i}]")
-        people = [{k: p[k] for k in ("name", "email") if p.get(k)} for p in m.get("attendees") or [] if isinstance(p, dict)]
-        clean.append({"id": str(m["id"])[:200], "title": (m.get("title") or "").strip()[:200] or "Meeting",
-                      "start": iso(a), "end": iso(b), "attendees": people[:60],
-                      "series": (m.get("series") or None) and str(m["series"])[:200], "link": m.get("link")})
-    with core.tx(actor):
-        ch = events.Changes()
-        ch.state("meetings", json.dumps({"meetings": clean, "at": core.now_iso()}))
-        events.emit(core, "calendar.reported", changes=ch, data={"meetings": len(clean)})
-    return {"meetings": len(clean)}

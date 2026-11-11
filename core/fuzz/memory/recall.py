@@ -11,7 +11,7 @@ import uuid
 from .. import events
 from ..db import FuzzError
 from ..matching import entities
-from . import briefs, extract, facts, knowledge, mcards
+from . import briefs, facts, knowledge, mcards
 
 WORD = re.compile(r"[a-z0-9]+")
 STOP = set("a an and are as at be by did do does for from how i in is it its me my of on or our the this to "
@@ -171,21 +171,6 @@ def search(core, query, limit=10):
                        "about": entities.display_name(core.conn, facts.entity(core, facts.follow(core, f["entity_id"]))),
                        "attr": f["attr"], "value": f["value"]} for _, f in fs[:limit]],
             "decisions": w["decisions"], "knowledge": w["knowledge"]}
-
-
-def brief(core, meeting):
-    """A meeting's brief, by its title or id, from the meetings Fuzz last read."""
-    m = (extract.meetings(core) or {}).get("meetings") or []
-    q = facts.norm(meeting)
-    hit = next((x for x in m if x["id"] == meeting or facts.norm(x["title"]) == q), None) or \
-        next((x for x in m if q and q in facts.norm(x["title"])), None)
-    if not hit:
-        return {"found": False, "say": "Fuzz doesn't see that meeting in the calendar it last read."}
-    body, shown = briefs.brief_md(core, hit)
-    f = briefs.brief_for(core, hit)
-    facts.record_views(core, shown, "recall")
-    return {"found": True, "title": hit["title"], "start": hit["start"], "brief_md": body,
-            "url": f"artifact.html?id=k{f['id']}" if f else None}
 
 
 def correct(core, attr, value, fact_id=None, entity_id=None, name=None):

@@ -153,7 +153,7 @@ class App:
             ("GET", r"/inspect/decisions", self.inspect_decisions),
             ("GET", r"/inspect/runs", self.inspect_runs),
             ("GET", r"/inspect/runs/(\d+)", self.inspect_run),
-            ("GET", r"/inspect/briefs", self.inspect_briefs),
+            ("GET", r"/inspect/files", self.inspect_files),
             ("GET", r"/entities/(\d+)", self.entity_sheet),
             ("POST", r"/entities/(\d+)/facts", self.entity_edit),
             ("POST", r"/facts/(\d+)/(confirm|reject)", self.fact_action),
@@ -345,9 +345,9 @@ class App:
         from .memory import inspect
         return inspect.run_detail(core, int(m.group(1)))
 
-    def inspect_briefs(self, core, m, body, q):
+    def inspect_files(self, core, m, body, q):
         from .memory import inspect
-        return inspect.briefs_state(core)
+        return inspect.files_state(core)
 
     def entity_sheet(self, core, m, body, q):
         """A person or term sheet: what Fuzz knows, with sources and trust. Opening it counts as seeing its facts."""

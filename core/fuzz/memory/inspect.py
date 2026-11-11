@@ -8,7 +8,7 @@ import json
 
 from ..db import FuzzError, parse_iso
 from ..matching import entities, who
-from . import briefs, extract, facts, knowledge, mcards
+from . import briefs, facts, knowledge, mcards
 
 STATES = ("provisional", "stale", "disputed", "merged", "thin", "undefined")
 
@@ -245,23 +245,10 @@ def run_detail(core, run_id):
             "cards": made_cards, "held_by_cap": mcards.held(core)}
 
 
-def briefs_state(core):
-    m = extract.meetings(core) or {}
-    out = []
-    lead = float((core.config.get("memory") or {}).get("brief_lead_mins", briefs.LEAD_MINS))
-    from datetime import timedelta
-    for x in sorted(m.get("meetings") or [], key=lambda x: x["start"]):
-        key = briefs.meeting_key(x)
-        f = core.one("SELECT id, path, updated_at FROM memory_files WHERE user_id=? AND kind='brief' AND meeting_key=?",
-                     (core.user_id, key))
-        sent = core.one("SELECT id, ts FROM events WHERE user_id=? AND type='brief.due' AND json_extract(payload,'$.data.meeting_key')=?",
-                        (core.user_id, key))
-        out.append({"meeting": x, "key": key, "wants_brief": briefs.wants_brief(core, x),
-                    "fires_at": (parse_iso(x["start"]) - timedelta(minutes=lead)).isoformat(), "fired": sent,
-                    "file": dict(f, url=f"artifact.html?id=k{f['id']}") if f else None})
-    return {"read_at": m.get("at"), "read_now": extract.meetings_stale(core), "onboarding": mcards.onboarding(core),
-            "onboarding_from": mcards.onboarding_from(core).isoformat(), "card_cap": mcards.cap(core),
-            "cards_today": mcards.raised_today(core), "meetings": out,
+def files_state(core):
+    """The Knowledge files, with onboarding mode and today's memory cards."""
+    return {"onboarding": mcards.onboarding(core), "onboarding_from": mcards.onboarding_from(core).isoformat(),
+            "card_cap": mcards.cap(core), "cards_today": mcards.raised_today(core),
             "files": [dict(f, url=f"artifact.html?id=k{f['id']}") for f in briefs.files(core)]}
 
 

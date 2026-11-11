@@ -36,7 +36,7 @@ EVENT_TYPES = {
     "fact.added", "fact.confirmed", "fact.edited", "fact.rejected",
     "knowledge.added", "knowledge.rejected", "memory.linked",
     "decision.detected", "decision.recorded", "decision.rejected", "decision.reversed",
-    "brief.due", "memory.answered",
+    "brief.due", "memory.answered",   # brief.due: meeting briefs, since removed; kept so old logs replay
     "card.created", "card.answered", "card.postponed", "card.expired", "card.updated",
     "permission.asked", "permission.granted", "permission.denied",
     "checkin.due", "checkin.answered",

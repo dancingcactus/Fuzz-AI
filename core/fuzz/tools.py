@@ -483,11 +483,6 @@ def submit_knowledge(core, items):
     return out
 
 
-def report_meetings(core, meetings):
-    from .memory import extract
-    return extract.report_meetings(core, meetings, actor=core._actor or "fuzz:extractor")
-
-
 def who_is(core, name, record=True):
     """record: count it as shown to the person (exposure). Not when the executor looks it up for itself."""
     from .memory import recall
@@ -507,11 +502,6 @@ def why(core, question):
 def search_memory(core, query):
     from .memory import recall
     return recall.search(core, query)
-
-
-def meeting_brief(core, meeting):
-    from .memory import recall
-    return recall.brief(core, meeting)
 
 
 def correct(core, attr, value, fact_id=None, entity_id=None, name=None):
@@ -564,9 +554,9 @@ def report_calendar(core, slots, holds=None):
         raise FuzzError("holds is a list of {event_id, start?, end?, cancelled?}", "holds")
     return booking.report(core, slots, holds)
 EXTRACTOR = ("whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
-             "submit_facts", "submit_knowledge", "report_meetings")
+             "submit_facts", "submit_knowledge")
 SENDER = ("whoami", "claim_next_send", "mark_sent", "send_failed")
 SESSION = ("get_task", "read_source", "log_progress", "set_next_step", "add_source", "end_session")
-RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "meeting_brief", "correct")
-ASK = ("whoami", "who_is", "what_is", "why", "search_memory", "meeting_brief", "answer_ask")   # headless: no correct
+RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "correct")
+ASK = ("whoami", "who_is", "what_is", "why", "search_memory", "answer_ask")   # headless: no correct
 ROLES = {"executor": EXECUTOR, "extractor": EXTRACTOR, "sender": SENDER, "session": SESSION, "recall": RECALL, "ask": ASK}

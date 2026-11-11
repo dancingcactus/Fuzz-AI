@@ -299,20 +299,18 @@ def cmd_inspect(a):
         return _print(inspect.knowledge_list(core))
     if a.what == "decisions":
         return _print(inspect.decisions_list(core))
-    if a.what == "briefs":
-        return _print(inspect.briefs_state(core))
+    if a.what == "files":
+        return _print(inspect.files_state(core))
 
 
 def cmd_memory(a):
-    """Write the Knowledge/ files now, raise memory's cards, or emit any brief that's due."""
+    """Write the Knowledge/ files now or raise memory's cards."""
     from .memory import briefs, mcards
     core = _core(a)
     if a.op == "write":
         return _print(briefs.write_all(core))
     if a.op == "cards":
         return _print({"raised": mcards.raise_cards(core), "held": mcards.held(core)})
-    if a.op == "due":
-        return _print({"due": briefs.due(core)})
     if a.op == "people":
         from .matching import who
         return _print({"applied": a.apply, "plan": who.settle(core, apply=a.apply)})
@@ -598,9 +596,9 @@ def parser():
     s.add_argument("--follow-up", choices=["take_5", "hold_rest", "quick_first"])
     s.set_defaults(fn=cmd_checkin)
 
-    s = sub.add_parser("inspect", help="memory's inspector, read-only: entities, facts, runs, briefs (JSON)")
+    s = sub.add_parser("inspect", help="memory's inspector, read-only: entities, facts, runs, files (JSON)")
     s.add_argument("what", choices=["overview", "entities", "entity", "fact", "why-not", "run", "knowledge", "decisions",
-                                    "briefs"])
+                                    "files"])
     s.add_argument("args", nargs="*")
     s.add_argument("--at", help="work trust out at this date (nothing is saved)")
     s.add_argument("--type")
@@ -608,8 +606,8 @@ def parser():
     s.add_argument("--state")
     s.set_defaults(fn=cmd_inspect)
 
-    s = sub.add_parser("memory", help="memory: write the Knowledge files, raise its cards, emit due briefs, settle name-only people")
-    s.add_argument("op", choices=["write", "cards", "due", "people"])
+    s = sub.add_parser("memory", help="memory: write the Knowledge files, raise its cards, settle name-only people")
+    s.add_argument("op", choices=["write", "cards", "people"])
     s.add_argument("--apply", action="store_true", help="people: carry out the plan (without it, only show it)")
     s.set_defaults(fn=cmd_memory)
 
