@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADHD Pass Spike</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg" id="favicon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="adhd.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>ADHD pass: mockups</h1>
+    <p>Each screen answers a finding from the ADHD review. Nothing here talks to the core and nothing is saved. Keys work
+      the way the screen says they do. The numbers in <b>What changed</b> are the review's numbers.</p>
+  </header>
+
+  <div class="toolbar">
+    <label>Theme <select id="themeSel"></select></label>
+    <label>Mode <select id="modeSel"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+  </div>
+
+  <nav class="screens" role="tablist" aria-label="Screens">
+    <button role="tab" data-go="arrive">Arrival</button>
+    <button role="tab" data-go="plain">Task card</button>
+    <button role="tab" data-go="card">Question card</button>
+    <button role="tab" data-go="draft">Draft card</button>
+    <button role="tab" data-go="handback">Handed back</button>
+    <button role="tab" data-go="comeback">Coming back</button>
+    <button role="tab" data-go="checkback">Check-back</button>
+    <button role="tab" data-go="entity">Entity checks</button>
+    <button role="tab" data-go="lineup">Lineup</button>
+    <button role="tab" data-go="keys">Keys</button>
+    <button role="tab" data-go="capture">New task</button>
+  </nav>
+
+  <!-- ===== The app frame ===== -->
+  <section class="frame" aria-label="Mockup">
+    <div class="bar">
+      <span class="logo"><span class="mini" aria-hidden="true"></span>Fuzz</span>
+      <span class="nav"><b data-go="card">Triage</b><span data-go="lineup">Lineup</span><span>Artifacts</span></span>
+      <span class="ticks" id="ticks" aria-label="Cleared this session"></span>
+      <span class="right"><span class="btn small">+ New task</span><span class="btn small quietbtn">Undo</span></span>
+    </div>
+
+    <div class="perch">
+      <div class="pwrap" id="pwrap"></div>
+      <div class="bubble" role="status" aria-live="polite"><span class="line" id="say"></span></div>
+    </div>
+
+    <!-- Arrival -->
+    <div class="scr" data-screen="arrive" hidden>
+      <article class="card">
+        <p class="eyebrow">While you were away</p>
+        <h2>Two things finished, one came back.</h2>
+        <ul class="recap">
+          <li><span class="ic ok">✓</span><span><b>Room for Thursday</b> is booked. The invite went out.</span></li>
+          <li><span class="ic ok">✓</span><span><b>Reply to Marcus</b> is drafted and waiting for your OK.</span></li>
+          <li><span class="ic wait">↩</span><span><b>Dashboard filter bug</b> came back. I need one answer from you.</span></li>
+          <li class="quiet"><span class="ic">…</span><span>Still working on two. Nothing needs you there.</span></li>
+        </ul>
+        <div class="pick-line">
+          <p class="lbl">Start with</p>
+          <p class="big">Is it 14 or 16 people?</p>
+          <p class="meta">Marcus needs it before the end of the day, so I put it first.</p>
+        </div>
+        <div class="row">
+          <button class="btn primary grow" data-act="start">Start here <kbd>Enter</kbd></button>
+          <button class="btn" data-act="other">Something else <kbd>O</kbd></button>
+        </div>
+        <div class="other" id="other" hidden>
+          <label for="otherq" class="lbl">What do you want to start with?</label>
+          <input id="otherq" class="field" placeholder="A task, a person, or “something light”">
+          <p class="meta small">Enter picks the best match. Esc puts it away.</p>
+        </div>
+      </article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#7</b> Arriving shows what happened first. You don't have to decide anything before you have the context.</li>
+        <li><b>#7</b> Fuzz names one card to start with and says why. Enter takes it, the same way Deep Work starts.</li>
+        <li>The session focus question moves behind <b>Something else</b>, so it's still one key away.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Task card -->
+    <div class="scr" data-screen="card" hidden>
+      <div class="upnext" id="upnext" hidden>
+        <span class="mini" aria-hidden="true"></span>
+        <span><b>Reply to Marcus</b> is ready for your OK. It's next, after this one.</span>
+      </div>
+      <article class="card" id="taskcard">
+        <p class="eyebrow">Slack · Marcus <span class="pill pill--accent">Before end of day</span></p>
+        <h2>Is it 14 or 16 people?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>14 said yes and 2 said maybe. The venue wants one number.</p>
+
+        <div class="answers" role="group" aria-label="Answer and hand it to Fuzz">
+          <button class="ans primary" data-ans="16">
+            <span class="k">1</span><span><b>16, count the maybes</b><small>I'll tell the venue 16 and let Marcus know.</small></span></button>
+          <button class="ans" data-ans="14">
+            <span class="k">2</span><span><b>14, confirmed only</b><small>I'll tell the venue 14 and ask the maybes to confirm.</small></span></button>
+          <button class="ans" data-ans="other">
+            <span class="k">3</span><span><b>Something else</b><small>Tell me in your own words.</small></span></button>
+        </div>
+
+        <button class="linkbtn inline addnote" type="button" data-act="note">Tell Fuzz something <kbd>E</kbd></button>
+        <div class="instr" id="instr" hidden>
+          <label for="instrbox" class="lbl">Tell Fuzz</label>
+          <textarea id="instrbox" rows="3" placeholder="For example: 16, and copy Ines on the venue email"></textarea>
+          <p class="typing" id="typinghint" hidden>You're typing. <kbd>⌘ Enter</kbd> hands it over as is. <kbd>Esc</kbd> keeps your note, then any answer or action takes it along.</p>
+          <button class="btn primary" data-act="assignbox">Hand it to Fuzz <kbd class="needbox">⌘ Enter</kbd></button>
+        </div>
+
+        <div class="others" id="others">
+          <button class="btn" data-act="later">Later <kbd>S</kbd></button>
+          <button class="btn" data-act="done">I did it <kbd>D</kbd></button>
+          <button class="btn" data-act="claude">Work in Claude <kbd>C</kbd></button>
+          <button class="btn quietbtn" data-act="keys" aria-label="Keys for this card">? </button>
+        </div>
+        <div class="times" id="times" hidden>
+          <button class="btn" data-time="In 30 minutes"><kbd>1</kbd> In 30 minutes</button>
+          <button class="btn" data-time="An hour before it's due"><kbd>2</kbd> An hour before it's due</button>
+          <button class="btn" data-time="When you're back at your desk"><kbd>3</kbd> Back at my desk</button>
+          <button class="btn quietbtn" data-time="exact"><kbd>4</kbd> Exact time</button>
+        </div>
+
+        <details class="more" id="more">
+          <summary>Details <span class="meta">first step, people, sources</span> <kbd>I</kbd></summary>
+          <p><span class="lbl">Smallest first step · two minutes</span><br>Open the RSVP sheet and look at the Maybe column.</p>
+          <p><span class="lbl">Why it matters</span><br>The venue locks the booking once it has a number.</p>
+          <p><span class="lbl">People</span><br>Marcus Webb asked. Ines Ortega is in the thread.</p>
+          <p><span class="lbl">Sources</span><br>Slack #offsite-planning · RSVP sheet</p>
+        </details>
+
+        <div class="keyspop" id="keyspop" hidden>
+          <p class="lbl">Keys on this card</p>
+          <p><kbd>1</kbd>–<kbd>3</kbd> answer · <kbd>E</kbd> tell Fuzz something · <kbd>S</kbd> later · <kbd>D</kbd> I did it · <kbd>C</kbd> Claude · <kbd>I</kbd> details · <kbd>T</kbd> park a thought</p><p>Behind the arrows: <kbd>B</kbd> book time · <kbd>P</kbd> park it · <kbd>W</kbd> waiting on someone · <kbd>X</kbd> not mine</p>
+        </div>
+      </article>
+
+      <article class="card done-card" id="donecard" hidden>
+        <p class="eyebrow">Handed to Fuzz</p>
+        <h2 id="donetitle">Telling the venue 16.</h2>
+        <p class="meta" id="donemeta">You'll hear from me if anything changes. Undo is in the header.</p>
+        <div class="row"><button class="btn primary grow" data-act="reset">Next card <kbd>Enter</kbd></button></div>
+      </article>
+
+      <div class="sim">
+        <span class="meta">Try it:</span>
+        <button class="btn small" data-act="draftback">A draft comes back now</button>
+        <span class="meta small">The card you're on stays where it is. Before, this left the card on screen not responding (#1).</span>
+      </div>
+
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#3</b> The question is answered on the card. Each answer is also the instruction, so one key decides it and hands it over.</li>
+        <li><b>#2</b> Nothing starts in a text box. The keys always do what their labels say. When you choose <b>Something else</b>, the labels fade, a line says you're typing, and <kbd>⌘ Enter</kbd> hands it over.</li>
+        <li><b>Tell Fuzz (E)</b> works with any answer. Write "and copy Ines", press <kbd>Esc</kbd>, then <kbd>1</kbd>: Fuzz tells the venue 16 and follows your note. It's the same on every card.</li>
+        <li><b>#4</b> The card shows the source, the question, what Fuzz found, the answers and three other moves. The context, first step, people and sources fold under Details.</li>
+        <li>The split buttons stay: <b>Book time</b> behind Later and <b>Clear it another way</b> behind I did it.</li>
+        <li>There's no separate Find out. Choose <b>Something else</b> and ask: “who’s still a maybe?” Because it's a question, Fuzz finds out and brings the card back with the answer, and he says so when you hand it over.</li>
+        <li><b>#1</b> A finished draft never takes the card you're looking at. It waits as a quiet line above and comes next.</li>
+        <li><b>#5</b> The header shows what you cleared, with no empty slots for what's left.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Plain task card: nothing to choose between, so the move is handing it over -->
+    <div class="scr" data-screen="plain" hidden>
+      <article class="card" id="plaincard">
+        <p class="eyebrow">Meeting · Team retro <span class="pill pill--muted">About 20 min</span></p>
+        <h2>Update the experiment naming guide</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>I found the three rules in the retro notes, and the current guide is in the team drive.</p>
+
+        <div class="plan" id="plan">
+          <p class="lbl">I'll do this</p>
+          <p class="plantext" id="plantext">Add the three naming rules from the retro to the guide, then share it in #experimentation.</p>
+          <button class="linkbtn inline" type="button" data-act="edit">Change what I'll do <kbd>E</kbd></button>
+        </div>
+        <div class="instr" id="planedit" hidden>
+          <label for="planbox" class="lbl">I'll do this</label>
+          <textarea id="planbox" rows="3"></textarea>
+          <p class="typing">You're typing. <kbd>⌘ Enter</kbd> hands it to Fuzz, <kbd>Esc</kbd> keeps your changes and brings the keys back.</p>
+        </div>
+
+        <div class="row">
+          <button class="btn primary grow" data-act="assign">Hand it to Fuzz <kbd>A</kbd></button>
+        </div>
+        <div class="others">
+          <button class="btn" data-act="later">Later <kbd>S</kbd></button>
+          <button class="btn" data-act="done">I did it <kbd>D</kbd></button>
+          <button class="btn" data-act="claude">Work in Claude <kbd>C</kbd></button>
+          <button class="btn quietbtn" data-act="keys" aria-label="Keys for this card">?</button>
+        </div>
+        <div class="times" id="ptimes" hidden>
+          <button class="btn" data-time="In 30 minutes"><kbd>1</kbd> In 30 minutes</button>
+          <button class="btn" data-time="Later today"><kbd>2</kbd> Later today</button>
+          <button class="btn" data-time="When you're back at your desk"><kbd>3</kbd> Back at my desk</button>
+          <button class="btn quietbtn" data-time="exact"><kbd>4</kbd> Exact time</button>
+        </div>
+
+        <details class="more" id="pmore">
+          <summary>Details <span class="meta">first step, people, sources</span> <kbd>I</kbd></summary>
+          <p><span class="lbl">Smallest first step · two minutes</span><br>Open the guide and add one line for the first rule.</p>
+          <p><span class="lbl">Where it came from</span><br>In the team retro you said you'd refresh the guide so new experiments follow one pattern.</p>
+          <p><span class="lbl">Done when</span><br>The guide has the three rules and the team has seen it.</p>
+          <p><span class="lbl">Sources</span><br>Retro notes · Current naming guide</p>
+        </details>
+
+        <div class="keyspop" id="pkeyspop" hidden>
+          <p class="lbl">Keys on this card</p>
+          <p><kbd>A</kbd> hand it to Fuzz · <kbd>E</kbd> change what I'll do · <kbd>S</kbd> later · <kbd>D</kbd> I did it · <kbd>C</kbd> Claude · <kbd>I</kbd> details · <kbd>T</kbd> park a thought</p><p>Behind the arrows: <kbd>B</kbd> book time · <kbd>P</kbd> park it · <kbd>W</kbd> waiting on someone · <kbd>X</kbd> not mine</p>
+        </div>
+      </article>
+
+      <article class="card done-card" id="pdonecard" hidden>
+        <p class="eyebrow">Handed to Fuzz</p>
+        <h2 id="pdonetitle">On the naming guide.</h2>
+        <p class="meta" id="pdonemeta">I'll bring you the draft before anything is shared. Undo is in the header.</p>
+        <div class="row"><button class="btn primary grow" data-act="reset">Next card <kbd>Enter</kbd></button></div>
+      </article>
+
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#3</b> When there's nothing to choose between, the headline is the task itself, not a question the buttons can't answer. The decision is whether to hand it over, so <b>Hand it to Fuzz</b> is the main button.</li>
+        <li><b>#2</b> Fuzz's instructions are plain text under "I'll do this", so <kbd>A</kbd>, <kbd>S</kbd> and <kbd>D</kbd> work from the start. <kbd>E</kbd> makes them editable, with the same "you're typing" line and <kbd>⌘ Enter</kbd> as the question card. <kbd>Esc</kbd> keeps your changes.</li>
+        <li>No Find out mode. Change what I'll do into a question (“does the team still use the old prefix?”) and hand it over: Fuzz finds out and brings the card back with the answer, and he says which he's doing as you hand it over.</li>
+        <li>The split buttons stay. <b>Book time</b> is behind Later, and <b>Clear it another way</b> (Do it now, After the others, Park it, Waiting on someone, Not mine) is behind I did it. Their keys work without opening the menu.</li>
+        <li><b>#4</b> The layout matches the question card: source, task, what Fuzz found, the plan and four moves. The first step, where it came from, done-when and sources fold under Details.</li>
+        <li><b>#6</b> <kbd>E</kbd> means edit here and on drafts, so the letter means the same thing everywhere.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Draft card -->
+    <div class="scr" data-screen="draft" hidden>
+      <article class="card">
+        <p class="eyebrow">Slack · Marcus <span class="pill pill--ok">Needs your OK</span></p>
+        <h2>Send this to Marcus?</h2>
+        <p class="to">To <b>Marcus</b> in #offsite-planning</p>
+        <textarea class="draftbox" rows="3">Hi Marcus, final count for the offsite is 16. I'll send an update if either of the maybes drops out. Thanks!</textarea>
+        <p class="found"><span class="mini" aria-hidden="true"></span>I used your answer, 16, and kept it short.</p>
+        <div class="row">
+          <button class="btn primary grow" data-act="send">Approve and send</button>
+        </div>
+        <div class="others">
+          <button class="btn" data-act="change">Ask Fuzz to change it <kbd>E</kbd></button>
+          <button class="btn" data-act="notnow">Not now <kbd>S</kbd></button>
+        </div>
+        <div class="instr" id="changebox" hidden>
+          <label class="lbl" for="changeq">What should change?</label>
+          <input id="changeq" class="field" placeholder="For example: mention the vegetarian count">
+          <p class="typing">You’re typing. <kbd>Esc</kbd> keeps it. Approve and send, or Not now, and Fuzz makes the change first.</p>
+        </div>
+        <p class="meta small">Nothing goes out until you approve it. Sending never has a single key.</p>
+      </article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#4</b> There's one line about what Fuzz did. "Where you left off", "What Fuzz did" and the old first step ("Open the RSVP sheet") no longer stack up on an approval.</li>
+        <li><b>Mark done</b> (you send it yourself) stays behind the arrow on Approve and send, on <kbd>D</kbd>.</li>
+        <li><b>#6</b> <kbd>E</kbd> (edit) asks for a change and <kbd>S</kbd> means not now, the same as Later everywhere else. <kbd>R</kbd> and <kbd>L</kbd> mean one thing each again.</li>
+      </ul></aside>
+    </div>
+
+    <!-- ===== Shared-engine cards (adhd.js "gen"): numbered answers, letter keys from data-key,
+         data-title / data-say finish the card, data-open shows a panel in the card ===== -->
+
+    <!-- Handed back -->
+    <div class="scr genscr" data-screen="handback" hidden>
+      <article class="card gen" data-v="owner" data-line="Lost the signal on this one. One answer and I’m back on it." data-mood="sheepish">
+        <p class="eyebrow">Slack · Jules <span class="pill pill--muted">Back with you</span></p>
+        <h2>Who should I ask about the filter bug?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>Ines and Tomas both changed the filter code last month. I can’t tell which of them owns it now.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="Asking Ines." data-say="On it. I’ll ask Ines and tag you if she hasn’t answered by tomorrow."><span class="k"></span><span><b>Ask Ines</b><small>She’s on the team. I’ll tag you if she hasn’t answered by tomorrow.</small></span></button>
+          <button class="ans" data-title="Asking Tomas." data-say="On it. I’ll ask Tomas and tag you if he hasn’t answered by tomorrow."><span class="k"></span><span><b>Ask Tomas</b><small>He’s on contract. Same plan.</small></span></button>
+          <button class="ans" data-title="It’s yours now." data-sub="It’s under Yours in Lineup. I’ve stopped working on it." data-say="Okay, it’s yours. Everything I found is in Details."><span class="k"></span><span><b>I’ll sort it myself</b><small>It moves to Yours. I stop working on it.</small></span></button>
+          <button class="ans" data-open=".gen-box"><span class="k"></span><span><b>Something else</b><small>Tell me in your own words.</small></span></button>
+        </div>
+        <div class="instr gen-box" hidden>
+          <label class="lbl">Tell Fuzz</label>
+          <textarea rows="3" placeholder="For example: ask the team lead instead"></textarea>
+          <p class="typing">You’re typing. <kbd>⌘ Enter</kbd> hands it back to Fuzz, <kbd>Esc</kbd> brings the keys back.</p>
+          <button class="btn primary" data-submit data-title="Back with Fuzz." data-say="Got it. I’ll go with what you said.">Hand it back to Fuzz <kbd>⌘ Enter</kbd></button>
+        </div>
+        <div class="others">
+          <button class="btn" data-key="s" data-title="Back later." data-say="Okay. I’ll bring it back when you’re back at your desk.">Later <kbd>S</kbd></button>
+          <button class="btn" data-key="l" data-title="Let go." data-say="Okay.">Let it go <kbd>L</kbd></button>
+        </div>
+        <details class="more"><summary>Details <span class="meta">what I did, sources</span> <kbd>I</kbd></summary>
+          <p><span class="lbl">Done so far</span><br>Found the open ticket and the code that resets the filters. Checked who changed it in the last month.</p>
+          <p><span class="lbl">Sources</span><br>Ticket: Saved filters reset after refresh · Slack thread in #dashboards</p>
+        </details>
+      </article>
+      <article class="card done-card gen-done" hidden><p class="eyebrow">Done</p><h2 class="gt"></h2><p class="meta gm"></p>
+        <div class="row"><button class="btn primary grow" data-gen="reset">Next card <kbd>Enter</kbd></button></div></article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li>Behind Later, <b>Clear it another way</b> keeps the ways that don't fit: Book time, Park it, Waiting on someone and Not mine.</li>
+        <li><b>#3</b> Fuzz’s either/or is the answers themselves, one key each. Taking it back yourself is one of them, not a separate menu.</li>
+        <li><b>#4</b> The card leads with the question, not with Fuzz getting stuck. One line says why. What he already did folds under Details.</li>
+        <li>Fuzz apologises once, in his bubble (tone rule 10). The card doesn't apologise again.</li>
+        <li><b>#2</b> Nothing starts in a box. <b>Something else</b> opens one, with the same typing line as the other cards.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Coming back: one family, four variants, one set of keys -->
+    <div class="scr genscr" data-screen="comeback" hidden>
+      <div class="variants" role="group" aria-label="Variant">
+        <button data-v="stale" aria-pressed="true">Stale</button>
+        <button data-v="putoff" aria-pressed="false">Keeps coming back</button>
+        <button data-v="stalled" aria-pressed="false">Stuck in Deep Work</button>
+        <button data-v="unpicked" aria-pressed="false">Not getting picked</button>
+      </div>
+
+      <article class="card gen" data-v="stale" data-note-ph="For example: only if it's quick" data-line="This one’s been quiet for a while. Does it still matter?" data-mood="caring">
+        <p class="eyebrow">Meeting · Team retro <span class="pill pill--muted">Quiet for a while</span></p>
+        <h2>Does the naming guide still matter?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>Nothing new has come up since the retro, and nobody has asked about it.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="On the naming guide." data-say="On it. I’ll draft it from the retro notes and bring it to you first."><span class="k"></span><span><b>Hand it to me</b><small>I’ll draft the guide from the retro notes. You see it before anyone else.</small></span></button>
+          <button class="ans" data-title="Made it smaller." data-say="Smaller, then: just the first rule. Back in your queue for later."><span class="k"></span><span><b>Make it smaller</b><small>Just add the first rule. The rest can wait.</small></span></button>
+        </div>
+        <div class="others fixed">
+          <button class="btn" data-key="k" data-title="Kept." data-say="Kept. I won’t ask again for a while.">It still matters <kbd>K</kbd></button>
+          <button class="btn" data-key="s" data-title="Back later." data-say="Okay. I’ll bring it back next week.">Later <kbd>S</kbd></button>
+          <button class="btn" data-key="l" data-title="Let go." data-say="Okay.">Let it go <kbd>L</kbd></button>
+        </div>
+      </article>
+
+      <article class="card gen" data-v="putoff" data-line="This one keeps coming back. That usually means the next step isn’t clear." data-mood="caring" hidden>
+        <p class="eyebrow">Captured by you <span class="pill pill--muted">Keeps coming back</span></p>
+        <h2>What’s in the way of the vendor review?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>It doesn't say which list, or what to do once it's reviewed. That makes it hard to start.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="Working out the first step." data-say="On it. I’ll find the list and write you a two-minute first step."><span class="k"></span><span><b>Help me start</b><small>I’ll find the list and write a two-minute first step.</small></span></button>
+          <button class="ans" data-title="On the vendor review." data-say="On it. I’ll flag anything renewing this quarter and bring you the list."><span class="k"></span><span><b>Hand it to me</b><small>I’ll go through it and flag what renews this quarter.</small></span></button>
+          <button class="ans" data-open=".gen-box"><span class="k"></span><span><b>Something else</b><small>Tell me what’s in the way.</small></span></button>
+        </div>
+        <div class="instr gen-box" hidden>
+          <label class="lbl">What’s in the way?</label>
+          <textarea rows="3" placeholder="For example: I need finance’s list first"></textarea>
+          <p class="typing">You’re typing. <kbd>⌘ Enter</kbd> hands it to Fuzz, <kbd>Esc</kbd> brings the keys back.</p>
+          <button class="btn primary" data-submit data-title="Got it." data-say="Thanks. I’ll work around that.">Tell Fuzz <kbd>⌘ Enter</kbd></button>
+        </div>
+        <div class="others fixed">
+          <button class="btn" data-key="k" data-title="Kept." data-say="Kept, as it is. I’ll stop asking for now.">It still matters <kbd>K</kbd></button>
+          <button class="btn" data-key="s" data-title="Back later." data-say="Okay. I’ll bring it back next week.">Later <kbd>S</kbd></button>
+          <button class="btn" data-key="l" data-title="Let go." data-say="Okay.">Let it go <kbd>L</kbd></button>
+        </div>
+      </article>
+
+      <article class="card gen" data-v="stalled" data-note-ph="For example: Sam already confirmed the date" data-line="This one keeps getting stuck in the same place. Here’s a way to split it." data-mood="caring" hidden>
+        <p class="eyebrow">From Deep Work <span class="pill pill--muted">Getting stuck</span></p>
+        <h2>Split the Q3 outline?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>It keeps stalling at the Risks section. Here’s how I’d split it.</p>
+        <ul class="splitlist">
+          <li><span class="who">You, in Deep Work</span>Write the Risks section · about 20 min</li>
+          <li><span class="who">Me</span>Draft the timeline from last quarter’s doc</li>
+          <li><span class="who">Triage</span>Confirm the review date with Sam</li>
+        </ul>
+        <div class="answers">
+          <button class="ans primary" data-title="Split in three." data-say="Done. Your part is in Deep Work, mine is started, and Sam’s is in Triage."><span class="k"></span><span><b>Split it like this</b><small>Each part goes where it belongs.</small></span></button>
+          <button class="ans" data-title="On the Q3 outline." data-say="On it. I’ll draft all of it, and you mark it up."><span class="k"></span><span><b>Hand it all to me</b><small>I draft, you mark up.</small></span></button>
+        </div>
+        <div class="others fixed">
+          <button class="btn" data-key="k" data-title="Kept." data-say="Kept as one task. It stays in Deep Work.">It still matters <kbd>K</kbd></button>
+          <button class="btn" data-key="s" data-title="Decide later." data-say="Okay. It waits for your next triage.">Later <kbd>S</kbd></button>
+          <button class="btn" data-key="l" data-title="Let go." data-say="Okay.">Let it go <kbd>L</kbd></button>
+        </div>
+      </article>
+
+      <article class="card gen" data-v="unpicked" data-note-ph="For example: start from last year's FAQ" data-line="This one hasn’t been getting picked. Maybe it’s too big to start." data-mood="caring" hidden>
+        <p class="eyebrow">From Deep Work <span class="pill pill--muted">Not getting picked</span></p>
+        <h2>Make the onboarding FAQ easier to start?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>It's come up in Deep Work, and something else always looked better. That's normal for a blank page.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="I’ll take the first pass." data-say="On it. I’ll write a rough first pass, and you only correct it."><span class="k"></span><span><b>I draft, you mark up</b><small>Correcting is easier than starting from blank.</small></span></button>
+          <button class="ans" data-title="On the onboarding FAQ." data-say="On it. I’ll write it and bring it to you to approve."><span class="k"></span><span><b>Hand it all to me</b><small>You approve it at the end.</small></span></button>
+        </div>
+        <div class="others fixed">
+          <button class="btn" data-key="k" data-title="Kept." data-say="Kept. It stays in Deep Work as it is.">It still matters <kbd>K</kbd></button>
+          <button class="btn" data-key="s" data-title="Decide later." data-say="Okay. It waits for your next triage.">Later <kbd>S</kbd></button>
+          <button class="btn" data-key="l" data-title="Let go." data-say="Okay.">Let it go <kbd>L</kbd></button>
+        </div>
+      </article>
+
+      <article class="card done-card gen-done" hidden><p class="eyebrow">Done</p><h2 class="gt"></h2><p class="meta gm"></p>
+        <div class="row"><button class="btn primary grow" data-gen="reset">Next card <kbd>Enter</kbd></button></div></article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li>Behind Later, <b>Clear it another way</b> has Book time, Park it and Not mine, for cards where none of Fuzz's proposals fit.</li>
+        <li><b>#6</b> These four cards share one layout and one set of keys. Fuzz's ways forward are numbered, and <b>It still matters (K)</b>, <b>Later (S)</b> and <b>Let it go (L)</b> sit in the same row on every one.</li>
+        <li><b>#6</b> <kbd>H</kbd> (help me start) is gone. It's now choice 1 where it applies. Deep Work's "Decide later" is just Later.</li>
+        <li>Each card names the pattern without counting ("keeps coming back", not "rescheduled 3 times"), then offers a way forward first. Letting go gets a calm "Okay." (tone rule 5).</li>
+        <li>The Deep Work cards appear in Triage the same way as the others, so there's nothing new to learn.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Check-back -->
+    <div class="scr genscr" data-screen="checkback" hidden>
+      <article class="card gen" data-v="budget" data-note-ph="For example: she's out until Monday" data-line="Checking in on something you’re waiting for." data-mood="idle">
+        <p class="eyebrow">Email · Dana Reyes <span class="pill pill--muted">Waiting on Dana</span></p>
+        <h2>Has Dana approved the offsite budget?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>You asked her on Tuesday. I haven't seen a reply, so I drafted a short nudge.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="Approved." data-say="Nice. I’ll mark it done, and the venue booking is next."><span class="k"></span><span><b>She got back to me</b><small>I’ll mark it done and move on to booking the venue.</small></span></button>
+          <button class="ans" data-open=".nudge"><span class="k"></span><span><b>Nudge her</b><small>Shows my draft. Nothing sends until you approve it.</small></span></button>
+          <button class="ans" data-title="It’s yours again." data-sub="It’s under Yours in Lineup." data-say="Okay. I’ve stopped waiting on Dana."><span class="k"></span><span><b>Stop waiting, it’s mine again</b><small>It moves back to Yours.</small></span></button>
+        </div>
+        <div class="nudge" hidden>
+          <p class="to">To <b>Dana Reyes</b> by email</p>
+          <textarea class="draftbox" rows="3">Hi Dana, a gentle nudge on the offsite budget. I'd like to book the venue by Friday, and your approval is the last step. Thanks!</textarea>
+          <div class="row"><button class="btn primary grow" data-title="Nudge sent." data-sub="I’ll check again on Friday." data-say="Sent. I’ll check again on Friday.">Approve and send</button></div>
+          <p class="meta small">Sending never has a single key.</p>
+        </div>
+        <div class="others">
+          <button class="btn" data-key="s" data-title="Checking again later." data-say="Okay. I’ll check again tomorrow morning.">Check again later <kbd>S</kbd></button>
+        </div>
+      </article>
+      <article class="card done-card gen-done" hidden><p class="eyebrow">Done</p><h2 class="gt"></h2><p class="meta gm"></p>
+        <div class="row"><button class="btn primary grow" data-gen="reset">Next card <kbd>Enter</kbd></button></div></article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li>Behind Check again later, <b>Clear it another way</b> has Park it and Not mine.</li>
+        <li><b>#6</b> <kbd>G</kbd> (they got back to you) and <kbd>U</kbd> (nudge them) become choices 1 and 2. <kbd>U</kbd> also meant Undo in Deep Work.</li>
+        <li>The nudge opens on the card, ready to edit, and still needs a click to send. The card never says “nudge drafted, needs your OK” as a status.</li>
+        <li>It says when you asked (“on Tuesday”) rather than counting days.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Entity checks -->
+    <div class="scr genscr" data-screen="entity" hidden>
+      <div class="variants" role="group" aria-label="Variant">
+        <button data-v="person" aria-pressed="true">Person</button>
+        <button data-v="term" aria-pressed="false">Term</button>
+        <button data-v="dup" aria-pressed="false">Possible duplicate</button>
+      </div>
+
+      <article class="card gen" data-v="person" data-line="Hm. One thing I can’t work out on my own." data-mood="puzzled">
+        <p class="eyebrow">Helps me match tasks <span class="pill pill--muted">About a minute</span></p>
+        <h2>Is Dana in Slack the same person as Dana Reyes in email?</h2>
+        <div class="profiles">
+          <div><span class="lbl">Slack</span><b>Dana</b><span class="meta small">Display name only, in #offsite-planning</span></div>
+          <div><span class="lbl">Email</span><b>Dana Reyes</b><span class="meta small">Finance team, on the budget thread</span></div>
+        </div>
+        <div class="answers">
+          <button class="ans primary" data-title="Same person." data-say="Thanks. I’ve joined them up and linked three tasks."><span class="k"></span><span><b>Same person</b><small>I’ll combine their history and link three open tasks.</small></span></button>
+          <button class="ans" data-title="Different people." data-say="Thanks. I’ll keep them apart and stop asking."><span class="k"></span><span><b>Different people</b><small>I’ll stop asking about this name.</small></span></button>
+          <button class="ans" data-title="Not sure yet." data-say="No problem. I’ll ask again if I learn more."><span class="k"></span><span><b>Not sure yet</b><small>I’ll ask again when I know more.</small></span></button>
+        </div>
+        <button class="linkbtn inline addnote" type="button" data-key="e" data-open=".gen-box">Add a note <kbd>E</kbd></button>
+        <div class="instr gen-box" hidden>
+          <textarea rows="2" placeholder="For example: Dana Reyes is on the finance team"></textarea>
+          <p class="typing">You’re typing. <kbd>Esc</kbd> keeps your note and brings the keys back. Then pick an answer.</p>
+        </div>
+        <details class="more"><summary>Why I asked <kbd>I</kbd></summary>
+          <p>Both appear in threads about the offsite budget and share a first name. The Slack profile and the email address have nothing linking them, so I can't be sure.</p>
+        </details>
+      </article>
+
+      <article class="card gen" data-v="term" data-line="A name I keep seeing. Can you tell me what it is?" data-mood="puzzled" hidden>
+        <p class="eyebrow">Helps me understand your work <span class="pill pill--muted">About a minute</span></p>
+        <h2>What’s Project Lantern?</h2>
+        <div class="plan">
+          <p class="lbl">My best guess</p>
+          <p class="plantext gen-guess">The relaunch of the report builder for enterprise customers.</p>
+          <button class="linkbtn inline" type="button" data-key="e" data-open=".gen-box">Change it <kbd>E</kbd></button>
+        </div>
+        <div class="instr gen-box" hidden>
+          <textarea rows="2" class="gen-guessbox"></textarea>
+          <p class="typing">You’re typing. <kbd>Esc</kbd> keeps your change and brings the keys back.</p>
+        </div>
+        <div class="answers">
+          <button class="ans primary" data-title="Saved." data-say="Saved to your notes. I’ll use it when I work on Lantern tasks."><span class="k"></span><span><b>Save this definition</b><small>It becomes a project page that tasks and people link to.</small></span></button>
+          <button class="ans" data-title="Linked." data-say="Linked to the existing project."><span class="k"></span><span><b>It’s an existing project</b><small>You pick which one.</small></span></button>
+          <button class="ans" data-title="Not sure yet." data-say="No problem. I’ll ask again if I learn more."><span class="k"></span><span><b>Not sure yet</b><small>I’ll ask again when I know more.</small></span></button>
+        </div>
+        <details class="more"><summary>Where I saw it <kbd>I</kbd></summary>
+          <p>Slack: “Lantern slips if the performance fix slips.”<br>Meeting: “Lantern review moves to the 28th.”<br>Email: “Can you share the Lantern one-pager?”</p>
+        </details>
+      </article>
+
+      <article class="card gen" data-v="dup" data-line="Hm. These two look alike. Same thing, or not?" data-mood="puzzled" hidden>
+        <p class="eyebrow">Helps me match tasks <span class="pill pill--muted">About a minute</span></p>
+        <h2>Same task as “Reply to Priya about the Q4 readout”?</h2>
+        <p class="found"><span class="mini" aria-hidden="true"></span>Priya asked for the Q4 summary deck in Slack two hours after the email. A reply doesn't deliver a deck, though.</p>
+        <div class="answers">
+          <button class="ans primary" data-title="Merged." data-say="Merged. The Slack message is now a source on the Priya task."><span class="k"></span><span><b>Merge them</b><small>The Slack message becomes a source on the email task.</small></span></button>
+          <button class="ans" data-title="Kept separate." data-say="Kept separate, and linked so I won’t ask again."><span class="k"></span><span><b>Keep separate</b><small>Two tasks, linked so I don’t ask again.</small></span></button>
+          <button class="ans" data-title="Not sure yet." data-say="No problem. I’ll ask again if I learn more."><span class="k"></span><span><b>Not sure yet</b><small>I’ll ask again when I know more.</small></span></button>
+        </div>
+        <button class="linkbtn inline addnote" type="button" data-key="e" data-open=".gen-box">Add a note <kbd>E</kbd></button>
+        <div class="instr gen-box" hidden>
+          <textarea rows="2" placeholder="Optional note"></textarea>
+          <p class="typing">You’re typing. <kbd>Esc</kbd> keeps your note and brings the keys back. Then pick an answer.</p>
+        </div>
+      </article>
+
+      <article class="card done-card gen-done" hidden><p class="eyebrow">Done</p><h2 class="gt"></h2><p class="meta gm"></p>
+        <div class="row"><button class="btn primary grow" data-gen="reset">Next card <kbd>Enter</kbd></button></div></article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#1</b> These are housekeeping for Fuzz, so they never show a deadline. Instead they say how long they take. They also can't borrow another card's deadline: that was the stuck-card bug.</li>
+        <li><b>#2</b> The note is a link (<kbd>E</kbd>), not a box that already has focus, so <kbd>1</kbd>–<kbd>3</kbd> do what they say.</li>
+        <li><b>#4</b> They use the same layout as every other card: question, Fuzz's one line, numbered answers, and the reasoning folded away. The eyebrow says what your answer helps with.</li>
+        <li>For a term, Fuzz's guess is plain text and <kbd>E</kbd> changes it, the same as the plan on the task card.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Lineup -->
+    <div class="scr" data-screen="lineup" hidden>
+      <div class="lineup">
+        <a class="tri" data-go="card"><span class="mini" aria-hidden="true"></span>
+          <span><b>Triage</b><span class="meta">Marcus's headcount is first. A few more are waiting behind it.</span></span><span aria-hidden="true">→</span></a>
+        <h3>Yours</h3>
+        <div class="li"><span>Decide the pricing page copy</span><span class="pill pill--accent">In Claude</span></div>
+        <h3>With Fuzz</h3>
+        <div class="li"><span>Room for Thursday's workshop</span><span class="pill pill--ok">Booked</span></div>
+        <div class="li"><span>Reply to Marcus</span><span class="pill pill--ok">Ready for your OK</span></div>
+        <h3>With others</h3>
+        <div class="li"><span>Approval of the offsite budget</span><span class="meta small">Dana · I'll check back tomorrow</span></div>
+        <div class="li"><span>Quote for the offsite catering</span><span class="meta small">The caterer · Monday</span></div>
+        <h3>Later</h3>
+        <div class="li"><span>Renew the car registration</span><span class="meta small">When you're back at your desk</span></div>
+        <details class="fold"><summary>Parked</summary><div class="li"><span>Explore a shared metrics glossary</span></div></details>
+        <details class="fold"><summary>Finished</summary><div class="li"><span>Send Priya the dashboard link</span></div></details>
+      </div>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#5</b> The large "15 · To decide" tile is gone. Triage gets one neutral row that names what's first, so it reads as a next step rather than a pile.</li>
+        <li><b>#5</b> The sections have no count badges. Each list is short enough to see, and the long ones fold.</li>
+      </ul></aside>
+    </div>
+
+    <!-- Keys -->
+    <div class="scr" data-screen="keys" hidden>
+      <article class="card">
+        <h2>One letter, one meaning</h2>
+        <p class="meta">The keys sheet opens on the keys for the card in front of you. "All keys" is one tap further.</p>
+        <table class="keymap">
+          <thead><tr><th>Key</th><th>Before</th><th>Now</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>S</kbd></td><td>Later (on tasks)</td><td>Later, Not now, Decide later or Check again later, wherever there is one</td></tr>
+            <tr><td><kbd>K</kbd></td><td>Keep a stale card, or keep a parked one parked</td><td>It still matters: the same row on every card that comes back</td></tr>
+            <tr class="chg"><td><kbd>H</kbd></td><td>Help me start (only on cards that keep coming back)</td><td>Retired: it's choice 1 on the card</td></tr>
+            <tr class="chg"><td><kbd>G</kbd> <kbd>U</kbd></td><td>They got back to you / nudge them (U is also Undo in Deep Work)</td><td>Retired: they're choices 1 and 2 on the check-back</td></tr>
+            <tr class="chg"><td><kbd>L</kbd></td><td>Not now (on drafts) <i>and</i> Let go (on stale cards)</td><td>Let go, only</td></tr>
+            <tr class="chg"><td><kbd>R</kbd></td><td>Ask Fuzz to change it <i>and</i> Bring a parked card back</td><td>Bring back, only</td></tr>
+            <tr class="chg"><td><kbd>E</kbd></td><td>Move to the end of the list</td><td>Tell Fuzz: a note, a change or new instructions, on every card. It goes along with whatever you pick next</td></tr>
+            <tr class="chg"><td><kbd>X</kbd></td><td>Not mine <i>and</i> Exact time</td><td>Not mine, only</td></tr>
+            <tr class="chg"><td><kbd>1</kbd>–<kbd>9</kbd></td><td>Some of the choices on screen</td><td>Every choice on screen, including Exact time and End of the list</td></tr>
+            <tr><td><kbd>B</kbd> <kbd>P</kbd> <kbd>W</kbd></td><td>Book time, Park it, Waiting on someone, behind the arrows</td><td>The same. They work without opening the menu, on every card that has them</td></tr>
+            <tr class="chg"><td><kbd>Q</kbd></td><td>Find out… (Fuzz looks something up, and the card comes back next)</td><td>Retired: hand it to Fuzz with a question. A question gets looked up and comes back to you, and anything else Fuzz does</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Leave the box, back out, skip</td><td>The same. It never ends something you'd lose.</td></tr>
+          </tbody>
+        </table>
+      </article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#6</b> No letter means two things. The four letters that did now mean one thing each, and three single-card letters (H, G, U) become numbered choices. Q is gone with Find out.</li>
+        <li><b>#6</b> Time pickers use numbers for every option, so you don't need extra letters there.</li>
+        <li><b>#2</b> The note about text boxes is gone from the bottom of the sheet, because a card no longer starts in one.</li>
+      </ul></aside>
+    </div>
+
+    <!-- New task -->
+    <div class="scr" data-screen="capture" hidden>
+      <article class="card">
+        <h2>What's on your mind?</h2>
+        <div class="dropwrap" id="capdrop">
+          <textarea id="capbox" class="capbox" rows="3" placeholder="For example: send Sam the slides from Tuesday"></textarea>
+        </div>
+        <div class="files" id="capfiles"></div>
+        <input type="file" id="capfile" multiple hidden>
+        <div class="row">
+          <button class="btn primary grow" data-act="capture">Capture <kbd>⌘ Enter</kbd></button>
+          <button class="btn" aria-label="Dictate">🎙 Dictate</button>
+        </div>
+        <p class="meta small">Hold <kbd>⌥ Space</kbd> to talk instead. <button class="linkbtn inline" type="button" data-act="pick">Add a document</button> or drop one on the box.</p>
+      </article>
+      <aside class="changed"><h3>What changed</h3><ul>
+        <li><b>#9</b> The text box comes first and has focus. Adding a document is a small link underneath, not a panel above the field.</li>
+        <li><b>#9</b> The dictation tip appears once, in the hint line.</li>
+        <li>Drag a file anywhere over the page and the box turns into a drop zone. Dropped files show as chips you can remove. The same works on every card's Tell Fuzz box.</li>
+      </ul></aside>
+    </div>
+
+  </section>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="adhd.js"></script>
+</body>
+</html>
