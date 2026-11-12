@@ -188,6 +188,7 @@ class App:
             ("POST", r"/onboarding/kickoff", self.onboarding_kickoff),
             ("GET", r"/hours", self.hours_get),
             ("PUT", r"/hours", self.hours_put),
+            ("GET", r"/deepwork", self.deepwork_get),
             ("GET", r"/slots", self.slots_get),
             ("PUT", r"/slots", self.slots_put),
             ("GET", r"/groups", self.list_groups),
@@ -230,7 +231,8 @@ class App:
     def capture(self, core, m, body, q):
         missed = bool(body.get("missed"))   # Fuzz missed this: it looks for the message whatever gathering is set to
         tid, gather, follow = actions.capture(core, body.get("text"), body.get("docs"), due=body.get("due"),
-                                              missed=missed, uploading=bool(body.get("uploading")))
+                                              missed=missed, uploading=bool(body.get("uploading")),
+                                              deep_work=bool(body.get("deep_work")))   # typed in Deep Work
         self.follow(core, follow)
         return {"task_id": tid, "gathering": gather}, 201
 
@@ -664,6 +666,11 @@ class App:
 
     def tick(self, core, m, body, q):
         return scheduler.tick(core)
+
+    def deepwork_get(self, core, m, body, q):
+        """For starting a Deep Work session: when your free time ends (the next meeting), or null."""
+        from . import booking
+        return {"free_until": booking.free_until(core)}
 
     def slots_get(self, core, m, body, q):
         return {"slots": scheduler.budget(core)["max_working"], "max": scheduler.MAX_SLOTS}

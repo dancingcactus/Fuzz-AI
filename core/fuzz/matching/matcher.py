@@ -41,11 +41,11 @@ STRENGTH_WEIGHT = {"id": 1.0, "alias": 0.5, "provisional": 0.0}
 # A message that hands the next move to someone else (waiting_on) moves your task to waiting on them. Not while
 # Fuzz or a session is working it, or a draft waits for your OK: that finishes first. Waiting re-points at the
 # new person. Done or let go only when the message also reopens it with a new ask.
-HANDS_OFF = ("triage", "scheduled", "parked", "waiting")
+HANDS_OFF = ("triage", "scheduled", "parked", "waiting", "deepwork")   # deepwork: yours but idle until a session
 
 # Your own reply that answers the thread closes the task, if it's still waiting on you. Waiting tasks wait on
 # someone else, and Fuzz's own work in flight finishes or comes back to you.
-ANSWERED_CLOSES = ("triage", "queued", "scheduled", "parked", "session")
+ANSWERED_CLOSES = ("triage", "queued", "scheduled", "parked", "session", "deepwork")
 # The one who asked saying it's sorted ("that was it", "works now") closes it too, even while you wait on them:
 # nothing is left to wait for. Fuzz's own work in flight still finishes or comes back to you.
 RESOLVED_CLOSES = ANSWERED_CLOSES + ("waiting",)

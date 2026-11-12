@@ -197,7 +197,7 @@ def _close(core, d, state, evidence, actor, card=None, option=None):
                 ch = events.Changes()
                 ch.task(t["id"], reason=why, order_key=tasks.next_order(core, "front"))
                 events.emit(core, "task.came_back", task_id=t["id"], changes=ch, log=("status", why))
-            elif t["state"] in ("scheduled", "parked", "waiting"):
+            elif t["state"] in ("scheduled", "parked", "waiting", "deepwork"):
                 tasks.bring_back(core, t["id"], where="front", reason=why, type="task.came_back", actor=actor, tags=("returning",))
 
 

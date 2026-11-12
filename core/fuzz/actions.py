@@ -13,10 +13,12 @@ GATHER_AFTER = ("schedule", "wait", "keep_waiting", "nudge")   # answers that gi
 GATHER = [{"kind": "gather"}]   # after a file lands: a task captured with files waits for them before it's gathered
 
 
-def capture(core, text, docs=None, due=None, missed=False, uploading=False):
-    """New task. It goes to Fuzz first when gathering is on (or Fuzz missed it). Returns (task id, gathering, follow-ups)."""
-    gather = config.gathers(core.config) or bool(missed)
-    tid = tasks.capture(core, text, docs, due=due, gather=gather, uploading=uploading, missed=missed)
+def capture(core, text, docs=None, due=None, missed=False, uploading=False, deep_work=False):
+    """New task. It goes to Fuzz first when gathering is on (or Fuzz missed it), except one typed in Deep Work,
+    which goes straight to the pool. Returns (task id, gathering, follow-ups)."""
+    gather = (config.gathers(core.config) or bool(missed)) and not deep_work
+    tid = tasks.capture(core, text, docs, due=due, gather=gather, uploading=uploading, missed=missed,
+                        deep_work=deep_work)
     return tid, gather, (list(GATHER) if gather else [])
 
 
@@ -68,6 +70,7 @@ TASK_VERBS = {
     "theirs": (lambda core, tid, body: tasks.theirs(core, tid, body.get("on")), ()),
     "letgo": (lambda core, tid, body: tasks.let_go(core, tid), ()),
     "session": (lambda core, tid, body: tasks.session(core, tid), ()),
+    "deep_work": (lambda core, tid, body: tasks.deep_work(core, tid, left_off=body.get("left_off")), ()),
     "schedule": (lambda core, tid, body: tasks.schedule(core, tid, body.get("anchor"),
                                                         instructions=body.get("instructions"),
                                                         gather=config.gathers(core.config)), ("gather",)),

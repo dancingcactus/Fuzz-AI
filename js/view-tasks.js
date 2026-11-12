@@ -9,7 +9,7 @@
   var same = { id: null, state: 'closed', choices: [] };
 
   var TABS = {
-    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'working', 'queued', 'sending', 'mine', 'session', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, or coming back later. Fuzz works on a few at once.' },
+    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'working', 'queued', 'sending', 'mine', 'session', 'deepwork', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, waiting for Deep Work, or coming back later. Fuzz works on a few at once.' },
     parked: { label: 'Parked', cols: ['Status', 'Parked', 'Note'], states: ['parked'], blurb: 'Out of triage with no date. Parked tasks never nag. A few a week come back, on days you have room, to ask if you still want them, and one wakes up if something new comes in about it.' },
     waiting: { label: 'Waiting on others', cols: ['Waiting on', 'Waiting', 'Next check'], states: ['waiting'], blurb: 'You’re blocked until someone gets back to you. Fuzz checks back on each one, and a reply brings it straight back to triage.' },
     done: { label: 'Done', cols: ['Result', 'Finished', 'Summary'], states: ['done'], blurb: 'Finished work. Open any task to see exactly what was done, sent and decided.' },
@@ -17,7 +17,7 @@
   };
   function cells(it, key) {
     if (key === 'current') {
-      var m = { review: ['Needs your OK', 'warn'], working: ['Fuzz working', 'accent'], 'queued': ['Next up', 'muted'], sending: ['Sending', 'accent'], mine: ['With you', 'muted'], session: ['In ' + Store.workIn, 'muted'], scheduled: ['Scheduled', 'muted'] }[it.state];
+      var m = { review: ['Needs your OK', 'warn'], working: ['Fuzz working', 'accent'], 'queued': ['Next up', 'muted'], sending: ['Sending', 'accent'], mine: ['With you', 'muted'], session: ['In ' + Store.workIn, 'muted'], deepwork: ['Deep Work', 'accent'], scheduled: ['Scheduled', 'muted'] }[it.state];
       if (it.gathering) m = ['Gathering context', 'accent'];
       return { tone: m[1], c2: m[0], c3: it.age, c4: Store.nowText(it) || '—' };
     }
@@ -144,6 +144,17 @@
     return r;
   }
 
+  /* Deep Work: the pool of tasks that need you and take real time, in the order a session offers them */
+  function deepHTML() {
+    var pool = Store.inState('deepwork');
+    if (!pool.length) return '';
+    var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
+    var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Deep Work', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
+    var head = '<div class="deep-head"><p class="meta">Yours, and each takes real time.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
+      '<a class="btn primary deep-go" href="#/deepwork">Start Deep Work</a></div>';
+    return sectionHTML('deep', 'Deep Work', rows, '', head);
+  }
+
   /* Fuzz's lane: what he is doing right now, step by step */
   function laneHTML() {
     var run = Store.inState('working'), next = Store.inState('queued'), sending = Store.inState('sending'), now = Date.now();
@@ -214,6 +225,7 @@
     var h = q ? '<a class="decide" href="#/triage"><span class="decide-n">' + q + '</span><span class="decide-t"><strong>To decide</strong>' + (q === 1 ? '1 card' : q + ' cards') + ' in Triage</span><span class="decide-go" aria-hidden="true">→</span></a>' + decideHTML(queue)
       : '<p class="decide decide--clear">Nothing to decide. Triage is clear.</p>';
     h += sectionHTML('yours', 'Yours', yoursRows(), 'Nothing is waiting on you right now.');
+    h += deepHTML();
     h += deliverablesHTML();
     h += laneHTML();
     h += sectionHTML('others', 'Waiting on others', Store.inState('waiting').map(function (it) { return rowHTML(it, it.waitingOn || 'Someone', 'warn', !it.nextCheck ? '' : /^Fuzz /.test(it.nextCheck) ? it.nextCheck : 'Checks back ' + it.nextCheck.charAt(0).toLowerCase() + it.nextCheck.slice(1)); }));
@@ -250,6 +262,10 @@
     } else if (it.state === 'session') {
       act('Mark done', 'primary', function () { Store.markDone(id); }, 'Marked done.');
       if (Live.on()) act('Open in ' + Store.workIn + ' again', 'secondary', function () { Live.openSession(id); }, 'Opening it in ' + Store.workIn + '.');
+      act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
+    } else if (it.state === 'deepwork') {
+      A.push({ label: 'Work on it now', kind: 'primary', nav: true, fn: function () { DeepWork.start(id); } });   /* opens the mode; nothing to undo */
+      act('Mark done', 'secondary', function () { Store.markDone(id); }, 'Marked done.');
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'scheduled') {
       act('Bring back now', 'primary', function () { Store.bringBack(id, 'front'); }, 'Moved back into triage.');
@@ -379,6 +395,7 @@
       var b = e.target.closest('[data-do]'); if (!b) return;
       var cur = Store.item(openId); var a = actionsFor(cur)[parseInt(b.dataset.do, 10)];
       if (!a) return;
+      if (a.nav) { d.close(); a.fn(); return; }
       var ta = d.querySelector('#dlg-draft'), text = ta ? ta.value : null;
       var ch = Store.track([cur.id], function () { a.fn(text); });
       d.close();

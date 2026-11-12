@@ -8,6 +8,7 @@ window.FuzzVocab = {
   "review",
   "sending",
   "session",
+  "deepwork",
   "scheduled",
   "waiting",
   "parked",
@@ -190,6 +191,7 @@ window.FuzzVocab = {
   "assign",
   "book",
   "decide",
+  "deep_work",
   "do_now",
   "done",
   "draft_it",
@@ -214,6 +216,7 @@ window.FuzzVocab = {
  ],
  "taskOptions": [
   "assign",
+  "deep_work",
   "session",
   "schedule",
   "done",
@@ -247,6 +250,7 @@ window.FuzzVocab = {
    "done",
    "pause",
    "assign",
+   "deep_work",
    "session",
    "book",
    "find_out"
@@ -254,6 +258,7 @@ window.FuzzVocab = {
   "in_the_way": [
    "find_out",
    "do_now",
+   "deep_work",
    "book",
    "first_step",
    "decide",
@@ -296,6 +301,7 @@ window.FuzzVocab = {
   "theirs",
   "letgo",
   "session",
+  "deep_work",
   "schedule",
   "back",
   "find_out",

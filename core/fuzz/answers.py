@@ -84,6 +84,8 @@ TASK_ANSWERS = {
                                                               hold=hold),
     "quick": _quick,
     "session": lambda core, card, t, value, hold: tasks.session(core, t["id"], card=card),
+    # yours, and it takes real time: it waits for a Deep Work session
+    "deep_work": lambda core, card, t, value, hold: tasks.deep_work(core, t["id"], card=card),
     "schedule": lambda core, card, t, value, hold: tasks.schedule(core, t["id"], _dict(value).get("anchor"), card=card,
                                                                   instructions=_dict(value).get("instructions"),
                                                                   gather=gathers(core.config)),
