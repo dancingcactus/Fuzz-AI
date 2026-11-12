@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   session_launch TEXT,             -- the latest window opened on it; only that one closing brings it back
   session_at TEXT,                 -- the last word from a working session, for the quiet check
   expires_at TEXT,                 -- the ask is moot after this (a meeting to join); untouched, it's let go then
+  step_count INTEGER,              -- about how many steps it takes (the extractor's estimate)
+  gaps TEXT,                       -- json list: what the brief couldn't find; finding out comes first on its card
+  find_out TEXT,                   -- what you asked Fuzz to find out (Find out…); the task stays yours
+  pushes INTEGER,                  -- how many times its card went to the end of the queue; twice asks what's in the way
+  missed_blocks INTEGER,           -- booked blocks for it that went by unused, since it last asked
+  deliverable_id INTEGER,          -- the deliverable it serves (deliverables.py)
+  maybe_deliverable_id INTEGER,    -- a deliverable it might serve, waiting on a part_of card
   title_history TEXT,              -- json list
   created_at TEXT,
   state_changed_at TEXT,
@@ -553,7 +560,8 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
 
 
 def _migrate(conn):
-    """Add columns that newer versions need to a store made by an older one."""
+    """Add columns that newer versions need to a store made by an older one. SCHEMA has every column too:
+    MIGRATIONS only brings older stores up to it (tests/test_registries.py checks)."""
     for table, cols in MIGRATIONS.items():
         have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
         for name, typ in cols:

@@ -126,12 +126,23 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
 
 ## 5. Smaller consistency items (verified)
 
-- [ ] 5a. Schema in one place: seven `tasks` columns exist only in `db.MIGRATIONS` (fresh stores still get them)
-- [ ] 5b. `Core.config` reads `config.json` on every access (about 60 reads); read it once per command
-- [ ] 5c. One `app.background(fn)` for the three ad hoc daemon threads in `http_api.py` (lock, errors, notify)
-- [ ] 5d. `events._current` doesn't filter by `user_id`, which `db.py` says every query does
-- [ ] 5e. Split `js/view-triage.js` (2,146 lines) by card family
-- [ ] 5f. A test calls the real `claude` CLI (`focus AI pass skipped: Command 'claude' timed out after 45 seconds`); stub it
+- [x] 5a. The seven `tasks` columns that only `db.MIGRATIONS` had are in `SCHEMA` now, with what each holds;
+  `MIGRATIONS` only brings older stores up to it, and a test fails when a column is added there alone.
+- [x] 5b. **No change, on measurement.** Reading `core.config` costs about 20 µs; one `GET /cards` with five cards
+  reads it 30 times (0.6 ms). Callers also edit the dict they get and save it, which relies on a fresh copy
+  each time, so a cache would add risk for nothing measurable.
+- [x] 5c. `App.background(fn)` is the one way `http_api.py` runs slow work off the request thread: the follow-ups,
+  setup's tool discovery and the focus AI pass. It prints anything unexpected and always tells the event
+  stream after. The ticker and presence loops stay their own long-lived threads.
+- [x] 5d. The projection reads and writes rows by `id` *and* `user_id` (`events._current`, `events.apply`), so an
+  event for one user that names another's row fails loudly instead of changing it (a test checks).
+- [ ] 5e. **Deferred.** Every large section of `view-triage.js` uses 8–20 of the 40-odd variables shared across the
+  file and calls 6–18 functions in other sections (Wiring: 26 and 31), so a split means designing an
+  explicit state object first, in a view with no tests. Do a browser smoke test of Triage first (the way
+  `tests/ui/schedule.test.mjs` drives the Later panel), then split along the existing section headings.
+- [x] 5f. **Not a problem; my mistake in the review.** The "Command 'claude' timed out after 45 seconds" line is
+  `test_focus.py` raising `TimeoutExpired` itself to test the timeout path; no real `claude` runs and the
+  module takes a second.
 
 ## Order
 

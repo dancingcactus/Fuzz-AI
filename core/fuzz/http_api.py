@@ -113,16 +113,21 @@ class App:
         with self.changed:
             self.changed.notify_all()
 
+    def background(self, fn):
+        """Slow work (a client run, an AI pass) off the request thread. It takes core.lock itself for what it
+        writes; whatever happens, the event stream hears about it after."""
+        def work():
+            try:
+                fn()
+            except Exception as e:   # the work says its own expected failures; this is anything else
+                print(f"background work failed: {e!r}")
+            finally:
+                self._notify()
+        threading.Thread(target=work, daemon=True).start()
+
     def follow(self, core, follow):
-        """Start what a command asked for (followups.run): slow work on its own thread, then tell the stream."""
-        def background(fn):
-            def work():
-                try:
-                    fn()
-                finally:
-                    self._notify()
-            threading.Thread(target=work, daemon=True).start()
-        followups.run(core, follow, self.gather_kicked, background)
+        """Start what a command asked for (followups.run), slow work in the background."""
+        followups.run(core, follow, self.gather_kicked, self.background)
 
     def user_for(self, token):
         uid = load_tokens(self.home).get(token or "")
@@ -398,8 +403,7 @@ class App:
                 self.discovering.pop(key, None)
             except Exception as e:   # shown on the setup screen
                 self.discovering[key] = {"state": "error", "error": str(e)}
-            self._notify()
-        threading.Thread(target=work, daemon=True).start()
+        self.background(work)
         return {"started": True, "state": "running"}, 202
 
     def setup_tools(self, core, m, body, q):
@@ -634,8 +638,7 @@ class App:
                 focus.ai_pass(core, text, lock=core.lock)
             finally:
                 self.refining.pop(key, None)
-                self._notify()
-        threading.Thread(target=work, daemon=True).start()
+        self.background(work)
         return True
 
     def screen_time(self, core, m, body, q):

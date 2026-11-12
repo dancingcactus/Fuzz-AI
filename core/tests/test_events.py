@@ -31,6 +31,15 @@ class Replay(CoreCase):
         last = self.core.one("SELECT MAX(id) m FROM events WHERE task_id=? AND type!='card.created'", (a,))["m"]
         self.assertEqual(self.task(a)["updated_event_id"], last)
 
+    def test_an_event_never_reaches_another_users_row(self):
+        import sqlite3
+        tid = tasks.capture(self.core, "Mine")
+        other = self.make_core(2)
+        with self.assertRaises(sqlite3.IntegrityError):   # the id is taken, and not theirs to update
+            with other.tx("human"):
+                events.emit(other, "task.retitled", task_id=tid, changes={"tasks": {str(tid): {"title": "Theirs"}}})
+        self.assertEqual(self.task(tid)["title"], "Mine")
+
     def test_illegal_moves_are_refused(self):
         a = tasks.capture(self.core, "One")
         tasks.done(self.core, a)

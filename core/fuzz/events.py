@@ -153,7 +153,8 @@ def _current(core, table, key, cols):
         row = core.conn.execute(f"SELECT {sel} FROM user_state WHERE user_id=? AND key=?",
                                 (core.user_id, key)).fetchone()
     else:
-        row = core.conn.execute(f"SELECT {sel} FROM {table} WHERE {kcol}=?", (int(key),)).fetchone()
+        row = core.conn.execute(f"SELECT {sel} FROM {table} WHERE {kcol}=? AND user_id=?",
+                                (int(key), core.user_id)).fetchone()
     return row_dict(row)
 
 
@@ -173,8 +174,9 @@ def apply(core, user_id, changes, event_id, ts):
                                            (user_id, key)).fetchone()
                 where, wargs = "user_id=? AND key=?", [user_id, key]
             else:
-                exists = core.conn.execute(f"SELECT 1 FROM {table} WHERE id=?", (int(key),)).fetchone()
-                where, wargs = "id=?", [int(key)]
+                exists = core.conn.execute(f"SELECT 1 FROM {table} WHERE id=? AND user_id=?",
+                                           (int(key), user_id)).fetchone()
+                where, wargs = "id=? AND user_id=?", [int(key), user_id]
             if exists:
                 sets = ", ".join(f"{c}=?" for c in fields)
                 core.conn.execute(f"UPDATE {table} SET {sets} WHERE {where}",

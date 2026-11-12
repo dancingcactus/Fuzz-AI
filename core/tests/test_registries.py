@@ -57,6 +57,17 @@ class Tables(CoreCase):
             self.assertLessEqual(set(spec.decisive) | set(spec.absent), cols, table)
 
 
+class Schema(unittest.TestCase):
+    def test_the_schema_alone_has_every_column_a_migration_adds(self):
+        import sqlite3
+        from fuzz import db
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(db.SCHEMA)
+        for table, cols in db.MIGRATIONS.items():
+            have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+            self.assertFalse({n for n, _ in cols} - have, f"{table}: add these to SCHEMA, not only MIGRATIONS")
+
+
 class TaskAnswers(CoreCase):
     def handed_back(self):
         tid = tasks.capture(self.core, "Pick the venue")
