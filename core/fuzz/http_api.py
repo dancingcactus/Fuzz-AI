@@ -572,13 +572,14 @@ class App:
 
     def list_cards(self, core, m, body, q):
         """group_run: the group you're working through, so the UI can show its band (see groups.run)."""
-        cur = groups.run(core)
         from . import focus
         front = int(q["front"]) if (q.get("front") or "").isdigit() else None   # the card on screen stays first
-        return {"cards": [cards.view(core, c, t) for c, t in cards.queue(core, front)], "moment": cards.moment(core),
-                "focus": focus.current(core), "focus_chips": focus.chips(core),
-                "group_run": {"group_id": cur["group_id"], "tasks": cur["tasks"]} if cur else None,
-                "work": core.config.get("work")}
+        with core.reading():
+            cur = groups.run(core)
+            return {"cards": [cards.view(core, c, t) for c, t in cards.queue(core, front)],
+                    "moment": cards.moment(core), "focus": focus.current(core), "focus_chips": focus.chips(core),
+                    "group_run": {"group_id": cur["group_id"], "tasks": cur["tasks"]} if cur else None,
+                    "work": core.config.get("work")}
 
     def answer(self, core, m, body, q):
         if "option" not in body:

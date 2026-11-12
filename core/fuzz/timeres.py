@@ -33,7 +33,7 @@ DUR_UNIT = {"m": "minutes", "h": "hours", "d": "days", "w": "weeks"}
 
 
 def local_tz(core):
-    name = core.config.get("tz") or "local"
+    name = core.memo("tz", lambda: core.config.get("tz") or "local")   # once per request, not per card
     if name == "local":
         return datetime.now().astimezone().tzinfo
     from zoneinfo import ZoneInfo

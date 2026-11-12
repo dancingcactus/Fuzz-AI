@@ -128,7 +128,7 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
 
 - [x] 5a. The seven `tasks` columns that only `db.MIGRATIONS` had are in `SCHEMA` now, with what each holds;
   `MIGRATIONS` only brings older stores up to it, and a test fails when a column is added there alone.
-- [x] 5b. **No change, on measurement.** Reading `core.config` costs about 20 µs; one `GET /cards` with five cards
+- [x] 5b. **No change, on measurement** (but see 6b: on the Triage path it was six reads per card). Reading `core.config` costs about 20 µs; one `GET /cards` with five cards
   reads it 30 times (0.6 ms). Callers also edit the dict they get and save it, which relies on a fresh copy
   each time, so a cache would add risk for nothing measurable.
 - [x] 5c. `App.background(fn)` is the one way `http_api.py` runs slow work off the request thread: the follow-ups,
@@ -154,11 +154,15 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
   writes through a temp file unique to the process and thread. `core/tests/test_config_writes.py` covers
   overlapping updates (two threads, and another process) and 20 writers at once; without the lock, three of
   its four tests fail. The lock is `fcntl.flock`: macOS and Linux; Windows would need another kind of lock.
-- [ ] 6b. **Triage loads each card's task separately (measured).** `GET /cards` runs about three queries per card:
-  the task (`SELECT * FROM tasks`), its schedule anchor, and a `user_state` value, from `cards.queue` and
-  `cards.view`. With plain task cards: 5 cards 24 statements (1.8 ms), 20 cards 69 (6.7 ms), 80 cards 249
-  (26 ms). Small today, but the live UI reloads `/cards` after every change and event. Fix: load the open
-  cards' tasks in one query and read `user_state` once per request, then pass them in.
+- [x] 6b. **Triage's queries no longer grow with the queue.** `cards.queue` loads every open card's task in one
+  query, and `core.reading()` (around `GET /cards` and `fuzz cards`) lets a lookup that's the same for every
+  card run once per request through `core.memo`: Fuzz's booked blocks, the reported calendar and the time
+  zone. The cache is per thread and is cleared whenever a transaction starts or commits; the calendar is
+  re-parsed for each caller. With plain task cards, 80 cards went from 249 statements and 26 ms to 12
+  statements and 13.5 ms. Profiling showed most of what was left was `config.json` read six times per card
+  (`timeres.local_tz`), so 5b's "negligible" was wrong for this path; only the time zone is cached, since
+  callers change the config dicts they get. `core/tests/test_reads.py` checks 3 and 30 cards take the same
+  number of queries and that a write inside a request is seen; undoing either fix makes it fail.
 
 ## Order
 

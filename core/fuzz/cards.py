@@ -324,13 +324,16 @@ def queue(core, front=None):
     handbacks and postponed last, then the moment, then order. A card you sent to the end of the list waits
     behind all of them, deadline or not. front: the card on screen, which stays first while it's open (a
     focus or a refined focus never changes the card in front)."""
-    from . import focus, tasks
+    from . import focus
     m = moment(core)
     fids = focus.focus_ids(core)
     cards = core.all("SELECT * FROM cards WHERE user_id=? AND status='open'", (core.user_id,))
+    by_id = {t["id"]: t for t in core.all(   # every card's task in one query, not one each
+        "SELECT * FROM tasks WHERE user_id=? AND id IN (SELECT task_id FROM cards WHERE user_id=? AND status='open')",
+        (core.user_id, core.user_id))}
     keyed = []
     for c in cards:
-        t = tasks.get(core, c["task_id"]) if c["task_id"] else None
+        t = by_id.get(c["task_id"]) if c["task_id"] else None
         tags = (t or {}).get("variant_tags") or []
         urgent = 0 if t and t.get("deadline_level", 0) >= 1 else 1
         back = 1 if ("handed_back" in tags or c["postponed"]) else 0

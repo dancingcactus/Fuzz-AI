@@ -212,8 +212,9 @@ def cmd_show(a):
 
 def cmd_cards(a):
     core = _core(a)
-    for c, t in cards.queue(core):
-        v = cards.view(core, c, t)
+    with core.reading():
+        views = [(cards.view(core, c, t), t) for c, t in cards.queue(core)]
+    for v, t in views:
         print(f"card {v['id']:<4} {v['kind']:<13} {('#' + str(t['id'])) if t else '':<5} {v['prompt']}"
               f"  [{', '.join(v['options'])}]")
 
