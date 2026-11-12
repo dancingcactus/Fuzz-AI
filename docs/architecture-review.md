@@ -28,8 +28,9 @@ interface calls the same entry point.
 - [ ] 1d. The UI still starts runs itself after Assign, Hand to Fuzz, Nudge and Unclear (`kick` in
   `js/live.js`, through `POST /engine/run`). Moving those into `actions` means changing `live.js` in the
   same release, or the executor starts twice; the running `fuzz serve` needs a restart first.
-- [ ] 1e. `answers._task_answer` is still a second verb dispatch, with the card's names (`drop`,
-  `someone_else`) instead of the task verbs (`letgo`, `theirs`). That's 3a's job (the `CardKind` registry).
+- [ ] 1e. Card answers and task verbs name the same moves differently (`drop`/`letgo`,
+  `someone_else`/`theirs`). Both are public (the UI sends them), so aligning them is item 4's job. The
+  task card's answers are now a table (`answers.TASK_ANSWERS`, 3c) beside `actions.TASK_VERBS`.
 
 Done in 1a–1c (`core/fuzz/actions.py`, `core/fuzz/followups.py`, `core/tests/test_actions.py`):
 
@@ -63,9 +64,20 @@ Layers to aim for: `db`/`config` → `events`/`states` → domain (`tasks`, `car
   (`answers.py`), and the JS mappings. Each handler parses `value` (dict or string) by hand.
 - A projected table: `TABLES`, a `Changes` helper, `DECISIVE`, `_absent` (`events.py`), and `db.py`.
 
-- [ ] 3a. A `CardKind` registry: family, options, suggested, prompt, safe answer, handler
-- [ ] 3b. A `Table` spec: key column, decisive fields, what "absent" means
-- [ ] 3c. One helper to read an answer's `value` as a dict
+- [x] 3a. `cards.CARD_KINDS`: one `CardKind` per kind (family, prompt, options, suggested, safe answer,
+  scheduled), replacing `FAMILY`, `OPTIONS`, `SUGGESTED`, `PROMPTS`, `SCHEDULED` and `answers.SAFE`. A task
+  card's options come from one ordered table, `cards.TASK_VARIANTS`. What answers do stays in
+  `answers.HANDLERS` (a higher layer), and a test checks it covers exactly the registered kinds.
+- [x] 3b. `events.TABLES`: one `Table` per projected table (key, decisive fields, what a missing row
+  becomes), replacing `DECISIVE` and `_absent`. Tests check each has a `Changes` helper and schema columns.
+- [x] 3c. `answers._dict`, `_field` and `_text` read an answer's `value`; the task card's ~30-option `if`
+  chain is the table `answers.TASK_ANSWERS`, with a test that every option a task card can offer has an
+  entry. One fix: text that isn't one of a handback's quick answers raised `AttributeError` (a 400 saying
+  "'str' object has no attribute 'get'"); it's now the intended error on `value`.
+
+Checked by dumping every old table, `task_options()` for each variant and `options()` for each kind before
+the change and comparing after: identical. `booking`'s two option lists moved into `cards`, but `cards`
+still imports `booking` in `view()`, so the import cycle is unchanged (item 2).
 
 ## 4. The frontend implements the domain a second time (verified)
 

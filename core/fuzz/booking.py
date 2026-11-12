@@ -335,8 +335,6 @@ def answer_hold(core, card, option):
 
 PREP = ("Your booked block starts soon. Turn what you found into a step-by-step checklist at the top of the "
         "brief (context_md), step 1 first and about two minutes, so they can start right away. Keep the title.")
-BLOCK_END_OPTIONS = ["done", "keep_going", "book", "pause"]
-MISSED_OPTIONS = ["book", "schedule", "park", "drop", "done"]
 
 
 def _start(t):
