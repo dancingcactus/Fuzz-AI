@@ -144,6 +144,22 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
   `test_focus.py` raising `TimeoutExpired` itself to test the timeout path; no real `claude` runs and the
   module takes a second.
 
+## 6. Found while working (added 2026-11-12)
+
+- [ ] 6a. **Config edits can be lost between processes (verified by reading).** `config.json` is read, changed and
+  written back whole by 16 call sites in 9 modules (`db`, `connectors`, `onboarding`, `http_api`, `setup`, `cli`,
+  `engine`, `installer`, `scheduler`), and `fuzz serve`, the CLI and launchd role runs are separate processes.
+  Two overlapping saves keep only the later one's view, so the other's change is silently dropped. Also,
+  `config.save` writes every save through the same `config.json.tmp`: two at once can write into each
+  other's temp file, or one can fail with "file not found" when the other has already renamed it. Fix: a
+  per-process temp name, and an update under a file lock that re-reads the file
+  (`config.update(home, fn)`), used by every writer.
+- [ ] 6b. **Triage loads each card's task separately (measured).** `GET /cards` runs about three queries per card:
+  the task (`SELECT * FROM tasks`), its schedule anchor, and a `user_state` value, from `cards.queue` and
+  `cards.view`. With plain task cards: 5 cards 24 statements (1.8 ms), 20 cards 69 (6.7 ms), 80 cards 249
+  (26 ms). Small today, but the live UI reloads `/cards` after every change and event. Fix: load the open
+  cards' tasks in one query and read `user_state` once per request, then pass them in.
+
 ## Order
 
-1, then 3's registries (they make 2 and 4 easier), then 2's undo hooks and import test, then 4.
+1, then 3's registries (they make 2 and 4 easier), then 2's undo hooks and import test, then 4. Then 6a (it can lose a setting you chose), then 6b.
