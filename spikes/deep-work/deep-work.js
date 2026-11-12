@@ -8,7 +8,7 @@
   var themeSel = $('theme'), modeSel = $('mode');
   Themes.list.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; themeSel.appendChild(o); });
   modeSel.value = Themes.resolveMode ? Themes.resolveMode('auto') : 'light';
-  function theme() { Themes.apply(themeSel.value, modeSel.value, 'standard'); }
+  function theme() { Themes.apply(themeSel.value, modeSel.value, 'standard'); if (pip) copyTheme(pip.document); }
   themeSel.onchange = modeSel.onchange = theme; theme();
 
   /* ---------- Fuzz ---------- */
@@ -156,7 +156,29 @@
   }
 
   /* ---------- Time constants ---------- */
-  var BUDGETS = [{ v: 25, l: '25 min' }, { v: 50, l: '50 min' }, { v: 90, l: '90 min' }, { v: -1, l: 'Until I stop' }];
+  /* ---------- A pretend calendar: the spike starts at 1:10pm, and the toolbar sets the next meeting ---------- */
+  var DAY_START = 13 * 60 + 10, BUFFER = 5;
+  function wall() { return DAY_START + (S.wallSpent || 0) + S.clock / 60; }
+  function meeting() { return +$('meeting').value || 0; }
+  function meetingIn() { var m = meeting(); return m && m > wall() ? m - wall() : null; }
+  function fmt(min) { var h = Math.floor(min / 60), m = Math.round(min % 60), ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + (m ? ':' + ('0' + m).slice(-2) : '') + ap; }
+  /* Time choices people actually think in: "until my 2pm", "a quick burst". The minutes stay underneath. */
+  function chips() {
+    var out = [], mt = meetingIn();
+    if (mt != null && mt > 15) out.push({ v: 'cal', min: Math.floor((mt - BUFFER) / 5) * 5, l: 'Until your ' + fmt(meeting()), sub: '~' + Math.floor((mt - BUFFER) / 5) * 5 + ' min' });
+    [{ v: 25, l: 'A quick burst' }, { v: 50, l: 'A real chunk' }, { v: 90, l: 'A long haul' }].forEach(function (c) {
+      if (mt != null && c.v > mt - BUFFER) return;                                   // would run into the meeting
+      if (out[0] && out[0].v === 'cal' && Math.abs(out[0].min - c.v) <= 10) return;  // too close to "until your 2pm"
+      out.push({ v: c.v, min: c.v, l: c.l, sub: c.v + ' min' });
+    });
+    out.push({ v: -1, min: -1, l: 'Until I stop', sub: mt != null ? 'Fuzz still stops you for your ' + fmt(meeting()) : 'No end time' });
+    return out;
+  }
+  function setChoice(v) {
+    var cs = chips(), pick = function (x) { return cs.filter(function (c) { return c.v === x; })[0]; };
+    var c = pick(v) || pick('cal') || pick(50) || cs[0];
+    S.choice = c.v; S.budget = c.min;
+  }
   var WORK = 25 * 60, SHORT = 5 * 60, LONG = 15 * 60, GRACE = 5 * 60, BODY = 90 * 60, ARM_MS = 1000;
   var BREAK_IDEAS = ['Stand up and stretch your arms over your head.', 'Get a glass of water.', 'Look at something far away for a minute.', 'Walk to another room and back.'];
 
@@ -167,15 +189,15 @@
       task: null, intro: false, warming: false, clock: 0, workSince: 0, sinceRealBreak: 0, breaksTaken: 0,
       pending: null, pendingAt: 0, workClock: 0, forceAt: null, snoozed: 0, take: null, sheet: null, wrapping: false, busy: false, asking: false, tab: null,
       thoughts: [], drafts: [], held: 0, nextHeld: 300, nextChat: 420, log: [], between: null,
-      sentBack: [], resolved: [], cleared: 11, freeN: 0 };
-    closeTake();
+      sentBack: [], resolved: [], deferred: [], cleared: 11, freeN: 0, wallSpent: 0, choice: null, undo: null, extensions: 0, hardStop: Infinity, budgetEnd: Infinity, alt: 0 };
+    closeTake(); hideToast();
     render();
   }
   function byId(id) { return S.pool.filter(function (t) { return t.id === id; })[0]; }
   function speed() { return +$('speed').value; }
   function chatty() { return $('fuzzmode').value === 'chatty'; }
-  function inSession() { return S.view === 'focus' || S.view === 'between'; }
-  function leftMin() { return S.budget > 0 ? Math.max(0, S.budget - S.clock / 60) : Infinity; }
+  function inSession() { return S.view === 'focus' || S.view === 'between' || S.view === 'detour'; }
+  function leftMin() { return isFinite(S.budgetEnd) ? Math.max(0, (S.budgetEnd - S.clock) / 60) : Infinity; }
   function remainingEst(t) { return Math.max(5, Math.round(t.est * (t.steps.length - t.at) / t.steps.length)); }
   function fitLabel(t) {
     var r = remainingEst(t), left = S.view === 'entry' ? (S.budget > 0 ? S.budget : Infinity) : leftMin();
@@ -184,13 +206,14 @@
 
   /* ---------- Plan: breaks are scheduled into the time you give ---------- */
   function plan(b) {
-    if (b < 0) return 'No end time. A 5-minute break every 25 minutes, a longer one after three, and a body check if you skip them for 90.';
+    var mt = meetingIn();
+    if (b < 0) return 'No end time. A short break every 25 minutes' + (mt != null ? ', and Fuzz stops you 5 minutes before your ' + fmt(meeting()) + '.' : '.');
     var t = 0, blocks = 0, breaks = 0;
     while (t < b) {
       var w = Math.min(25, b - t); if (b - t - w < 10) w = b - t;
       blocks++; t += w; if (t < b) { breaks++; t += 5; }
     }
-    return b + ' min: ' + blocks + ' work ' + (blocks === 1 ? 'block' : 'blocks') + (breaks ? ', ' + breaks + ' short ' + (breaks === 1 ? 'break' : 'breaks') : ', no break needed') + '. Breaks wait for the end of a step, up to 5 minutes.';
+    return blocks + ' work ' + (blocks === 1 ? 'block' : 'blocks') + (breaks ? ' and ' + breaks + ' short ' + (breaks === 1 ? 'break' : 'breaks') : ', no break needed') + (S.choice === 'cal' ? ', done by ' + fmt(meeting() - BUFFER) + '.' : '.');
   }
 
   /* ---------- Views ---------- */
@@ -198,15 +221,15 @@
   function render() {
     dw.classList.toggle('focus', S.view === 'focus');
     dw.classList.toggle('quiet-fuzz', !chatty());
-    $('modeName').textContent = { cleared: 'Triage › all clear', triage: 'Triage', entry: 'Deep Work › getting started', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › done for now' }[S.view];
+    $('modeName').textContent = { cleared: 'Triage › all clear', triage: 'Triage', entry: 'Deep Work › getting started', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › done for now', detour: 'Deep Work › paused' }[S.view];
     $('enterDW').hidden = inSession() || S.view === 'entry' || S.view === 'wrap';
     heldPill();
-    ({ cleared: vCleared, triage: vTriage, entry: vEntry, focus: vFocus, between: vBetween, wrap: vWrap })[S.view]();
+    ({ cleared: vCleared, triage: vTriage, entry: vEntry, focus: vFocus, between: vBetween, wrap: vWrap, detour: vDetour })[S.view]();
+    updatePip();
   }
   function heldPill() {
-    var on = S.hold && inSession() && S.held > 0;
-    $('held').hidden = !on;
-    $('heldText').textContent = S.held + (S.held === 1 ? ' new card' : ' new cards') + ' held for Triage';
+    $('held').hidden = !(S.hold && inSession());
+    $('heldText').textContent = 'Triage is on hold';   // no count: a climbing number is what pulls you off task
   }
 
   /* Triage is clear: celebrate first, then one quiet line. */
@@ -215,44 +238,65 @@
     view.innerHTML = '<div class="panel celebrate"><div class="burst" aria-hidden="true">' + confetti() + '</div>' +
       '<h2>Triage is clear</h2><p class="big">' + S.cleared + ' cards decided</p>' +
       '<p class="why">Nothing is waiting on you. Fuzz will collect what comes in until your next triage.</p></div>' +
-      '<p class="quiet">You’ve got about 50 minutes before your 2pm. <button type="button" class="linkish" id="offer">Want to go deep on something? <kbd>D</kbd></button></p>';
+      '<p class="quiet">' + (meetingIn() != null ? 'You’ve got about ' + Math.round(meetingIn() / 5) * 5 + ' minutes before your ' + fmt(meeting()) + '.' : 'Your afternoon is clear.') + ' <button type="button" class="linkish" id="offer">Want to go deep on something? <kbd>D</kbd></button></p>';
     $('offer').onclick = toEntry;
   }
   function confetti() { var h = ''; for (var i = 0; i < 18; i++) h += '<i style="--i:' + i + ';--x:' + (Math.round(Math.random() * 200) - 100) + 'px;--r:' + Math.round(Math.random() * 360) + 'deg"></i>'; return h; }
 
-  /* Enter Deep Work: how long, and where to start. */
-  function toEntry() { S.view = 'entry'; S.picking = false; S.query = ''; S.sel = defaultPick(); render(); }
-  function defaultPick() { var r = resumable()[0] || suggestions()[0]; return r ? r.id : null; }
+  /* Enter Deep Work: how long, and one box for what. Fuzz's default lives in the box, so nothing is hidden. */
+  function toEntry() { S.view = 'entry'; S.query = ''; S.alt = 0; setChoice(S.choice); render(); }
   function resumable() { return S.pool.filter(function (t) { return t.resume && t !== S.task; }); }
-  function suggestions() {
+  function ready() {   // Fuzz's order: where you left off, then what fits your time, in the pool's order (most pressing first)
     var left = S.view === 'entry' ? (S.budget > 0 ? S.budget : Infinity) : leftMin();
-    var c = S.pool.filter(function (t) { return !t.resume && t !== S.task; });
-    var fit = c.filter(function (t) { return remainingEst(t) <= left; }), rest = c.filter(function (t) { return remainingEst(t) > left; });
-    return fit.concat(rest).slice(0, 3);
+    var c = S.pool.filter(function (t) { return t !== S.task; });
+    var res = c.filter(function (t) { return t.resume; }), rest = c.filter(function (t) { return !t.resume; });
+    var fit = rest.filter(function (t) { return remainingEst(t) <= left; }), big = rest.filter(function (t) { return remainingEst(t) > left; });
+    return res.concat(fit, big);
   }
-  function pickRow(t, kind) {
-    var sub = kind === 'resume' ? esc(t.resume) : esc(t.why);
-    return '<button type="button" class="pick" data-id="' + t.id + '" aria-pressed="' + (t.id === S.sel) + '"><span class="t">' + esc(t.title) + '</span>' +
-      '<span class="meta">' + fitLabel(t) + '<span class="est">~' + remainingEst(t) + ' min</span></span><span class="s">' + sub + '</span></button>';
+  var MOODS = [[/^(something )?(light|easy|quick|small|short)( one| thing)?$/i, 'light'], [/urgent|pressing|important|most due/i, 'urgent'], [/^(anything|any|you pick|whatever|surprise me|idk|dunno|fuzz'?s pick)$/i, 'any']];
+  function candidates(q) {
+    q = (q || '').trim();
+    var all = ready();
+    if (!q) return all.map(function (t, i) { return { t: t, why: t.resume ? 'Pick up where you left off' : i === 0 ? 'Fuzz’s pick' : 'Also ready' }; });
+    var mood = MOODS.filter(function (m) { return m[0].test(q); })[0];
+    if (mood && mood[1] === 'light') return all.slice().sort(function (a, b) { return remainingEst(a) - remainingEst(b); }).map(function (t, i) { return { t: t, why: i ? 'Also light' : 'The lightest one' }; });
+    if (mood && mood[1] === 'urgent') return S.pool.filter(function (t) { return t !== S.task; }).map(function (t, i) { return { t: t, why: i ? 'Next most pressing' : 'The most pressing' }; });
+    if (mood) return all.map(function (t, i) { return { t: t, why: i ? 'Also ready' : 'Fuzz’s pick' }; });
+    var words = q.toLowerCase().split(/\W+/).filter(function (w) { return w.length > 2; });
+    var hits = S.pool.filter(function (t) { return t !== S.task; }).map(function (t) {
+      var hay = (t.title + ' ' + t.why).toLowerCase();
+      return { t: t, score: words.filter(function (w) { return hay.indexOf(w) >= 0; }).length };
+    }).filter(function (x) { return x.score > 0; }).sort(function (a, b) { return b.score - a.score; })
+      .map(function (x) { return { t: x.t, why: x.t.resume ? 'Picks up where you left off' : 'Ready' }; });
+    return hits.concat([{ free: q, why: 'Fuzz will warm it up now' }]);
   }
-  function pickerHtml() {
-    var res = resumable(), sug = suggestions(), q = S.query.trim().toLowerCase();
-    var h = '';
-    if (res.length) h += '<h3>Pick up where you left off</h3><div class="upnext">' + res.map(function (t) { return pickRow(t, 'resume'); }).join('') + '</div>';
-    if (sug.length) h += '<h3>Fuzz has these ready</h3><div class="upnext">' + sug.map(function (t) { return pickRow(t, 'sug'); }).join('') + '</div>';
-    h += '<h3>Something else</h3><form class="thought" id="findForm"><input id="find" value="' + esc(S.query) + '" placeholder="Search your tasks, or name something new (/)" aria-label="Search tasks or name something new" autocomplete="off"><button class="btn" type="submit">Find</button></form>';
-    if (q) {
-      var hits = S.pool.filter(function (t) { return t !== S.task && t.title.toLowerCase().indexOf(q) >= 0; });
-      h += '<div class="upnext">' + hits.map(function (t) { return pickRow(t, 'sug'); }).join('') +
-        '<button type="button" class="pick free" id="freeform"><span class="t">“' + esc(S.query.trim()) + '”</span><span class="meta"><span class="pill pill--accent">New</span></span>' +
-        '<span class="s">Fuzz warms it up now. It has less to go on than a task it prepped ahead of time.</span></button></div>';
-    }
-    return h;
+  function current() { var c = candidates(S.query); return c.length ? c[((S.alt % c.length) + c.length) % c.length] : null; }
+  function boxHtml() {
+    var d = candidates('')[0];
+    var ph = d ? (d.t.resume ? 'Pick up “' + d.t.title + '”? Or type anything…' : '“' + d.t.title + '”? Or type anything…') : 'Type anything…';
+    return '<label class="askwhat" for="what">What do you want to work on?</label>' +
+      '<input class="what" id="what" value="' + esc(S.query) + '" placeholder="' + esc(ph) + '" autocomplete="off" aria-describedby="match">' +
+      '<div class="match" id="match" aria-live="polite">' + matchHtml() + '</div>';
   }
-  function wirePicker(onPick) {
-    view.querySelectorAll('.pick[data-id]').forEach(function (b) { b.onclick = function () { if (S.sel === b.dataset.id) return onPick(byId(b.dataset.id)); S.sel = b.dataset.id; render(); }; });
-    $('findForm').onsubmit = function (e) { e.preventDefault(); S.query = $('find').value; render(); var f = $('find'); f.focus(); f.selectionStart = f.value.length; };
-    if ($('freeform')) $('freeform').onclick = function () { onPick(freeTask(S.query.trim())); };
+  function matchHtml() {
+    var c = candidates(S.query), it = current(); if (!it) return '';
+    var i = ((S.alt % c.length) + c.length) % c.length;
+    var more = c.length > 1 ? '<span class="cycle">↓ another · ' + (i + 1) + ' of ' + c.length + '</span>' : '';
+    if (it.free) return '<button type="button" class="mrow" id="mrow"><span class="mt">“' + esc(it.free) + '”</span><span class="pill pill--accent">New</span></button><div class="msub">' + esc(it.why) + more + '</div>';
+    return '<button type="button" class="mrow" id="mrow"><span class="mt">' + esc(it.t.title) + '</span>' + fitLabel(it.t) + '<span class="est">~' + remainingEst(it.t) + ' min</span></button>' +
+      '<div class="msub">' + esc(it.why) + (it.t.resume && /^Pick/.test(it.why) ? ': ' + esc(it.t.resume) : '') + more + '</div>';
+  }
+  function pickCurrent(onPick) { var it = current(); if (!it) return; onPick(it.free ? freeTask(it.free) : it.t); }
+  function wireBox(onPick) {
+    var input = $('what'); if (!input) return;
+    function refresh() { $('match').innerHTML = matchHtml(); var m = $('mrow'); if (m) m.onclick = function () { pickCurrent(onPick); }; }
+    input.oninput = function () { S.query = input.value; S.alt = 0; refresh(); };
+    input.onkeydown = function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); S.alt++; refresh(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); S.alt--; refresh(); }
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); pickCurrent(onPick); }
+    };
+    refresh();
   }
   function freeTask(title) {
     var t = { id: 'free' + (++S.freeN), title: title, est: 30, at: 0, passed: 0, noProgress: 0, fresh: true, thread: [],
@@ -262,36 +306,39 @@
     S.pool.push(t); return t;
   }
   function vEntry() {
-    say('How long have you got? I’ll plan the breaks in for you.', 'eager');
-    view.innerHTML = '<div class="panel"><h2>Deep Work</h2>' +
-      '<h3>How long do you have?</h3><div class="chips" role="group" aria-label="How long do you have">' + BUDGETS.map(function (b) {
-        return '<button type="button" class="chip" data-v="' + b.v + '" aria-pressed="' + (b.v === S.budget) + '">' + b.l + '</button>';
+    say('How long have you got, and what’s it for? Or just press Enter and I’ll pick.', 'eager');
+    view.innerHTML = '<div class="panel entry"><h2>Deep Work</h2>' +
+      '<h3>How long do you have?</h3><div class="chips times" role="group" aria-label="How long do you have">' + chips().map(function (c) {
+        return '<button type="button" class="chip time" data-v="' + c.v + '" aria-pressed="' + (c.v === S.choice) + '"><b>' + esc(c.l) + '</b><span>' + esc(c.sub) + '</span></button>';
       }).join('') + '</div><p class="planline">' + esc(plan(S.budget)) + '</p>' +
-      pickerHtml() +
-      '<div class="toggles"><label><input type="checkbox" id="hold"' + (S.hold ? ' checked' : '') + '> Hold new triage cards until I’m done (anything urgent still gets through)</label>' +
-      '<label><input type="checkbox" id="hide"' + (S.hideClock ? ' checked' : '') + '> Hide the clock (breaks still happen)</label></div>' +
-      '<div class="row"><button type="button" class="btn primary" id="go"' + (S.sel ? '' : ' disabled') + '>' + (S.sel ? 'Start: ' + esc(byId(S.sel).title) : 'Pick something to start') + ' <kbd>Enter</kbd></button>' +
-      '<button type="button" class="btn" id="back">Not now <kbd>Esc</kbd></button></div></div>';
-    view.querySelectorAll('.chip[data-v]').forEach(function (b) { b.onclick = function () { S.budget = +b.dataset.v; S.sel = S.sel || defaultPick(); render(); }; });
+      boxHtml() +
+      '<div class="row"><button type="button" class="btn primary" id="go">Start <kbd>Enter</kbd></button>' +
+      '<button type="button" class="btn" id="back">Not now <kbd>Esc</kbd></button></div>' +
+      '<details class="optfold"><summary>Options</summary><div class="toggles"><label><input type="checkbox" id="hold"' + (S.hold ? ' checked' : '') + '> Hold new triage cards until I’m done (anything urgent still gets through)</label>' +
+      '<label><input type="checkbox" id="hide"' + (S.hideClock ? ' checked' : '') + '> Hide the clock (breaks still happen)</label></div></details></div>';
+    view.querySelectorAll('.chip[data-v]').forEach(function (b) { b.onclick = function () { setChoice(b.dataset.v === 'cal' ? 'cal' : +b.dataset.v); S.alt = 0; render(); }; });
     $('hold').onchange = function () { S.hold = this.checked; };
     $('hide').onchange = function () { S.hideClock = this.checked; };
-    wirePicker(startSession);
-    $('go').onclick = function () { if (S.sel) startSession(byId(S.sel)); };
+    wireBox(startSession);
+    $('go').onclick = function () { pickCurrent(startSession); };
     $('back').onclick = function () { S.view = S.log.length ? 'triage' : 'cleared'; render(); };
+    var w = $('what'); if (w) { w.focus(); w.selectionStart = w.value.length; }
   }
 
   /* ---------- The session ---------- */
   function startSession(t) {
     S.pool.forEach(function (x) { if (x !== t && x.offered) x.passed++; x.offered = false; });
-    suggestions().concat(resumable()).forEach(function (x) { if (x !== t) x.passed++; });
+    var d = candidates('')[0]; if (d && d.t && d.t !== t && !d.t.resume) d.t.passed++;   // Fuzz's pick was in the box, and you chose something else
     S.clock = 0; S.workSince = 0; S.sinceRealBreak = 0; S.breaksTaken = 0; S.pending = null; S.forceAt = null; S.snoozed = 0; S.workClock = 0; S.hist = []; S.curStart = 0;
     S.wrapping = false; S.thoughts = []; S.held = 0; S.log = []; S.nextHeld = 300; S.nextChat = 420;
-    S.planned = S.budget; S.budgetEnd = S.budget > 0 ? S.budget * 60 : Infinity;
+    var mt = meetingIn();
+    S.hardStop = mt != null ? (mt - BUFFER) * 60 : Infinity; S.extensions = 0;
+    S.planned = S.budget; S.budgetEnd = Math.min(S.budget > 0 ? S.budget * 60 : Infinity, S.hardStop);
     S.pool.forEach(function (x) { x.stuck = 0; x.switched = false; });
     beginTask(t);
   }
   function beginTask(t) {
-    S.task = t; S.intro = true; S.view = 'focus'; S.tab = null; S.sheet = null; S.asking = false; S.picking = false; S.between = null;
+    S.task = t; S.intro = true; S.view = 'focus'; S.tab = 'context'; S.sheet = null; S.asking = false; S.picking = false; S.between = null; S.undo = null; hideToast();
     S.entry = { task: t, steps: [], finished: false };
     S.log.push(S.entry);
     t.k.history.push(Hi('Just now', 'Deep Work: started'));
@@ -310,30 +357,30 @@
     var st = t.steps[t.at];
     var dots = t.steps.map(function (_, i) { return '<i class="' + (i < t.at ? 'on' : i === t.at ? 'now' : '') + '"></i>'; }).join('');
     var help = st.help || st.fuzzDid ? '<div class="help">' + (st.fuzzDid ? '<b>Fuzz’s first pass, for you to check</b><div class="fuzzdid">' + esc(st.fuzzDid) + '</div>' : '<b>From Fuzz</b>' + esc(st.help)) + '</div>' : '';
-    var intro = S.intro ? '<div class="intro">' + (t.resume ? '<div class="crumb"><div class="lbl">Where you left off</div>' + esc(t.resume) + '</div>' : '') +
-      '<div class="prep"><p>' + esc(t.prep) + '</p><div class="chips">' + t.sources.map(function (s) { return '<span class="chip src">' + esc(s) + '</span>'; }).join('') + '</div></div></div>' : '';
+    var intro = S.intro ? (t.resume ? '<p class="crumbline"><b>Where you left off:</b> ' + esc(t.resume) + '</p>' : '') +
+      '<details class="prepfold"><summary>What Fuzz got ready</summary><div class="prep"><p>' + esc(t.prep) + '</p><div class="chips">' + t.sources.map(function (s) { return '<span class="chip src">' + esc(s) + '</span>'; }).join('') + '</div></div></details>' : '';
     var rest = t.steps.length - t.at - 1;
     var done = S.log.filter(function (e) { return e.finished; }).length;
     view.innerHTML = '<div class="panel"><p class="taskline"><span>' + esc(t.title) + (done ? ' <span class="pill pill--ok">' + done + ' finished this session</span>' : '') + '</span><span class="dots" aria-label="Step ' + (t.at + 1) + ' of ' + t.steps.length + '">' + dots + '</span></p>' +
-      intro +
-      '<div class="step" id="step">' + esc(st.t) + '</div>' + help +
+      '<div class="step" id="step">' + esc(st.t) + '</div>' + help + intro +
       (rest ? '<details class="later"><summary>' + rest + ' more ' + (rest === 1 ? 'step' : 'steps') + ' after this (folded away on purpose)</summary><ol start="' + (t.at + 2) + '">' +
         t.steps.slice(t.at + 1).map(function (s) { return '<li>' + esc(s.t) + '</li>'; }).join('') + '</ol></details>' : '<p class="later">This is the last step.</p>') +
-      ctxHtml(t) +
       '<div class="clock' + (S.hideClock ? ' hidden-clock' : '') + '" id="clock"><svg class="dial" id="clockDial" viewBox="0 0 100 100" aria-hidden="true"></svg><span class="read"><b id="clockBig"></b><span id="clockSmall"></span></span>' +
-      '<button type="button" class="btn small" id="clockToggle">' + (S.hideClock ? 'Show time' : 'Hide time') + '</button></div>' +
+      '<span class="clockbtns">' + (canPip() ? '<button type="button" class="btn small" id="popClock">' + (pip ? 'Close pop-out' : 'Pop out') + '</button>' : '') +
+      '<button type="button" class="btn small" id="clockToggle">' + (S.hideClock ? 'Show time' : 'Hide time') + '</button></span></div>' +
       '<form class="thought" id="thoughtForm"><input id="thought" placeholder="A stray thought? Park it here and keep going (T)" aria-label="Park a stray thought" autocomplete="off"><button class="btn" type="submit">Park it</button></form>' +
-      (S.thoughts.length ? '<p class="parked">' + S.thoughts.length + ' parked for Triage: ' + S.thoughts.map(esc).join(' · ') + '</p>' : '') +
+      (S.thoughts.length ? '<p class="parked">' + S.thoughts.length + ' parked for Triage ✓</p>' : '') +
       '<div id="sheet"></div>' +
       '<div class="row" id="mainBtns"><button type="button" class="btn primary" id="stepDone">Done with this step <kbd>Enter</kbd></button>' +
       '<button type="button" class="btn" id="stuck">I’m stuck <kbd>S</kbd></button>' +
       '<button type="button" class="btn" id="brk">Break now <kbd>B</kbd></button>' +
-      '<button type="button" class="btn" id="later">Done for now <kbd>Esc</kbd></button></div></div>';
+      '<button type="button" class="btn" id="later">Done for now <kbd>Esc</kbd></button></div>' + ctxHtml(t) + '</div>';
     $('stepDone').onclick = stepDone;
     $('stuck').onclick = function () { openSheet('stuck'); };
     $('brk').onclick = function () { startBreak(true); };
     $('later').onclick = doneForNow;
     $('clockToggle').onclick = function () { S.hideClock = !S.hideClock; render(); };
+    if ($('popClock')) $('popClock').onclick = popOut;
     $('thoughtForm').onsubmit = function (e) {
       e.preventDefault(); var v = $('thought').value.trim(); if (!v) return;
       S.thoughts.push(v); render(); say('Parked. It’ll be in Triage when you’re done.', chatty() ? 'happy' : 'chill'); settle();
@@ -343,15 +390,17 @@
   }
 
   /* ---------- What Fuzz knows: ask, people, sources, context, history ---------- */
-  var TABS = [['ask', 'Ask Fuzz'], ['people', 'People'], ['sources', 'Sources'], ['context', 'Context'], ['history', 'History']];
+  var TABS = [['ask', 'Ask Fuzz'], ['context', 'Context'], ['people', 'People'], ['history', 'History'], ['sources', 'Sources']];
   function ctxHtml(t) {
-    var k = t.k, counts = { people: k.people.length, sources: k.sources.length, history: k.history.length };
-    var h = '<div class="ctx"><div class="tabs" role="tablist" aria-label="About this task">' + TABS.map(function (x) {
-      return '<button type="button" role="tab" class="tab" data-tab="' + x[0] + '" aria-selected="' + (S.tab === x[0]) + '">' + x[1] +
-        (counts[x[0]] ? ' <span class="n">' + counts[x[0]] + '</span>' : '') + (x[0] === 'ask' ? ' <kbd>Q</kbd>' : '') + '</button>';
-    }).join('') + (S.tab ? '<button type="button" class="tab fold" id="fold" aria-label="Fold away">Fold away</button>' : '') + '</div>';
-    if (!S.tab) return h + '</div>';
-    h += '<div class="tabpanel' + (S.tab === 'ask' ? ' askpanel' : '') + '" role="tabpanel">';
+    /* Same shape as the app's task card: the tabs sit below the actions, and one is always open */
+    var k = t.k, counts = { people: k.people.length, history: k.history.length, sources: k.sources.length, ask: t.thread.length };
+    if (!S.tab) S.tab = 'context';
+    var h = '<section class="rich dwrich"><div class="tabs" role="tablist" aria-label="About this task">' + TABS.map(function (x) {
+      var on = S.tab === x[0];
+      return '<button type="button" role="tab" class="tabbtn" id="tab-' + x[0] + '" data-tab="' + x[0] + '" aria-selected="' + on + '" aria-controls="tabpanel" tabindex="' + (on ? 0 : -1) + '">' + x[1] +
+        (counts[x[0]] ? '<span>' + counts[x[0]] + '</span>' : '') + (x[0] === 'ask' ? ' <kbd>Q</kbd>' : '') + '</button>';
+    }).join('') + '</div>';
+    h += '<div class="tabbody tabpanel' + (S.tab === 'ask' ? ' askpanel' : '') + '" id="tabpanel" role="tabpanel" aria-labelledby="tab-' + S.tab + '" tabindex="0">';
     if (S.tab === 'ask') {
       h += '<div class="thread" id="thread">' + (t.thread.length ? '' : '<p class="why">Ask anything about this task. Fuzz looks through the sources and comes back with the answer and where it found it.</p>') +
         t.thread.map(function (m, i) {
@@ -374,11 +423,10 @@
     if (S.tab === 'history') h += '<ol class="hist">' + k.history.slice().reverse().map(function (x) {
       return '<li><span class="hwhen">' + esc(x.when) + '</span>' + esc(x.text) + '</li>';
     }).join('') + '</ol>';
-    return h + '</div></div>';
+    return h + '</div></section>';
   }
   function wireCtx(t) {
-    view.querySelectorAll('.tab[data-tab]').forEach(function (b) { b.onclick = function () { S.tab = S.tab === b.dataset.tab ? null : b.dataset.tab; render(); if (S.tab === 'ask' && $('ask')) $('ask').focus(); }; });
-    if ($('fold')) $('fold').onclick = function () { S.tab = null; render(); };
+    view.querySelectorAll('.tabbtn[data-tab]').forEach(function (b) { b.onclick = function () { S.tab = b.dataset.tab; render(); if (S.tab === 'ask' && $('ask')) $('ask').focus(); else { var tb = $('tab-' + S.tab); if (tb) tb.focus(); } }; });
     view.querySelectorAll('[data-ask]').forEach(function (b) { b.onclick = function () { ask(t, b.dataset.ask); }; });
     view.querySelectorAll('[data-draft]').forEach(function (b) { b.onclick = function () {
       var m = t.thread[+b.dataset.draft]; m.drafted = true;
@@ -410,11 +458,28 @@
       say(hit ? 'Found it.' : 'Couldn’t find that one.', hit ? 'proud' : 'sheepish'); settle(1600);
     }, 1800 + Math.random() * 800);
   }
+  function undoStep() {
+    var u = S.undo; if (!u || S.take) return;
+    var t = u.task; S.undo = null; hideToast();
+    t.at = u.at; S.entry.steps.length = u.entryLen; t.k.history.length = u.histLen; t.resume = u.resume; S.intro = u.intro;
+    if (S.pool.indexOf(t) < 0) { S.pool.splice(u.poolIdx, 0, t); S.entry.finished = false; }
+    S.task = t; S.between = null; S.view = 'focus'; render(); stepAnim(); say('Undone. You’re back on that step.', 'chill'); settle();
+  }
+  /* A small toast outside the page content, so it can come and go without re-rendering what you're typing in */
+  var toastTimer = null;
+  function showToast(text, action, key, fn) {
+    var el = $('toast'); el.innerHTML = '<span>' + esc(text) + '</span>' + (action ? '<button type="button" class="btn small" id="toastBtn">' + esc(action) + ' <kbd>' + key + '</kbd></button>' : '');
+    el.hidden = false; if (action) $('toastBtn').onclick = fn;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { hideToast(); S.undo = null; }, 6000);
+  }
+  function hideToast() { var el = $('toast'); if (el) { el.hidden = true; el.innerHTML = ''; } clearTimeout(toastTimer); }
   function stepAnim() { var el = $('step'); if (el) { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); } }
 
   function stepDone() {
     if (S.sheet || S.busy || S.take || S.warming) return;
     var t = S.task, st = t.steps[t.at];
+    S.undo = { task: t, at: t.at, entryLen: S.entry.steps.length, histLen: t.k.history.length, resume: t.resume, intro: S.intro, poolIdx: S.pool.indexOf(t) };
+    showToast('Step done ✓', 'Undo', 'U', undoStep);
     S.entry.steps.push(st.t + (st.fuzzDid ? ' (with Fuzz’s first pass)' : ''));
     t.k.history.push(Hi('Just now', 'You finished: ' + st.t));
     t.at++; S.intro = false; t.resume = null;
@@ -426,21 +491,36 @@
   }
 
   /* ---------- Stuck (you asked for it, so it stays in place, not a takeover) ---------- */
-  function openSheet(k) { if (S.take || S.warming) return; S.sheet = k; say('Stuck is normal. Let’s make it easier, not harder.', 'caring'); S.task.stuck++; renderSheet(); }
+  function openSheet(k) {
+    if (S.take || S.warming) return;
+    S.sheet = k;
+    if (k === 'stuck') { say('Stuck is normal. Let’s make it easier, not harder.', 'caring'); S.task.stuck++; }
+    renderSheet();
+  }
   function closeSheet() { S.sheet = null; render(); bot.dataset.mood = idleMood(); }
   function opt(k, label, sub, cls) { return '<button type="button" class="btn' + (cls ? ' ' + cls : '') + '" data-k="' + k + '"><span class="k">' + k + '</span><span>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>'; }
+  function escBtn(label) { return '<button type="button" class="btn" data-k="0"><span class="k">Esc</span><span>' + label + '</span></button>'; }
   function renderSheet() {
     var el = $('sheet'); if (!el) return;
     var main = $('mainBtns'); if (main) main.hidden = !!S.sheet;
     if (!S.sheet) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="sheet" role="dialog" aria-label="What would help?"><h3>What would help?</h3><div class="opts">' +
+    if (S.sheet === 'brk') el.innerHTML = '<div class="sheet" role="dialog" aria-label="Take a break now?"><h3>Take a break now?</h3><div class="opts">' +
+      opt(1, 'Yes, break now', nextBreakLen() / 60 + ' minutes', 'primary') + escBtn('No, keep working') + '</div></div>';
+    else el.innerHTML = '<div class="sheet" role="dialog" aria-label="What would help?"><h3>What would help?</h3><div class="opts">' +
       opt(1, 'Make this step smaller', 'Fuzz splits it into two tiny ones') +
       opt(2, 'Fuzz, take a first pass', 'You check it rather than start from blank') +
-      opt(3, 'Skip it for now', 'It moves to the end') +
-      opt(4, 'Switch to something else', 'Your place here is kept') +
-      opt(5, 'Never mind', '') + '</div></div>';
-    el.querySelectorAll('[data-k]').forEach(function (b) { b.onclick = function () { stuckOpt(+b.dataset.k); }; });
-    var f = el.querySelector('[data-k]'); if (f) f.focus();
+      opt(3, 'Show me the sources', 'Opens the Sources tab below') +
+      opt(4, 'Skip it for now', 'It moves to the end') +
+      opt(5, 'Switch to something else', 'Your place here is kept') +
+      escBtn('Never mind') + '</div></div>';
+    el.querySelectorAll('[data-k]').forEach(function (b) { b.onclick = function () { sheetOpt(+b.dataset.k); }; });
+    var f = el.querySelector('.btn.primary') || el.querySelector('[data-k]'); if (f) f.focus();
+  }
+  function sheetOpt(k) {
+    if (S.sheet === 'brk') { if (k === 1) return startBreak(true); return closeSheet(); }
+    if (k === 0) { S.task.stuck--; return closeSheet(); }
+    if (k === 3) { S.task.stuck--; S.sheet = null; S.tab = 'sources'; render(); var tp = $('tabpanel'); if (tp) tp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); say('Here’s what I found. Take what helps.', 'happy'); return; }
+    stuckOpt({ 1: 1, 2: 2, 4: 3, 5: 4 }[k]);
   }
   function stuckOpt(k) {
     var t = S.task, st = t.steps[t.at];
@@ -485,7 +565,7 @@
     return c[0] || null;
   }
   function toBetween(kind) {
-    S.between = { kind: kind, from: S.task }; S.view = 'between'; S.picking = false; S.query = '';
+    S.between = { kind: kind, from: S.task }; S.view = 'between'; S.picking = false; S.query = ''; S.alt = 0;
     var n = nextOffer(); S.between.offer = n; S.sel = n ? n.id : null; if (n) n.offered = true;
     say(kind === 'finished' ? 'Done! The whole thing!' : 'Kept your place. Here’s something lighter.', kind === 'finished' ? 'proud' : 'caring');
     render();
@@ -495,16 +575,19 @@
     var b = S.between, t = b.from, n = b.offer, left = leftMin();
     var head = b.kind === 'finished'
       ? '<div class="beat"><div class="check" aria-hidden="true">✓</div><h2>Done: ' + esc(t.title) + '</h2><p class="why">' + S.entry.steps.length + ' steps this time. It moves to Finished.</p></div>'
-      : '<div class="beat soft"><h2>Switched away from “' + esc(t.title) + '”</h2><p class="why">Your place is kept. It’ll be first under “Pick up where you left off”.</p></div>';
-    var timeLine = S.budget > 0 ? (left > 1 ? 'About ' + Math.round(left) + ' min left of your ' + S.budget + '.' : 'You’re at the end of your ' + S.budget + ' minutes.') : 'No end time set.';
+      : '<div class="beat soft"><h2>Switched away from “' + esc(t.title) + '”</h2><p class="why">Your place is kept. Fuzz will offer it first next time.</p></div>';
+    var out = isFinite(left) && left <= 1;
+    var timeLine = isFinite(left) ? (left > 1 ? 'About ' + Math.round(left / 5) * 5 + ' min left.' : 'You’re out of time for this session.') : 'No end time set.';
     view.innerHTML = '<div class="panel">' + head + '<p class="cap">' + timeLine + '</p>' +
       (n ? '<div class="offer"><div class="lbl">Next, if you want it</div><div class="txt">' + esc(n.title) + '</div><p class="why">' + fitLabel(n) + ' ~' + remainingEst(n) + ' min · ' + esc(n.resume ? 'Picks up where you left off.' : n.why) + '</p></div>' : '<p class="why">That’s everything in the pool. Nice.</p>') +
-      (S.picking ? pickerHtml() : '') +
-      '<div class="row">' + (n ? '<button type="button" class="btn primary" id="go">Go <kbd>Enter</kbd></button><button type="button" class="btn" id="other">Something else <kbd>O</kbd></button>' : '') +
-      '<button type="button" class="btn' + (n ? '' : ' primary') + '" id="stop">Stop here <kbd>Esc</kbd></button></div></div>';
-    if (n) { $('go').onclick = function () { beginTask(S.picking && S.sel ? byId(S.sel) : n); }; $('other').onclick = function () { S.picking = !S.picking; render(); }; }
+      (S.picking ? '<div class="otherbox">' + boxHtml() + '</div>' : '') +
+      '<div class="row">' + (n && !S.picking ? '<button type="button" class="btn' + (out ? '' : ' primary') + '" id="go">Go' + (out ? '' : ' <kbd>Enter</kbd>') + '</button><button type="button" class="btn" id="other">Something else <kbd>O</kbd></button>' : '') +
+      '<button type="button" class="btn' + (n && !out ? '' : ' primary') + '" id="stop">Stop here <kbd>' + (n && !out ? 'Esc' : 'Enter') + '</kbd></button></div>' +
+      (b.kind === 'finished' && S.undo ? '<p class="cap">Not actually done? Press U to undo the last step.</p>' : '') + '</div>';
+    if ($('go')) $('go').onclick = function () { beginTask(n); };
+    if ($('other')) $('other').onclick = function () { S.picking = true; S.query = ''; S.alt = 0; render(); $('what').focus(); };
     $('stop').onclick = doneForNow;
-    if (S.picking) wirePicker(beginTask);
+    if (S.picking) wireBox(beginTask);
   }
 
   /* ---------- Takeovers: anything about time covers the whole screen ---------- */
@@ -531,13 +614,19 @@
         : '<div class="backto"><div class="lbl">When you’re back</div><div class="txt">' + esc(st.t) + '</div>' + (st.fuzzDid || st.help ? '<p class="why">' + esc(st.fuzzDid || st.help) + '</p>' : '') + '<p class="why">' + esc(t.title) + '</p></div>';
       h = k.over
         ? '<p class="eyebrow">Break’s over</p><h2>Welcome back. No rush.</h2>' + back
-        : '<p class="eyebrow">On a break</p><div class="bigtime" id="breakLeft"></div><p class="lead">' + esc(k.idea) + '</p>' + back;
+        : '<p class="eyebrow">On a break</p><div class="breakdial"><svg viewBox="0 0 100 100" aria-hidden="true" id="breakDial"></svg><span class="breaktime" id="breakLeft"></span></div><p class="lead">' + esc(k.idea) + '</p>' + back;
       o = opt(1, k.over ? 'Back to it' : 'I’m back', '', 'primary') + opt(4, 'Done for now', 'Fuzz saves your place');
     }
     if (k.kind === 'timeup') {
-      h = '<p class="eyebrow">' + (S.wrapping ? 'Time to stop' : 'Your ' + S.budget + ' minutes are up') + '</p><h2>' + (S.wrapping ? 'That’s the five. Nice stretch.' : 'How’s it going?') + '</h2>' +
+      var toHard = (S.hardStop - S.clock) / 60, near = toHard < 30, flip = S.extensions >= 2;   // after two extensions, Fuzz suggests wrapping up
+      h = '<p class="eyebrow">' + (S.wrapping ? 'Time to stop' : 'Your time is up') + '</p><h2>' + (S.wrapping ? 'That’s the five. Nice stretch.' : flip ? 'You’ve been going a while.' : 'How’s it going?') + '</h2>' +
         '<p class="lead">' + sessionLine() + '</p>';
-      o = opt(1, 'On a roll, keep going', 'Another 25 minutes, breaks included', 'primary') + (S.wrapping ? '' : opt(2, 'Wrap up in 5', 'Finish the thought, then stop')) + opt(3, 'Break, then more', '5 minutes') + opt(4, 'Done for now', 'Fuzz saves your place');
+      o = opt(1, near ? 'Keep going until ' + fmt(meeting() - BUFFER) : 'On a roll, keep going', near ? 'Then your ' + fmt(meeting()) : 'Another 25 minutes, breaks included', flip || S.wrapping ? '' : 'primary') +
+        (S.wrapping ? '' : opt(2, 'Wrap up in 5', 'Finish the thought, then stop', flip ? 'primary' : '')) + (near ? '' : opt(3, 'Break, then more', '5 minutes')) + opt(4, 'Done for now', 'Fuzz saves your place', S.wrapping ? 'primary' : '');
+    }
+    if (k.kind === 'meeting') {
+      h = '<p class="eyebrow">Your ' + fmt(meeting()) + ' is in 5 minutes</p><h2>Time to wrap up.</h2><p class="lead">' + sessionLine() + '</p>';
+      o = opt(1, 'Stop here', 'Fuzz saves your place', 'primary') + opt(2, 'I’m skipping the meeting', 'Another 25 minutes, and no more meeting reminders');
     }
     if (k.kind === 'body') {
       h = '<p class="eyebrow">Body check</p><h2>90 minutes without a real break.</h2><p class="lead">Hyperfocus is great. Water is too. How are your shoulders?</p>';
@@ -546,7 +635,7 @@
     if (k.kind === 'urgent') {
       tone = 'urgent';
       h = '<p class="eyebrow">Urgent, so it came through</p><h2>Elena: “Legal needs the launch date by 3pm today, not Monday.”</h2><p class="lead">Everything else is still held for Triage. This one has a deadline inside your session.</p>';
-      o = opt(1, 'Pause and handle it', 'Fuzz saves your place here', 'primary') + opt(2, 'It can wait until I’m done', 'Fuzz will remind you at the end');
+      o = opt(1, 'Pause and handle it', 'Then come straight back to this session', 'primary') + opt(2, 'It can wait until I’m done', 'It’ll be first in Triage');
     }
     el.className = 'take ' + tone + (k.armed ? '' : ' arming');
     el.innerHTML = '<div class="take-in" role="alertdialog" aria-modal="true" aria-label="Fuzz">' + h + '<div class="opts">' + o + '</div>' +
@@ -557,15 +646,18 @@
     tickBreak();
   }
   function sessionLine() {
-    var steps = S.log.reduce(function (n, e) { return n + e.steps.length; }, 0), fin = S.log.filter(function (e) { return e.finished; }).length;
-    return steps + (steps === 1 ? ' step' : ' steps') + ' done' + (fin ? ', ' + fin + (fin === 1 ? ' task' : ' tasks') + ' finished' : '') + ', ' + S.breaksTaken + (S.breaksTaken === 1 ? ' break' : ' breaks') + ' taken.';
+    var steps = S.log.reduce(function (n, e) { return n + e.steps.length; }, 0), fin = S.log.filter(function (e) { return e.finished; }).length, bits = [];
+    if (fin) bits.push(fin + (fin === 1 ? ' task' : ' tasks') + ' finished');   // no zeros: say what did happen
+    if (steps) bits.push(steps + (steps === 1 ? ' step' : ' steps') + ' done');
+    if (S.breaksTaken) bits.push(S.breaksTaken + (S.breaksTaken === 1 ? ' break' : ' breaks') + ' taken');
+    return bits.length ? bits.join(', ').replace(/^./, function (c) { return c.toUpperCase(); }) + '.' : 'You showed up and opened it. That counts.';
   }
   function nextBreakLen() { return S.breaksTaken % 3 === 2 ? LONG : SHORT; }
   function startBreak(manual) {
     if (S.warming) return;
     S.sheet = null; var len = nextBreakLen();
     S.hist.push({ k: 'work', s: S.curStart, e: S.clock }); S.brkStart = S.clock;
-    take('break', { left: len, idea: BREAK_IDEAS[S.breaksTaken % BREAK_IDEAS.length] });
+    take('break', { left: len, len: len, idea: BREAK_IDEAS[S.breaksTaken % BREAK_IDEAS.length] });
     S.take.armed = true; renderTake();
     say('Go on. I’ve got your place.', 'sleepy');
   }
@@ -586,22 +678,41 @@
     }
     if (kind === 'break' && (n === 1 || n === 4)) { countBreak(); closeTake(); if (n === 4) return doneForNow(); say('Welcome back. Here’s where you were.', 'happy'); return backToWork(); }
     if (kind === 'timeup' || kind === 'body') {
-      if (n === 1) { closeTake(); if (kind === 'timeup') { S.wrapping = false; S.budgetEnd = S.clock + 25 * 60; S.budget += 25; } else S.sinceRealBreak = 0; say('Keep going. I’ll still call the breaks.', 'happy'); return backToWork(); }
+      if (n === 1) { closeTake(); if (kind === 'timeup') { S.wrapping = false; S.extensions++; S.budgetEnd = Math.min(S.clock + 25 * 60, S.hardStop); } else S.sinceRealBreak = 0; say('Keep going. I’ll still call the breaks.', 'happy'); return backToWork(); }
       if (n === 2 && kind === 'timeup' && !S.wrapping) { closeTake(); S.wrapping = true; S.budgetEnd = S.clock + 5 * 60; say('Five more minutes. Finish the thought, not the task.', 'chill'); return backToWork(); }
-      if (n === 3) { if (kind === 'timeup') { S.budgetEnd = S.clock + (SHORT + 25 * 60); S.budget += 30; S.wrapping = false; } return startBreak(); }
+      if (n === 3) { if (kind === 'timeup') { S.budgetEnd = Math.min(S.clock + SHORT + 25 * 60, S.hardStop); S.extensions++; S.wrapping = false; } return startBreak(); }
       if (n === 4) { closeTake(); return doneForNow(); }
+    }
+    if (kind === 'meeting') {
+      closeTake();
+      if (n === 1) return doneForNow();
+      S.hardStop = Infinity; S.budgetEnd = S.clock + 25 * 60; S.extensions++; say('Okay. No more meeting reminders this session.', 'chill'); return backToWork();
     }
     if (kind === 'urgent') {
       closeTake();
-      if (n === 1) { S.urgent = 'now'; return doneForNow(); }
+      if (n === 1) { S.detourFrom = S.view; S.detourDone = null; S.view = 'detour'; return render(); }
       S.urgent = 'later'; say('Okay. It’ll be the first thing in Triage.', 'chill'); return backToWork();
     }
+  }
+  /* Urgent is a detour, not an exit: the session waits, then you come straight back to it */
+  function vDetour() {
+    say(S.detourDone ? 'Done. Let’s get you back.' : 'Deep Work is paused. Let’s deal with this, then get you straight back.', S.detourDone ? 'happy' : 'caring');
+    view.innerHTML = '<div class="pausebar"><span>Deep Work is paused · <b>' + esc(S.task.title) + '</b></span><button type="button" class="btn small" id="resume">Back to Deep Work <kbd>Esc</kbd></button></div>' +
+      '<div class="panel"><div class="sbhead"><span class="pill pill--danger">Urgent</span><b>Elena Park</b></div><p class="lead">“Legal needs the launch date by 3pm today, not Monday.”</p>' +
+      (S.detourDone ? '<p class="okline">' + esc(S.detourDone) + '</p><div class="row"><button type="button" class="btn primary" id="resume2">Back to Deep Work <kbd>Enter</kbd></button></div>'
+        : '<div class="proposal"><div class="lbl">Fuzz’s suggestion</div>This is your “Propose a launch date” task, already prepped. I lean Oct 9. I can draft the reply now, and it waits for your OK in Triage.</div>' +
+          '<div class="row"><button type="button" class="btn primary" id="dDraft">Draft it with Oct 9 <kbd>Enter</kbd></button><button type="button" class="btn" id="dSelf">I’ll reply myself</button></div>') + '</div>';
+    var back = function () { S.view = S.detourFrom || 'focus'; S.detourDone = null; render(); if (S.view === 'focus') settle(); say('Welcome back. Here’s where you were.', 'happy'); };
+    $('resume').onclick = back; if ($('resume2')) $('resume2').onclick = back;
+    if ($('dDraft')) $('dDraft').onclick = function () { S.drafts.push('Reply to Elena: “Oct 9 works. Here’s why…”'); S.detourDone = 'Drafted. It’s in Triage for your OK.'; render(); };
+    if ($('dSelf')) $('dSelf').onclick = function () { S.detourDone = 'Okay. Fuzz marked it handled.'; render(); };
   }
   function backToWork() { if (S.view === 'focus') { render(); settle(1600); } else render(); }
 
   /* ---------- Leaving ---------- */
   function doneForNow() {
-    S.sheet = null; closeTake(); S.pending = null; S.forceAt = null;
+    S.wrapFrom = S.view === 'between' ? 'between' : 'focus';
+    S.sheet = null; closeTake(); hideToast(); S.pending = null; S.forceAt = null;
     S.view = 'wrap'; render();
   }
   function vWrap() {
@@ -610,15 +721,18 @@
     var fin = S.log.filter(function (e) { return e.finished; }), steps = S.log.reduce(function (n, e) { return n + e.steps.length; }, 0);
     say(steps ? 'Good session. I’ll keep your place warm.' : 'That’s okay. Opening it counts. I kept your place.', 'proud');
     view.innerHTML = '<div class="panel"><h2>Done for now</h2>' +
-      '<div class="sum"><span class="stat"><b>' + Math.max(1, Math.round(S.clock / 60)) + '</b> min in Deep Work</span><span class="stat"><b>' + fin.length + '</b> finished</span>' +
-      '<span class="stat"><b>' + steps + '</b> steps done</span><span class="stat"><b>' + S.breaksTaken + '</b> breaks taken</span><span class="stat"><b>' + S.thoughts.length + '</b> thoughts parked</span></div>' +
+      '<p class="lead">' + sessionLine() + '</p>' +
+      '<div class="sum">' + [[Math.max(1, Math.round(S.clock / 60)), 'min in Deep Work', 'min in Deep Work'], [fin.length, 'finished', 'finished'], [steps, 'step done', 'steps done'], [S.breaksTaken, 'break taken', 'breaks taken'], [S.thoughts.length, 'thought parked', 'thoughts parked']]
+        .filter(function (x) { return x[0] > 0; }).map(function (x) { return '<span class="stat"><b>' + x[0] + '</b> ' + (x[0] === 1 ? x[1] : x[2]) + '</span>'; }).join('') + '</div>' +
       '<h3>This session</h3><ul class="log">' + S.log.map(function (e) {
         return '<li><b>' + esc(e.task.title) + '</b>: ' + (e.finished ? 'finished' : e.steps.length ? e.steps.length + ' steps' : 'opened it') + '</li>';
       }).join('') + '</ul>' +
       (open ? '<h3>Where you left off on “' + esc(t.title) + '”</h3><p class="why">Fuzz filled this in. Change it if you like, or leave it.</p>' +
         '<input class="field" id="crumb" value="' + esc('Next: ' + st.t) + '" aria-label="Where you left off">' : '') +
-      '<div class="row"><button type="button" class="btn primary" id="toTriage">Save and go to Triage <kbd>Enter</kbd></button></div></div>';
+      '<div class="row"><button type="button" class="btn primary" id="toTriage">Save and go to Triage <kbd>Enter</kbd></button>' +
+      '<button type="button" class="btn" id="backToWork">Back to work <kbd>Esc</kbd></button></div></div>';
     $('toTriage').onclick = function () { if (open) t.resume = $('crumb').value; endSession(); };
+    $('backToWork').onclick = function () { S.view = S.wrapFrom || 'focus'; render(); if (S.view === 'focus') { stepAnim(); settle(); } say('Back at it. Nothing was lost.', 'happy'); };
   }
   function endSession() {
     var seen = [];
@@ -627,13 +741,15 @@
       var did = S.log.filter(function (x) { return x.task === t; }).reduce(function (n, x) { return n + x.steps.length; }, 0);
       t.noProgress = did ? 0 : t.noProgress + 1;
       t.k.history.push(Hi('Just now', 'Deep Work: ' + (did ? did + ' steps done' : 'no step done')));
-      var why = t.stuck >= 2 ? 'You hit Stuck ' + t.stuck + ' times on it this session.' : t.switched ? 'You switched away from it partway.' : t.noProgress >= 2 ? 'You’ve opened it ' + t.noProgress + ' sessions in a row without finishing a step.' : '';
+      var why = t.stuck >= 2 ? 'This keeps getting stuck at the same step.' : t.switched ? 'You switched away from it partway.' : t.noProgress >= 2 ? 'The last couple of sessions on it didn’t get a step done.' : '';
       if (why && !sent(t)) S.sentBack.push({ kind: 'stalled', task: t, why: why });
     });
-    S.pool.forEach(function (t) { if (t.passed >= 4 && !sent(t)) S.sentBack.push({ kind: 'avoided', task: t, why: 'Fuzz has offered it ' + t.passed + ' times, and you picked something else each time.' }); });
+    S.pool.forEach(function (t) { if (t.passed >= 4 && !sent(t)) S.sentBack.push({ kind: 'avoided', task: t, why: 'This one hasn’t been getting picked.' }); });
+    S.sentBack = S.sentBack.concat(S.deferred); S.deferred = [];
+    S.wallSpent += S.clock / 60; S.clock = 0;
     S.budget = S.planned; S.resolvedMsg = []; S.task = null; S.between = null; S.view = 'triage'; render();
   }
-  function sent(t) { return S.sentBack.some(function (c) { return c.task === t; }) || S.resolved.indexOf(t.id) >= 0; }
+  function sent(t) { return S.sentBack.concat(S.deferred).some(function (c) { return c.task === t; }) || S.resolved.indexOf(t.id) >= 0; }
 
   /* ---------- Triage: decisions, including what Deep Work sent back ---------- */
   function vTriage() {
@@ -646,11 +762,12 @@
       S.drafts.map(function (x) { return '<li>Needs your OK: ' + esc(x) + '</li>'; }).join('') +
       (S.held ? '<li>' + S.held + ' new ' + (S.held === 1 ? 'card' : 'cards') + ' Fuzz held during Deep Work</li>' : '') +
       (S.resolvedMsg || []).map(function (m) { return '<li class="okline">' + esc(m) + '</li>'; }).join('') +
+      S.deferred.map(function (c) { return '<li>Waits for your next triage: ' + esc(c.task.title) + '</li>'; }).join('') +
       '</ul>' +
-      '<div class="row"><button type="button" class="btn primary" id="clear"' + (S.sentBack.length ? ' disabled' : '') + '>' + (S.sentBack.length ? 'Decide the cards above first' : 'Pretend the rest is decided <kbd>Enter</kbd>') + '</button></div></div>';
+      '<div class="row"><button type="button" class="btn primary" id="clear">Pretend the rest is decided <kbd>Enter</kbd></button></div></div>';
     view.querySelectorAll('[data-sb]').forEach(function (b) { b.onclick = function () { resolveSent(+b.dataset.sb, b.dataset.act); }; });
     $('clear').onclick = function () {
-      if (S.sentBack.length) return;
+      S.deferred = S.deferred.concat(S.sentBack); S.sentBack = [];   // undecided cards wait for next time; nothing blocks you
       S.cleared = n + 4; S.thoughts = []; S.held = 0; S.drafts = []; S.urgent = null; S.resolvedMsg = []; S.view = 'cleared'; render();
     };
   }
@@ -662,15 +779,16 @@
         '<div class="proposal"><div class="lbl">Fuzz’s split</div><ol>' + split.map(function (p) {
           return '<li>' + esc(p.t) + ' <span class="pill ' + (p.kind === 'deep' ? 'pill--accent">Deep work, ~' + p.est + ' min' : p.kind === 'fuzz' ? 'pill--ok">Fuzz does it' : 'pill--muted">Small, stays in Triage') + '</span></li>';
         }).join('') + '</ol></div>' +
-        '<div class="row"><button type="button" class="btn primary" data-sb="' + i + '" data-act="split">Split it like that</button><button type="button" class="btn" data-sb="' + i + '" data-act="keep">Keep it as it is</button><button type="button" class="btn" data-sb="' + i + '" data-act="drop">Drop it</button></div></div>';
+        '<div class="row"><button type="button" class="btn primary" data-sb="' + i + '" data-act="split">Split it like that</button><button type="button" class="btn" data-sb="' + i + '" data-act="keep">Keep it as it is</button><button type="button" class="btn" data-sb="' + i + '" data-act="drop">Drop it</button><button type="button" class="btn" data-sb="' + i + '" data-act="later">Decide later</button></div></div>';
     }
-    return '<div class="sentback"><div class="sbhead"><span class="pill pill--muted">Keeps getting passed over</span><b>' + esc(t.title) + '</b></div><p class="why">' + esc(c.why) + ' That’s information, not a failing. Something about it is off.</p>' +
+    return '<div class="sentback"><div class="sbhead"><span class="pill pill--muted">Not getting picked</span><b>' + esc(t.title) + '</b></div><p class="why">' + esc(c.why) + ' That usually means something about the task is off, not you.</p>' +
       '<div class="proposal"><div class="lbl">Fuzz’s suggestion</div>A smaller first step: Fuzz drafts the rubric from last time with this role’s differences, and you mark what’s wrong. About 15 minutes, and you never start from blank.</div>' +
       '<div class="row"><button type="button" class="btn primary" data-sb="' + i + '" data-act="smaller">Yes, do that</button><button type="button" class="btn" data-sb="' + i + '" data-act="handoff">Ask Sam if someone else can own it</button>' +
-      '<button type="button" class="btn" data-sb="' + i + '" data-act="drop">Drop it</button><button type="button" class="btn" data-sb="' + i + '" data-act="keep">Still mine, leave it</button></div></div>';
+      '<button type="button" class="btn" data-sb="' + i + '" data-act="drop">Drop it</button><button type="button" class="btn" data-sb="' + i + '" data-act="keep">Still mine, leave it</button><button type="button" class="btn" data-sb="' + i + '" data-act="later">Decide later</button></div></div>';
   }
   function resolveSent(i, act) {
     var c = S.sentBack.splice(i, 1)[0], t = c.task, idx = S.pool.indexOf(t);
+    if (act === 'later') { S.deferred.push(c); return render(); }
     S.resolved.push(t.id); var say_ = function (m) { S.resolvedMsg = (S.resolvedMsg || []).concat(m); };
     if (act === 'split') {
       var split = t.split || [P('Write one line on what’s in the way', 5, 'triage'), P(t.steps[t.at].t, 15, 'deep'), P('Take a first pass at the rest', 0, 'fuzz')];
@@ -696,7 +814,7 @@
   function about(left) { left = Math.ceil(left); if (left <= 1) return 'Wrapping up'; if (left < 5) return 'Under 5 min'; return '~' + (Math.round(left / 5) * 5) + ' min'; }
   function inTxt(m) { var r = Math.round(m / 5) * 5; if (r < 5) return 'Just started'; if (r < 60) return '~' + r + ' min in'; var h = Math.floor(r / 60), mm = r % 60; return h + 'h' + (mm ? ' ' + mm + 'm' : '') + ' in'; }
   function tickClock() {
-    var dial = $('clockDial'); if (!dial) return;
+    var dial = $('clockDial'); if ((!dial && !pip) || !S.hist) return;
     var m = S.clock / 60, open = S.budget < 0, end = open ? Infinity : S.budgetEnd / 60, hrs = Math.floor(m / 60);
     var waiting = S.pending === 'breakdue' || S.pending === 'timeup';
     var toBreak = waiting ? 0 : S.forceAt != null ? Math.max(0, (S.forceAt - S.workClock) / 60) : Math.max(0, (WORK - S.workSince) / 60);
@@ -724,14 +842,76 @@
     }
     var hp = pt(dNow, R - 1);
     h += '<line class="hand" x1="50" y1="50" x2="' + hp[0].toFixed(2) + '" y2="' + hp[1].toFixed(2) + '"/><circle class="hub" cx="50" cy="50" r="5"/>';
-    dial.innerHTML = h;
-    var sessLeft = end - m;
-    $('clockBig').textContent = S.pending === 'timeup' ? 'Time’s up after this step' : S.pending === 'breakdue' ? 'Break after this step'
-      : !open && sessLeft <= toBreak ? 'Last block, ' + about(sessLeft).toLowerCase() + ' left' : 'Break in ' + about(toBreak).replace('Wrapping up', 'a moment');
-    $('clockSmall').textContent = open ? inTxt(m) : sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up';
+    var endB = S.budgetEnd / 60, sessLeft = endB - m, stopAt = isFinite(S.hardStop) ? ' · stop at ' + fmt(meeting() - BUFFER) : '';
+    var big = S.pending === 'timeup' ? 'Time’s up after this step' : S.pending === 'breakdue' ? 'Break after this step'
+      : isFinite(endB) && sessLeft <= toBreak ? 'Last block, ' + about(sessLeft).toLowerCase() + ' left' : 'Break in ' + about(toBreak).replace('Wrapping up', 'a moment').replace('Under', 'under');
+    var small = open ? inTxt(m) + stopAt : sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up';
+    S.dialNow = { h: h, big: big, small: small };
+    if (dial) { dial.innerHTML = h; $('clockBig').textContent = big; $('clockSmall').textContent = small; }
   }
-  function tickBreak() { var el = $('breakLeft'); if (!el || !S.take || S.take.kind !== 'break') return; var s = Math.max(0, Math.ceil(S.take.left)); el.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
-  setInterval(function () {
+  function breakText(sec) { return sec > 90 ? 'About ' + Math.round(sec / 60) + ' minutes' : sec > 40 ? 'About a minute' : 'Less than a minute'; }
+  function wedge(f, r, cls) {
+    if (f <= 0.001) return ''; if (f >= 0.999) return '<circle class="' + cls + '" cx="50" cy="50" r="' + r + '"/>';
+    var a = f * 2 * Math.PI, x = 50 + r * Math.sin(a), y = 50 - r * Math.cos(a);
+    return '<path class="' + cls + '" d="M50 50 L50 ' + (50 - r) + ' A' + r + ' ' + r + ' 0 ' + (f > .5 ? 1 : 0) + ' 1 ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Z"/>';
+  }
+  function breakDialHtml() { var k = S.take; return '<circle class="rim" cx="50" cy="50" r="47"/>' + wedge(Math.max(0, k.left) / (k.len || SHORT), 45, 'b'); }
+  function tickBreak() {
+    var el = $('breakLeft'); if (!el || !S.take || S.take.kind !== 'break') return;
+    el.textContent = breakText(Math.max(0, S.take.left));
+    var d = $('breakDial'); if (d) d.innerHTML = breakDialHtml();
+  }
+
+  /* ---------- The pop-out clock: a small window that stays on top while you work somewhere else (Chrome) ---------- */
+  var pip = null;
+  function canPip() { return 'documentPictureInPicture' in window; }
+  function copyTheme(doc) {
+    var r = document.documentElement, t = doc.documentElement;
+    t.setAttribute('style', r.getAttribute('style') || '');
+    ['theme', 'mode', 'contrast'].forEach(function (k) { if (r.dataset[k]) t.dataset[k] = r.dataset[k]; });
+  }
+  function popOut() {
+    if (pip) { pip.close(); pip = null; render(); return; }
+    if (!canPip()) return;
+    documentPictureInPicture.requestWindow({ width: 300, height: 130 }).then(function (w) {
+      pip = w;
+      document.querySelectorAll('link[rel="stylesheet"], style').forEach(function (n) { w.document.head.appendChild(n.cloneNode(true)); });
+      var st = w.document.createElement('style');
+      st.textContent = 'body{margin:0;padding:12px 14px;min-height:100vh;box-sizing:border-box;background:var(--bg);color:var(--ink);font-family:var(--font-body);transition:background .6s}' +
+        '.pipclock{margin:0}.pipclock .dial{width:72px;height:72px}' +
+        'body.t-time{background:color-mix(in srgb,var(--accent) 24%,var(--bg))}body.t-break{background:color-mix(in srgb,var(--ok) 20%,var(--bg))}' +
+        'body.t-urgent{background:color-mix(in srgb,var(--danger) 26%,var(--bg));box-shadow:inset 0 0 0 5px var(--danger)}' +
+        '.pipact{margin-top:8px}.pipact .btn{width:100%}.pipact:empty{display:none}';
+      w.document.head.appendChild(st);
+      copyTheme(w.document);
+      w.document.title = 'Deep Work clock';
+      w.document.body.innerHTML = '<div class="clock pipclock"><svg class="dial" id="pDial" viewBox="0 0 100 100" aria-hidden="true"></svg><span class="read"><b id="pBig"></b><span id="pSmall"></span></span></div><div class="pipact" id="pAct"></div>';
+      w.addEventListener('pagehide', function () { pip = null; if (S.view === 'focus') render(); });
+      tickClock(); render();
+    }).catch(function () { say('I couldn’t pop the clock out. The browser said no.', 'sheepish'); });
+  }
+  function updatePip() {
+    if (!pip) return;
+    var d = pip.document, bigEl = d.getElementById('pBig'); if (!bigEl) return;
+    var dial = d.getElementById('pDial'), act = d.getElementById('pAct'), k = S.take, tone = '', big = '', small = '', a = '', h = '';
+    if (k) {
+      if (k.kind === 'break') { tone = 't-break'; big = k.over ? 'Break’s over' : 'On a break'; small = k.over ? 'Your place is waiting' : breakText(Math.max(0, k.left)); a = k.over ? 'Back to it' : ''; h = breakDialHtml(); }
+      else if (k.kind === 'urgent') { tone = 't-urgent'; big = 'Something urgent came in'; small = 'Open Fuzz to see it'; }
+      else { tone = 't-time'; big = { breakdue: 'Break time', timeup: 'Your time is up', meeting: 'Your ' + fmt(meeting()) + ' is in 5 min', body: 'Body check' }[k.kind]; small = k.kind === 'breakdue' ? 'Step away for a few minutes' : 'Open Fuzz to choose'; a = k.kind === 'breakdue' ? 'Take the break' : ''; h = S.dialNow ? S.dialNow.h : ''; }
+    } else if (S.view === 'detour') { big = 'Paused'; small = 'Handling something urgent'; h = S.dialNow ? S.dialNow.h : ''; }
+    else if (inSession() && S.dialNow) { big = S.dialNow.big; small = S.dialNow.small; h = S.dialNow.h; }
+    else { big = 'Not in Deep Work'; small = S.view === 'wrap' ? 'Done for now' : 'Press D in Fuzz to start'; }
+    d.body.className = tone; bigEl.textContent = big; d.getElementById('pSmall').textContent = small;
+    if (dial.dataset.h !== h) { dial.dataset.h = h; dial.innerHTML = h; }
+    var key = a + '|' + (k ? k.armed : '');
+    if (act.dataset.key !== key) {
+      act.dataset.key = key;
+      act.innerHTML = a ? '<button type="button" class="btn primary small" id="pBtn"' + (k && !k.armed ? ' disabled' : '') + '>' + esc(a) + '</button>' : '';
+      var pb = d.getElementById('pBtn'); if (pb) pb.onclick = function () { if (S.take && S.take.armed) takeOpt(1); };
+    }
+  }
+  setInterval(function () { tick(); updatePip(); }, 250);
+  function tick() {
     if (!S || !inSession()) return;
     var dt = 0.25 * speed();
     S.clock += dt;
@@ -747,12 +927,13 @@
       say(lines[Math.floor(S.clock / 60) % lines.length], 'working'); S.nextChat = S.clock + 480;
     }
     if (S.forceAt != null && S.workClock >= S.forceAt) { S.forceAt = null; S.pending = null; take('breakdue'); return; }
+    if (S.clock >= S.hardStop) { S.pending = null; S.forceAt = null; take('meeting'); return; }   // no waiting for the step: the meeting won't wait
     if (S.clock >= S.budgetEnd) pend('timeup');
     else if (S.workSince >= WORK && S.forceAt == null) pend('breakdue');
     if (S.sinceRealBreak >= BODY && !S.pending) { S.sinceRealBreak = 0; take('body'); return; }
     if (S.pending && S.workClock - S.pendingAt >= GRACE) { fire(); return; }
     tickClock();
-  }, 250);
+  }
 
   /* ---------- Keys ---------- */
   document.addEventListener('keydown', function (e) {
@@ -776,23 +957,33 @@
       if (k === 'd' || k === 'D') { e.preventDefault(); toEntry(); }
       else if (k === 'Enter' && !e.target.closest('button') && v === 'triage') { e.preventDefault(); $('clear').click(); }
     } else if (v === 'entry') {
-      if (k === 'Enter' && !e.target.closest('button')) { e.preventDefault(); if (S.sel) startSession(byId(S.sel)); }
+      if (k === 'Enter' && !e.target.closest('button')) { e.preventDefault(); pickCurrent(startSession); }
       else if (k === 'Escape') $('back').click();
-      else if (k === '/') { e.preventDefault(); $('find').focus(); }
+      else if (k === '/') { e.preventDefault(); $('what').focus(); }
     } else if (v === 'focus') {
       if (S.warming) return;
-      if (S.sheet) { if (/^[1-5]$/.test(k)) { e.preventDefault(); stuckOpt(+k); } else if (k === 'Escape') { S.task.stuck--; closeSheet(); } return; }
+      if (S.sheet) {
+        if (/^[1-5]$/.test(k)) { e.preventDefault(); sheetOpt(+k); }
+        else if (k === 'Enter' && S.sheet === 'brk') { e.preventDefault(); sheetOpt(1); }
+        else if (k === 'Escape') sheetOpt(0);
+        return;
+      }
       if (k === 'Enter' && !e.target.closest('button')) { e.preventDefault(); stepDone(); }
       else if (k === 's' || k === 'S') openSheet('stuck');
-      else if (k === 'b' || k === 'B') startBreak(true);
+      else if (k === 'b' || k === 'B') openSheet('brk');   // asks first: one stray key shouldn't take over the screen
+      else if ((k === 'u' || k === 'U') && S.undo) undoStep();
       else if (k === 't' || k === 'T') { e.preventDefault(); $('thought').focus(); }
       else if (k === 'q' || k === 'Q') { e.preventDefault(); S.tab = 'ask'; render(); if ($('ask')) $('ask').focus(); }
       else if (k === 'Escape') doneForNow();
     } else if (v === 'between') {
-      if (k === 'Enter' && !e.target.closest('button')) { e.preventDefault(); var g = $('go') || $('stop'); g.click(); }
-      else if ((k === 'o' || k === 'O') && $('other')) $('other').click();
-      else if (k === '/' && $('find')) { e.preventDefault(); $('find').focus(); }
-      else if (k === 'Escape') doneForNow();
+      if (k === 'Enter' && !e.target.closest('button')) { e.preventDefault(); var g = view.querySelector('.btn.primary'); if (g) g.click(); }
+      else if ((k === 'o' || k === 'O') && $('other')) { e.preventDefault(); $('other').click(); }
+      else if ((k === 'u' || k === 'U') && S.undo) undoStep();
+      else if (k === '/' && $('what')) { e.preventDefault(); $('what').focus(); }
+      else if (k === 'Escape') { if (S.picking) { S.picking = false; render(); } else doneForNow(); }
+    } else if (v === 'wrap' || v === 'detour') {
+      if (k === 'Escape') { var bk = $('backToWork') || $('resume'); if (bk) bk.click(); }
+      else if (k === 'Enter' && !e.target.closest('button')) { var pp = view.querySelector('.btn.primary'); if (pp) { e.preventDefault(); pp.click(); } }
     } else if (k === 'Enter' && !e.target.closest('button')) {
       var pr = view.querySelector('.btn.primary'); if (pr) { e.preventDefault(); pr.click(); }
     }
@@ -801,6 +992,7 @@
   $('enterDW').onclick = toEntry;
   $('urgent').onclick = function () { if (S.view === 'focus' && !S.take && !S.warming) take('urgent'); else say('Start a Deep Work session first, then send the urgent card.', 'puzzled'); };
   $('reset').onclick = reset;
+  $('meeting').onchange = function () { if (S.view === 'entry') { setChoice(S.choice); render(); } else if (S.view === 'cleared') render(); };
   $('fuzzmode').onchange = function () { if (S.view === 'focus') { render(); bot.dataset.mood = idleMood(); } };
   reset();
 })();

@@ -135,7 +135,9 @@
   .tab kbd { margin-left: 0; }
   .tab.fold { margin-left: auto; color: var(--muted); border-color: transparent; }
   .tab:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
-  .tabpanel { margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--field); font-size: 14.5px; max-height: 360px; overflow: auto; }
+  .dwrich { margin-top: 18px; padding-top: 16px; border-top: var(--bw) solid var(--line); gap: 10px; }
+  .dwrich .tabbtn kbd { margin-left: 8px; }
+  .tabpanel { margin-top: 0; padding: 14px; border-radius: 16px; background: var(--field); font-size: 14.5px; max-height: 360px; overflow: auto; }
   .tabpanel .why { margin: 0 0 8px; }
   .tabpanel ul, .tabpanel ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
   .tabpanel q { display: block; margin-top: 4px; padding-left: 10px; border-left: 3px solid var(--line); color: var(--ink); quotes: "“" "”"; }
@@ -194,6 +196,50 @@
   .proposal ol { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 6px; }
   .okline { color: var(--ok); font-weight: 600; }
 
+  /* ---------- Entry: times people think in, and one box ---------- */
+  .chips.times { gap: 10px; }
+  .chip.time { display: grid; gap: 1px; text-align: left; padding: 9px 14px; border-radius: 14px; min-height: 52px; }
+  .chip.time b { font-weight: 700; font-size: 14.5px; }
+  .chip.time span { font-size: 12.5px; font-weight: 400; opacity: .8; }
+  .askwhat { display: block; font-family: var(--font-display); font-size: 15px; font-weight: 800; margin: 20px 0 6px; }
+  .what { width: 100%; font: inherit; font-size: 17px; color: var(--ink); background: var(--field); border: var(--bw2) solid var(--line); border-radius: 14px; padding: 12px 14px; min-height: 50px; box-sizing: border-box; }
+  .what:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .match { margin-top: 8px; min-height: 48px; }
+  .mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; }
+  .mrow .mt { font-weight: 700; font-size: 16px; }
+  .mrow .est { font-size: 13px; color: var(--muted); }
+  .msub { font-size: 13px; color: var(--muted); padding: 0 2px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .msub .cycle { color: var(--link); }
+  .optfold { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .optfold summary { cursor: pointer; }
+  .otherbox { margin-top: 8px; }
+
+  /* ---------- Focus: the step first, everything else quiet ---------- */
+  .crumbline { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+  .crumbline b { color: var(--ink); font-weight: 600; }
+  .prepfold { margin-top: 8px; font-size: 13.5px; color: var(--muted); }
+  .prepfold summary { cursor: pointer; }
+  .prepfold .prep { margin-top: 8px; }
+  .clockbtns { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+  /* ---------- Break: about-minutes and a green wedge, no ticking seconds ---------- */
+  .breakdial { display: flex; gap: 16px; align-items: center; justify-content: center; margin: 6px 0 10px; }
+  .breakdial svg { width: 84px; height: 84px; flex: none; }
+  .breakdial .rim { fill: var(--field); stroke: color-mix(in srgb, var(--ink) 25%, transparent); stroke-width: 2; }
+  .breakdial .b { fill: var(--ok); }
+  .breaktime { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 36px); }
+
+  /* ---------- Urgent detour ---------- */
+  .pausebar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 10px 14px; border-radius: 14px;
+    background: color-mix(in srgb, var(--warn) 18%, var(--surface)); border: var(--bw) solid color-mix(in srgb, var(--warn) 45%, var(--line)); font-size: 14px; }
+  .panel .lead { font-size: 17px; margin: 6px 0 4px; }
+
+  /* ---------- Undo toast ---------- */
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 40; display: flex; gap: 12px; align-items: center;
+    padding: 10px 12px 10px 16px; border-radius: 14px; background: var(--ink); color: var(--bg); box-shadow: var(--shadow); font-weight: 600; font-size: 14.5px; animation: stepin .3s ease-out; }
+  .toast[hidden] { display: none; }
+  .toast .btn { background: var(--bg); color: var(--ink); }
+
   /* Takeover: every time interruption covers the whole screen */
   body.taken { overflow: hidden; }
   .take { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px 16px; overflow: auto;
@@ -232,13 +278,14 @@
 <main>
   <header class="top">
     <h1>Deep Work: a mode for doing, separate from triage</h1>
-    <p>Triage decides, once or twice a day. Deep Work does, whenever you have time. You say how long and where to start, Fuzz plans the breaks in, and you work one task at a time until you stop. Tasks that stall or keep getting passed over go back to Triage with a fix. Nothing is saved; Reset starts over.</p>
+    <p>Triage decides, once or twice a day. Deep Work does, whenever you have time. You say how long and what for, Fuzz plans the breaks in, and you work one task at a time until you stop. Tasks that stall or don’t get picked go back to Triage with a fix. The spike pretends it’s 1:10pm; set the next meeting in the toolbar. Nothing is saved; Reset starts over.</p>
   </header>
 
   <div class="toolbar">
     <label>Theme <select id="theme"></select></label>
     <label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <label>Time runs <select id="speed"><option value="1">Real time</option><option value="20">20× faster</option><option value="60" selected>60× faster</option></select></label>
+    <label>Next meeting <select id="meeting"><option value="840" selected>2:00pm</option><option value="870">2:30pm</option><option value="1020">5:00pm</option><option value="0">None today</option></select></label>
     <label>Fuzz while you work <select id="fuzzmode"><option value="quiet">Quiet company</option><option value="chatty">Chatty</option></select></label>
     <button type="button" class="btn small" id="urgent">Send an urgent card</button>
     <button type="button" class="btn small" id="reset">Reset</button>
@@ -265,12 +312,13 @@
     <ul>
       <li><b>Triage isn’t a gate.</b> Clearing it is its own win, with a celebration and one quiet line offering Deep Work. The Deep Work button (D) works any time, triage clear or not.</li>
       <li><b>The pool is Fuzz’s call.</b> Deep work holds tasks that need you and take real time. Small things stay in Triage; things Fuzz can do, it does.</li>
-      <li><b>Say how long and where to start, on one screen.</b> Pick up where you left off comes first, then up to three tasks Fuzz has ready (marked by whether they fit your time), then search, or name something new and Fuzz warms it up on the spot.</li>
+      <li><b>Say how long and what for, then go.</b> Time choices people think in (“Until your 2pm”, “A quick burst”), and one box for what. Fuzz’s pick is in the placeholder, so Enter takes it; typing finds one best match (↓ for others), moods like “something light” work, and anything else becomes a new task.</li>
       <li><b>Breaks are planned into the time you give.</b> 25 minutes on, 5 off, a longer break after three. A break waits for the end of a step, up to 5 minutes. “Five more minutes” works once; the second time it’s “skip this one”.</li>
-      <li><b>Every time interruption takes over the screen.</b> Break due, the break (which shows where you’ll pick up, so “I’m back” goes straight to work), time’s up, and the body check. Keys are ignored for a second so a stray keystroke can’t answer for you. Urgent cards use the same takeover in a different color (try “Send an urgent card”).</li>
+      <li><b>Every time interruption takes over the screen.</b> Break due, the break (“about 4 minutes”, no ticking seconds), time’s up, the body check, and a hard stop 5 minutes before your next meeting. Keys are ignored for a second so a stray keystroke can’t answer for you. Urgent cards are a detour: handle it, then come straight back to the same step (try “Send an urgent card”). <b>Pop out</b> keeps a small dial on top while you work in another app (Chrome).</li>
       <li><b>A coarse session dial.</b> The whole session is a pie eaten up to the hand: work in orange, breaks in green, so you see the next break coming. It moves in 5-minute steps, and says “Break in ~10 min · ~35 min left in the session”, or “Break after this step” when one is waiting. With no end time it fills up instead: one lap is an hour, the next break waits ahead as a dashed slice, and each finished hour adds a ring.</li>
       <li><b>One task at a time until you stop.</b> Finishing gets a win beat, then Fuzz offers one next thing. Enter goes, O picks something else, Esc stops.</li>
-      <li><b>Stuck tasks go back to Triage with a fix.</b> Stalled (Stuck twice, switched away, or two sessions with no step done) comes back with a proposed split. Passed over (offered four times, never picked) comes back with a smaller first step, a hand-off, or drop it, with no guilt. Pick “Outline the Q3 planning doc” and leave without doing a step to see a stalled card; the rubric shows up as passed over after your first session.</li>
+      <li><b>Stuck tasks go back to Triage with a fix.</b> Stalled tasks come back with a proposed split; tasks that don’t get picked come back with a smaller first step, a hand-off, or drop it. The cards name the pattern without counting, and “Decide later” means nothing blocks you.</li>
+      <li><b>Hard to blow up by accident.</b> Undo after a step (U), B asks before a break, and Done for now has Back to work (Esc). The focus screen keeps the step first: no climbing card count, parked thoughts collapse to a tick, and the task’s Context, People, History and Sources sit below the buttons, always open, the way the app’s task card does it.</li>
     </ul>
     <p>Comparing clock designs? See <a href="clocks.html">four concepts for the clock</a>.</p>
     <h2>Open questions</h2>
@@ -285,6 +333,7 @@
   </div>
 </main>
 <div class="take" id="take" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="../../js/themes.js"></script>
 <script src="../../js/fuzz-svg.js"></script>
