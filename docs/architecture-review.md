@@ -111,11 +111,18 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
   `KICKOFF_ASK` tables, is one the core accepts for that card. All requests to the core go through
   `live.js`. Checked by planting a bad option, verb and button: each test failed, naming it. `live.js`'s
   copy of the memory kinds now reads the vocabulary.
-- [ ] 4b-ii. Use the core's state names in the UI: `ai` → `working`, `ai-queued` → `queued` (about 60 places in
-  7 files: `store.js`, `view-triage.js`, `view-tasks.js`, `data.js`, `schedule.js`, `onboarding.js`,
-  `group-sheet.js`), then drop most of `live.js`'s `STATE`. The UI's `resolved`, `dropped` and `mine` have no
-  core state (answered question cards, the "with you" lane), so those are a model change, not a rename.
-- [ ] 4c. (Longer) run the demo on a scripted core instead of `store.js`
+- [x] 4b-ii. The UI uses the core's state names: `ai` is `working` and `ai-queued` is `queued` (43 lines in 8
+  files), and `live.js`'s `STATE` is down to `merged` → `resolved`. Checked in the browser: the demo's
+  Lineup, assigning from Triage (by click and by `Store.assign`), and live mode against a throwaway store,
+  where a task the core holds as `queued` reached the UI as `queued` and showed as Next up; no console
+  errors. Left alone: `source: 'ai'` in `schedule.js` (where a time suggestion came from, not a state), and
+  the UI's own `resolved`, `dropped` and `mine`, which have no core state (answered question cards, the
+  "with you" lane): changing those is a model change, not a rename.
+- [ ] 4c. **Needs a decision; not a refactor.** Running the demo on a scripted core would remove `store.js`'s
+  copy of the rules, but the demo's promise is that it runs by opening `index.html`, with no server, and the
+  core is Python. The ways to do it each change that promise: the demo needs `fuzz serve` (a scripted,
+  throwaway store), or the core runs in the browser (Pyodide, a large download). Until then, the contract
+  test (4b-i) and shared names (4b-ii) keep the two from drifting silently.
 
 ## 5. Smaller consistency items (verified)
 

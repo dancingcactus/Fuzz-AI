@@ -64,12 +64,12 @@
     },
     queue: function () { return state.queue.map(S.item).filter(Boolean); },
     front: function () { return S.item(state.queue[0]); },
-    running: function () { return S.inState('ai').length; },
+    running: function () { return S.inState('working').length; },
 
     stats: function () {
       return {
         waiting: state.queue.length,
-        withFuzz: S.inState('ai', 'ai-queued').length,
+        withFuzz: S.inState('working', 'queued').length,
         inClaude: S.inState('session').length,
         later: S.inState('scheduled').length,
         done: S.inState('done').length
@@ -102,7 +102,7 @@
             if (fingerprint(it) === after[i]) continue;
             var newer = it.log.slice(0, it.log.length - logAt[i]);
             if (newer.some(function (l) { return l.kind === 'sent'; })) return 'It’s already been sent, so it can’t be undone.';
-            if (['ai', 'sending'].indexOf(it.state) > -1 || newer.some(function (l) { return ['research', 'action', 'blocked'].indexOf(l.kind) > -1; }))
+            if (['working', 'sending'].indexOf(it.state) > -1 || newer.some(function (l) { return ['research', 'action', 'blocked'].indexOf(l.kind) > -1; }))
               return 'Fuzz has already worked on this since, so it can’t be undone. Bring it back from Lineup instead.';
             return 'You changed this since. Undo that first.';
           }
@@ -204,7 +204,7 @@
       it.workStep = 0; it.nextAt = Date.now() + 4500;
       it.stage = 'fresh';
       var wait = S.running() >= MAX_RUNNING;
-      it.state = wait ? 'ai-queued' : 'ai';
+      it.state = wait ? 'queued' : 'working';
       it.queuedAt = Date.now();
       S.log(it, 'status', wait ? 'You assigned this to Fuzz. Five tasks are already running, so it is next up.' : 'You assigned this to Fuzz.');
       return wait;
@@ -223,7 +223,7 @@
     schedule: function (id, opt, instr, text) {
       var it = S.item(id), when = lowerFirst(opt.label); S.leave(id);
       if (text != null) it.draft = text;   /* Not now on a draft: it comes back as you left it */
-      it.state = instr ? 'ai-queued' : 'scheduled'; it.gathering = !!instr;
+      it.state = instr ? 'queued' : 'scheduled'; it.gathering = !!instr;
       it.scheduleAnchor = opt.anchor; it.scheduledFor = when; it.now = 'Back ' + when;
       if (instr) S.log(it, 'guidance', 'You scheduled this: ' + when + '. You said: ' + instr);
       else S.log(it, 'status', 'You scheduled this: ' + when + '.');
@@ -252,7 +252,7 @@
     unclear: function (id) {
       var it = S.item(id); S.leave(id); it.putOff = false;
       it.workStep = 0; it.nextAt = Date.now() + 4500; it.instr = 'Work out what this needs and the smallest first step.';
-      it.state = S.running() >= MAX_RUNNING ? 'ai-queued' : 'ai'; it.queuedAt = Date.now();
+      it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
       S.log(it, 'status', 'You asked Fuzz to work out the first step.');
     },
     stillMatters: function (id) { var it = S.item(id); it.putOff = false; it.ask = 'What should happen to this?'; S.queueUp(it, 'front'); S.log(it, 'status', 'You said this still matters.'); },
@@ -264,7 +264,7 @@
     nudgeThem: function (id) {
       var it = S.item(id); S.leave(id); it.checkBack = false;
       it.workStep = 0; it.nextAt = Date.now() + 4500; it.instr = 'Draft a short, friendly nudge to ' + (it.waitingOn || 'them') + '.';
-      it.state = S.running() >= MAX_RUNNING ? 'ai-queued' : 'ai'; it.queuedAt = Date.now();
+      it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
       S.log(it, 'status', 'You asked Fuzz to nudge ' + (it.waitingOn || 'them') + '.');
     },
     /* People you've waited on before, and whoever this task came from, for the "Waiting on whom?" box */
@@ -341,7 +341,7 @@
     firstStep: function (id) {
       var it = S.item(id); if (!it) return;
       S.log(it, 'status', 'Fuzz is writing the checklist. Step 1 comes back to you next.');
-      if (S.live) { S.leave(id); it.state = 'ai-queued'; it.gathering = true; return; }
+      if (S.live) { S.leave(id); it.state = 'queued'; it.gathering = true; return; }
       it.doing = true; it.firstStepMode = true; it.firstStep = it.firstStep || 'Open what you need and write the first line (two minutes).'; S.pick(id);
     },
     /* ---- deliverables ----
@@ -356,16 +356,16 @@
     /* A hold on your calendar for booked time: approve, always allow, or skip (still booked in Fuzz) */
     answerHold: function (id, opt) { var it = S.item(id); if (!it) return; S.leave(id); it.cardKind = null; S.log(it, 'status', opt === 'skip' ? 'No change to your calendar.' : 'You approved the calendar hold.'); },
     decideFor: function (id) { return S.findOut(id, 'What are my options here? Lay them out with the one you’d suggest.'); },
-    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'ai-queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
+    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
     /* Find out…: Fuzz looks it up; the task stays yours and its card comes back right after the one in front.
        Live mode does it in the core; the demo pretends, a few seconds later. */
     findOut: function (id, q) {
       var it = S.item(id); if (!it) return;
-      S.leave(id); it.state = 'ai-queued'; it.gathering = true; it.now = 'Finding out: ' + q;
+      S.leave(id); it.state = 'queued'; it.gathering = true; it.now = 'Finding out: ' + q;
       S.log(it, 'guidance', 'You asked Fuzz to find out: ' + q);
       if (S.live) return;
       setTimeout(function () {
-        if (it.state !== 'ai-queued' || !it.gathering) return;
+        if (it.state !== 'queued' || !it.gathering) return;
         it.state = 'triage'; it.gathering = false; it.foundOut = true; it.now = '';
         it.aiHeading = 'You asked: ' + q; it.aiNote = 'In this demo Fuzz doesn’t really look. With your engine set up, the answer lands here.';
         S.log(it, 'status', 'Fuzz found out what you asked. It’s back for you.');
@@ -376,7 +376,7 @@
     /* A late ask joins the thread's reply that's waiting for your OK: Fuzz rewrites the reply to cover it */
     joinReply: function (id) {
       var it = S.item(id); if (!it) return;
-      S.leave(id); it.state = 'ai-queued'; it.joinReply = false;
+      S.leave(id); it.state = 'queued'; it.joinReply = false;
       S.log(it, 'status', 'You added this to the reply waiting for your OK. Fuzz rewrites it to cover this too.');
     },
     /* "Same as…" in task detail: this task is the one you picked, so it merges into it (the core matches;
@@ -428,7 +428,7 @@
     handToFuzz: function (id) {
       var it = S.item(id);
       it.workStep = 0; it.nextAt = Date.now() + 4500; it.instr = it.instr || it.hint || '';
-      it.state = S.running() >= MAX_RUNNING ? 'ai-queued' : 'ai'; it.queuedAt = Date.now();
+      it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
       S.log(it, 'status', 'You handed this to Fuzz.');
     },
     /* Who a draft goes to and how. A draft for you alone (a finding, a parked thought) has no recipient. */
@@ -464,7 +464,7 @@
       S.log(it, 'guidance', 'You asked for changes: ' + note); it.revisedNote = note;
       it.script = { steps: [['action', 'Reworked the draft: ' + note.replace(/[.!\s]*$/, '') + '.']], ending: { type: 'review' } };
       it.workStep = 0; it.nextAt = Date.now() + 4500; it.now = 'Changing the draft';
-      it.state = S.running() >= MAX_RUNNING ? 'ai-queued' : 'ai'; it.queuedAt = Date.now();
+      it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
     },
     markDone: function (id) { var it = S.item(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
     replied: function (id) { var it = S.item(id); S.log(it, 'status', 'A reply came in. Back in triage with the reply attached.'); it.updated = true; S.enqueue(it, 'front'); },
@@ -529,11 +529,11 @@
     startWork: function () { if (!timer) timer = setInterval(tick, 1000); },
     nowText: function (it) {
       if (it.gathering && it.scheduledFor) return 'Looking into it. Back ' + it.scheduledFor;
-      if (it.gathering && it.state === 'ai-queued') return 'Waiting to gather context';
-      if (it.gathering && it.state === 'ai') { var g = it.log[0]; return g && g.kind !== 'status' ? g.text : 'Gathering context'; }
-      if (it.state === 'ai-queued') return 'Next up, waiting for a free slot';
+      if (it.gathering && it.state === 'queued') return 'Waiting to gather context';
+      if (it.gathering && it.state === 'working') { var g = it.log[0]; return g && g.kind !== 'status' ? g.text : 'Gathering context'; }
+      if (it.state === 'queued') return 'Next up, waiting for a free slot';
       if (it.state === 'sending') return it.now || 'Sending';
-      if (it.state === 'ai') { var l = it.log[0]; return l && l.kind !== 'status' ? l.text : (it.now || 'Getting started'); }
+      if (it.state === 'working') { var l = it.log[0]; return l && l.kind !== 'status' ? l.text : (it.now || 'Getting started'); }
       return it.now || '';
     }
   };
@@ -603,7 +603,7 @@
     var t = Date.now(), moved = false;
     state.items.forEach(function (it) { if (it.state === 'sending' && it.sendAt && t >= it.sendAt) { send(it); moved = true; } });
     state.items.forEach(function (it) {
-      if (it.state !== 'ai' || t < (it.nextAt || 0)) return;
+      if (it.state !== 'working' || t < (it.nextAt || 0)) return;
       var sc = it.script || generic(it);
       var step = sc.steps[it.workStep || 0];
       if (step) {
@@ -616,10 +616,10 @@
         moved = true;
       }
     });
-    state.items.filter(function (i) { return i.state === 'ai-queued'; })
+    state.items.filter(function (i) { return i.state === 'queued'; })
       .sort(function (a, b) { return a.queuedAt - b.queuedAt; })
       .forEach(function (it) {
-        if (S.running() < MAX_RUNNING) { it.state = 'ai'; it.nextAt = t + 4000; S.log(it, 'status', 'A slot opened up, so Fuzz started on this.'); moved = true; }
+        if (S.running() < MAX_RUNNING) { it.state = 'working'; it.nextAt = t + 4000; S.log(it, 'status', 'A slot opened up, so Fuzz started on this.'); moved = true; }
       });
     if (moved) emit({ type: 'work' });
   }
