@@ -432,7 +432,8 @@
     var order = [], seen = {};
     cards.forEach(function (c) { var id = c.task ? 't' + c.task.id : 'c' + c.id; if (id && !seen[id] && keep[id]) { seen[id] = true; order.push(id); } });
     /* The card on screen stays first, so nothing jumps while you read it */
-    var restart = unpin, front = unpin ? null : st.queue[0];
+    var restart = unpin, front = unpin ? null : (Store.shown() || st.queue[0]);
+    if (unpin) st.shown = null;
     unpin = false;
     if (front && seen[front] && order[0] !== front) order = [front].concat(order.filter(function (id) { return id !== front; }));
     var added = order.filter(function (id) { return st.queue.indexOf(id) < 0; });

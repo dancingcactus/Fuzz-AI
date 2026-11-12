@@ -79,7 +79,8 @@
     Say.setBusyCheck(function () { return busy || ciOpen; });
     ambientTimer = setInterval(ambient, 45000);
     V.stuckTimer = setInterval(stuckCheck, 15000);
-    V.tickTimer = setInterval(function () { var t = cur(); if (t && t.dueAt && card.style.display !== 'none' && !ciOpen) paintDue(t); }, 1000);
+    /* The pill belongs to the card on screen, not whatever is at the front of the queue */
+    V.tickTimer = setInterval(function () { var t = shownCard && Store.item(shownCard.id); if (t && t.dueAt && card.style.display !== 'none' && !ciOpen) paintDue(t); }, 1000);
     stats(); paintFocusLine();
     if (!greeted) { greeted = true; greet(); }
     else Fuzz.say('Back to the queue.', { type: false });
@@ -860,7 +861,7 @@
   /* Text boxes grow to show all their text, so nothing is cut off on a narrow screen */
   function fit(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + ta.offsetHeight - ta.clientHeight + 'px'; }
   function renderCard(it) {
-    lastTask = it; shownCard = { id: it.id, cardId: it.cardId, kind: it.kind }; $('#checkin').hidden = true;
+    lastTask = it; shownCard = { id: it.id, cardId: it.cardId, kind: it.kind }; Store.show(it.id); $('#checkin').hidden = true;
     clearTimeout(rushTimer); card.getAnimations().forEach(function (a) { a.cancel(); });
     scheduling = false; askingWho = false; askingFind = false; booking = false; pausing = false; wayOpen = false; if (tab && !richAvail(it).some(function (a) { return a[0] === tab; })) tab = null;
     card.className = 'card' + (it.doing ? ' working' : ''); card.style.display = ''; card.style.visibility = '';

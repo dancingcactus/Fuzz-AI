@@ -131,6 +131,7 @@
           });
           if (m1 !== m0) state.moment = m0;
           settle();
+          state.shown = null;   /* the undone card comes back where it was, ahead of the one on screen */
           S.sortQueue(); emit({ type: 'restore' });
           return null;
         }
@@ -141,6 +142,11 @@
     log: function (item, kind, text) { item.log.unshift({ kind: kind, time: clock(), text: text }); },
 
     /* ---- queue ---- */
+    /* The card on screen. It stays at the front of the queue until you act on it, so a draft or a deadline that
+       arrives meanwhile waits behind it instead of taking the front while the old card is still showing (and
+       its buttons acting on the newcomer). Moving it yourself (to the back, paused, another picked) lets go. */
+    show: function (id) { if (state.shown !== (id || null)) { state.shown = id || null; S.sortQueue(); } },
+    shown: function () { return state.shown && S.inQueue(state.shown) ? state.shown : null; },
     sortQueue: function () {
       var m = state.moment;
       function fits(it) {
@@ -152,8 +158,8 @@
         var x = S.item(a), y = S.item(b);
         /* the working card first; then deadlines; then this session's focus (the core orders live cards the same way) */
         var fo = (state.focus && state.focus.task_ids) || [];
-        var kx = [x.picked ? 0 : 1, x.doing ? 0 : 1, x.atEnd ? 1 : 0, x.dueAt ? 0 : 1, fo.indexOf(x.coreId || x.id) > -1 ? 0 : 1, x.handedBack ? 1 : 0, fits(x) ? 0 : 1, x.order];
-        var ky = [y.picked ? 0 : 1, y.doing ? 0 : 1, y.atEnd ? 1 : 0, y.dueAt ? 0 : 1, fo.indexOf(y.coreId || y.id) > -1 ? 0 : 1, y.handedBack ? 1 : 0, fits(y) ? 0 : 1, y.order];
+        var kx = [x.id === state.shown ? 0 : 1, x.picked ? 0 : 1, x.doing ? 0 : 1, x.atEnd ? 1 : 0, x.dueAt ? 0 : 1, fo.indexOf(x.coreId || x.id) > -1 ? 0 : 1, x.handedBack ? 1 : 0, fits(x) ? 0 : 1, x.order];
+        var ky = [y.id === state.shown ? 0 : 1, y.picked ? 0 : 1, y.doing ? 0 : 1, y.atEnd ? 1 : 0, y.dueAt ? 0 : 1, fo.indexOf(y.coreId || y.id) > -1 ? 0 : 1, y.handedBack ? 1 : 0, fits(y) ? 0 : 1, y.order];
         for (var i = 0; i < kx.length; i++) if (kx[i] !== ky[i]) return kx[i] - ky[i];
         return 0;
       });
@@ -163,6 +169,7 @@
       var run = state.groupRun, out = [], used = {};
       function together(it) { return it.group && !it.atEnd; }
       function take(id) { if (!used[id]) { used[id] = true; out.push(id); } }
+      if (state.shown && S.inQueue(state.shown)) take(state.shown);
       state.queue.forEach(function (id) { if (S.item(id).picked) take(id); });
       if (run) state.queue.forEach(function (id) { var it = S.item(id); if (it.group === run && together(it)) take(id); });
       state.queue.forEach(function (id) {
@@ -177,7 +184,7 @@
     groupRun: function () { return state.groupRun || null; },
     setMoment: function (m) { state.moment = m; S.sortQueue(); emit({ type: 'moment' }); },
     /* End of the list: behind everything, deadlines too, until it next leaves triage */
-    toBack: function (id, text) { var it = S.item(id); if (text != null) it.draft = text; if (it.kind === 'task') it.atEnd = true; it.order = ++state.maxOrder; S.sortQueue(); },
+    toBack: function (id, text) { var it = S.item(id); if (state.shown === id) state.shown = null; if (text != null) it.draft = text; if (it.kind === 'task') it.atEnd = true; it.order = ++state.maxOrder; S.sortQueue(); },
     enqueue: function (it, where) { it.state = 'triage'; S.queueUp(it, where); },
     /* Into the triage queue without changing state: a draft waiting for your OK stays "review". */
     queueUp: function (it, where) {
@@ -187,8 +194,8 @@
     },
     inQueue: function (id) { return state.queue.indexOf(id) > -1; },
     /* You picked this one from Lineup: it goes first, ahead of deadlines, until it leaves triage */
-    pick: function (id) { var it = S.item(id); if (!it || !S.inQueue(id)) return; it.picked = true; state.queue = [id].concat(state.queue.filter(function (q) { return q !== id; })); },
-    leave: function (id) { var it = S.item(id); if (it) { it.atEnd = false; it.picked = false; it.putOff = false; } state.queue = state.queue.filter(function (q) { return q !== id; }); },
+    pick: function (id) { var it = S.item(id); if (!it || !S.inQueue(id)) return; it.picked = true; state.shown = null; state.queue = [id].concat(state.queue.filter(function (q) { return q !== id; })); },
+    leave: function (id) { var it = S.item(id); if (state.shown === id) state.shown = null; if (it) { it.atEnd = false; it.picked = false; it.putOff = false; } state.queue = state.queue.filter(function (q) { return q !== id; }); },
 
     /* ---- decisions from triage ---- */
     /* read: sources you pointed Fuzz to with this ask */
@@ -343,7 +350,7 @@
     doNow: function (id) { var it = S.item(id); if (!it) return; it.doing = true; it.forceBig = false; S.pick(id); S.log(it, 'status', 'You started on this.'); },
     pause: function (id, note) {
       var it = S.item(id); if (!it) return;
-      it.doing = false; it.firstStepMode = false; it.picked = false; it.order = ++state.maxOrder; S.sortQueue();
+      it.doing = false; it.firstStepMode = false; it.picked = false; it.order = ++state.maxOrder; if (state.shown === id) state.shown = null; S.sortQueue();
       S.log(it, note && note.trim() ? 'guidance' : 'status', note && note.trim() ? 'You paused. Where you left off: ' + note.trim() : 'You paused this.');
     },
     afterOthers: function (id) { var it = S.item(id); if (!it) return; it.afterOthers = true; it.doing = false; S.toBack(id); S.log(it, 'status', 'After the others: you’ll get to it once the rest are sorted.'); },
