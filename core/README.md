@@ -181,6 +181,8 @@ fuzz/states.py      task states and allowed moves
 fuzz/tasks.py       task commands, including update_brief
 fuzz/cards.py       card kinds, one-card-per-task bookkeeping, queue order, the card view
 fuzz/answers.py     answer(card, option, value): the "what each answer writes" table
+fuzz/actions.py     the commands every interface shares (answer a card, act on a task), with their follow-ups
+fuzz/followups.py   what a command starts once committed: executor and sender runs, the kickoff's discovery
 fuzz/checkins.py    check-in answers (the UI decides when to ask)
 fuzz/timeres.py     anchors, labels and the Schedule options
 fuzz/scheduler.py   claim, leases, step budget, handbacks, moments, the minute tick, wake

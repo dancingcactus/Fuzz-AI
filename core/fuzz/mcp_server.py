@@ -11,7 +11,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import runs, tools
+from . import followups, runs, tools
 from .db import Core, FuzzError
 
 INSTRUCTIONS = {
@@ -392,12 +392,7 @@ def _session(core, task_id):
         in a sentence or two. next_step: required for fuzz, and worth giving for pause and waiting."""
         out = _call(tools.session_end, core, task_id, outcome, summary, next_step, come_back_at, waiting_on)
         if outcome == "fuzz":   # start Fuzz now, rather than at its next scheduled run
-            try:
-                from . import config, engine
-                if config.role_engine(core.config, "executor")[0]:
-                    engine.run_now(core, "executor", task_id)
-            except Exception:  # it still runs on schedule
-                pass
+            followups.run(core, [{"kind": "executor_task", "task_id": task_id}])
         return out
 
     return srv

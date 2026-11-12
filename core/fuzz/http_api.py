@@ -12,13 +12,12 @@ import re
 import secrets
 import threading
 import time
-from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import answers, cards, config, drafts, engine, events, groups, matching, people, scheduler, sessions, states, tasks
-from .db import Core, FuzzError, iso
+from . import actions, cards, config, drafts, engine, events, followups, groups, matching, people, scheduler, sessions, states, tasks
+from .db import Core, FuzzError
 
 UI_ROOT = Path(__file__).resolve().parents[2]  # the repo root: index.html, js/, css/, assets/
 STATIC_DIRS = ("js", "css", "assets")
@@ -114,6 +113,17 @@ class App:
         with self.changed:
             self.changed.notify_all()
 
+    def follow(self, core, follow):
+        """Start what a command asked for (followups.run): slow work on its own thread, then tell the stream."""
+        def background(fn):
+            def work():
+                try:
+                    fn()
+                finally:
+                    self._notify()
+            threading.Thread(target=work, daemon=True).start()
+        followups.run(core, follow, self.gather_kicked, background)
+
     def user_for(self, token):
         uid = load_tokens(self.home).get(token or "")
         return int(uid) if uid else None
@@ -125,7 +135,7 @@ class App:
             ("POST", r"/tasks", self.capture),
             ("GET", r"/tasks/search", self.search_tasks),
             ("GET", r"/tasks/(\d+)", self.get_task),
-            ("POST", r"/tasks/(\d+)/(assign|done|park|wait|theirs|letgo|session|reopen|schedule|back|find_out)", self.task_action),
+            ("POST", r"/tasks/(\d+)/(" + "|".join(actions.TASK_VERBS) + ")", self.task_action),
             ("GET", r"/lessons", self.list_lessons),
             ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
             ("GET", r"/deliverables", self.list_deliverables),
@@ -214,52 +224,18 @@ class App:
 
     def capture(self, core, m, body, q):
         missed = bool(body.get("missed"))   # Fuzz missed this: it looks for the message whatever gathering is set to
-        gather = config.gathers(core.config) or missed
-        tid = tasks.capture(core, body.get("text"), body.get("docs"), due=body.get("due"), gather=gather,
-                            uploading=bool(body.get("uploading")), missed=missed)
-        if gather:
-            kick_executor(self, core)
+        tid, gather, follow = actions.capture(core, body.get("text"), body.get("docs"), due=body.get("due"),
+                                              missed=missed, uploading=bool(body.get("uploading")))
+        self.follow(core, follow)
         return {"task_id": tid, "gathering": gather}, 201
 
     def get_task(self, core, m, body, q):
         return task_view(core, tasks.require(core, int(m.group(1))), full=True)
 
     def task_action(self, core, m, body, q):
-        tid, act = int(m.group(1)), m.group(2)
-        from . import onboarding
-        if act == "assign" and onboarding.is_kickoff(core, tid) and tasks.get(core, tid)["state"] == "triage":
-            return self.kickoff_assign(core, tid)
-        if act == "assign":
-            tasks.assign(core, tid, body.get("instructions"), refs=body.get("refs"))
-        elif act == "done":
-            tasks.done(core, tid)
-        elif act == "park":
-            tasks.park(core, tid)
-        elif act == "wait":
-            tasks.wait(core, tid, body.get("on"), plan=config.gathers(core.config))
-            kick_executor(self, core)
-        elif act == "theirs":
-            tasks.theirs(core, tid, body.get("on"))
-        elif act == "letgo":
-            tasks.let_go(core, tid)
-        elif act == "session":
-            tasks.session(core, tid)
-        elif act == "schedule":
-            tasks.schedule(core, tid, body.get("anchor"), instructions=body.get("instructions"),
-                           gather=config.gathers(core.config))
-            kick_executor(self, core)
-        elif act == "back":
-            tasks.to_back(core, tid)
-        elif act == "find_out":
-            tasks.find_out(core, tid, body.get("question"))
-            start_find_out(core, tid)
-        elif act == "reopen":
-            where = body.get("where", "front")
-            if where not in ("front", "back"):
-                raise FuzzError("where must be front or back", "where")
-            tasks.bring_back(core, tid, where=where, reason="You brought this back.", type="task.reopened",
-                             tags=("returning",))
-        return {"task_id": tid, "state": tasks.get(core, tid)["state"]}
+        out, follow = actions.task_action(core, int(m.group(1)), m.group(2), body)
+        self.follow(core, follow)
+        return out
 
     def open_session(self, core, m, body, q):
         """Work in Claude (or Copilot, when that's the engine): a Terminal session started on the task."""
@@ -269,7 +245,7 @@ class App:
         """The raw file is the body: POST /tasks/14/files?name=budget.pdf with its Content-Type."""
         from . import files
         f = files.attach(core, int(m.group(1)), q.get("name"), body["_raw"], body.get("_type"))
-        kick_executor(self, core)   # a task captured with files waits for them before it's gathered
+        self.follow(core, actions.GATHER)
         return {"source_id": f["id"], "name": f["title"], "mime": f["mime"], "size": f["size"]}, 201
 
     def remove_file(self, core, m, body, q):
@@ -464,25 +440,6 @@ class App:
         from . import onboarding
         return onboarding.kickoff(core), 201
 
-    def kickoff_assign(self, core, task_id, card=None):
-        """You handed Fuzz the kickoff task: ask the app what it can reach (one run, in the background, like
-        setup's discovery), then one permission card per source."""
-        from . import onboarding
-        client = onboarding.start_kickoff(core, task_id, card)
-        if client:
-            def work():
-                from . import connectors
-                err = None
-                try:
-                    connectors.discover(core, client)
-                except Exception as e:   # said on the task, which comes back to you
-                    err = str(e)
-                with core.lock:
-                    onboarding.after_discovery(core, task_id, err)
-                self._notify()
-            threading.Thread(target=work, daemon=True).start()
-        return {"task_id": task_id, "state": tasks.get(core, task_id)["state"], "kickoff": True}
-
     def hours_get(self, core, m, body, q):
         from . import onboarding
         return onboarding.hours(core)
@@ -603,7 +560,7 @@ class App:
             groups.take_out(core, gid, body["task_id"])
         elif act == "finish_later":   # you stopped partway: Fuzz goes ahead with the answers it has
             line = groups.finish_later(core, gid)
-            start_group_run(core)
+            self.follow(core, [{"kind": "group_run"}])
             return dict(groups.view(core, groups.require(core, gid)), collected=line)
         else:
             groups.wrap(core, gid)
@@ -622,23 +579,8 @@ class App:
     def answer(self, core, m, body, q):
         if "option" not in body:
             raise FuzzError("option is required", "option")
-        from . import onboarding
-        card = cards.get(core, int(m.group(1)))
-        kick = card["status"] == "open" and onboarding.is_kickoff(core, card["task_id"])
-        if kick and card["kind"] == "task" and body["option"] in ("assign", "quick"):
-            return self.kickoff_assign(core, card["task_id"], card)
-        option = body["option"]
-        if kick and card["kind"] == "permission" and option == "allow_once":
-            option = "always_allow"   # reading is the point of these cards: allowing turns its tools on
-        out = answers.answer(core, int(m.group(1)), option, body.get("value"))
-        if kick and card["kind"] == "permission":
-            onboarding.after_answer(core, card["task_id"])
-        if body["option"] in ("schedule", "wait", "keep_waiting", "nudge"):   # Fuzz has something to look into or draft
-            kick_executor(self, core)
-        if out.get("collected") or option == "add_to_reply":   # Fuzz can start on the ones you handed it
-            start_group_run(core)
-        if option == "find_out":   # at once, not at the next scheduled run: the card comes back as soon as it lands
-            start_find_out(core, card["task_id"])
+        out, follow = actions.answer_card(core, int(m.group(1)), body["option"], body.get("value"))
+        self.follow(core, follow)
         return out
 
     def undo_list(self, core, m, body, q):
@@ -937,70 +879,14 @@ def make_handler(app):
     return Handler
 
 
-SEND_KICK_SECONDS = 120
-
-
 def kick_sender(app, core, now=None):
-    """Start the sender soon after you approve a draft, instead of waiting for launchd. At most one
-    start every two minutes per user; a second sender would find nothing to claim anyway."""
-    from . import config
-    now = now or time.time()
-    if not scheduler.sends_waiting(core) or not config.role_engine(core.config, "sender")[0]:
-        return False
-    if now - app.send_kicked.get(core.user_id, 0) < SEND_KICK_SECONDS:
-        return False
-    app.send_kicked[core.user_id] = now
-    engine.run_now(core, "sender")
-    return True
-
-
-def gathers_waiting(core):
-    from . import files
-    return any(scheduler.gathering(t) and not files.waiting(core, t) for t in core.all(
-        "SELECT * FROM tasks WHERE user_id=? AND state='queued' AND assignee='fuzz'", (core.user_id,)))
-
-
-def executor_running(core):
-    """A run that started within a lease and hasn't finished: it claims gather tasks first, so it gets there."""
-    since = core.now() - timedelta(minutes=core.config["budget"]["lease_minutes"])
-    return bool(core.one("SELECT COUNT(*) n FROM runs WHERE user_id=? AND role='executor' AND finished_at IS NULL "
-                         "AND started_at > ?", (core.user_id, iso(since)))["n"])
+    """The sender soon after you approve a draft (followups.kick_sender), throttled per app."""
+    return followups.kick_sender(core, app.send_kicked, now)
 
 
 def kick_executor(app, core, now=None, wait=None):
-    """Start the executor as soon as you capture a task, so it can gather context before you see the card.
-    Not when a run is already going, and not twice within wait seconds: the clock retries less often."""
-    now = now or time.time()
-    if not gathers_waiting(core) or not config.role_engine(core.config, "executor")[0] or executor_running(core):
-        return False
-    if now - app.gather_kicked.get(core.user_id, 0) < (wait or GATHER_KICK_SECONDS):
-        return False
-    app.gather_kicked[core.user_id] = now
-    engine.run_now(core, "executor")
-    return True
-
-
-def start_find_out(core, task_id):
-    """Find out… starts an executor run on that task now. One already running claims it next (gathering goes
-    first), so no second run is started."""
-    if not config.role_engine(core.config, "executor")[0] or executor_running(core):
-        return False
-    engine.run_now(core, "executor", task_id)
-    return True
-
-
-def start_group_run(core):
-    """A group was collected: start an executor run for its claim, unless one is going (it claims next)."""
-    if not config.role_engine(core.config, "executor")[0] or executor_running(core):
-        return False
-    if not scheduler.work_waiting(core):
-        return False
-    engine.run_now(core, "executor")
-    return True
-
-
-GATHER_KICK_SECONDS = 30
-GATHER_RETRY_SECONDS = 180
+    """The executor as soon as a task waits to be gathered (followups.kick_executor), throttled per app."""
+    return followups.kick_executor(core, app.gather_kicked, now, wait)
 
 
 def _ticker(app, stop):
@@ -1011,7 +897,7 @@ def _ticker(app, stop):
                 with core.lock:
                     scheduler.tick(core)
                     kick_sender(app, core)
-                    kick_executor(app, core, wait=GATHER_RETRY_SECONDS)
+                    kick_executor(app, core, wait=followups.GATHER_RETRY_SECONDS)
             except Exception as e:   # the clock must keep going
                 print(f"tick failed for user {uid}: {e}")
 
