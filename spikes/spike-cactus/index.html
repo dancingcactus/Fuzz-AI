@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike the Cactus</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="spike.css">
+<style>
+  body { padding: 0 16px 64px; }
+  main { max-width: 1040px; margin: 0 auto; }
+  header.top { padding: 28px 0 8px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+  header.top h1 { font-family: var(--font-display); font-size: 26px; }
+  header.top p { color: var(--muted); max-width: 66ch; margin: 6px 0 0; }
+  h2 { font-family: var(--font-display); font-size: 18px; margin: 40px 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 72ch; }
+  select { font: inherit; padding: 6px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); }
+
+  /* ---- the four looks ---- */
+  .looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .look { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 20px; padding: 14px 16px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .look .stage { height: 230px; display: grid; place-items: end center; cursor: pointer; padding-top: 10px; }
+  .look .stage .spike { height: 210px; width: auto; }
+  .look h3 { font-family: var(--font-display); font-size: 16px; margin-top: 10px; }
+  .look p { color: var(--muted); font-size: 13.5px; margin: 2px 0 0; }
+
+  .controls { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 0; margin-bottom: 4px; }
+  .moves { display: flex; flex-wrap: wrap; gap: 8px; }
+  .moves button { padding: 9px 14px; border-radius: 12px; border: var(--bw) solid var(--line); background: var(--surface); font-size: 14px; color: var(--ink); }
+  .moves button small { color: var(--muted); margin-left: 4px; }
+  .moves button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .moves button[aria-pressed="true"] small { color: inherit; }
+  .moves .sep { width: 1px; background: var(--line); margin: 2px 4px; }
+  .toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .toggles label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .toggles input[type=range] { width: 120px; accent-color: var(--accent); }
+  .say { min-height: 1.5em; font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+  /* ---- with Fuzz ---- */
+  .pals { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .duo { background: var(--field); border-radius: 18px; padding: 16px; }
+  .duo h3 { font-family: var(--font-display); font-size: 15px; margin-bottom: 8px; }
+  .perch.sp { display: flex; align-items: end; gap: 2px; margin: 0 0 -8px 6px; position: relative; z-index: 2; }
+  .perch.sp #bot { width: 112px; }
+  .perch.sp .spike { height: 94px; width: auto; margin-bottom: 6px; }
+  .mcard { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; padding: 18px 14px 14px; box-shadow: var(--shadow); position: relative; z-index: 1; }
+  .mcard b { font-family: var(--font-display); display: block; font-size: 16px; }
+  .mcard span { color: var(--muted); font-size: 13px; }
+  .bubble { display: inline-block; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 14px; margin: 0 0 10px; }
+
+  /* ---- small sizes: always on both a light and a dark tile ---- */
+  .sizes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; }
+  .sz { border-radius: 16px; padding: 14px; display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
+  .sz.light { background: #FBF5EC; color: #3B2B23; border: 1px solid #E8DCCB; }
+  .sz.dark { background: #1E1814; color: #F3E7D8; border: 1px solid #3A2E26; }
+  .sz figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; opacity: .85; }
+  .sz figcaption { font-size: 11px; }
+  .sz .spike { width: auto; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; background: rgba(127,127,127,.15); border-radius: 8px 8px 0 0; padding: 5px 10px; font-size: 12px; }
+
+  /* ---- personal-site mock ---- */
+  .site { border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line); box-shadow: var(--shadow); background: #FBF5EC; color: #3B2B23; }
+  .site nav { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #E8DCCB; font-family: var(--font-display); }
+  .site nav .spike { height: 34px; width: auto; }
+  .site nav .links { margin-left: auto; display: flex; gap: 16px; font-family: var(--font-body, inherit); font-size: 14px; color: #7B6455; }
+  .site .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; padding: 28px 28px 0; }
+  .site .hero h4 { font-family: var(--font-display); font-size: clamp(24px, 4.5vw, 40px); line-height: 1.1; }
+  .site .hero p { color: #7B6455; max-width: 40ch; margin: 10px 0 28px; }
+  .site .hero .spike { height: 220px; width: auto; }
+  .site .floor { height: 14px; background: #EFE3D1; }
+  @media (max-width: 560px) {
+    .site .hero { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .site .hero .spike { height: 170px; }
+    .site nav .links { display: none; }
+  }
+
+  .notes { columns: 2 300px; gap: 28px; }
+  .notes li { margin-bottom: 8px; break-inside: avoid; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Spike, Fuzz's cactus friend</h1>
+      <p>Four looks on one rig, so every move plays on all of them at once. Spike carries his own colours and needs nothing
+        from the app's CSS, so he can move to a personal site as he is. Click any Spike to make him wave. A one-shot goes back to whatever loop was playing.</p>
+      <p><a href="studio.html">Open the Potted studio</a> to explore every move: play, pause, scrub, step and tune.</p>
+    </div>
+    <label class="toggles" style="margin:0">Page
+      <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select>
+    </label>
+  </header>
+
+  <div class="controls">
+    <div class="moves" id="moves" role="group" aria-label="Moves">
+      <button data-anim="idle" aria-pressed="true">Idle <small>loop</small></button>
+      <button data-anim="dance">Dance <small>loop</small></button>
+      <button data-anim="shimmy">Shimmy <small>loop</small></button>
+      <span class="sep" aria-hidden="true"></span>
+      <button data-anim="wave">Wave <small>once</small></button>
+      <button data-anim="hop">Hop <small>once</small></button>
+      <button data-anim="bloom">Bloom <small>once</small></button>
+    </div>
+    <div class="toggles">
+      <label>Tempo <input type="range" id="bpm" min="70" max="160" step="2" value="120"> <span id="bpmv">120 bpm</span></label>
+      <label><input type="checkbox" id="slow"> Slow motion</label>
+      <label><input type="checkbox" id="calm"> Calm (play once and settle)</label>
+    </div>
+    <div class="say" id="say" aria-live="polite"></div>
+  </div>
+
+  <section class="looks" id="looks" aria-label="Looks"></section>
+
+  <h2>With Fuzz</h2>
+  <p class="sub">Spike sits beside Fuzz on the Triage perch. Spike is about the same height as Fuzz's head, so the card
+    doesn't move down. Use the moves above; Fuzz's mood follows along.</p>
+  <div class="pals" id="pals"></div>
+
+  <h2>Small sizes</h2>
+  <p class="sub">The icon sizes use a square crop. At 16 px the shape and the flower have to carry it, because the face is gone.</p>
+  <div id="sizes"></div>
+
+  <h2>On a personal site</h2>
+  <p class="sub">A rough header and hero to judge Spike as a site mascot. The page colours are Fuzz's warm foundation;
+    Spike dances in the hero.</p>
+  <div class="site" id="site"></div>
+
+  <h2>Notes</h2>
+  <ul class="notes">
+    <li><b>One rig, four looks.</b> Each look draws its own body, arms and base into the same named groups. The moves are
+      pure CSS keyframes in <code>spike.css</code>, one per group, with pivots in viewBox px set per look.</li>
+    <li><b>No dependencies.</b> No anime.js and no app CSS. The only id is Potted's clip path, numbered per Spike. <code>spike.css</code> and <code>spike.js</code> are enough
+      to put Spike on any page.</li>
+    <li><b>Family resemblance.</b> Same face as Fuzz (tall rounded eyes, rosy cheeks, the small smile), Fuzz's
+      terracotta for his shoes and pot, and Fuzz's glow yellow at the heart of the flower.</li>
+    <li><b>Tempo.</b> The dance runs on one beat variable, <code>--sp-beat</code>, so it could be matched to music.</li>
+  </ul>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="spike.js"></script>
+<script>
+(function () {
+  var looksEl = document.getElementById('looks'), say = document.getElementById('say');
+  var LINES = {
+    idle: 'Idle: breathing, a blink every few seconds, and the arms drift a little.',
+    dance: 'Dance: lean on the bar, bounce on every beat, arms pump in turn. Try the tempo.',
+    shimmy: 'Shimmy: a quick shake in place with the arms thrown wide.',
+    wave: 'Wave: leans in and waves from the shoulder three times, then back to idle.',
+    hop: 'Hop: crouch, jump, stretch in the air, squash on landing.',
+    bloom: 'Bloom: the flower closes, pops open with a spin, and sparkles.'
+  };
+  var MOOD = { idle: 'idle', dance: 'happy', shimmy: 'eager', wave: 'happy', hop: 'eager', bloom: 'proud' };
+  var current = 'idle', loop = 'idle';
+
+  Object.keys(Spike.looks).forEach(function (k) {
+    var L = Spike.looks[k], card = document.createElement('article');
+    card.className = 'look';
+    card.innerHTML = '<div class="stage" title="Click to wave">' + Spike.svg(k, { label: 'Spike, ' + L.name + ' look' }) + '</div>' +
+      '<h3>' + L.name + '</h3><p>' + L.blurb + '</p>';
+    card.querySelector('.stage').addEventListener('click', function () { Spike.play(card.querySelector('.spike'), 'wave'); });
+    looksEl.appendChild(card);
+  });
+
+  /* With Fuzz: two looks, light and dark cards come from the page mode. */
+  var pals = document.getElementById('pals');
+  [['saguaro', 'Saguaro'], ['potted', 'Potted']].forEach(function (p, i) {
+    var el = document.createElement('div');
+    el.className = 'duo';
+    el.innerHTML = '<h3>' + p[1] + ' beside Fuzz</h3>' +
+      '<div class="perch sp">' + window.FUZZ_SVG.replace(/id="(\w+)"/g, function (m, id) { return 'id="' + id + (i ? '-' + i : '') + '"'; })
+        .replace(/url\(#(\w+)\)/g, function (m, id) { return 'url(#' + id + (i ? '-' + i : '') + ')'; }) +
+      Spike.svg(p[0], { label: 'Spike' }) + '</div>' +
+      '<div class="mcard"><b>Book the venue for the offsite</b><span>From Priya · Slack · 2 days ago</span></div>';
+    pals.appendChild(el);
+  });
+  /* The second Fuzz got its ids suffixed; give both the #bot styling hook back through a class-free selector. */
+  document.querySelectorAll('.perch svg[id^="bot"]').forEach(function (b) { b.id = 'bot'; });
+
+  /* Small sizes: every look at 96 / 64 / 32 / 16, light and dark. */
+  var sizes = document.getElementById('sizes');
+  ['light', 'dark'].forEach(function (tone) {
+    var grid = document.createElement('div');
+    grid.className = 'sizes';
+    grid.style.marginBottom = '14px';
+    Object.keys(Spike.looks).forEach(function (k) {
+      var t = document.createElement('div');
+      t.className = 'sz ' + tone;
+      t.innerHTML = [96, 64, 32, 16].map(function (s) {
+        return '<figure>' + Spike.svg(k, { size: s, square: true, label: 'Spike at ' + s + ' px' }) + '<figcaption>' + s + '</figcaption></figure>';
+      }).join('') + '<span class="tab">' + Spike.svg(k, { size: 16, square: true, anim: 'idle', label: '' }) + Spike.looks[k].name + '</span>';
+      grid.appendChild(t);
+    });
+    sizes.appendChild(grid);
+  });
+
+  /* Personal-site mock. */
+  document.getElementById('site').innerHTML =
+    '<nav>' + Spike.svg('saguaro', { square: true, label: 'Spike' }) + '<span>your-name.dev</span>' +
+    '<span class="links"><span>Writing</span><span>Projects</span><span>About</span></span></nav>' +
+    '<div class="hero"><div><h4>Hi, I build small, friendly tools.</h4><p>Placeholder copy, here only to show Spike next to a headline and body text at real sizes.</p></div>' +
+    Spike.svg('saguaro', { anim: 'dance', label: 'Spike dancing' }) + '</div><div class="floor"></div>';
+  var siteSpikes = document.querySelectorAll('#site .spike');
+  siteSpikes[1].addEventListener('click', function () { Spike.play(siteSpikes[1], 'bloom'); });
+
+  /* Moves drive every Spike in the looks and the perch; the small sizes and the site keep their own. */
+  function all() { return document.querySelectorAll('#looks .spike, #pals .spike'); }
+  function setMove(anim) {
+    current = anim;
+    if (!Spike.once[anim]) loop = anim;
+    document.querySelectorAll('#moves button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.anim === anim)); });
+    all().forEach(function (el) { Spike.play(el, anim); });
+    document.querySelectorAll('.perch svg#bot').forEach(function (b) { b.setAttribute('data-mood', MOOD[anim]); });
+    say.textContent = LINES[anim];
+  }
+  /* When the first Spike finishes a one-shot (they all play in step), the buttons and Fuzz follow him back to the loop. */
+  all()[0].addEventListener('spike:end', function (e) {
+    if (current !== e.detail) return;
+    current = loop;
+    document.querySelectorAll('#moves button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.anim === loop)); });
+    document.querySelectorAll('.perch svg#bot').forEach(function (b) { b.setAttribute('data-mood', MOOD[loop]); });
+    say.textContent = LINES[loop];
+  });
+  document.getElementById('moves').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-anim]');
+    if (b) setMove(b.dataset.anim);
+  });
+
+  var bpm = document.getElementById('bpm'), bpmv = document.getElementById('bpmv');
+  function setBpm() {
+    var beat = 60 / +bpm.value;
+    document.querySelectorAll('.spike').forEach(function (el) { el.style.setProperty('--sp-beat', beat.toFixed(3) + 's'); });
+    bpmv.textContent = bpm.value + ' bpm';
+  }
+  bpm.addEventListener('input', setBpm);
+
+  function rate() { return document.getElementById('slow').checked ? .3 : 1; }
+  document.getElementById('slow').addEventListener('change', function () {
+    document.querySelectorAll('.spike').forEach(function (el) {
+      el._spRate = rate();
+      el.getAnimations({ subtree: true }).forEach(function (a) { a.playbackRate = el._spRate; });
+    });
+  });
+  document.getElementById('calm').addEventListener('change', function (e) {
+    document.querySelectorAll('.spike').forEach(function (el) { if (e.target.checked) el.setAttribute('data-calm', ''); else el.removeAttribute('data-calm'); });
+    setMove(current);
+  });
+
+  var mode = document.getElementById('mode');
+  mode.value = Themes.resolveMode('auto');
+  function theme() { Themes.apply('terracotta', mode.value, 'standard'); }
+  mode.addEventListener('change', theme);
+  theme();
+  setMove('idle');
+})();
+</script>
+</body>
+</html>
