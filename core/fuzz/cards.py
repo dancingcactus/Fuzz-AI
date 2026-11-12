@@ -287,7 +287,7 @@ def task_options(task):
     opts = list(TASK_OPTIONS)
     if "stale" in tags:
         opts.insert(0, "keep")
-    if "handed_back" in tags and task.get("quick_answers"):
+    if task.get("quick_answers"):   # a handback's answers, or the ones a gather offered for its question
         opts.insert(0, "quick")
     return opts
 

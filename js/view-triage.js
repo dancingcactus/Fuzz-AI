@@ -18,6 +18,8 @@
   var CI_ANSWER = { good: 'good', okay: 'okay', tired: 'tired', over: 'overloaded' };
   var ciCount = 0, ciNextAt = CI_FIRST, ciLastAt = 0, sessionAt = Date.now();
   var shownCard = null, lastTask = null, streak = 0, rushTimer = 0, ambientTimer = 0;
+  /* Cards whose box you opened (Tell Fuzz, E): it stays open through a redraw until you close it */
+  var planOpen = {};
   var scheduling = false, askingWho = false, askingFind = false, booking = false, pausing = false, wayOpen = false, schedMore = false, tab = null, keptStale = {}, edits = {}, greeted = false, refs = {}, refPick = {};
   var docClick = null, docKey = null, unhold = null, docDrag = null, booting = false, offSay = null, onScroll = null, echoTimer = 0, scrollHold = 0;
 
@@ -101,7 +103,7 @@
     if (onScroll) window.removeEventListener('scroll', onScroll); onScroll = null;
     Fuzz.unmount(); root = null;
   };
-  V.hardReset = function () { foAsked = false; foOpen = false; keptStale = {}; edits = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciLastAt = 0; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
+  V.hardReset = function () { foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciLastAt = 0; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();
@@ -170,7 +172,7 @@
   function keyRows(list) { return '<dl class="keylist">' + list.map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + k[1] + '</dd></div>'; }).join('') + '</dl>'; }
   function keysHTML() {
     var g = [
-      ['On a task card', [['A', 'Assign to Fuzz'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'Deep Work (yours, and it takes real time: it waits for a session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
+      ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'I did it'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'Deep Work (yours, and it takes real time: it waits for a session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
       ['On a draft', [['E', 'Ask Fuzz to change it'], ['S', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
       ['Choices on screen', [['1 – 9', 'Every choice on screen: an answer, a time (End of the list and Exact time too) or a mood'], ['E', 'Tell Fuzz: into the card’s box'], ['K', 'Keep a stale card, or keep a parked one parked'], ['R', 'Bring a parked card back'], ['G / U', 'On a check-back: they got back to you, or nudge them'], ['H', 'On a task that keeps coming back: Fuzz works out the first step'], ['L', 'Let a stale or parked card go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
       ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New task (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
@@ -384,15 +386,16 @@
       '<button type="button" class="btn" data-act="firststep">Just the first step</button></div></div>' : '';
     var joinRow = join ? '<div class="lead-choice"><p class="meta">' + esc(it.joinReason || 'A reply to this thread is waiting for your OK.') + '</p>' +
       '<button type="button" class="btn primary" data-act="joinreply">Add to the reply</button></div>' : '';
-    var assignBtn = '<button type="button" class="btn' + (res || join || big || it.suggestFindOut ? '' : ' primary') + '" data-act="assign" aria-keyshortcuts="A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' + (res ? 'Send Fuzz further' : 'Assign to Fuzz') + kbd('A') + '</button>';
+    var asks = hasAnswers(it);   /* the answers lead; handing it over as is waits on the button */
+    var assignBtn = '<button type="button" class="btn' + (res || join || big || asks || it.suggestFindOut ? '' : ' primary') + '" data-act="assign" aria-keyshortcuts="A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' + (res ? 'Send Fuzz further' : 'Hand it to Fuzz') + kbd('A') + '</button>';
     /* Find out… sits behind Assign's arrow. When the brief has gaps, Fuzz suggests it: it takes the front and
        Assign goes behind the arrow instead. */
     var findLeads = (!!it.suggestFindOut || askingFind) && !join && !big;
     var assignSplit = findLeads
       ? splitHTML('split-assign', '<button type="button" class="btn primary split-main" data-act="findout" aria-keyshortcuts="Q">Find out…' + kbd('Q') + '</button>',
-          'assignmenu', 'Hand it to Fuzz instead', menuItem('assign', 'A', 'Assign to Fuzz', 'Fuzz takes the whole task, not just the question.') + DEEP_ITEM, true)
+          'assignmenu', 'Hand it to Fuzz instead', menuItem('assign', 'A', 'Hand it to Fuzz', 'Fuzz takes the whole task, not just the question.') + DEEP_ITEM, true)
       : splitHTML('split-assign', assignBtn.replace('class="btn', 'class="btn split-main'), 'assignmenu', 'Ask Fuzz something else',
-          menuItem('findout', 'Q', 'Find out…', FIND_WHAT) + DEEP_ITEM, !(join || big));
+          menuItem('findout', 'Q', 'Find out…', FIND_WHAT) + DEEP_ITEM, !(join || big || asks));
     /* Book time sits behind Later's arrow. A big task already offers it up top, so Later stands alone there. */
     var laterBtn = '<button type="button" class="btn' + (big ? '' : ' split-main') + '" data-act="schedule" aria-keyshortcuts="S"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Later' + kbd('S') + '</button>';
     var laterSplit = big ? laterBtn : splitHTML('split-later', laterBtn, 'latermenu', 'Book time instead',
@@ -400,7 +403,7 @@
     return joinRow + bigRow + '<div class="actions' + (res ? ' result' : '') + '">' + (res ? '' : assignSplit) +
       (res ? '' : '<button type="button" class="btn" data-act="claude" aria-keyshortcuts="C">Work in ' + esc(Store.workIn) + kbd('C') + '</button>') +
       (res ? '' : laterSplit) +
-      '<div class="split split-done"><button type="button" class="btn done-btn' + (res ? ' primary' : '') + '" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Done' + kbd('D') + '</button>' +
+      '<div class="split split-done"><button type="button" class="btn done-btn' + (res ? ' primary' : '') + '" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' + (res ? 'Done' : 'I did it') + kbd('D') + '</button>' +
         '<button type="button" class="btn more-btn" data-act="more" aria-haspopup="menu" aria-expanded="false" aria-label="Clear it another way" title="Clear it another way"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
         '<div class="menu" role="menu" id="moremenu" hidden aria-label="Clear it another way"><p class="menu-h" aria-hidden="true">Clear it another way</p>' +
           (big ? '' : '<button type="button" role="menuitem" data-act="donow"><b>Do it now</b><span>Open it as your working card, with the rest of the list out of view.</span></button>' +
@@ -510,8 +513,8 @@
   function askHTML(text) {
     return '<h2 class="ask" id="ask" tabindex="-1"><span class="sr">The one thing to decide: </span>' + esc(text) + '</h2>';
   }
-  function titleHTML(it) {
-    return '<div class="title-block"><h3 class="task-title">' + esc(it.title) + '</h3><div class="chips">' + ageChip(it) + '<span class="meta">' + esc(it.meta || '') + '</span>' + (it.sizeLabel ? '<span class="sizechip' + (Store.isBig(it) ? ' big' : '') + '">' + esc(it.sizeLabel) + '</span>' : '') + '</div>' + partOfHTML(it) + forHTML(it) + '</div>';
+  function titleHTML(it, asHeadline) {
+    return '<div class="title-block">' + (asHeadline ? '' : '<h3 class="task-title">' + esc(it.title) + '</h3>') + '<div class="chips">' + ageChip(it) + '<span class="meta">' + esc(it.meta || '') + '</span>' + (it.sizeLabel ? '<span class="sizechip' + (Store.isBig(it) ? ' big' : '') + '">' + esc(it.sizeLabel) + '</span>' : '') + '</div>' + partOfHTML(it) + forHTML(it) + '</div>';
   }
   /* A group is context on the card, never a card of its own: one line, which opens the group sheet */
   function partOfHTML(it) {
@@ -774,6 +777,58 @@
     if (!it.deliverable) return '';
     return '<button type="button" class="partof forline" data-act="forline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>For ' + esc(it.deliverable.title) + '</button>';
   }
+  /* Answers Fuzz offered (a handback's, or a gathered question's). Each is also the instruction it hands over. */
+  function hasAnswers(it) { return !!(it.quick && it.quick.length); }
+  function answerParts(q) {
+    if (typeof q !== 'string') return { label: q.label || '', instr: q.instr || '' };
+    var m = /^([^:]{2,60}):\s+(.+)$/.exec(q);   /* "16, count the maybes: tell the venue 16" */
+    return m ? { label: m[1], instr: m[2] } : { label: q, instr: '' };
+  }
+  function answersHTML(it) {
+    var n = it.quick.length;
+    return '<div class="answers" role="group" aria-label="Answer and hand it to Fuzz">' + it.quick.map(function (q, i) {
+      var p = answerParts(q);
+      return '<button type="button" class="ans' + (i === 0 ? ' primary' : '') + '" data-quick="' + i + '" aria-keyshortcuts="' + (i + 1) + '"><span class="k" aria-hidden="true">' + (i + 1) + '</span><span><b>' + esc(p.label) + '</b>' + (p.instr ? '<small>' + esc(p.instr) + '</small>' : '') + '</span></button>';
+    }).join('') +
+      '<button type="button" class="ans" data-act="tellfuzz" aria-keyshortcuts="' + (n + 1) + '"><span class="k" aria-hidden="true">' + (n + 1) + '</span><span><b>Something else</b><small>Tell me in your own words.</small></span></button></div>';
+  }
+  /* What Fuzz will do, as plain text: E (or the link) makes it editable, so the card never starts in a box.
+     On a card with answers, the box is for a note that goes along with whichever answer you pick. */
+  function planHTML(it, answersOn) {
+    var typed = edits[it.id + ':instr'];
+    var val = typed !== undefined ? typed : answersOn ? '' : (it.instr || it.hint || '');
+    var open = !!planOpen[it.id];
+    var plan = answersOn ? '<button type="button" class="linkbtn inline addnote" data-act="tellfuzz"' + (open ? ' hidden' : '') + '>Tell Fuzz something' + kbd('E') + '</button>'
+      : '<div class="plan" id="plan"' + (open ? ' hidden' : '') + '><p class="lbl">I’ll do this</p><p class="plantext" id="plantext">' + (val.trim() ? esc(val) : '<span class="meta">Nothing yet. Tell me what to do.</span>') + '</p>' +
+        '<button type="button" class="linkbtn inline" data-act="tellfuzz">Change what I’ll do' + kbd('E') + '</button></div>';
+    return plan + '<div class="instr" id="planedit"' + (open ? '' : ' hidden') + '><div class="instr-top"><label for="instr">' + (answersOn ? 'Tell Fuzz' : 'I’ll do this') + '</label><span>' + (answersOn ? 'It goes along with your answer.' : 'Suggested by Fuzz. Edit anything.') + '</span></div>' +
+      '<div class="composer"><textarea id="instr" rows="3"' + (answersOn ? ' placeholder="For example: and copy Ines"' : '') + '>' + esc(val) + '</textarea><div class="refs" id="refs">' + refsHTML(it) + '</div></div>' + dropHTML() +
+      '<p class="typing">You’re typing. ' + kbd('⌘ Enter') + ' hands it to Fuzz. ' + kbd('Esc') + ' keeps ' + (answersOn ? 'your note' : 'your changes') + ' and brings the keys back.</p></div>';
+  }
+  /* Open the card's box (Tell Fuzz, E); close it again with what you wrote kept */
+  function openBox(select) {
+    var it = cur(), pe = $('#planedit');
+    if (it && pe && pe.hidden) {
+      planOpen[it.id] = true; pe.hidden = false;
+      var p = $('#plan'); if (p) p.hidden = true;
+      var l = card.querySelector('.addnote'); if (l) l.hidden = true;
+    }
+    var box = $('#instr') || $('#note'); if (!box) return null;
+    if (box.id === 'instr') fit(box);
+    box.focus();
+    if (select) box.select(); else box.selectionStart = box.selectionEnd = box.value.length;
+    return box;
+  }
+  function closeBox() {
+    var it = cur(), pe = $('#planedit'), box = $('#instr');
+    if (!it || !pe || pe.hidden || !box) return;
+    var p = $('#plan'), v = box.value.trim();
+    /* a note on a card with answers stays in view, so you can see it goes along */
+    if (!p && v) return;
+    planOpen[it.id] = false; pe.hidden = true;
+    if (p) { p.hidden = false; $('#plantext').innerHTML = v ? esc(box.value) : '<span class="meta">Nothing yet. Tell me what to do.</span>'; }
+    var l = card.querySelector('.addnote'); if (l) l.hidden = false;
+  }
   function cardHTML(it) {
     if (it.kind === 'deliv') return delivHTML(it);
     if (it.cardKind === 'part_of') return partOfQHTML(it);
@@ -784,14 +839,17 @@
     var g = isTask && Onboard.guide(it);
     var parkrev = isTask && it.review, checkback = isTask && it.checkBack, putoff = isTask && it.putOff && !parkrev && !checkback;
     var stale = isTask && !parkrev && !checkback && !putoff && it.stage === 'stale' && !keptStale[it.id] && !scheduling;
-    var h = (g ? g.html : '') + tagrow(it) + askHTML(it.ask) + titleHTML(it) + duePanel(it);
+    /* The ADHD pass (#3): a card with answers leads with its question and numbered answers. An ordinary task
+       with nothing to choose between leads with the task itself, and the move is handing it over. */
+    var ordinary = isTask && !parkrev && !checkback && !putoff && !stale && !it.doing && !it.result;
+    var answersOn = ordinary && hasAnswers(it);
+    var plain = ordinary && !answersOn && !it.handedBack && !it.joinReply;
+    var h = (g ? g.html : '') + tagrow(it) + askHTML(plain ? it.title : it.ask) + titleHTML(it, plain) + duePanel(it);
     /* What Fuzz found comes before what you tell him to do, so you edit with the answer in view */
     if (isTask && !stale && it.aiNote) h += findingHTML(it);
     /* What Fuzz couldn't find: Find out… comes first */
     if (isTask && it.gaps && it.gaps.length && !it.foundOut) h += '<p class="gaps"><strong>Fuzz couldn’t find</strong> ' + esc(it.gaps.join(', ')) + '. Find out… asks for it.</p>';
-    if (it.handedBack && it.quick && it.quick.length) {
-      h += '<div class="quick" role="group" aria-label="Quick answers">' + it.quick.map(function (q, i) { return '<button type="button" class="chip" data-quick="' + i + '" aria-keyshortcuts="' + (i + 1) + '">' + esc(q.label || q) + kbd(i + 1) + '</button>'; }).join('') + '</div>';
-    }
+    if (answersOn) h += answersHTML(it);
 
     if (checkback) {
       /* Fuzz can't know when someone else is done, so it asks you. A reply from them would have brought it back sooner. */
@@ -827,8 +885,7 @@
       h += '<section class="stale"><div class="stale-top"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg><div><h3>Quiet for ' + esc(it.age) + '</h3><p>Nothing new has come up. Letting it go is fine. It moves to Let go, where you can bring it back anytime.</p></div></div>' +
         '<div class="stale-btns"><button type="button" class="btn" data-act="keep" aria-keyshortcuts="K">Yes, keep it' + kbd('K') + '</button><button type="button" class="btn dark" data-act="letgo" aria-keyshortcuts="L">Let it go' + kbd('L') + '</button></div></section>';
     } else if (isTask) {
-      var val = edits[it.id + ':instr'] !== undefined ? edits[it.id + ':instr'] : (it.instr || it.hint || '');
-      h += '<div class="instr"><div class="instr-top"><label for="instr">Instructions for Fuzz</label><span>Suggested by Fuzz. Edit anything.</span></div><div class="composer"><textarea id="instr" rows="3">' + esc(val) + '</textarea><div class="refs" id="refs">' + refsHTML(it) + '</div></div>' + dropHTML() + '</div>';
+      h += planHTML(it, answersOn);
       h += '<div id="actions">' + actionsHTML(it) + '</div>';
     } else {
       h += '<p class="incoming">' + UI.text(it.incoming) + '</p>' + evidenceHTML(it);
@@ -841,8 +898,9 @@
         (it.kickoffAsk ? '' : '<button type="button" class="btn" data-act="ent-later" aria-keyshortcuts="' + (it.third ? 4 : 3) + '">Not sure yet' + kbd(it.third ? 4 : 3) + '</button>') + '</div>';
     }
 
-    if (isTask && !parkrev && !checkback && !putoff) h += '<p class="incoming">' + UI.text(it.incoming) + '</p>';
-    h += contextHTML(it, isTask, isTask && !stale, it.entity === 'is_task') + UI.idTag(it);
+    /* Where it came from, the first step, people and sources fold under Details (I), so the card holds one decision (#4) */
+    var more = (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask && !stale, it.entity === 'is_task');
+    h += (ordinary ? '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, people, sources</span>' + kbd('I') + '</summary>' + more + '</details>' : more) + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">DONE</div>';
     return h;
   }
@@ -962,7 +1020,7 @@
   /* A card starts at its heading, never in a text box, so the letters on its buttons always do what they
      say (the ADHD pass, #2). E opens the box when you want to tell Fuzz something. */
   function landing() { return $('#ask'); }
-  function forgetEdits(id) { ['instr', 'note', 'draft'].forEach(function (b) { delete edits[id + ':' + b]; }); delete refs[id]; delete refPick[id]; }
+  function forgetEdits(id) { ['instr', 'note', 'draft'].forEach(function (b) { delete edits[id + ':' + b]; }); delete refs[id]; delete refPick[id]; delete planOpen[id]; }
   function refocus(el) {
     var a = document.activeElement;
     if (booting || !el || (a && a !== document.body && document.contains(a) && !stack.contains(a))) return;
@@ -1404,7 +1462,7 @@
   /* set: fields an answer changes on the task (its draft, its recipient), applied with the assignment so Undo reverts them too */
   async function assign(line, set) {
     var it = cur(); if (!it || it.kind !== 'task') return;
-    var instr = $('#instr') ? $('#instr').value : (it.hint || '');
+    var instr = ($('#instr') && $('#instr').value.trim()) ? $('#instr').value : (it.instr || it.hint || '');
     streak = 0;
     var rush = !!it.dueAt, r = rush ? 1 : 0;
     var vi = pickV(ASSIGNS.length, lastAssign); lastAssign = vi; var V_ = ASSIGNS[vi];
@@ -1716,13 +1774,13 @@
     wayOpen = false; askingFind = true;
     if (ta && it.gaps && it.gaps.length) ta.value = edits[it.id + ':instr'] = 'Find ' + it.gaps.join(' and ');
     renderCardKeep();
-    if (ta) { ta.focus(); ta.select(); }
-    Fuzz.setMood('eager'); Fuzz.say('What do you need to know? Write it in the instructions, then Find out.', { type: false });
+    openBox(true);
+    Fuzz.setMood('eager'); Fuzz.say('What do you need to know? Write it in the box, then Find out.', { type: false });
   }
   /* Fuzz looks it up and the card steps aside, coming back right after the one in front */
   function findOut(q) {
     q = (q || '').trim();
-    if (!q) { var fq = $('#instr'); if (fq) fq.focus(); Fuzz.say('What should I find out? A question in the instructions is enough.', { type: false }); return; }
+    if (!q) { openBox(); Fuzz.say('What should I find out? A question in the box is enough.', { type: false }); return; }
     askingFind = false;
     var fit = cur(); if (fit) forgetEdits(fit.id);
     moment(function () { return quickClear('Asked Fuzz to find out about', 'Fuzz is finding out. The card comes back right after the one you’re on, with the answer.', function (i) { Store.findOut(i.id, q); }, 'On it. I’ll bring it back right after this.'); });
@@ -1932,6 +1990,7 @@
         return;
       }
       closeMenus();
+      if (a === 'tellfuzz') { openBox(); Fuzz.setMood('eager'); Fuzz.say('Go ahead, I’m listening. ⌘ Enter hands it over.', { type: false }); return; }
       if (a === 'assign') moment(function () { return assign(); });
       else if (a === 'done') moment(done);
       else if (a === 'claude') moment(inClaude);
@@ -2007,12 +2066,24 @@
     docKey = function (e) {
       /* Finding out: Cmd/Ctrl+Enter in the instructions sends the question */
       if (askingFind && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'instr') { e.preventDefault(); findOut(e.target.value); return; }
+      /* ⌘ Enter in the box hands it to Fuzz with what you wrote */
+      if (!askingFind && alive && !busy && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'instr' && card.contains(e.target)) {
+        if (!e.target.value.trim()) { Fuzz.say('What should I do? A few words is plenty.', { type: false }); return; }
+        e.preventDefault(); moment(function () { return assign(); }); return;
+      }
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || !alive) return;
       var t = e.target;
       /* Escape stops dictating first, keeping what was heard */
       if (e.key === 'Escape' && Dictate.active()) { e.preventDefault(); Dictate.stop(); return; }
       /* Escape leaves the card's box, so the number keys work again (and backs out of writing a Find out question) */
-      if (e.key === 'Escape' && t && (t.id === 'instr' || t.id === 'note') && card.contains(t)) { e.preventDefault(); if (askingFind) { askingFind = false; renderCardKeep(); Fuzz.setMood('idle'); } $('#ask').focus({ preventScroll: true }); return; }
+      if (e.key === 'Escape' && t && (t.id === 'instr' || t.id === 'note') && card.contains(t)) {
+        e.preventDefault(); if (askingFind) { askingFind = false; renderCardKeep(); Fuzz.setMood('idle'); }
+        var kept = t.value.trim() && t.value.trim() !== (cur() && (cur().instr || cur().hint) || '').trim();
+        if (t.id === 'instr') closeBox();
+        $('#ask').focus({ preventScroll: true });
+        Fuzz.say(kept ? 'Kept it. Keys are back.' : 'Keys are back.', { type: false });
+        return;
+      }
       /* Escape folds the stray-thought box away, keeping what you typed */
       if (e.key === 'Escape' && t && t.id === 'parktext') { e.preventDefault(); $('#parkbtn').click(); return; }
       /* Escape on a setup or question card, even from its time pickers: back out, or Not now */
@@ -2076,13 +2147,14 @@
         b = card.querySelector('[data-act="' + STALE[k] + '"]');
       } else if (k === 'e') {
         /* Tell Fuzz: into the card's box. Esc leaves it with what you wrote, and the keys work again. */
-        var box = $('#instr') || $('#note');
-        if (box) { e.preventDefault(); box.focus(); box.selectionStart = box.selectionEnd = box.value.length; }
+        if (openBox()) e.preventDefault();
         return;
+      } else if (k === 'i' && $('#details')) {
+        e.preventDefault(); var dd = $('#details'); dd.open = !dd.open; return;
       } else if (KEYS[k]) {
         b = card.querySelector('[data-act="' + KEYS[k] + '"]');
       } else if (n > -1) {
-        b = card.querySelectorAll('.actions.ent .btn, [data-quick]')[n];
+        b = card.querySelectorAll('.actions.ent .btn, .answers .ans')[n];
       }
       if (!b || b.disabled) return;
       e.preventDefault(); b.click();

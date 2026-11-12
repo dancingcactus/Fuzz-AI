@@ -192,6 +192,9 @@ def build(core, role, task_id=None):
                              check_back: dict[str, Any] | None = None) -> dict:
             """End a gather (claim_next_task returned gathering: true): the task goes to the person's triage
             with the brief you wrote, or, when it says comes_back, waits until then. Call it once the context is in, or straight away if nothing helps.
+            options: when the brief's question (update_brief's question) has two or three likely answers, give
+            them, each worded as the instruction you'd follow ("16: tell the venue 16 and let Marcus know"). The
+            card shows them as numbered answers; picking one hands you the task with that instruction.
             result: true when the task was only to look something up and the brief is the finished
             deliverable (a summary, an agenda, an answer); allowed when the task says may_finish. It then
             arrives done, Done first, with at most one follow-up in options. Write the brief first.

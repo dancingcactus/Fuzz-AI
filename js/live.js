@@ -235,7 +235,8 @@
       handedBack: tags.indexOf('handed_back') > -1 && state === 'triage',
       result: tags.indexOf('result') > -1 && state === 'triage',
       askBack: tags.indexOf('handed_back') > -1 ? t.question : null,
-      quick: tags.indexOf('handed_back') > -1 && t.quick_answers && t.quick_answers.length ? t.quick_answers : null,
+      /* a handback's answers, or the ones Fuzz offered for a gathered question: numbered answers on the card */
+      quick: t.quick_answers && t.quick_answers.length ? t.quick_answers : null,
       updated: tags.indexOf('returning') > -1 || tags.indexOf('reopened') > -1 || tags.indexOf('woke') > -1,
       woke: tags.indexOf('woke') > -1, gathering: tags.indexOf('gather') > -1, kickoff: tags.indexOf('kickoff') > -1,
       /* A parked task back to ask if you still want it; after a few keeps the card leans toward letting go */

@@ -159,13 +159,17 @@ def finish_gathering(core, task_id, actor="fuzz:executor", log=None, result=Fals
                   log=(log or "Finished while gathering. The result is in the brief.") + back)
         _match_captured(core, t)
         return t["id"]
+    # The brief ends in a question with answers Fuzz can name ("16, count the maybes"): the card offers them as
+    # numbered answers, each one the instruction it hands over. A fresh gather replaces the last one's.
+    answers = tasks.handed_back_fields("", options)["quick_answers"] or None
     with core.tx(actor):
         ch = events.Changes()
         if held:   # prep before a booked block: the checklist's in, and it waits for the block
             prepped = "prep" in (t.get("variant_tags") or [])
-            tasks.move(core, ch, t, "scheduled", **({"add_tags": ("prepped",), "remove_tags": ("prep",)} if prepped else {}))
+            tasks.move(core, ch, t, "scheduled", quick_answers=answers,
+                       **({"add_tags": ("prepped",), "remove_tags": ("prep",)} if prepped else {}))
         else:
-            tasks.move(core, ch, t, "triage", schedule_anchor=None, schedule_fire_at=None)
+            tasks.move(core, ch, t, "triage", schedule_anchor=None, schedule_fire_at=None, quick_answers=answers)
         events.emit(core, "task.gathered", task_id=t["id"], changes=ch,
                     log=("status", (log or ("Fuzz gathered what it could find." if t.get("context_md")
                                             else "Fuzz found nothing more to add.")) + back))

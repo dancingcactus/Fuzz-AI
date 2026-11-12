@@ -275,6 +275,30 @@ html.calm .echo { animation: none; }
 .refopt input { flex: none; width: 18px; height: 18px; accent-color: var(--accent); }
 .refpick-done { align-self: flex-end; min-height: 36px; padding: 6px 4px; }
 .instr .drop { margin-top: 8px; }
+/* The ADHD pass: a question answered on the card, a plan as plain text, and the rest under Details */
+.answers { display: grid; gap: 8px; margin-top: 12px; }
+.ans { display: flex; gap: 12px; align-items: center; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: var(--bw2, 2px) solid var(--line); border-radius: 16px; padding: 12px 14px; cursor: pointer; min-height: 56px; transition: border-color .15s, transform .15s; }
+.ans:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.ans:active { transform: scale(.98); }
+.ans:disabled { opacity: .6; cursor: default; }
+.ans.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.ans b { display: block; font-size: 16px; }
+.ans small { display: block; color: var(--muted); font-size: 13px; margin-top: 1px; }
+.ans .k { flex: none; width: 28px; height: 28px; border-radius: 8px; border: var(--bw, 1px) solid var(--line); display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--field); transition: opacity .2s; }
+.plan { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: var(--bw, 1px) solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 14px; padding: 10px 14px; margin: 12px 0 6px; }
+.plan .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+.plantext { font-size: 16px; margin: 4px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.linkbtn.inline { min-height: 36px; padding: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--link); }
+.addnote { margin-top: 8px; }
+.instr .typing { margin: 8px 0 0; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 10px; padding: 7px 10px; }
+.instr:not(:focus-within) .typing { display: none; }
+.card:has(#instr:focus) .ans .k, .card:has(#instr:focus) #actions kbd, .card:has(#instr:focus) .card-details kbd { opacity: .25; }
+.card-details { margin-top: 14px; border-top: var(--bw, 1px) solid var(--line); padding-top: 6px; }
+.card-details > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; min-height: 44px; }
+.card-details > summary::-webkit-details-marker { display: none; }
+.card-details > summary::before { content: "▸"; color: var(--muted); }
+.card-details[open] > summary::before { content: "▾"; }
+.card-details > summary .meta { font-weight: 400; }
 .drop[hidden] { display: none; }
 /* A file you added can come off its task; removing asks once, in place of the row */
 .sources li:has(.src-rm) { display: flex; gap: 6px; align-items: stretch; }
