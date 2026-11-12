@@ -499,13 +499,13 @@
       return { line: 'This one’s already done. Have a look.',
         html: '<aside class="onb-guide" aria-labelledby="guide-h">' + Fuzz.mini('good', { cls: 'guide-fz' }) + '<div><h3 id="guide-h">I already did this one</h3>' +
           '<p>It’s in <b>What Fuzz found</b> below' + (it.contextMd ? ', with the whole thing on the <b>Context</b> tab' : '') + '. If it’s what you needed, press <kbd>D</kbd> for Done.</p>' +
-          '<p class="meta">Not quite? Say what to change in the box and press <kbd>A</kbd> to send it back to me.</p>' +
+          '<p class="meta">Not quite? Press <kbd>E</kbd> to say what to change, then <kbd>A</kbd> to send it back to me.</p>' +
           '<button type="button" class="linkbtn" data-guide="skip">Skip this</button></div></aside>' };
     }
     return { line: 'Your task is back. One decision.',
       html: '<aside class="onb-guide" aria-labelledby="guide-h">' + Fuzz.mini('good', { cls: 'guide-fz' }) + '<div><h3 id="guide-h">Hand it to me</h3>' +
-        '<p>This one’s yours from earlier. Press <kbd>A</kbd>, or <b>Assign to Fuzz</b>, and I’ll start on it. I’ll come back with something for you to look at before anything goes anywhere.</p>' +
-        '<p class="meta">The box has the instructions I’d follow. Change anything first, if you like.</p>' +
+        '<p>This one’s yours from earlier. Press <kbd>A</kbd>, or <b>Hand it to Fuzz</b>, and I’ll start on it. I’ll come back with something for you to look at before anything goes anywhere.</p>' +
+        '<p class="meta">What I’ll do is under <b>I’ll do this</b>. Press <kbd>E</kbd> to change it first, if you like.</p>' +
         '<button type="button" class="linkbtn" data-guide="skip">Skip this</button></div></aside>' };
   }
   /* The guided card left the queue: you made the decision */

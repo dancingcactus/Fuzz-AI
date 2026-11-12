@@ -490,6 +490,9 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .arrive-pick .meta { margin: 0; }
 .arrive-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .arrive-btns .btn { flex: 1 1 180px; min-height: 48px; }
+.upnext { display: flex; gap: 10px; align-items: center; font-size: 14px; background: var(--surface); border: var(--bw, 1px) solid var(--line); border-radius: 999px; padding: 6px 14px 6px 8px; margin: 0 auto 10px; width: fit-content; max-width: 100%; }
+.upnext[hidden] { display: none; }
+.upnext .finding-av { position: static; width: 24px; height: 24px; flex: none; }
 .keys-dlg .keys-all { margin-top: 12px; }
 .keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
 .keys-dlg #keys-card:empty { display: none; }

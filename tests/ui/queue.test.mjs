@@ -36,7 +36,8 @@ async function arriveWithDeadline() {
   return page.evaluate(() => {
     const it = Store.get().items.find(i => i.kind === 'task' && !Store.inQueue(i.id));
     it.dueAt = Date.now() + 10 * 60000;
-    Store.enqueue(it, 'front');   /* ahead of every other deadline: only the pin keeps the shown card first */
+    Store.enqueue(it, 'back');
+    it.order = Store.get().minOrder - 100; Store.sortQueue();   /* ahead of every other deadline: only the pin keeps the shown card first */
     Store.emit({ type: 'review' });
     return it.id;
   });
@@ -55,7 +56,7 @@ test('a card that arrives with a deadline waits behind the card on screen', asyn
   const shownDue = await page.evaluate((id) => !!Store.item(id).dueAt, shown);
   if (!shownDue) assert.equal(pill, '', 'no pill borrowed from the queue');
   /* without the pin, the newcomer would have taken the front from under the card on screen */
-  assert.equal(await page.evaluate(() => { Store.show(null); return Store.front().id; }), late);
+  assert.equal(await page.evaluate(() => { Store.unpin(); Store.sortQueue(); return Store.front().id; }), late);
 });
 
 test('acting on the card lets go, and the newcomer comes in', async () => {

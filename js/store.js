@@ -145,7 +145,9 @@
     /* The card on screen. It stays at the front of the queue until you act on it, so a draft or a deadline that
        arrives meanwhile waits behind it instead of taking the front while the old card is still showing (and
        its buttons acting on the newcomer). Moving it yourself (to the back, paused, another picked) lets go. */
-    show: function (id) { if (state.shown !== (id || null)) { state.shown = id || null; S.sortQueue(); } },
+    show: function (id) { state.shown = id || null; },
+    /* You asked for a different order (a focus, a mood, a card brought to the front): the pin lets go */
+    unpin: function () { state.shown = null; },
     shown: function () { return state.shown && S.inQueue(state.shown) ? state.shown : null; },
     sortQueue: function () {
       var m = state.moment;
@@ -182,12 +184,13 @@
     /* The group you're working through in Triage (its id), or null once Fuzz has every answer */
     setRun: function (gid) { if (state.groupRun !== gid) { state.groupRun = gid || null; S.sortQueue(); } },
     groupRun: function () { return state.groupRun || null; },
-    setMoment: function (m) { state.moment = m; S.sortQueue(); emit({ type: 'moment' }); },
+    setMoment: function (m) { state.moment = m; state.shown = null; S.sortQueue(); emit({ type: 'moment' }); },
     /* End of the list: behind everything, deadlines too, until it next leaves triage */
     toBack: function (id, text) { var it = S.item(id); if (state.shown === id) state.shown = null; if (text != null) it.draft = text; if (it.kind === 'task') it.atEnd = true; it.order = ++state.maxOrder; S.sortQueue(); },
     enqueue: function (it, where) { it.state = 'triage'; S.queueUp(it, where); },
     /* Into the triage queue without changing state: a draft waiting for your OK stays "review". */
     queueUp: function (it, where) {
+      if (where === 'front' && state.shown !== it.id) state.shown = null;   /* you put this one first */
       it.order = where === 'front' ? --state.minOrder : ++state.maxOrder;
       if (state.queue.indexOf(it.id) < 0) { state.queue.push(it.id); state.totalEver++; }
       S.sortQueue();
@@ -252,7 +255,7 @@
       var held = followUp === 'hold_rest' ? S.queue().filter(function (i) { return i.kind === 'task' && !i.dueAt; }) : [];
       var ch = S.track(held.map(function (i) { return i.id; }), function () {
         state.checkins.unshift({ answer: answer, followUp: followUp || null, moment: moment, at: Date.now() });
-        state.moment = moment;
+        state.moment = moment; state.shown = null;
         held.forEach(function (i) { S.schedule(i.id, Sched.tomorrowMorning()); });
         S.sortQueue();
       });
@@ -321,6 +324,7 @@
       return Promise.resolve({ tasks: ts.map(function (it) { return { task_id: it.id, title: it.title, why: 'Says it in the title' }; }), quick: false });
     },
     setFocus: function (text, ids, skip) {
+      state.shown = null;   /* what we're working on decides what's first */
       if (skip) { state.focus = { source: 'skip', text: null, task_ids: null }; S.sortQueue(); return; }
       if (/small things|quick ones|quick things/.test((text || '').toLowerCase())) { state.focus = { text: text, task_ids: null, quick: true }; S.setMoment('quick'); return; }
       state.focus = { text: text, task_ids: ids || [] }; state.lastFocus = text;
