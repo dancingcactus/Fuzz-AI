@@ -121,7 +121,7 @@
   /* A light, rare note while Fuzz works in the background. Presence, not nagging (principle 14). */
   function ambient() {
     if (!alive || busy || ciOpen) return;
-    var w = Store.inState('ai');
+    var w = Store.inState('working');
     if (!w.length || ['idle'].indexOf(Fuzz.mood()) < 0) return;
     Fuzz.say('Working on “' + w[Math.floor(Math.random() * w.length)].title + '” in the background.', { type: false });
   }
@@ -516,7 +516,7 @@
   /* What you answered, as the chip says it */
   function saidOn(it) {
     if (!it) return 'Answered';
-    return ({ ai: 'Fuzz', 'ai-queued': 'Fuzz', done: 'Done', scheduled: 'Later', parked: 'Parked', session: 'In ' + Store.workIn,
+    return ({ working: 'Fuzz', 'queued': 'Fuzz', done: 'Done', scheduled: 'Later', parked: 'Parked', session: 'In ' + Store.workIn,
       review: 'Needs your OK', sending: 'Sending', mine: 'Yours', dropped: 'Dropped', resolved: 'Answered' })[it.state] ||
       (it.state === 'waiting' ? 'Waiting on ' + (it.waitingOn || 'someone') : it.state === 'letgo' ? (it.theirs ? 'Not mine' : 'Let go') : 'Answered');
   }
@@ -541,7 +541,7 @@
   /* Fuzz's line once he has every answer: the core's plan in live mode, else worked out from the tray */
   function planLine(r) {
     var line = Live.on() && Live.takeCollected(); if (line) return line;
-    var mine = r.ids.map(Store.item).filter(Boolean), k = mine.filter(function (x) { return x.state === 'ai' || x.state === 'ai-queued'; }).length;
+    var mine = r.ids.map(Store.item).filter(Boolean), k = mine.filter(function (x) { return x.state === 'working' || x.state === 'queued'; }).length;
     var num = ['', 'it', 'the two', 'the three', 'the four', 'the five'][k] || 'the ' + k;
     return 'Got all ' + r.ids.length + '.' + (k > 1 ? ' I’ll look into ' + num + ' together' + (r.source === 'email' || r.source === 'slack' ? ' and draft one reply' : '') + '.' : k ? ' I’ll get on it.' : ' Nothing for me this time.');
   }
@@ -1193,7 +1193,7 @@
   var VERBS = ['Reading the thread for', 'Drafting', 'Checking my calendar for', 'Pulling files for'];
   function renderEmpty() {
     var old = stack.querySelector('.empty'); if (old) old.remove();
-    var working = Store.inState('ai', 'ai-queued'), review = Store.inState('review'), s = Store.stats();
+    var working = Store.inState('working', 'queued'), review = Store.inState('review'), s = Store.stats();
     var e = document.createElement('div'); e.className = 'empty';
     var h = '', n = cleared(), sentN = Store.sentCount();
     /* End on what you did (peak-end): a short recap of the session */
@@ -1201,7 +1201,7 @@
     if (working.length || review.length) {
       h += '<h2>Nothing waiting for you</h2>' + recap;
       if (working.length) h += '<p class="meta">Fuzz is working on ' + working.length + (working.length === 1 ? ' task' : ' tasks') + '. Anything that gets stuck comes back to the end of this queue.</p>' +
-        '<ul class="work">' + working.map(function (t, i) { return '<li style="--i:' + i + '"><span>' + esc(t.title) + (t.dueAt ? ' <span class="tag due t2">Rush</span>' : '') + (t.state === 'ai-queued' ? ' <span class="pill pill--muted">Next up</span>' : '') + '</span><span class="dots" role="img" aria-label="In progress"><i></i><i></i><i></i></span></li>'; }).join('') + '</ul>';
+        '<ul class="work">' + working.map(function (t, i) { return '<li style="--i:' + i + '"><span>' + esc(t.title) + (t.dueAt ? ' <span class="tag due t2">Rush</span>' : '') + (t.state === 'queued' ? ' <span class="pill pill--muted">Next up</span>' : '') + '</span><span class="dots" role="img" aria-label="In progress"><i></i><i></i><i></i></span></li>'; }).join('') + '</ul>';
       if (review.length) h += '<p class="meta ready">' + review.length + (review.length === 1 ? ' draft waits' : ' drafts wait') + ' in <a href="#/tasks">Lineup</a> whenever you want ' + (review.length === 1 ? 'it' : 'them') + '.</p>';
     } else {
       /* Clearing Triage is its own win. If there's deep work waiting, one quiet offer, never a doorway you have to take. */
@@ -1225,20 +1225,20 @@
   }
   function settleWork() {
     if (!alive) return;
-    var working = Store.inState('ai', 'ai-queued');
+    var working = Store.inState('working', 'queued');
     if (working.length) {
       Fuzz.setMood('working');
       var tok = Fuzz.newTok(), i = 0;
       (function tick() {
         if (!alive || tok !== Fuzz.tok() || ['working', 'boop'].indexOf(Fuzz.mood()) < 0) return;
-        var w = Store.inState('ai', 'ai-queued'); if (!w.length) return;
+        var w = Store.inState('working', 'queued'); if (!w.length) return;
         Fuzz.say(VERBS[i % VERBS.length] + ' “' + w[i % w.length].title + '”…', { type: false });
         i++; setTimeout(tick, 4200);
       })();
     } else {
       Fuzz.setMood('idle'); Fuzz.say('All clear. Send me something!');
       var btok = Fuzz.newTok();
-      setTimeout(function () { if (alive && btok === Fuzz.tok() && Fuzz.mood() === 'idle' && !Store.get().queue.length && !Store.inState('ai', 'ai-queued').length) Fuzz.startBored(); }, 7000);
+      setTimeout(function () { if (alive && btok === Fuzz.tok() && Fuzz.mood() === 'idle' && !Store.get().queue.length && !Store.inState('working', 'queued').length) Fuzz.startBored(); }, 7000);
     }
   }
 
@@ -1272,7 +1272,7 @@
     $('#dropbtn').hidden = true;
     Fuzz.setMood('caring'); Fuzz.setArm('none');
     /* Only call the urgent stuff handled if it was: done, or with Fuzz. Scheduled or parked isn't handled. */
-    var handled = lastTask && lastTask.dueAt && ['done', 'ai', 'ai-queued', 'session', 'review'].indexOf(lastTask.state) > -1;
+    var handled = lastTask && lastTask.dueAt && ['done', 'working', 'queued', 'session', 'review'].indexOf(lastTask.state) > -1;
     var ask = handled ? ['The urgent stuff is handled. How are you doing?', 'Urgent stuff, handled. Nice.'] : CI_ASK[longSession() ? 2 : Math.min(ciCount, 1)];
     $('#ci-h').textContent = ask[0];
     refocus($('#ci-h'));
@@ -1325,7 +1325,7 @@
         ciFollow = 'take_5';
         $('#ci-moods').hidden = true; $('#ci-follow').innerHTML = ''; $('#ci-skip').hidden = true; $('#ci-break').hidden = false;
         ciSecs = 300; paintBreak(); $('#ci-break [data-ci="back"]').focus({ preventScroll: true });
-        Fuzz.setMood(Store.inState('ai').length ? 'working' : 'idle');
+        Fuzz.setMood(Store.inState('working').length ? 'working' : 'idle');
         Fuzz.say('I’ve got the queue. Go stretch.', { type: false });
         clearInterval(ciTimer);
         ciTimer = setInterval(function () { ciSecs--; paintBreak(); if (ciSecs <= 0) { clearInterval(ciTimer); ciAction('back'); } }, 1000);

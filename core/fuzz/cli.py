@@ -6,8 +6,8 @@ import os
 import shutil
 import sys
 
-from . import answers, cards, doctor, events, installer, matching, scheduler, tasks
-from .config import ME_KEYS, gathers, get as cfg_get, set_ as cfg_set, update_me
+from . import actions, cards, doctor, events, followups, installer, matching, scheduler, tasks
+from .config import ME_KEYS, get as cfg_get, set_ as cfg_set, update_me
 from .db import Core, FuzzError, default_home
 
 
@@ -31,13 +31,14 @@ def _value(v):
 def cmd_init(a):
     from .http_api import ensure_token
     core = _core(a)
-    cfg = core.config
-    me = update_me(cfg, add={"names": a.me_name, "emails": a.me_email, "slack_ids": a.me_slack})
-    if a.embedder:
-        cfg["embedder"] = a.embedder
-    if a.tz:
-        cfg["tz"] = a.tz
-    core.save_config(cfg)
+    def init(cfg):
+        me = update_me(cfg, add={"names": a.me_name, "emails": a.me_email, "slack_ids": a.me_slack})
+        if a.embedder:
+            cfg["embedder"] = a.embedder
+        if a.tz:
+            cfg["tz"] = a.tz
+        return me
+    me = core.update_config(init)
     tok = ensure_token(core.home, core.user_id)
     _print({"home": core.home, "user": core.user_id, "token": tok, "me": me})
     if len(me["emails"]) < 2:
@@ -49,13 +50,12 @@ def cmd_me(a):
     """Every name, email and Slack ID that is yours. The executor uses a connector signed in to any of them
     without asking which account you meant."""
     core = _core(a)
-    cfg = core.config
     if a.op != "show":
         vals = {"names": a.name, "emails": a.email, "slack_ids": a.slack}
         if not any(vals.values()):
             raise FuzzError("Pass --email, --name or --slack", "email")
-        update_me(cfg, **{a.op: vals})
-        core.save_config(cfg)
+        core.update_config(lambda cfg: update_me(cfg, **{a.op: vals}))
+    cfg = core.config
     _print({k: cfg["me"].get(k, []) for k in ME_KEYS})
 
 
@@ -182,14 +182,17 @@ def cmd_capture(a):
     for p in a.file or []:
         if not os.path.isfile(p):
             raise FuzzError(f"No file {p}", "file")
-    tid = tasks.capture(core, " ".join(a.text), a.doc, due=a.due, gather=gathers(core.config), missed=a.missed)
+    tid, gather, follow = actions.capture(core, " ".join(a.text), a.doc, due=a.due, missed=a.missed)
     _print({"task_id": tid, "files": [_attach(core, tid, p) for p in a.file or []]})
+    followups.run(core, follow)
 
 
 def cmd_attach(a):
     if not os.path.isfile(a.path):
         raise FuzzError(f"No file {a.path}", "path")
-    _print(_attach(_core(a), a.id, a.path))
+    core = _core(a)
+    _print(_attach(core, a.id, a.path))
+    followups.run(core, actions.GATHER)
 
 
 def cmd_tasks(a):
@@ -209,26 +212,41 @@ def cmd_show(a):
 
 def cmd_cards(a):
     core = _core(a)
-    for c, t in cards.queue(core):
-        v = cards.view(core, c, t)
+    with core.reading():
+        views = [(cards.view(core, c, t), t) for c, t in cards.queue(core)]
+    for v, t in views:
         print(f"card {v['id']:<4} {v['kind']:<13} {('#' + str(t['id'])) if t else '':<5} {v['prompt']}"
               f"  [{', '.join(v['options'])}]")
 
 
 def cmd_answer(a):
-    _print(answers.answer(_core(a), a.card, a.option, _value(a.value)))
+    """Answer a card the way the UI does, and start what it starts (an executor run, the kickoff's discovery)."""
+    core = _core(a)
+    out, follow = actions.answer_card(core, a.card, a.option, _value(a.value))
+    _print(out)   # before the follow-ups: the kickoff's discovery is one whole client run
+    sys.stdout.flush()
+    followups.run(core, follow)
+
+
+# what --value means for each action, when it isn't a JSON object of the request body itself
+TASK_VALUE = {"assign": "instructions", "wait": "on", "theirs": "on", "schedule": "anchor", "find_out": "question",
+              "reopen": "where", "deep_work": "left_off"}
 
 
 def cmd_task_action(a):
+    """The same verbs as POST /tasks/{id}/<verb> (actions.TASK_VERBS)."""
     core = _core(a)
-    fn = {"assign": lambda: tasks.assign(core, a.id, a.value), "done": lambda: tasks.done(core, a.id),
-          "park": lambda: tasks.park(core, a.id), "letgo": lambda: tasks.let_go(core, a.id),
-          "wait": lambda: tasks.wait(core, a.id, a.value), "session": lambda: tasks.session(core, a.id),
-          "deep_work": lambda: tasks.deep_work(core, a.id),
-          "schedule": lambda: tasks.schedule(core, a.id, _value(a.value)),
-          "reopen": lambda: tasks.bring_back(core, a.id, "front", "You brought this back.", "task.reopened")}[a.action]
-    fn()
-    _print({"task_id": a.id, "state": tasks.get(core, a.id)["state"]})
+    v, key = _value(a.value), TASK_VALUE.get(a.action)
+    if isinstance(v, dict) and not (a.action == "schedule" and "anchor" not in v):
+        body = v   # the request body itself, such as {"anchor": …, "instructions": …}
+    elif a.value is None or not key:
+        body = {}
+    else:   # text stays text ("2026" is an instruction, not a number); only an anchor is JSON
+        body = {key: v if a.action == "schedule" else a.value}
+    out, follow = actions.task_action(core, a.id, a.action, body)
+    _print(out)
+    sys.stdout.flush()
+    followups.run(core, follow)
 
 
 def cmd_moment(a):
@@ -256,7 +274,7 @@ def cmd_split(a):
 
 def cmd_undo(a):
     core = _core(a)
-    _print(events.undo_list(core) if a.list else events.undo(core, a.group))
+    _print(events.undo_list(core) if a.list else actions.undo(core, a.group))
 
 
 def cmd_tick(a):
@@ -377,8 +395,8 @@ def cmd_config(a):
         val = _value(a.value)
         _print({"engine": installer.set_engine(core, **{a.key.split(".")[1]: val})})
         return
-    cfg_set(cfg, a.key, _value(a.value))
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg_set(cfg, a.key, _value(a.value)))
+    cfg = core.config
     _print({a.key: cfg_get(cfg, a.key)})
 
 
@@ -481,8 +499,7 @@ def cmd_setup(a):
         add = {"emails": _ask("Add an email address too (work or personal)").split(","),
                "names": _ask("Add a name").split(","),
                "slack_ids": _ask("Add a Slack member ID (like WEXAMPLE1)").split(",")}
-        update_me(cfg, add=add)
-        core.save_config(cfg)
+        core.update_config(lambda cfg: update_me(cfg, add=add))   # after the questions: the lock isn't held while you type
     if "tools" in steps:
         for client in ([a.client] if a.client else setup.clients(core)):
             setup_tools(core, client, discover=True if a.discover else None)
@@ -604,8 +621,9 @@ def parser():
 
     s = sub.add_parser("task", help="act on a task directly (debugging)")
     s.add_argument("id", type=int)
-    s.add_argument("action", choices=["assign", "done", "park", "letgo", "wait", "session", "deep_work", "schedule", "reopen"])
-    s.add_argument("--value")
+    s.add_argument("action", choices=list(actions.TASK_VERBS))
+    s.add_argument("--value", help="instructions, who you're waiting on, an anchor (JSON), a question, front|back; "
+                                   "or a JSON object of the request body")
     s.set_defaults(fn=cmd_task_action)
 
     s = sub.add_parser("moment", help="add a described date to a task's Schedule options (at most two)")

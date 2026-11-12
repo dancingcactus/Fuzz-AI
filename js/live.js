@@ -17,7 +17,7 @@
   var unpin = false, extra = null, syncing = false, again = false, syncTimer = 0, detail = {}, sig = '', undoBlocked = {}, lastId = 0, said = {};
   var base = {}, listeners = [], served = false, collected = null;
 
-  var STATE = { queued: 'ai-queued', working: 'ai', merged: 'resolved' };
+  var STATE = { merged: 'resolved' };   /* the core's states are the UI's, except a merged task */
   var VIA = { email: 'Email', slack: 'Slack', calendar: 'Calendar invite', nudge: 'The same thread' };
   var ROLE = { origin: 'Source', update: 'Update', context: 'Context', attachment: 'File', output: 'Saved file', link: 'Link' };
 
@@ -179,7 +179,7 @@
   var MISSED_FROM = { email: 'Email', slack: 'Slack', meeting: 'Meeting' };
 
   /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
-  var MEMORY_KINDS = ['entity_person', 'entity_term', 'decision', 'fact_conflict'];
+  var MEMORY_KINDS = FuzzVocab.memoryKinds;   /* js/vocab.js, from the core */
 
   /* Memory's events, from the stream: the ask box's answers. Each taken once (the stream replays the log when
      it connects). */
@@ -694,7 +694,7 @@
   /* Fuzz looks it up before it reaches triage, so the card waits until the brief is in */
   function gathering(it) {
     var st = Store.get();
-    it.state = 'ai-queued'; it.gathering = true;
+    it.state = 'queued'; it.gathering = true;
     /* It never reached you, so it doesn't count as a card you cleared; it counts when it lands */
     if (st.queue.indexOf(it.id) > -1) st.totalEver = Math.max(0, st.totalEver - 1);
     st.queue = st.queue.filter(function (q) { return q !== it.id; });

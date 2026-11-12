@@ -4,35 +4,75 @@ This module keeps the bookkeeping (one card per task, which card a state needs, 
 the view a UI gets). What each answer does lives in answers.py.
 """
 
+from dataclasses import dataclass
+
 from . import events, timeres
 from .db import FuzzError
 
-FAMILY = {"task": "routing", "duplicate": "question", "entity_person": "question", "entity_term": "question",
-          "is_task": "question", "draft": "approval", "nudge": "approval", "permission": "approval",
-          "hold": "approval",   # a hold on your calendar for booked time (or taking one off)
-          "part_of": "deliverables", "deliverable": "deliverables", "deliverable_new": "deliverables",
-          "week_plan": "deliverables", "decision": "question", "fact_conflict": "question",
-          "missed": "question"}   # Is it this one? the message Fuzz found for an ask it missed (missed.py)
+@dataclass(frozen=True)
+class CardKind:
+    """Everything the core knows about one kind of card, except what its answers do (answers.HANDLERS)."""
+    family: str                    # routing | question | approval | deliverables: how the UI lays it out
+    prompt: str                    # the question, with {other}, {term} or {resource} from the card
+    options: tuple = ()            # its answers; a task card works its own out from the task (task_options)
+    suggested: str | None = None   # the answer Fuzz leans toward
+    safe: str | None = None        # what "Not sure yet" settles on after POSTPONE_LIMIT (None: just closes it)
+    scheduled: bool = False        # carries Schedule options ("Not now" on a draft picks a time)
 
-OPTIONS = {
-    "duplicate": ["merge", "keep_separate", "not_sure"],
-    "entity_person": ["same", "different", "not_sure"],
-    "entity_term": ["define", "same_as", "not_sure"],
-    "is_task": ["mine", "not_task", "someone_else", "not_sure"],
-    "draft": ["approve", "edit", "send_back", "schedule", "done"],
-    "nudge": ["approve", "edit", "not_yet", "schedule"],
-    "permission": ["allow_once", "always_allow", "deny"],
-    "hold": ["approve", "always_allow", "skip"],
-    "part_of": ["yes", "no", "not_sure"],
-    "deliverable": ["keep_going", "make_active", "its_done", "let_go", "not_sure"],   # the card's own ask narrows them
-    "deliverable_new": ["track", "no", "not_sure"],
-    "week_plan": ["keep_these", "keep_steps", "not_now"],
-    "decision": ["record", "not_decision", "not_sure"],          # Was this a decision? (memory/mcards.py)
-    "fact_conflict": ["first", "second", "neither", "not_sure"],  # two sources disagree: which is right?
-    "missed": ["yes", "not_quite", "skip"],                       # Is it this one? (missed.py)
+    @property
+    def postpones(self):
+        """Offers "Not sure yet", so it can be put off and then settled on its safe answer."""
+        return "not_sure" in self.options
+
+
+CARD_KINDS = {
+    "task": CardKind("routing", "What should happen to this?", scheduled=True),
+    "duplicate": CardKind("question", "Same as “{other}”?", ("merge", "keep_separate", "not_sure"),
+                          suggested="merge", safe="keep_separate"),
+    "entity_person": CardKind("question", "Are these the same person?", ("same", "different", "not_sure"),
+                              suggested="same", safe="different"),
+    "entity_term": CardKind("question", "What is {term}?", ("define", "same_as", "not_sure"), suggested="define"),
+    "is_task": CardKind("question", "Is this a task for you?", ("mine", "not_task", "someone_else", "not_sure"),
+                        suggested="mine", safe="mine"),
+    "draft": CardKind("approval", "Is this draft okay?", ("approve", "edit", "send_back", "schedule", "done"),
+                      suggested="approve", scheduled=True),
+    "nudge": CardKind("approval", "Can Fuzz chase this reply?", ("approve", "edit", "not_yet", "schedule"),
+                      suggested="approve", scheduled=True),
+    "permission": CardKind("approval", "Can Fuzz use {resource}?", ("allow_once", "always_allow", "deny"),
+                           suggested="allow_once"),
+    # a hold on your calendar for booked time (or taking one off)
+    "hold": CardKind("approval", "Add a hold for this to your calendar?", ("approve", "always_allow", "skip"),
+                     suggested="approve"),
+    "part_of": CardKind("deliverables", "Is this part of that deliverable?", ("yes", "no", "not_sure"),
+                        suggested="yes", safe="no"),
+    # the card's own ask narrows them (payload.options)
+    "deliverable": CardKind("deliverables", "Where is this deliverable?",
+                            ("keep_going", "make_active", "its_done", "let_go", "not_sure"),
+                            suggested="keep_going", safe="keep_going"),
+    "deliverable_new": CardKind("deliverables", "Track these tasks as one deliverable?", ("track", "no", "not_sure"),
+                                suggested="track", safe="no"),
+    "week_plan": CardKind("deliverables", "Which are this week’s active ones?", ("keep_these", "keep_steps", "not_now"),
+                          suggested="keep_these"),
+    # Was this a decision? (memory/mcards.py)
+    "decision": CardKind("question", "Was this a decision?", ("record", "not_decision", "not_sure"),
+                         suggested="record", safe="not_decision"),
+    # two sources disagree: which is right?
+    "fact_conflict": CardKind("question", "Which is right?", ("first", "second", "neither", "not_sure"),
+                              suggested="first"),
+    # Is it this one? the message Fuzz found for an ask it missed (missed.py)
+    "missed": CardKind("question", "Is it this one?", ("yes", "not_quite", "skip"), suggested="yes"),
 }
-# schedule is Later (bring it back then); book is Book time (hold the time). do_now, after_others and
-# first_step are a big task's choices with book; decide and draft_it answer "What's in the way?"
+
+
+def kind_spec(name):
+    if name not in CARD_KINDS:
+        raise FuzzError(f"Unknown card kind {name!r}", "kind")
+    return CARD_KINDS[name]
+
+
+# A task card's answers depend on why it's in front of you. schedule is Later (bring it back then); book is
+# Book time (hold the time). do_now, after_others and first_step are a big task's choices with book; decide
+# and draft_it answer "What's in the way?"
 TASK_OPTIONS = ["assign", "deep_work", "session", "schedule", "done", "park", "wait", "someone_else", "drop", "find_out",
                 "book", "do_now", "after_others", "first_step", "decide", "draft_it"]
 BIG_LEAD = ["do_now", "book", "after_others", "first_step"]   # a big task's card leads with these
@@ -43,31 +83,12 @@ CHECK_BACK_OPTIONS = ["got_it", "nudge", "keep_waiting", "drop"]   # a waiting t
 # a task you've scheduled again and again, back to ask what's in the way: unclear (Fuzz works out the
 # first step), now (it still matters: an ordinary card), or park, let go, or one more time
 PUT_OFF_OPTIONS = ["unclear", "now", "book", "schedule", "park", "drop"]
-SCHEDULED = ("task", "draft", "nudge")   # cards that carry Schedule options ("Not now" on a draft picks a time)
-
-SUGGESTED = {"duplicate": "merge", "entity_person": "same", "entity_term": "define", "is_task": "mine",
-             "draft": "approve", "nudge": "approve", "permission": "allow_once", "hold": "approve",
-             "part_of": "yes", "deliverable": "keep_going", "deliverable_new": "track", "week_plan": "keep_these",
-             "decision": "record", "fact_conflict": "first", "missed": "yes"}
-
-PROMPTS = {
-    "task": "What should happen to this?",
-    "duplicate": "Same as “{other}”?",
-    "entity_person": "Are these the same person?",
-    "entity_term": "What is {term}?",
-    "is_task": "Is this a task for you?",
-    "draft": "Is this draft okay?",
-    "nudge": "Can Fuzz chase this reply?",
-    "permission": "Can Fuzz use {resource}?",
-    "hold": "Add a hold for this to your calendar?",
-    "part_of": "Is this part of that deliverable?",
-    "deliverable": "Where is this deliverable?",
-    "deliverable_new": "Track these tasks as one deliverable?",
-    "week_plan": "Which are this week’s active ones?",
-    "decision": "Was this a decision?",
-    "fact_conflict": "Which is right?",
-    "missed": "Is it this one?",
-}
+BLOCK_END_OPTIONS = ["done", "keep_going", "book", "pause"]   # a booked block ended: "How far did you get?"
+MISSED_OPTIONS = ["book", "schedule", "park", "drop", "done"]   # "The block for this went by. Find another time?"
+# The first of these tags a task has picks its card's answers; without one, TASK_OPTIONS (see task_options)
+TASK_VARIANTS = (("block_end", BLOCK_END_OPTIONS), ("missed_block", MISSED_OPTIONS), ("doing", DOING_OPTIONS),
+                 ("in_the_way", WAY_OPTIONS), ("review", REVIEW_OPTIONS), ("check_back", CHECK_BACK_OPTIONS),
+                 ("put_off", PUT_OFF_OPTIONS))
 PUT_OFF_PROMPT = "This keeps coming back. Is something in the way?"
 
 # Variant tags that only make sense while the task sits in triage.
@@ -123,13 +144,14 @@ def create(core, kind, task_id=None, other_id=None, prompt=None, reason=None, su
     if where == "next":   # right after the card in front (a Find out… answer that just landed)
         front = queue(core)
         payload.update(next=True, after=front[0][0]["id"] if front else None)
+    spec = kind_spec(kind)
     fields = dict(kind=kind, task_id=task_id, other_id=other_id, prompt=prompt, reason=reason,
-                  suggested=suggested or SUGGESTED.get(kind), payload=payload, status="open",
+                  suggested=suggested or spec.suggested, payload=payload, status="open",
                   postponed=0, order_key=next_order(core, "back" if where == "next" else where),
                   created_at=core.now_iso())
     if kind != "task":
-        fields["options"] = OPTIONS[kind]
-    if kind in SCHEDULED:
+        fields["options"] = list(spec.options)
+    if spec.scheduled:
         fields["schedule_options"] = timeres.build_options(core, tasks.get(core, task_id))
     ch.card(cid, **fields)
     events.emit(core, "card.created", task_id=task_id, changes=ch, data={"kind": kind, "card_id": cid})
@@ -248,7 +270,7 @@ def refresh_schedule_options(core, ch, task_id):
     t = dict(tasks.get(core, task_id))
     t.update(ch.pending("tasks", task_id))
     for c in open_cards(core, task_id):
-        if c["kind"] in SCHEDULED:
+        if CARD_KINDS[c["kind"]].scheduled:
             ch.card(c["id"], schedule_options=timeres.build_options(core, t))
 
 
@@ -259,21 +281,9 @@ def review_suggests(core, t):
 
 def task_options(task):
     tags = task.get("variant_tags") or []
-    from .booking import BLOCK_END_OPTIONS, MISSED_OPTIONS
-    if "block_end" in tags:   # "How far did you get?"
-        return list(BLOCK_END_OPTIONS)
-    if "missed_block" in tags:   # "The block for this went by. Find another time?"
-        return list(MISSED_OPTIONS)
-    if "doing" in tags:
-        return list(DOING_OPTIONS)
-    if "in_the_way" in tags:
-        return list(WAY_OPTIONS)
-    if "review" in tags:
-        return list(REVIEW_OPTIONS)
-    if "check_back" in tags:
-        return list(CHECK_BACK_OPTIONS)
-    if "put_off" in tags:
-        return list(PUT_OFF_OPTIONS)
+    for tag, opts in TASK_VARIANTS:
+        if tag in tags:
+            return list(opts)
     opts = list(TASK_OPTIONS)
     if "stale" in tags:
         opts.insert(0, "keep")
@@ -294,12 +304,12 @@ def options(card, task):
             opts.insert(0, "add_to_reply")
         return opts
     if card["kind"] in ("draft", "nudge"):   # the kind's options now, so a card made before Schedule can use it
-        return OPTIONS[card["kind"]]
+        return list(CARD_KINDS[card["kind"]].options)
     if card["kind"] == "deliverable" and (card.get("payload") or {}).get("options"):
         return list(card["payload"]["options"])
     if card["kind"] == "week_plan":
         return ["keep_steps", "not_now"] if (card.get("payload") or {}).get("steps") else ["keep_these", "not_now"]
-    return card.get("options") or OPTIONS[card["kind"]]
+    return card.get("options") or list(CARD_KINDS[card["kind"]].options)
 
 
 # ---------------------------------------------------------------- the queue
@@ -314,13 +324,16 @@ def queue(core, front=None):
     handbacks and postponed last, then the moment, then order. A card you sent to the end of the list waits
     behind all of them, deadline or not. front: the card on screen, which stays first while it's open (a
     focus or a refined focus never changes the card in front)."""
-    from . import focus, tasks
+    from . import focus
     m = moment(core)
     fids = focus.focus_ids(core)
     cards = core.all("SELECT * FROM cards WHERE user_id=? AND status='open'", (core.user_id,))
+    by_id = {t["id"]: t for t in core.all(   # every card's task in one query, not one each
+        "SELECT * FROM tasks WHERE user_id=? AND id IN (SELECT task_id FROM cards WHERE user_id=? AND status='open')",
+        (core.user_id, core.user_id))}
     keyed = []
     for c in cards:
-        t = tasks.get(core, c["task_id"]) if c["task_id"] else None
+        t = by_id.get(c["task_id"]) if c["task_id"] else None
         tags = (t or {}).get("variant_tags") or []
         urgent = 0 if t and t.get("deadline_level", 0) >= 1 else 1
         back = 1 if ("handed_back" in tags or c["postponed"]) else 0
@@ -416,10 +429,10 @@ def view(core, card, task=None):
     if not prompt and len(same) > 1:
         prompt = f"Are these {len(same)} the same as “{(other or {}).get('title', 'another task')}”?"
     if not prompt:
-        prompt = PROMPTS[card["kind"]].format(other=(other or {}).get("title", "another task"),
+        prompt = CARD_KINDS[card["kind"]].prompt.format(other=(other or {}).get("title", "another task"),
                                               term=payload.get("term", "this"),
                                               resource=payload.get("resource", "this"))
-    out = {"id": card["id"], "kind": card["kind"], "family": FAMILY[card["kind"]], "status": card["status"],
+    out = {"id": card["id"], "kind": card["kind"], "family": CARD_KINDS[card["kind"]].family, "status": card["status"],
            "prompt": prompt, "reason": reason or (task or {}).get("reason"),
            "options": options(card, task or {}), "suggested": suggested,
            "postponed": card["postponed"], "payload": payload, "task": task_summary(task),
@@ -440,7 +453,7 @@ def view(core, card, task=None):
                 out["lead"] = list(BIG_LEAD)
             if "book" in out["options"]:
                 out["book_options"] = booking.options(core, task)
-    elif card["kind"] in SCHEDULED:   # a draft card made before it had Schedule options works them out now
+    elif CARD_KINDS[card["kind"]].scheduled:   # a draft card made before it had Schedule options works them out now
         out["schedule_options"] = card.get("schedule_options") or (timeres.build_options(core, task) if task else [])
     if other:
         out["other"] = task_summary(other)

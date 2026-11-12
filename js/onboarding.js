@@ -396,7 +396,7 @@
     /* Not yet with the core: it may still go to Fuzz first, so it isn't ready however the page has it */
     if (!it.coreId && Live.on()) return 'gathering';
     if (Store.inQueue(it.id) && it.kind === 'task') return 'ready';
-    if (it.gathering || it.state === 'ai-queued' || it.state === 'ai' || !it.coreId && Live.on()) return 'gathering';
+    if (it.gathering || it.state === 'queued' || it.state === 'working' || !it.coreId && Live.on()) return 'gathering';
     if (it.state === 'triage') return 'gathering';
     return 'moved';   /* you already did something with it, from Lineup say */
   }

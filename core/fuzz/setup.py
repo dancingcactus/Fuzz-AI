@@ -35,7 +35,7 @@ def state(core, check=True):
 
 def set_folder(core, folder):
     """The output folder, made if it isn't there. None or "" turns file writing off."""
-    cfg = core.config
+    path = None
     if folder:
         path = os.path.abspath(os.path.expanduser(str(folder).strip()))
         if os.path.exists(path) and not os.path.isdir(path):
@@ -43,18 +43,13 @@ def set_folder(core, folder):
         os.makedirs(path, exist_ok=True)
         if not os.access(path, os.W_OK):
             raise FuzzError(f"Fuzz can't write to {path}", "folder")
-        cfg["output"] = {"folder": path}
-    else:
-        cfg["output"] = {"folder": None}
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg.update(output={"folder": path}))
     doctor.clear_cache()
     return {"path": outputs.folder(core)}
 
 
 def finish(core, done=True):
-    cfg = core.config
-    cfg["setup"] = {"done": bool(done)}
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg.update(setup={"done": bool(done)}))
     return {"done": bool(done)}
 
 

@@ -7,6 +7,7 @@ Undo is a compensating task.restored event, never a delete.
 """
 
 import json
+from dataclasses import dataclass
 
 from .db import FuzzError, JSON_COLS, row_dict
 
@@ -48,10 +49,36 @@ EVENT_TYPES = {
     "engine.installed", "engine.removed", "engine.selected",
 }
 
-# Projected tables and their key column. user_state is keyed by (user_id, key).
-TABLES = {"tasks": "id", "groups": "id", "cards": "id", "drafts": "id", "grants": "id", "user_state": "key",
-          "deliverables": "id", "facts": "id", "knowledge": "id", "decision_log": "id", "memory_links": "id",
-          "lessons": "id"}
+@dataclass(frozen=True)
+class Table:
+    """A projected table: rebuilt by replaying events. A new one needs its schema (db.py), a Changes helper
+    below, and an entry here."""
+    key: str              # its key column; user_state is keyed by (user_id, key)
+    decisive: frozenset   # fields that say what a command decided: a later change to one blocks undoing it.
+                          # Other fields (tags, order, deadline level, lease renewals...) are bookkeeping, and
+                          # undo keeps whatever later events set them to.
+    absent: dict          # what a row that didn't exist becomes on undo, since nothing is deleted
+
+
+def _t(key, decisive, absent):
+    return Table(key, frozenset(decisive), absent)
+
+
+TABLES = {
+    "tasks": _t("id", {"state", "assignee", "lease_owner", "notes", "question", "schedule_anchor", "title",
+                       "merged_into", "waiting_on", "quick_answers"}, {"state": "letgo", "reason": "Undone"}),
+    "groups": _t("id", {"title", "state"}, {"state": "wrapped"}),
+    "cards": _t("id", {"status"}, {"status": "withdrawn"}),
+    "drafts": _t("id", {"status", "body"}, {"status": "withdrawn"}),
+    "grants": _t("id", {"kind"}, {"kind": "revoked"}),
+    "user_state": _t("key", {"value"}, {"value": None}),
+    "deliverables": _t("id", {"state", "tier", "title", "done_when"}, {"state": "dropped"}),
+    "facts": _t("id", {"status", "value", "confirmed_at"}, {"status": "undone"}),
+    "knowledge": _t("id", {"status"}, {"status": "undone"}),
+    "decision_log": _t("id", {"status", "what"}, {"status": "undone"}),
+    "memory_links": _t("id", {"removed"}, {"removed": 1}),
+    "lessons": _t("id", {"status"}, {"status": "retired"}),
+}
 
 ACTORS = ("human", "fuzz:extractor", "fuzz:executor", "fuzz:sender", "fuzz:session", "fuzz:onboarding", "fuzz:recall", "system")
 
@@ -120,20 +147,21 @@ def _enc(col, v):
 
 
 def _current(core, table, key, cols):
-    kcol = TABLES[table]
+    kcol = TABLES[table].key
     sel = ", ".join(cols)
     if table == "user_state":
         row = core.conn.execute(f"SELECT {sel} FROM user_state WHERE user_id=? AND key=?",
                                 (core.user_id, key)).fetchone()
     else:
-        row = core.conn.execute(f"SELECT {sel} FROM {table} WHERE {kcol}=?", (int(key),)).fetchone()
+        row = core.conn.execute(f"SELECT {sel} FROM {table} WHERE {kcol}=? AND user_id=?",
+                                (int(key), core.user_id)).fetchone()
     return row_dict(row)
 
 
 def apply(core, user_id, changes, event_id, ts):
     """The reducer: upsert each row's fields. Used live and by rebuild()."""
     for table, rows in changes.items():
-        kcol = TABLES[table]
+        kcol = TABLES[table].key
         for key, fields in rows.items():
             fields = dict(fields)
             if table == "tasks":
@@ -146,8 +174,9 @@ def apply(core, user_id, changes, event_id, ts):
                                            (user_id, key)).fetchone()
                 where, wargs = "user_id=? AND key=?", [user_id, key]
             else:
-                exists = core.conn.execute(f"SELECT 1 FROM {table} WHERE id=?", (int(key),)).fetchone()
-                where, wargs = "id=?", [int(key)]
+                exists = core.conn.execute(f"SELECT 1 FROM {table} WHERE id=? AND user_id=?",
+                                           (int(key), user_id)).fetchone()
+                where, wargs = "id=? AND user_id=?", [int(key), user_id]
             if exists:
                 sets = ", ".join(f"{c}=?" for c in fields)
                 core.conn.execute(f"UPDATE {table} SET {sets} WHERE {where}",
@@ -251,7 +280,8 @@ def public_event(e):
 def snapshot(core, user_id=None):
     uid = user_id or core.user_id
     out = {}
-    for table, kcol in TABLES.items():
+    for table, spec in TABLES.items():
+        kcol = spec.key
         rows = core.conn.execute(f"SELECT * FROM {table} WHERE user_id=? ORDER BY {kcol}", (uid,)).fetchall()
         out[table] = [dict(r) for r in rows]
     return out
@@ -313,25 +343,13 @@ def _groups(core, limit=200):
     return out
 
 
-# Fields that say what a command decided. A later change to one of these on the same row means the
-# command can't be undone on its own any more. Other fields (tags, order, deadline level, lease
-# renewals...) are bookkeeping: undo keeps whatever later events set them to.
-DECISIVE = {"tasks": {"state", "assignee", "lease_owner", "notes", "question", "schedule_anchor", "title",
-                      "merged_into", "waiting_on", "quick_answers"},
-            "groups": {"title", "state"}, "cards": {"status"}, "drafts": {"status", "body"}, "grants": {"kind"}, "user_state": {"value"},
-            "deliverables": {"state", "tier", "title", "done_when"},
-            "facts": {"status", "value", "confirmed_at"}, "knowledge": {"status"}, "decision_log": {"status", "what"},
-            "lessons": {"status"},
-            "memory_links": {"removed"}}
-
-
 def _restore_plan(evs):
     restore = {}
     for e in reversed(evs):  # newest first, so the oldest prior value wins
         for table, rows in e["payload"]["prior"].items():
             for key, before in rows.items():
                 if before is None:
-                    before = _absent(table, e["payload"]["changes"][table][key])
+                    before = dict(TABLES[table].absent)
                 restore.setdefault(table, {}).setdefault(key, {}).update(before)
     return restore
 
@@ -353,7 +371,7 @@ def _blocker(restore, later):
         for table, rows in e["payload"].get("changes", {}).items():
             for key, fields in rows.items():
                 mine = restore.get(table, {}).get(key)
-                if mine and set(fields) & set(mine) & DECISIVE.get(table, set()):
+                if mine and set(fields) & set(mine) & TABLES[table].decisive:
                     return e
     return None
 
@@ -380,8 +398,12 @@ def undo_list(core, limit=10):
     return out
 
 
-def undo(core, group=None):
+def undo(core, group=None, *, hooks):
     """Reverse the newest human command (or the one named), on its own: commands aren't a stack.
+
+    hooks: event type -> fn(core, event), for what a command changed outside the projection (the matcher's
+    and the memory's derived tables, eval cases, the engine choice), which replay can't put back. Required,
+    so nothing undoes without them: call actions.undo, which passes actions.UNDO_HOOKS.
 
     Refused (409) when a later event changed a decisive field the undo would put back. Bookkeeping
     fields a later event changed keep their newer value. Returns {"undid": root, "event_id": id}."""
@@ -405,49 +427,10 @@ def undo(core, group=None):
     restore = {t: rows for t, rows in restore.items() if rows}
     with core.tx(actor="human"):
         for e in evs:
-            if e["type"] == "task.merged":
-                from . import matching  # the side tables a merge moved
-                matching.unmerge_side_tables(core, e["payload"]["data"]["merge_id"])
-            if e["type"] in ("entity.merged", "entity.kept_separate"):   # the entity tables are derived, not replayed
-                from .memory import facts as mfacts
-                mfacts.undo_entity_event(core, e)
-            if e["type"] == "task.let_go":   # Not a task taken back: its eval case was a wrong label
-                from . import evals
-                evals.retire_for_task(core, e["task_id"])
-            if e["type"] == "task.missed_confirmed":   # Yes taken back: the case waits on the card again
-                from . import evals
-                d = e["payload"].get("data") or {}
-                evals.unconfirm(core, d.get("case_id"))
-                if d.get("link_source"):
-                    core.q("UPDATE sources SET withdrawn=1 WHERE id=? AND user_id=?", (d["link_source"], core.user_id))
-            if e["type"] == "engine.selected":
-                from . import engine
-                engine.restore_selection(core, e["payload"]["data"].get("prior"))
+            if e["type"] in hooks:
+                hooks[e["type"]](core, e)
         task_id = evs[0]["task_id"]
         eid = emit(core, "task.restored", task_id=task_id, changes=restore,
                    data={"undoes": root, "type": evs[0]["type"]},
                    log=("status", "You undid that.") if task_id else None)
     return {"undid": root, "event_id": eid}
-
-
-def _absent(table, created):
-    """What 'didn't exist' becomes, since nothing is deleted."""
-    if table == "tasks":
-        return {"state": "letgo", "reason": "Undone"}
-    if table == "groups":
-        return {"state": "wrapped"}
-    if table == "cards":
-        return {"status": "withdrawn"}
-    if table == "drafts":
-        return {"status": "withdrawn"}
-    if table == "grants":
-        return {"kind": "revoked"}
-    if table == "deliverables":
-        return {"state": "dropped"}
-    if table in ("facts", "knowledge", "decision_log"):
-        return {"status": "undone"}
-    if table == "memory_links":
-        return {"removed": 1}
-    if table == "lessons":
-        return {"status": "retired"}
-    return {"value": None}

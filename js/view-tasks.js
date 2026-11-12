@@ -9,7 +9,7 @@
   var same = { id: null, state: 'closed', choices: [] };
 
   var TABS = {
-    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'ai', 'ai-queued', 'sending', 'mine', 'session', 'deepwork', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, waiting for Deep Work, or coming back later. Fuzz works on a few at once.' },
+    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'working', 'queued', 'sending', 'mine', 'session', 'deepwork', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, waiting for Deep Work, or coming back later. Fuzz works on a few at once.' },
     parked: { label: 'Parked', cols: ['Status', 'Parked', 'Note'], states: ['parked'], blurb: 'Out of triage with no date. Parked tasks never nag. A few a week come back, on days you have room, to ask if you still want them, and one wakes up if something new comes in about it.' },
     waiting: { label: 'Waiting on others', cols: ['Waiting on', 'Waiting', 'Next check'], states: ['waiting'], blurb: 'You’re blocked until someone gets back to you. Fuzz checks back on each one, and a reply brings it straight back to triage.' },
     done: { label: 'Done', cols: ['Result', 'Finished', 'Summary'], states: ['done'], blurb: 'Finished work. Open any task to see exactly what was done, sent and decided.' },
@@ -17,7 +17,7 @@
   };
   function cells(it, key) {
     if (key === 'current') {
-      var m = { review: ['Needs your OK', 'warn'], ai: ['Fuzz working', 'accent'], 'ai-queued': ['Next up', 'muted'], sending: ['Sending', 'accent'], mine: ['With you', 'muted'], session: ['In ' + Store.workIn, 'muted'], deepwork: ['Deep Work', 'accent'], scheduled: ['Scheduled', 'muted'] }[it.state];
+      var m = { review: ['Needs your OK', 'warn'], working: ['Fuzz working', 'accent'], 'queued': ['Next up', 'muted'], sending: ['Sending', 'accent'], mine: ['With you', 'muted'], session: ['In ' + Store.workIn, 'muted'], deepwork: ['Deep Work', 'accent'], scheduled: ['Scheduled', 'muted'] }[it.state];
       if (it.gathering) m = ['Gathering context', 'accent'];
       return { tone: m[1], c2: m[0], c3: it.age, c4: Store.nowText(it) || '—' };
     }
@@ -157,7 +157,7 @@
 
   /* Fuzz's lane: what he is doing right now, step by step */
   function laneHTML() {
-    var run = Store.inState('ai'), next = Store.inState('ai-queued'), sending = Store.inState('sending'), now = Date.now();
+    var run = Store.inState('working'), next = Store.inState('queued'), sending = Store.inState('sending'), now = Date.now();
     var ids = run.concat(next, sending).map(function (it) { return it.id; });
     /* Work that left the lane since the last look says where it went, for a few seconds */
     if (prevLane) prevLane.forEach(function (id) {
@@ -254,7 +254,7 @@
         act('Mark done', 'menu', function () { Store.done(id); }, 'Marked done. Fuzz won’t send the draft.');
       } else act('Looks good', 'primary', function (text) { Store.accept(id, text); }, 'Approved and filed in Done.');
       if (!Store.inQueue(id)) act('Put it in triage', 'secondary', function () { Store.queueUp(Store.item(id), 'front'); }, 'It’s first in triage.');
-    } else if (it.state === 'ai' || it.state === 'ai-queued') {
+    } else if (it.state === 'working' || it.state === 'queued') {
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'mine') {
       act('Mark done', 'primary', function () { Store.markDone(id); }, 'Marked done.');
@@ -324,7 +324,7 @@
       (draft ? draftHTML(it, acts) : '') +
       '<p class="dlg-what">' + esc(it.incoming) + '</p>';
     if (it.doneWhen) h += '<section class="donewhen"><h3>Done when</h3><p>' + esc(it.doneWhen.charAt(0).toUpperCase() + it.doneWhen.slice(1)) + '</p></section>';
-    if (it.aiNote) h += '<section class="ainote"><h3>' + (it.state === 'review' ? 'What Fuzz did' : HEAD[tab]) + '</h3><p>' + UI.text(Store.nowText(it) && tab === 'current' && it.state === 'ai' ? Store.nowText(it).replace(/[.!]+$/, '') + '. ' + it.aiNote : it.aiNote) + '</p></section>';
+    if (it.aiNote) h += '<section class="ainote"><h3>' + (it.state === 'review' ? 'What Fuzz did' : HEAD[tab]) + '</h3><p>' + UI.text(Store.nowText(it) && tab === 'current' && it.state === 'working' ? Store.nowText(it).replace(/[.!]+$/, '') + '. ' + it.aiNote : it.aiNote) + '</p></section>';
     if (it.code && it.code.length) h += '<section><h3>Code</h3>' + CodeView.section(it.code, 'dlg:' + it.id) + '</section>';
     if (it.log.length) h += '<section><h3>Done so far</h3>' + UI.logHTML(it.log) + '</section>';
     if (it.people && it.people.length) h += '<section><h3>People</h3>' + UI.peopleHTML(it.people) + '</section>';

@@ -50,16 +50,20 @@ def size(core, t):
 
 def own_blocks(core, exclude=None):
     """The blocks Fuzz has booked for other tasks, so it never double-books: [(start, end)]."""
+    return [b for tid, b in core.memo("booking.blocks", lambda: _blocks(core)) if tid != exclude]
+
+
+def _blocks(core):
     out = []
     for t in core.all("SELECT id, schedule_anchor FROM tasks WHERE user_id=? AND state IN ('scheduled', 'triage', 'queued')",
                       (core.user_id,)):
         a = t.get("schedule_anchor") or {}
-        if a.get("type") == "block" and t["id"] != exclude:
+        if a.get("type") == "block":
             try:
-                out.append(timeres.check_block(a))
+                out.append((t["id"], timeres.check_block(a)))
             except Exception:
                 pass
-    return out
+    return tuple(out)
 
 
 def _free(start, end, taken):
@@ -132,10 +136,10 @@ def _bcfg(core):
 
 def calendar(core):
     """What the executor last reported: {"slots": [{start, end, title?}], "holds": [...], "at"}, or None."""
-    row = core.one("SELECT value FROM user_state WHERE user_id=? AND key='calendar'", (core.user_id,))
-    v = (row or {}).get("value")
     import json
-    return json.loads(v) if isinstance(v, str) and v.startswith("{") else None
+    v = core.memo("booking.calendar", lambda: (core.one(
+        "SELECT value FROM user_state WHERE user_id=? AND key='calendar'", (core.user_id,)) or {}).get("value"))
+    return json.loads(v) if isinstance(v, str) and v.startswith("{") else None   # parsed each time: callers may change it
 
 
 def free_until(core, now=None):
@@ -347,8 +351,6 @@ def answer_hold(core, card, option):
 
 PREP = ("Your booked block starts soon. Turn what you found into a step-by-step checklist at the top of the "
         "brief (context_md), step 1 first and about two minutes, so they can start right away. Keep the title.")
-BLOCK_END_OPTIONS = ["done", "keep_going", "book", "pause"]
-MISSED_OPTIONS = ["book", "schedule", "park", "drop", "done"]
 
 
 def _start(t):

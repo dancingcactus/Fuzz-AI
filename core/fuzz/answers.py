@@ -12,87 +12,101 @@ POSTPONE_LIMIT = 2   # after two "Not sure yet", the core takes the safe answer
 UNCLEAR = ("This keeps getting put off, so something about it is probably unclear. Work out what's actually being "
            "asked and what done looks like, and find the smallest first step. If one thing is still unclear, hand it "
            "back with that one question.")
-SAFE = {"duplicate": "keep_separate", "entity_person": "different", "entity_term": None, "is_task": "mine",
-        "part_of": "no", "deliverable": "keep_going", "deliverable_new": "no",
-        "decision": "not_decision", "fact_conflict": None}
+
+
+def _dict(value):
+    """An answer's value as a dict: {} when it's anything else."""
+    return value if isinstance(value, dict) else {}
+
+
+def _field(value, key):
+    """An answer's value is either the field itself or a dict holding it: {"anchor": …} or the anchor."""
+    return value.get(key) if isinstance(value, dict) else value
+
+
+def _text(value):
+    """An answer's value when it's text (a name, a note), else None."""
+    return value if isinstance(value, str) else None
 
 
 def _task_answer(core, card, t, option, value):
     hold = groups.holds(core, t)   # working through its group: Fuzz starts once it has every answer
-    if option == "add_to_reply":   # a late ask joins the thread's reply waiting for your OK
-        return drafts.add_to_reply(core, card, t)
-    if option == "find_out":   # you need to know something first: Fuzz looks, the task stays yours
-        return tasks.find_out(core, t["id"], value, card=card)
+    return TASK_ANSWERS[option](core, card, t, value, hold)
+
+
+def _quick(core, card, t, value, hold):
+    """One of the quick answers a handback offered (or your own, with custom): Fuzz goes on with it."""
+    text = _field(value, "text")
+    if not text or text not in (t.get("quick_answers") or []) and not _dict(value).get("custom"):
+        raise FuzzError("value is one of the quick answers on this card", "value")
+    with core.tx("human"):
+        ch = events.Changes()
+        cards.mark_answered(core, ch, card, "quick", text)
+        events.emit(core, "card.answered", task_id=t["id"], changes=ch, data={"kind": "task", "option": "quick"},
+                    log=("guidance", f"You answered: {text}"))
+        tasks.assign(core, t["id"], instructions=text, hold=hold)
+
+
+def _keep_going(core, card, t, value, hold):
+    """The block's over and you're on a roll: it runs on, if the calendar is free."""
+    from . import booking
+    return booking.keep_going(core, t["id"], card=card)
+
+
+def _nudge(core, card, t, value, hold):
+    who = t.get("waiting_on") or "them"
+    return tasks.assign(core, t["id"], card=card, option="nudge", hold=hold,
+                        instructions=f"Draft a short, friendly nudge to {who} (a nudge.* draft in the same thread) "
+                                     f"asking where this stands.")
+
+
+# A task card's answers: option -> fn(core, card, task, value, hold). Every option cards.task_options() can
+# offer has one (tests/test_actions.py checks).
+TASK_ANSWERS = {
+    # a late ask joins the thread's reply waiting for your OK
+    "add_to_reply": lambda core, card, t, value, hold: drafts.add_to_reply(core, card, t),
+    # you need to know something first: Fuzz looks, the task stays yours
+    "find_out": lambda core, card, t, value, hold: tasks.find_out(core, t["id"], value, card=card),
     # working sessions: a big task's four choices, the working card's Pause, and "What's in the way?"
-    if option == "book":
-        return tasks.book(core, t["id"], (value or {}).get("anchor") if isinstance(value, dict) else value, card=card)
-    if option == "do_now":
-        return tasks.do_now(core, t["id"], card=card)
-    if option == "pause":
-        return tasks.pause(core, t["id"], card=card, left_off=value)
-    if option == "after_others":
-        return tasks.after_others(core, t["id"], card=card)
-    if option == "first_step":
-        return tasks.first_step(core, t["id"], card=card)
-    if option == "keep_going":   # the block's over and you're on a roll: it runs on, if the calendar is free
-        from . import booking
-        return booking.keep_going(core, t["id"], card=card)
-    if option == "decide":   # can't decide: Fuzz lays out the options with a suggested default
-        return tasks.find_out(core, t["id"], tasks.DECIDE, card=card)
-    if option == "draft_it":   # don't want to write it: Fuzz drafts it for your OK
-        return tasks.assign(core, t["id"], instructions=tasks.DRAFT_IT, card=card, option="draft_it", hold=hold)
-    if option == "assign":
-        v = value if isinstance(value, dict) else {"instructions": value}
-        return tasks.assign(core, t["id"], instructions=v.get("instructions"), refs=v.get("refs"), card=card,
-                            value=value, hold=hold)
-    if option == "quick":
-        text = value if isinstance(value, str) else (value or {}).get("text")
-        if not text or text not in (t.get("quick_answers") or []) and not (value or {}).get("custom"):
-            raise FuzzError("value is one of the quick answers on this card", "value")
-        with core.tx("human"):
-            ch = events.Changes()
-            cards.mark_answered(core, ch, card, "quick", text)
-            events.emit(core, "card.answered", task_id=t["id"], changes=ch, data={"kind": "task", "option": "quick"},
-                        log=("guidance", f"You answered: {text}"))
-            tasks.assign(core, t["id"], instructions=text, hold=hold)
-        return
-    if option == "session":
-        return tasks.session(core, t["id"], card=card)
-    if option == "deep_work":   # yours, and it takes real time: it waits for a Deep Work session
-        return tasks.deep_work(core, t["id"], card=card)
-    if option == "schedule":
-        v = value if isinstance(value, dict) else {}
-        return tasks.schedule(core, t["id"], v.get("anchor"), card=card, instructions=v.get("instructions"),
-                              gather=gathers(core.config))
-    if option == "done":
-        return tasks.done(core, t["id"], card=card)
-    if option == "park":
-        return tasks.park(core, t["id"], card=card)
-    if option == "wait":
-        return tasks.wait(core, t["id"], on=value if isinstance(value, str) else None, card=card,
-                          plan=gathers(core.config))
-    if option == "someone_else":
-        return tasks.theirs(core, t["id"], on=value if isinstance(value, str) else None, card=card)
-    if option == "drop":
-        return tasks.let_go(core, t["id"], card=card)
-    if option == "keep":
-        return tasks.keep_stale(core, t["id"], card)
-    if option == "keep_parked":
-        return tasks.keep_parked(core, t["id"], card)
-    if option == "now":
-        return tasks.clarify(core, t["id"], card)
-    if option == "got_it":
-        return tasks.clarify(core, t["id"], card, "got_it", f"{t.get('waiting_on') or 'They'} got back to you.")
-    if option == "keep_waiting":
-        return tasks.wait(core, t["id"], on=t.get("waiting_on"), card=card, option="keep_waiting",
-                          plan=gathers(core.config))
-    if option == "unclear":   # it keeps coming back: Fuzz works out what's actually asked and the first step
-        return tasks.assign(core, t["id"], card=card, option="unclear", instructions=UNCLEAR, hold=hold)
-    if option == "nudge":
-        who = t.get("waiting_on") or "them"
-        return tasks.assign(core, t["id"], card=card, option="nudge", hold=hold,
-                            instructions=f"Draft a short, friendly nudge to {who} (a nudge.* draft in the same thread) "
-                                         f"asking where this stands.")
+    "book": lambda core, card, t, value, hold: tasks.book(core, t["id"], _field(value, "anchor"), card=card),
+    "do_now": lambda core, card, t, value, hold: tasks.do_now(core, t["id"], card=card),
+    "pause": lambda core, card, t, value, hold: tasks.pause(core, t["id"], card=card, left_off=value),
+    "after_others": lambda core, card, t, value, hold: tasks.after_others(core, t["id"], card=card),
+    "first_step": lambda core, card, t, value, hold: tasks.first_step(core, t["id"], card=card),
+    "keep_going": _keep_going,
+    # can't decide: Fuzz lays out the options with a suggested default
+    "decide": lambda core, card, t, value, hold: tasks.find_out(core, t["id"], tasks.DECIDE, card=card),
+    # don't want to write it: Fuzz drafts it for your OK
+    "draft_it": lambda core, card, t, value, hold: tasks.assign(core, t["id"], instructions=tasks.DRAFT_IT, card=card,
+                                                                option="draft_it", hold=hold),
+    "assign": lambda core, card, t, value, hold: tasks.assign(core, t["id"], instructions=_field(value, "instructions"),
+                                                              refs=_dict(value).get("refs"), card=card, value=value,
+                                                              hold=hold),
+    "quick": _quick,
+    "session": lambda core, card, t, value, hold: tasks.session(core, t["id"], card=card),
+    # yours, and it takes real time: it waits for a Deep Work session
+    "deep_work": lambda core, card, t, value, hold: tasks.deep_work(core, t["id"], card=card),
+    "schedule": lambda core, card, t, value, hold: tasks.schedule(core, t["id"], _dict(value).get("anchor"), card=card,
+                                                                  instructions=_dict(value).get("instructions"),
+                                                                  gather=gathers(core.config)),
+    "done": lambda core, card, t, value, hold: tasks.done(core, t["id"], card=card),
+    "park": lambda core, card, t, value, hold: tasks.park(core, t["id"], card=card),
+    "wait": lambda core, card, t, value, hold: tasks.wait(core, t["id"], on=_text(value), card=card,
+                                                          plan=gathers(core.config)),
+    "someone_else": lambda core, card, t, value, hold: tasks.theirs(core, t["id"], on=_text(value), card=card),
+    "drop": lambda core, card, t, value, hold: tasks.let_go(core, t["id"], card=card),
+    "keep": lambda core, card, t, value, hold: tasks.keep_stale(core, t["id"], card),
+    "keep_parked": lambda core, card, t, value, hold: tasks.keep_parked(core, t["id"], card),
+    "now": lambda core, card, t, value, hold: tasks.clarify(core, t["id"], card),
+    "got_it": lambda core, card, t, value, hold: tasks.clarify(core, t["id"], card, "got_it",
+                                                               f"{t.get('waiting_on') or 'They'} got back to you."),
+    "keep_waiting": lambda core, card, t, value, hold: tasks.wait(core, t["id"], on=t.get("waiting_on"), card=card,
+                                                                  option="keep_waiting", plan=gathers(core.config)),
+    # it keeps coming back: Fuzz works out what's actually asked and the first step
+    "unclear": lambda core, card, t, value, hold: tasks.assign(core, t["id"], card=card, option="unclear",
+                                                               instructions=UNCLEAR, hold=hold),
+    "nudge": _nudge,
+}
 
 
 def _duplicate(core, card, t, option, value):
@@ -217,7 +231,7 @@ def _is_task(core, card, t, option, value):
     if option == "someone_else":
         with core.tx("human"):
             for a in many:
-                tasks.theirs(core, a["id"], on=value if isinstance(value, str) else None,
+                tasks.theirs(core, a["id"], on=_text(value),
                              card=card if a["id"] == t["id"] else None)
         return
 
@@ -244,8 +258,7 @@ def _draft(core, card, t, option, value):
     if option == "done":   # you sent it yourself, so Fuzz doesn't
         return drafts.done_myself(core, card)
     if option == "schedule":   # not now: the draft waits, and asks for your OK again at that time
-        v = value if isinstance(value, dict) else {}
-        return tasks.schedule(core, t["id"], v.get("anchor"), card=card)
+        return tasks.schedule(core, t["id"], _dict(value).get("anchor"), card=card)
 
 
 def _permission(core, card, t, option, value):
@@ -293,7 +306,7 @@ def answer(core, card_id, option, value=None):
 
 def _postpone(core, card, t):
     if card["postponed"] >= POSTPONE_LIMIT:
-        safe = SAFE[card["kind"]]
+        safe = cards.CARD_KINDS[card["kind"]].safe
         with core.tx("system"):
             ch = events.Changes()
             ch.card(card["id"], status="expired", answer={"option": safe, "value": None})

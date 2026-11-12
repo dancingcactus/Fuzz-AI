@@ -4,7 +4,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import events, groups, matching, tasks, tools
+from fuzz import actions, events, groups, matching, tasks, tools
 
 MARCUS = {"name": "Marcus Lee", "slack_id": "U0MARCUS"}
 ME = {"name": "Justin", "slack_id": "WEXAMPLE1"}
@@ -135,7 +135,7 @@ class Groups(CoreCase):
         gid = self.group_of("venue")
         groups.rename(self.core, gid, "Team offsite next week")
         self.assertEqual(groups.get(self.core, gid)["title"], "Team offsite next week")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(groups.get(self.core, gid)["title"], "Offsite plan")
 
         self.assertEqual(groups.take_out(self.core, gid, self.tid("agenda")), [self.tid("agenda")])
@@ -145,7 +145,7 @@ class Groups(CoreCase):
                          sorted([self.tid("lunch"), self.tid("venue")]))
         self.assertIsNone(self.group_of("venue"))
         self.assertEqual(groups.list_groups(self.core), [])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual({self.group_of("venue"), self.group_of("lunch")}, {gid})
         self.assertEqual(groups.get(self.core, gid)["state"], "open")
 

@@ -4,7 +4,7 @@ import unittest
 
 from helpers import CoreCase, fixture
 
-from fuzz import answers, events, runs, scheduler, states, tasks, tools
+from fuzz import actions, answers, events, runs, scheduler, states, tasks, tools
 from fuzz.db import FuzzError
 
 
@@ -20,7 +20,7 @@ class Replay(CoreCase):
         answers.answer(self.core, self.card_for(a, "draft")["id"], "send_back", "Shorter")
         b = tasks.capture(self.core, "Reply to Dana")
         answers.answer(self.core, self.card_for(b, "task")["id"], "park")
-        events.undo(self.core)
+        actions.undo(self.core)
         scheduler.tick(self.core)
         self.clock.advance(days=9)
         scheduler.tick(self.core)
@@ -30,6 +30,15 @@ class Replay(CoreCase):
         a = tasks.capture(self.core, "One")
         last = self.core.one("SELECT MAX(id) m FROM events WHERE task_id=? AND type!='card.created'", (a,))["m"]
         self.assertEqual(self.task(a)["updated_event_id"], last)
+
+    def test_an_event_never_reaches_another_users_row(self):
+        import sqlite3
+        tid = tasks.capture(self.core, "Mine")
+        other = self.make_core(2)
+        with self.assertRaises(sqlite3.IntegrityError):   # the id is taken, and not theirs to update
+            with other.tx("human"):
+                events.emit(other, "task.retitled", task_id=tid, changes={"tasks": {str(tid): {"title": "Theirs"}}})
+        self.assertEqual(self.task(tid)["title"], "Mine")
 
     def test_illegal_moves_are_refused(self):
         a = tasks.capture(self.core, "One")
@@ -45,7 +54,7 @@ class Undo(CoreCase):
         a = tasks.capture(self.core, "One")
         n = self.core.one("SELECT COUNT(*) n FROM events")["n"]
         answers.answer(self.core, self.card_for(a, "task")["id"], "done")
-        res = events.undo(self.core)
+        res = actions.undo(self.core)
         self.assertEqual(self.task(a)["state"], "triage")
         self.assertGreater(self.core.one("SELECT COUNT(*) n FROM events")["n"], n + 1)
         restored = self.core.one("SELECT * FROM events WHERE id=?", (res["event_id"],))
@@ -55,9 +64,9 @@ class Undo(CoreCase):
         a = tasks.capture(self.core, "One")
         answers.answer(self.core, self.card_for(a, "task")["id"], "assign")
         tasks.done(self.core, a)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(a)["state"], "queued")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(a)["state"], "triage")
 
     def test_undo_is_refused_once_fuzz_has_worked_on_it(self):
@@ -66,7 +75,7 @@ class Undo(CoreCase):
         tools.claim_next_task(self.core)
         tools.log_step(self.core, a, "research", "Did a thing")
         with self.assertRaises(FuzzError) as e:
-            events.undo(self.core)
+            actions.undo(self.core)
         self.assertEqual(e.exception.status, 409)
         self.assertEqual(self.task(a)["state"], "working")
         assigned = events.undo_list(self.core)[0]
@@ -79,7 +88,7 @@ class Undo(CoreCase):
         tools.claim_next_task(self.core)
         tools.save_draft(self.core, a, "note", "", "Plan")
         with self.assertRaises(FuzzError):
-            events.undo(self.core)
+            actions.undo(self.core)
         self.assertEqual([c["kind"] for c in self.core.all(
             "SELECT kind FROM cards WHERE task_id=? AND status='open'", (a,))], ["draft"])
 
@@ -89,7 +98,7 @@ class Undo(CoreCase):
         tasks.park(self.core, a)
         tasks.done(self.core, b)
         park = next(g for g in events.undo_list(self.core) if g["type"] == "task.parked")
-        events.undo(self.core, park["group"])
+        actions.undo(self.core, park["group"])
         self.assertEqual((self.task(a)["state"], self.task(b)["state"]), ("triage", "done"))
 
     def test_a_later_change_of_yours_blocks_until_undone(self):
@@ -99,16 +108,16 @@ class Undo(CoreCase):
         park = next(g for g in events.undo_list(self.core) if g["type"] == "task.parked")
         self.assertIn("Undo that first", park["blocked"])
         with self.assertRaises(FuzzError):
-            events.undo(self.core, park["group"])
-        events.undo(self.core)
-        events.undo(self.core, park["group"])
+            actions.undo(self.core, park["group"])
+        actions.undo(self.core)
+        actions.undo(self.core, park["group"])
         self.assertEqual(self.task(a)["state"], "triage")
 
     def test_bookkeeping_changed_later_keeps_its_newer_value(self):
         a = tasks.capture(self.core, "One", due=self.core.now_iso())
         tasks.park(self.core, a)
         scheduler.tick(self.core)   # the deadline level and its tag change after the park
-        events.undo(self.core)
+        actions.undo(self.core)
         t = self.task(a)
         self.assertEqual(t["state"], "triage")
         self.assertIn("time_sensitive", t["variant_tags"])
@@ -124,7 +133,7 @@ class Undo(CoreCase):
         answers.answer(self.core, cid, "merge")
         self.assertEqual(tasks.live(self.core, a)["id"], b)
         self.assertEqual(self.core.one("SELECT task_id FROM sources WHERE title='deck.pdf'")["task_id"], b)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(a)["state"], "triage")
         self.assertEqual(self.core.one("SELECT task_id FROM sources WHERE title='deck.pdf'")["task_id"], a)
         self.assertEqual(self.core.one("SELECT undone FROM merges")["undone"], 1)

@@ -1,8 +1,11 @@
 """config.json in the store folder: who you are, the engine, budgets and the matcher's settings."""
 
 import copy
+import fcntl
 import json
 import os
+import threading
+from contextlib import contextmanager
 
 DEFAULTS = {
     "me": {"names": [], "emails": [], "slack_ids": [], "folders": {}},
@@ -86,12 +89,39 @@ def load(home):
         return _merge(DEFAULTS, json.load(f))
 
 
-def save(home, cfg):
+@contextmanager
+def _locked(home):
+    """One writer at a time across processes (fuzz serve, the CLI, launchd's role runs) and threads."""
     os.makedirs(home, exist_ok=True)
-    tmp = os.path.join(home, "config.json.tmp")
+    with open(os.path.join(home, "config.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _write(home, cfg):
+    tmp = os.path.join(home, f"config.json.{os.getpid()}.{threading.get_ident()}.tmp")   # never shared
     with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
     os.replace(tmp, os.path.join(home, "config.json"))
+
+
+def save(home, cfg):
+    """Replace the whole config. To change part of it, use update(), which can't drop another writer's change."""
+    with _locked(home):
+        _write(home, cfg)
+
+
+def update(home, fn):
+    """Change the config in place: fn(cfg) edits the latest config, read under the lock, and it's saved before
+    anyone else can write. Returns what fn returns. Keep fn quick: other writers wait for it."""
+    with _locked(home):
+        cfg = load(home)
+        out = fn(cfg)
+        _write(home, cfg)
+    return out
 
 
 def get(cfg, key):

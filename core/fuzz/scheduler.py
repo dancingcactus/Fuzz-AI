@@ -27,9 +27,7 @@ def set_slots(core, n):
     """How many tasks Fuzz may work on at once (budget.max_working), from Settings."""
     if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= MAX_SLOTS:
         raise FuzzError(f"slots is a whole number from 1 to {MAX_SLOTS}", "slots")
-    cfg = core.config
-    cfg["budget"] = dict(cfg.get("budget") or {}, max_working=n)
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg.update(budget=dict(cfg.get("budget") or {}, max_working=n)))
     return n
 
 

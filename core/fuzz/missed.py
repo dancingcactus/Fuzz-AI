@@ -196,3 +196,12 @@ def answer(core, card, t, option, value):
     log = ("Fuzz couldn't find it in two tries. It's here as you wrote it." if option == "not_quite"
            else "You kept it as you wrote it.")
     _back_to_you(core, t, "human", log, card=card, option=option, value=value)
+
+
+def undo_confirmed(core, e):
+    """Undo of your Yes (task.missed_confirmed): the eval case waits on the card again, and the message it
+    linked to the task is withdrawn."""
+    d = e["payload"].get("data") or {}
+    evals.unconfirm(core, d.get("case_id"))
+    if d.get("link_source"):
+        core.q("UPDATE sources SET withdrawn=1 WHERE id=? AND user_id=?", (d["link_source"], core.user_id))

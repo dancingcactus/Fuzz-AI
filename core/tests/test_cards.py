@@ -5,7 +5,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, checkins, drafts, events, scheduler, tasks, tools
+from fuzz import actions, answers, cards, checkins, drafts, events, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 IGNORED = {"card.created"}   # bookkeeping that rides along with an answer
@@ -74,7 +74,7 @@ class CardTable(CoreCase):
         self.assertEqual(got, want_events, f"{card['kind']} / {option}")
         if want_state:
             self.assertEqual(self.task(tid)["state"], want_state)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(cards.get(self.core, card["id"])["status"], "open", "Undo reopens the card")
         if tid:
             self.assertEqual(self.task(tid)["state"], before_task["state"], "Undo restores the task")
@@ -148,7 +148,7 @@ class CardTable(CoreCase):
         answers.answer(self.core, card["id"], "done")
         self.assertEqual(self.core.one("SELECT status FROM drafts WHERE task_id=?", (tid,))["status"], "withdrawn",
                          "Fuzz's sender never picks it up")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.one("SELECT status FROM drafts WHERE task_id=?", (tid,))["status"], "pending")
 
     def test_not_now_on_a_draft_brings_it_back_for_your_ok(self):
@@ -243,7 +243,7 @@ class QueueRules(CoreCase):
         self.assertEqual(order[-1], first, "behind handbacks too, even though it's due soon")
         self.assertLess(order.index(back), order.index(first))
         self.assertEqual(self.task(first)["state"], "triage", "no time, no state change")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual([c["task_id"] for c in self.open_cards()][0], first)
 
     def claimed_and_handed_back(self):
@@ -281,7 +281,7 @@ class OneEmailManyAsks(CoreCase):
         self.assertEqual(cards.get(self.core, card["id"])["status"], "answered")
         self.card_for(ids[1], "task")
         self.assertEqual(self.core.one("SELECT COUNT(*) n FROM feedback WHERE kind='not_task'")["n"], 2)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual([self.task(i)["state"] for i in ids], ["triage"] * 3, "one undo puts them all back")
         self.assertEqual(events.check_replay(self.core), [])
 
@@ -351,7 +351,7 @@ class Brief(CoreCase):
         tid = tasks.capture(self.core, "Compliance video")
         tasks.update_brief(self.core, tid, context_md="first", question="Q1?", actor="human")
         tasks.update_brief(self.core, tid, context_md="second", question="Q2?", actor="human")
-        events.undo(self.core)
+        actions.undo(self.core)
         t = self.task(tid)
         self.assertEqual((t["context_md"], t["question"]), ("first", "Q1?"))
 
@@ -398,7 +398,7 @@ class CheckIns(CoreCase):
         self.assertEqual(checkins.record(self.core, "overloaded", "hold_rest")["held"], 3)
         self.assertEqual(self.types_since(before), ["checkin.answered"] + ["task.scheduled"] * 3)
         self.assertEqual([c["task_id"] for c in self.open_cards()], [urgent])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual({self.task(t)["state"] for t in rest}, {"triage"})
         self.assertEqual(cards.moment(self.core), "any")
 
@@ -432,7 +432,7 @@ class Sending(CoreCase):
         self.assertEqual(tools.claim_next_send(self.core)["send"], None)
         self.assertNotIn("task.approved", [g["type"] for g in events.undo_list(self.core) if not g["blocked"]])
         with self.assertRaises(FuzzError):
-            events.undo(self.core)
+            actions.undo(self.core)
         self.assertEqual(self.task(tid)["state"], "done")
 
     def test_a_nudge_goes_back_to_waiting(self):
@@ -443,13 +443,13 @@ class Sending(CoreCase):
 
     def test_undo_takes_the_approval_back_until_fuzz_claims_it(self):
         tid, did = self.approved()
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(tid)["state"], "review")
         self.assertEqual([c["kind"] for c in self.open_cards()], ["draft"])
         answers.answer(self.core, self.card_for(tid)["id"], "approve")
         tools.claim_next_send(self.core)
         with self.assertRaises(FuzzError) as e:
-            events.undo(self.core)
+            actions.undo(self.core)
         self.assertEqual(e.exception.status, 409)
 
     def test_send_failed_comes_back_to_review(self):

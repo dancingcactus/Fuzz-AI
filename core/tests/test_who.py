@@ -3,7 +3,7 @@ it, or it waits on the name's holder and a "Which Nick?" card asks."""
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, events, tools
+from fuzz import actions, answers, cards, events, tools
 from fuzz.memory import mcards
 
 RICCI = {"name": "Nick Ricci", "email": "nick.ricci@acme.example"}
@@ -75,7 +75,7 @@ class Who(CoreCase):
         holder, pick = card["payload"]["entity_b"], card["payload"]["candidates"][1]
         answers.answer(self.core, card["id"], "same", pick)
         self.assertEqual(self.core.one("SELECT redirect_to FROM entities WHERE id=?", (holder,))["redirect_to"], pick)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertIsNone(self.core.one("SELECT redirect_to FROM entities WHERE id=?", (holder,))["redirect_to"])
         self.assertEqual(events.check_replay(self.core), [])
 
@@ -99,7 +99,7 @@ class Who(CoreCase):
         [card] = self.which_cards()
         holder = card["payload"]["entity_b"]
         answers.answer(self.core, card["id"], "different", "Nick Garza")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.one("SELECT name FROM entities WHERE id=?", (holder,))["name"], "Nick")
         self.assertIsNone(self.core.one("SELECT 1 FROM aliases WHERE entity_id=? AND alias='nick garza'", (holder,)))
         self.assertEqual(self.core.all("SELECT * FROM entity_links"), [])
@@ -135,7 +135,7 @@ class Who(CoreCase):
         who.settle(self.core, apply=True)
         ricci = entities.lookup_person(self.core, RICCI)
         self.assertEqual([entities._follow(self.core, x) for x in (a, b)], [ricci, ricci])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertIsNone(self.core.one("SELECT redirect_to FROM entities WHERE id=?", (a,))["redirect_to"])
         self.assertEqual(events.check_replay(self.core), [])
 
@@ -151,7 +151,7 @@ class Who(CoreCase):
         self.assertEqual([p["name"] for p in view["payload"]["profiles"]], ["Nick", "Nick Ricci"])
         answers.answer(self.core, card["id"], "different", "Nick Garza")
         self.assertEqual(self.core.one("SELECT name FROM entities WHERE id=?", (holder,))["name"], "Nick Garza")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.one("SELECT name FROM entities WHERE id=?", (holder,))["name"], "Nick")
 
     def test_not_sure_records_nothing(self):

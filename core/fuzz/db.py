@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   session_launch TEXT,             -- the latest window opened on it; only that one closing brings it back
   session_at TEXT,                 -- the last word from a working session, for the quiet check
   expires_at TEXT,                 -- the ask is moot after this (a meeting to join); untouched, it's let go then
+  step_count INTEGER,              -- about how many steps it takes (the extractor's estimate)
+  gaps TEXT,                       -- json list: what the brief couldn't find; finding out comes first on its card
+  find_out TEXT,                   -- what you asked Fuzz to find out (Find out…); the task stays yours
+  pushes INTEGER,                  -- how many times its card went to the end of the queue; twice asks what's in the way
+  missed_blocks INTEGER,           -- booked blocks for it that went by unused, since it last asked
+  deliverable_id INTEGER,          -- the deliverable it serves (deliverables.py)
+  maybe_deliverable_id INTEGER,    -- a deliverable it might serve, waiting on a part_of card
   title_history TEXT,              -- json list
   created_at TEXT,
   state_changed_at TEXT,
@@ -553,7 +560,8 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
 
 
 def _migrate(conn):
-    """Add columns that newer versions need to a store made by an older one."""
+    """Add columns that newer versions need to a store made by an older one. SCHEMA has every column too:
+    MIGRATIONS only brings older stores up to it (tests/test_registries.py checks)."""
     for table, cols in MIGRATIONS.items():
         have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
         for name, typ in cols:
@@ -603,6 +611,7 @@ class Core:
         self._actor = None
         self._next_ids = {}
         self._listeners = []
+        self._memo = threading.local()   # .cache: {key: value} inside reading(), per thread
         if self.conn.execute("SELECT 1 FROM users WHERE id=?", (self.user_id,)).fetchone() is None:
             self.conn.execute("INSERT INTO users (id, name, created_at) VALUES (?,?,?)",
                               (self.user_id, None, self.now_iso()))
@@ -622,6 +631,10 @@ class Core:
     def save_config(self, cfg):
         config_mod.save(self.home, cfg)
 
+    def update_config(self, fn):
+        """fn(cfg) edits the latest config under a lock across processes; returns what fn returns."""
+        return config_mod.update(self.home, fn)
+
     # ---- transactions: one command, one transaction, one undo group
     @contextmanager
     def tx(self, actor=None):
@@ -630,6 +643,7 @@ class Core:
             if outer:
                 self.conn.execute("BEGIN IMMEDIATE")
                 self._group, self._next_ids = None, {}
+                self._forget()   # a write: nothing read before it may be reused after
             prev_actor = self._actor
             if actor or outer:
                 self._actor = actor
@@ -648,8 +662,35 @@ class Core:
             if outer:
                 self.conn.execute("COMMIT")
                 self._group = None
+                self._forget()
                 for fn in list(self._listeners):
                     fn()
+
+    # ---- reads repeated within one request (GET /cards asks the same things for every card)
+    @contextmanager
+    def reading(self):
+        """A stretch of reads (one request): memo() keeps each answer until it ends or anything is written."""
+        outer = getattr(self._memo, "cache", None) is None
+        if outer:
+            self._memo.cache = {}
+        try:
+            yield self
+        finally:
+            if outer:
+                self._memo.cache = None
+
+    def memo(self, key, fn):
+        """fn()'s value, made once per reading(); outside one, just fn(). Return values callers won't change."""
+        cache = getattr(self._memo, "cache", None)
+        if cache is None:
+            return fn()
+        if key not in cache:
+            cache[key] = fn()
+        return cache[key]
+
+    def _forget(self):
+        if getattr(self._memo, "cache", None) is not None:
+            self._memo.cache = {}
 
     def on_commit(self, fn):
         self._listeners.append(fn)

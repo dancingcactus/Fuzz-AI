@@ -5,7 +5,7 @@ import json
 from helpers import CoreCase
 from test_evals import SEEDS, Stub, message_of
 
-from fuzz import answers, evals, events, learning, scheduler, tasks, tools
+from fuzz import actions, answers, evals, events, learning, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 TEXT = "Hi Justin, could you send me the venue contract by Friday? Legal needs a copy. Thanks, Dana"
@@ -61,7 +61,7 @@ class Lessons(CoreCase):
         self.assertEqual(tools.whoami(self.core, "extractor")["lessons"], "")
         learning.use(self.core, x["id"])
         self.assertIn("Weekly digest", tools.whoami(self.core, "extractor")["lessons"])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.lessons()["skip"]["status"], "proposed")
         self.assertEqual(events.check_replay(self.core), [])
 
@@ -76,7 +76,7 @@ class Lessons(CoreCase):
     def test_undoing_the_label_retires_the_lesson_and_a_new_yes_brings_it_back(self):
         tid = self.missed_yes()
         learning.run(self.core)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(learning.run(self.core)["retired"], 1)
         self.assertEqual(self.lessons(), {})
         answers.answer(self.core, self.card_for(tid, "missed")["id"], "yes")
@@ -87,7 +87,7 @@ class Lessons(CoreCase):
         self.not_task()
         learning.run(self.core)
         group = next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.let_go")
-        events.undo(self.core, group["group"])
+        actions.undo(self.core, group["group"])
         self.assertEqual(learning.run(self.core)["retired"], 1)
 
     def test_an_expired_case_keeps_its_lesson(self):
@@ -138,7 +138,7 @@ class Lessons(CoreCase):
                 tid = self.missed_yes()
                 learning.run(self.core)
                 group = next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")
-                events.undo(self.core, group["group"])
+                actions.undo(self.core, group["group"])
                 if end == "skip":
                     answers.answer(self.core, self.card_for(tid, "missed")["id"], "skip")
                 else:
@@ -153,7 +153,7 @@ class Lessons(CoreCase):
         x = self.lessons()["keep"]
         with self.assertRaises(FuzzError):
             learning.use(self.core, x["id"])   # already in use
-        events.undo(self.core, next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")["group"])
+        actions.undo(self.core, next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")["group"])
         learning.run(self.core)
         for fn in (learning.use, learning.turn_off):
             with self.assertRaises(FuzzError):
