@@ -160,9 +160,7 @@ def choose(core, client, read=None, send=None):
             continue
         if not isinstance(value, list) or not all(isinstance(x, str) and x.strip() for x in value):
             raise FuzzError(f"{name} is a list of tool names", name)
-        cfg = core.config
-        set_(cfg, f"{name}.tools.{client}", sorted({x.strip() for x in value}))
-        core.save_config(cfg)
+        core.update_config(lambda cfg: set_(cfg, f"{name}.tools.{client}", sorted({x.strip() for x in value})))
     return view(core, client)
 
 

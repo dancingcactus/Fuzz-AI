@@ -682,9 +682,7 @@ class App:
                 raise FuzzError("Send names, emails and slack_ids, each a list", k)
         if not body.get("emails", True):
             raise FuzzError("Keep at least one email address", "emails")
-        cfg = core.config
-        config.update_me(cfg, replace=body)
-        core.save_config(cfg)
+        core.update_config(lambda cfg: config.update_me(cfg, replace=body))
         return self.me_get(core, m, body, q)
 
     def engine_get(self, core, m, body, q):

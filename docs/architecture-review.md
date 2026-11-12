@@ -146,14 +146,14 @@ function `let_go`, event `task.let_go`, JS `letGo`. Only `schedule.js` has UI te
 
 ## 6. Found while working (added 2026-11-12)
 
-- [ ] 6a. **Config edits can be lost between processes (verified by reading).** `config.json` is read, changed and
-  written back whole by 16 call sites in 9 modules (`db`, `connectors`, `onboarding`, `http_api`, `setup`, `cli`,
-  `engine`, `installer`, `scheduler`), and `fuzz serve`, the CLI and launchd role runs are separate processes.
-  Two overlapping saves keep only the later one's view, so the other's change is silently dropped. Also,
-  `config.save` writes every save through the same `config.json.tmp`: two at once can write into each
-  other's temp file, or one can fail with "file not found" when the other has already renamed it. Fix: a
-  per-process temp name, and an update under a file lock that re-reads the file
-  (`config.update(home, fn)`), used by every writer.
+- [x] 6a. **Config edits can no longer be lost between processes.** `config.update(home, fn)` (and
+  `core.update_config(fn)`) takes an exclusive lock on `config.lock`, re-reads `config.json`, applies `fn` and
+  writes it, so a change made by `fuzz serve`, the CLI or a launchd run in the meantime is kept. All 16 save
+  sites use it. The installer's first-install and uninstall checks, and `set_engine`'s "prior", now happen
+  under the lock, and `fuzz setup` asks its questions before taking it. `config.save` takes the same lock and
+  writes through a temp file unique to the process and thread. `core/tests/test_config_writes.py` covers
+  overlapping updates (two threads, and another process) and 20 writers at once; without the lock, three of
+  its four tests fail. The lock is `fcntl.flock`: macOS and Linux; Windows would need another kind of lock.
 - [ ] 6b. **Triage loads each card's task separately (measured).** `GET /cards` runs about three queries per card:
   the task (`SELECT * FROM tasks`), its schedule anchor, and a `user_state` value, from `cards.queue` and
   `cards.view`. With plain task cards: 5 cards 24 statements (1.8 ms), 20 cards 69 (6.7 ms), 80 cards 249

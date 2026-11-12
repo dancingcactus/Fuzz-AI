@@ -100,9 +100,7 @@ def update(core, body):
         body = dict(body, done=True)
     if body.get("done") and not st["done"]:
         st["done"], st["step"], st["finished_at"] = True, "done", core.now_iso()
-        cfg = core.config
-        cfg["setup"] = {"done": True}   # the old guided setup no longer opens by itself
-        core.save_config(cfg)
+        core.update_config(lambda cfg: cfg.update(setup={"done": True}))   # the old guided setup no longer opens by itself
     if body.get("first_read"):
         st["first_read"] = core.now_iso()
     save(core, st)
@@ -128,9 +126,8 @@ def set_hours(core, body):
     weekends = body.get("weekends", False)
     if not isinstance(weekends, bool):
         raise FuzzError("weekends is true or false", "weekends")
-    cfg = core.config
-    cfg["extract"] = dict(cfg.get("extract") or {}, hours=h, weekends=True if h is None else weekends)
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg.update(
+        extract=dict(cfg.get("extract") or {}, hours=h, weekends=True if h is None else weekends)))
     st = load(core)
     st["hours_set"] = True
     save(core, st)

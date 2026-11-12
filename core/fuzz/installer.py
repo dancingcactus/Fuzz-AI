@@ -137,15 +137,20 @@ def install(core, client, roles=ROLES, link=False, launchd=None, actor="human"):
         man["_launchd"] = _write_launchd(core, man.get("_launchd"))
     save_manifest(core, man)
 
-    cfg = core.config
-    first = not (cfg.get("engine") or {}).get("client")
+    def pick(cfg):   # the first install picks the engine; read and set under one lock
+        prior = dict(cfg.get("engine") or {})
+        if prior.get("client"):
+            return None
+        cfg["engine"] = {"client": client, "model": prior.get("model")}
+        return prior, cfg["engine"]
+
     with core.tx(actor):
         events.emit(core, "engine.installed", data={"client": client, "roles": roles, "link": link})
-        if first:
-            prior = dict(cfg.get("engine") or {})
-            cfg["engine"] = {"client": client, "model": prior.get("model")}
-            core.save_config(cfg)
-            events.emit(core, "engine.selected", data={"engine": cfg["engine"], "prior": prior, "why": "first install"})
+        picked = core.update_config(pick)
+        if picked:
+            prior, eng = picked
+            events.emit(core, "engine.selected", data={"engine": eng, "prior": prior, "why": "first install"})
+    first = picked is not None
     return {"client": client, "skills": [s["path"] for s in skills], "skills_via": via,
             "mcp": [m["name"] for m in mcp], "engine_set": first}
 
@@ -165,14 +170,19 @@ def uninstall(core, client, actor="human"):
     if "_launchd" in man and not [k for k in man if not k.startswith("_")]:
         _remove_launchd(man.pop("_launchd"))
     save_manifest(core, man)
-    cfg = core.config
+    def clear(cfg):   # the engine was this client: none now
+        if (cfg.get("engine") or {}).get("client") != client:
+            return None
+        prior = dict(cfg["engine"])
+        cfg["engine"] = {"client": None, "model": None}
+        return prior
+
     with core.tx(actor):
         events.emit(core, "engine.removed", data={"client": client})
-        if (cfg.get("engine") or {}).get("client") == client:
-            prior = dict(cfg["engine"])
-            cfg["engine"] = {"client": None, "model": None}
-            core.save_config(cfg)
-            events.emit(core, "engine.selected", data={"engine": cfg["engine"], "prior": prior, "why": "uninstalled"})
+        prior = core.update_config(clear)
+        if prior is not None:
+            events.emit(core, "engine.selected", data={"engine": {"client": None, "model": None}, "prior": prior,
+                                                       "why": "uninstalled"})
     return {"client": client, "removed": [s["path"] for s in entry.get("skills", [])] + [m["name"] for m in entry.get("mcp", [])]}
 
 
@@ -275,17 +285,21 @@ def _remove_launchd(rec):
 
 def set_engine(core, client=None, model=None):
     """`fuzz config set engine.client …` goes through here, so every switch writes engine.selected."""
-    cfg = core.config
-    prior = dict(cfg.get("engine") or {})
-    eng = dict(prior)
     if client is not None:
         adapters.get(client)
-        eng["client"] = client
-    if model is not None:
-        eng["model"] = model or None
-    cfg["engine"] = eng
+
+    def switch(cfg):
+        prior = dict(cfg.get("engine") or {})
+        eng = dict(prior)
+        if client is not None:
+            eng["client"] = client
+        if model is not None:
+            eng["model"] = model or None
+        cfg["engine"] = eng
+        return prior, eng
+
     with core.tx("human"):
-        core.save_config(cfg)
+        prior, eng = core.update_config(switch)
         events.emit(core, "engine.selected", data={"engine": eng, "prior": prior})
     return eng
 

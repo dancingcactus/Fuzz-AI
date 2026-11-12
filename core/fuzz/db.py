@@ -630,6 +630,10 @@ class Core:
     def save_config(self, cfg):
         config_mod.save(self.home, cfg)
 
+    def update_config(self, fn):
+        """fn(cfg) edits the latest config under a lock across processes; returns what fn returns."""
+        return config_mod.update(self.home, fn)
+
     # ---- transactions: one command, one transaction, one undo group
     @contextmanager
     def tx(self, actor=None):

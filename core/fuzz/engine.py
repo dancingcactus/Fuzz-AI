@@ -46,9 +46,8 @@ def select(core, client, model=None):
 
 def restore_selection(core, prior):
     """Undo of engine.selected: put the earlier engine back (called inside the undo transaction)."""
-    cfg = core.config
-    cfg["engine"] = {"client": (prior or {}).get("client"), "model": (prior or {}).get("model")}
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg.update(engine={"client": (prior or {}).get("client"),
+                                                      "model": (prior or {}).get("model")}))
     doctor.clear_cache()
 
 

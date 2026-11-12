@@ -31,13 +31,14 @@ def _value(v):
 def cmd_init(a):
     from .http_api import ensure_token
     core = _core(a)
-    cfg = core.config
-    me = update_me(cfg, add={"names": a.me_name, "emails": a.me_email, "slack_ids": a.me_slack})
-    if a.embedder:
-        cfg["embedder"] = a.embedder
-    if a.tz:
-        cfg["tz"] = a.tz
-    core.save_config(cfg)
+    def init(cfg):
+        me = update_me(cfg, add={"names": a.me_name, "emails": a.me_email, "slack_ids": a.me_slack})
+        if a.embedder:
+            cfg["embedder"] = a.embedder
+        if a.tz:
+            cfg["tz"] = a.tz
+        return me
+    me = core.update_config(init)
     tok = ensure_token(core.home, core.user_id)
     _print({"home": core.home, "user": core.user_id, "token": tok, "me": me})
     if len(me["emails"]) < 2:
@@ -49,13 +50,12 @@ def cmd_me(a):
     """Every name, email and Slack ID that is yours. The executor uses a connector signed in to any of them
     without asking which account you meant."""
     core = _core(a)
-    cfg = core.config
     if a.op != "show":
         vals = {"names": a.name, "emails": a.email, "slack_ids": a.slack}
         if not any(vals.values()):
             raise FuzzError("Pass --email, --name or --slack", "email")
-        update_me(cfg, **{a.op: vals})
-        core.save_config(cfg)
+        core.update_config(lambda cfg: update_me(cfg, **{a.op: vals}))
+    cfg = core.config
     _print({k: cfg["me"].get(k, []) for k in ME_KEYS})
 
 
@@ -394,8 +394,8 @@ def cmd_config(a):
         val = _value(a.value)
         _print({"engine": installer.set_engine(core, **{a.key.split(".")[1]: val})})
         return
-    cfg_set(cfg, a.key, _value(a.value))
-    core.save_config(cfg)
+    core.update_config(lambda cfg: cfg_set(cfg, a.key, _value(a.value)))
+    cfg = core.config
     _print({a.key: cfg_get(cfg, a.key)})
 
 
@@ -498,8 +498,7 @@ def cmd_setup(a):
         add = {"emails": _ask("Add an email address too (work or personal)").split(","),
                "names": _ask("Add a name").split(","),
                "slack_ids": _ask("Add a Slack member ID (like WEXAMPLE1)").split(",")}
-        update_me(cfg, add=add)
-        core.save_config(cfg)
+        core.update_config(lambda cfg: update_me(cfg, add=add))   # after the questions: the lock isn't held while you type
     if "tools" in steps:
         for client in ([a.client] if a.client else setup.clients(core)):
             setup_tools(core, client, discover=True if a.discover else None)
