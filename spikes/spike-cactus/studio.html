@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike Studio</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="spike.css">
+<style>
+  body { padding: 0 16px 64px; }
+  main { max-width: 1280px; margin: 0 auto; }
+  header.top { padding: 20px 0 14px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+  header.top h1 { font-family: var(--font-display); font-size: 24px; }
+  header.top p { color: var(--muted); margin: 0; flex: 1 1 320px; }
+  header.top a { color: var(--link); }
+  h2 { font-family: var(--font-display); font-size: 15px; margin: 0 0 6px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  select { padding: 4px 8px; border-radius: 8px; border: var(--bw) solid var(--line); background: var(--surface); }
+
+  .studio { display: grid; grid-template-columns: 170px minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+  .picker, .tune { position: sticky; top: 12px; }
+
+  /* ---- move list ---- */
+  .group { margin-bottom: 16px; }
+  .group h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-family: inherit; font-weight: 700; }
+  .list { display: flex; flex-direction: column; gap: 1px; }
+  .list button { display: flex; justify-content: space-between; align-items: center; gap: 6px; text-align: left; padding: 6px 10px; border: 0; border-radius: 9px; background: none; font-size: 14px; }
+  .list button:hover { background: var(--field); }
+  .list button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .list small { font-size: 11px; color: var(--muted); }
+  .list button[aria-pressed="true"] small { color: inherit; }
+
+  /* ---- stage ---- */
+  .stage { --stage-bg: var(--surface); --stage-floor: var(--field); background: var(--stage-bg); border: var(--bw) solid var(--line); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+  .stage[data-bg="light"] { --stage-bg: #FBF5EC; --stage-floor: #EFE3D1; }
+  .stage[data-bg="dark"] { --stage-bg: #1E1814; --stage-floor: #2C231D; }
+  .stage .big { display: grid; place-items: end center; height: 400px; cursor: pointer; }
+  .stage .big .spike { height: 300px; width: auto; }
+  .stage .floor { height: 18px; background: var(--stage-floor); margin-top: -10px; }
+  .stage .say { margin: 0; padding: 10px 16px 12px; font-size: 14px; color: var(--muted); background: var(--surface); border-top: var(--bw) solid var(--line); min-height: 2.6em; }
+
+  /* ---- transport ---- */
+  .transport { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; }
+  .tbtn { padding: 6px 12px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--surface); font-size: 14px; }
+  .tbtn:hover { background: var(--field); }
+  .tbtn.main { background: var(--accent); border-color: var(--accent); color: var(--on-accent); min-width: 76px; font-weight: 700; }
+  .scrub { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .scrub input { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .scrub output { font-family: var(--font-code); font-size: 12px; min-width: 104px; text-align: right; white-space: nowrap; }
+  .ticks { position: relative; height: 6px; margin: -6px 114px 0 0; }
+  .ticks i { position: absolute; top: 0; width: 1px; height: 6px; background: var(--line); }
+  .speeds { display: inline-flex; border: var(--bw) solid var(--line); border-radius: 10px; overflow: hidden; }
+  .speeds button { border: 0; background: none; padding: 5px 10px; font-size: 13px; }
+  .speeds button[aria-pressed="true"] { background: var(--chip); font-weight: 700; }
+  .row label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; }
+  .row input[type=range] { width: 120px; accent-color: var(--accent); }
+  .keys { font-size: 12px; color: var(--muted); }
+  kbd { font-family: var(--font-code); font-size: 11px; border: var(--bw) solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); }
+
+  /* ---- previews at real sizes ---- */
+  .previews { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+  .pv { background: var(--field); border-radius: 16px; padding: 12px 14px 14px; }
+  .pv h2 { font-size: 13px; }
+  .perch.sp { display: flex; align-items: end; gap: 2px; margin: 0 0 -8px 6px; position: relative; z-index: 2; }
+  .perch.sp #bot { width: 112px; }
+  .perch.sp .spike { height: 94px; width: auto; margin-bottom: 6px; }
+  .mcard { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 14px; padding: 16px 12px 12px; position: relative; z-index: 1; }
+  .mcard b { font-family: var(--font-display); display: block; font-size: 15px; }
+  .mcard span { color: var(--muted); font-size: 12px; }
+  .icons { display: flex; align-items: end; gap: 18px; flex-wrap: wrap; }
+  .icons figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+  .icons .tile { border-radius: 10px; padding: 6px; background: #FBF5EC; border: 1px solid #E8DCCB; }
+  .icons .tile.dk { background: #1E1814; border-color: #3A2E26; }
+
+  /* ---- tuning ---- */
+  .tune { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 18px; padding: 14px 16px 16px; box-shadow: var(--shadow); }
+  .tune .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .knob { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-bottom: 12px; font-size: 14px; }
+  .knob output { font-family: var(--font-code); font-size: 12px; color: var(--muted); }
+  .knob output.changed { color: var(--accent); font-weight: 700; }
+  .knob input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+  .face { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; font-size: 14px; margin: 16px 0 4px; padding-top: 14px; border-top: var(--bw) solid var(--line); }
+  .face span { color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .status { font-size: 13px; color: var(--muted); min-height: 1.4em; margin-top: 8px; }
+  pre.copy { white-space: pre-wrap; font-family: var(--font-code); font-size: 12px; background: var(--field); border-radius: 10px; padding: 10px; margin: 8px 0 0; display: none; }
+  pre.copy.on { display: block; }
+
+  @media (max-width: 1080px) {
+    .studio { grid-template-columns: 160px minmax(0, 1fr); }
+    .tune { grid-column: 1 / -1; position: static; }
+  }
+  @media (max-width: 680px) {
+    .studio { grid-template-columns: 1fr; }
+    .picker { position: static; }
+    .list { flex-direction: row; flex-wrap: wrap; }
+    .list button small { display: none; }
+    .group { margin-bottom: 10px; }
+    .stage .big { height: 280px; }
+    .stage .big .spike { height: 250px; }
+    .previews { grid-template-columns: 1fr; }
+    .ticks { margin-right: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Spike Studio</h1>
+    <p>Every move for the Potted look. Pick one, then play, pause, scrub, step and tune it. Your tuning stays in this
+      browser and never touches the code; <b>Copy changes</b> gives you CSS to paste into <code>spike.css</code>.
+      <a href="index.html">Back to the four looks</a>.</p>
+    <label class="row" style="gap:6px;color:var(--muted)">Page <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+  </header>
+
+  <div class="studio">
+    <nav class="picker" id="picker" aria-label="Moves"></nav>
+
+    <section aria-label="Stage">
+      <div class="stage" id="stage" data-bg="page">
+        <div class="big" id="big" title="Click to replay"></div>
+        <div class="floor"></div>
+        <p class="say" id="say" aria-live="polite"></p>
+      </div>
+
+      <div class="transport">
+        <div class="row">
+          <button class="tbtn main" id="play">Pause</button>
+          <button class="tbtn" id="replay" title="Replay (R)">Replay</button>
+          <button class="tbtn" id="back" title="Back one frame (←)" aria-label="Back one frame">◀ Frame</button>
+          <button class="tbtn" id="fwd" title="Forward one frame (→)" aria-label="Forward one frame">Frame ▶</button>
+          <span class="speeds" id="speeds" role="group" aria-label="Speed">
+            <button data-rate=".1">10%</button><button data-rate=".25">25%</button><button data-rate=".5">50%</button><button data-rate="1" aria-pressed="true">100%</button><button data-rate="1.5">150%</button>
+          </span>
+        </div>
+        <div>
+          <div class="scrub"><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub"><output id="time">0.00 / 0.00 s</output></div>
+          <div class="ticks" id="ticks" aria-hidden="true"></div>
+        </div>
+        <div class="row">
+          <label>Tempo <input type="range" id="bpm" min="60" max="180" step="2" value="120"> <span id="bpmv">120 bpm</span></label>
+          <label><input type="checkbox" id="repeat" checked> Repeat one-shots</label>
+          <label><input type="checkbox" id="elbows" checked> Elbows</label>
+          <label><input type="checkbox" id="calm"> Calm</label>
+          <label>Stage <select id="bg"><option value="page">Card</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        </div>
+        <div class="keys"><kbd>Space</kbd> play / pause · <kbd>←</kbd> <kbd>→</kbd> step a frame · <kbd>R</kbd> replay · <kbd>↑</kbd> <kbd>↓</kbd> previous / next move</div>
+      </div>
+
+      <div class="previews">
+        <div class="pv">
+          <h2>Beside Fuzz on the perch</h2>
+          <div class="perch sp" id="perch"></div>
+          <div class="mcard"><b>Book the venue for the offsite</b><span>From Priya · Slack · 2 days ago</span></div>
+        </div>
+        <div class="pv">
+          <h2>Icon sizes</h2>
+          <div class="icons" id="icons"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="tune" aria-label="Tuning">
+      <h2 id="tuneTitle">Tune</h2>
+      <p class="hint" id="tuneHint"></p>
+      <div id="knobs"></div>
+      <div class="face">
+        <span>Eyes</span><select id="eyes"><option value="">The move's own</option><option value="open">Open</option><option value="happy">Happy</option><option value="shut">Shut</option></select>
+        <span>Mouth</span><select id="mouth"><option value="">The move's own</option><option value="smile">Smile</option><option value="open">Open</option></select>
+      </div>
+      <div class="actions">
+        <button class="tbtn" id="resetMove">Reset this move</button>
+        <button class="tbtn" id="copy">Copy changes</button>
+        <button class="tbtn" id="resetAll">Reset all</button>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
+      <pre class="copy" id="copyOut"></pre>
+    </aside>
+  </div>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="spike.js"></script>
+<script>
+(function () {
+  var LOOK = 'potted';
+
+  var INFO = {
+    idle: 'Idle: breathing, a blink, and the arms drift a little.',
+    look: 'Look around: glances left, blinks, glances right. The plant turns a touch to follow.',
+    sleepy: 'Sleepy: eyes shut, slow deep breaths, drooping to one side with the flower nodding off.',
+    dance: 'Dance: leans on the bar, bounces on every beat, arms pump in turn. The whole pot moves with him.',
+    groove: 'Groove: the pot shuffles side to side while the plant leans the other way from the rim.',
+    shimmy: 'Shimmy: twelve quick shakes to a bar, arms thrown wide.',
+    disco: 'Disco: the right arm stabs up, then down and out, the hips swing from the rim, the left arm answers.',
+    bop: 'Bop: nods along from the rim, small bounce, arms swinging.',
+    wave: 'Wave: leans in and waves from the right shoulder three times.',
+    hop: 'Hop: crouch, jump, stretch in the air, squash on landing. The pot comes along.',
+    bloom: 'Bloom: the flower closes, pops open with a spin, and sparkles.',
+    tada: 'Ta-da: a small hop, arms flung up and out, the flower pops, sparkles.',
+    peek: 'Peekaboo: ducks into the pot, the pot wobbles, peeks over the rim and looks around, then pops out.',
+    hips: 'Hands on hips: elbows out, hands on the hips, a sassy head tilt, then back.',
+    shrug: 'Shrug: elbows drop, forearms open out, and he lifts a little out of the pot.',
+    think: 'Think: right hand to the chin with a few taps, left hand on the hip, eyes up and to the side.',
+    flex: 'Flex: both forearms curl in and pump twice, chest out.',
+    clap: 'Clap: elbows out, hands meet in front of the belly on every beat.'
+  };
+  var ELBOW_NOTE = ' Turn Elbows off to see the same move with straight arms.';
+  var MOOD = { idle: 'idle', look: 'thinking', sleepy: 'sleepy', dance: 'happy', groove: 'happy', shimmy: 'eager', disco: 'proud', bop: 'happy', wave: 'happy', hop: 'eager', bloom: 'proud', tada: 'proud', peek: 'puzzled', hips: 'proud', shrug: 'sheepish', think: 'thinking', flex: 'proud', clap: 'happy' };
+
+  /* Two or three knobs a move. [custom property, label, min, max, step, unit] */
+  var KNOBS = {
+    idle: [['--sp-breathe', 'Breath depth', 0, .08, .005, ''], ['--sp-drift', 'Arm drift', 0, 20, 1, 'deg']],
+    look: [['--sp-look', 'Glance distance', 0, 5, .5, 'px']],
+    sleepy: [['--sp-droop', 'Droop', 0, 20, 1, 'deg']],
+    dance: [['--sp-lean', 'Lean', 0, 20, 1, 'deg'], ['--sp-bounce', 'Bounce squash', 0, .2, .01, ''], ['--sp-pump', 'Arm pump', 0, 70, 1, 'deg'], ['--sp-drag', 'Follow-through', 0, 1.5, .05, '']],
+    groove: [['--sp-shuffle', 'Pot shuffle', 0, 16, 1, 'px'], ['--sp-twist', 'Counter lean', 0, 25, 1, 'deg'], ['--sp-pump', 'Arm pump', 0, 70, 1, 'deg'], ['--sp-drag', 'Follow-through', 0, 1.5, .05, '']],
+    shimmy: [['--sp-shake', 'Shake', 0, 6, .5, 'px'], ['--sp-spread', 'Arm spread', 0, 50, 1, 'deg']],
+    disco: [['--sp-point', 'Point reach', 20, 110, 1, 'deg'], ['--sp-hip', 'Hip swing', 0, 15, 1, 'deg']],
+    bop: [['--sp-nod', 'Nod', 0, 20, 1, 'deg'], ['--sp-bounce', 'Bounce squash', 0, .2, .01, '']],
+    wave: [['--sp-wave', 'Wave size', 4, 40, 1, 'deg'], ['--sp-drag', 'Forearm swing', 0, 1.5, .05, ''], ['--sp-wave-dur', 'Length', .8, 3.5, .1, 's']],
+    hop: [['--sp-hop-h', 'Height', 0, 70, 1, 'px'], ['--sp-hop-sq', 'Squash', 0, .3, .01, ''], ['--sp-drag', 'Forearm flail', 0, 1.5, .05, ''], ['--sp-hop-dur', 'Length', .5, 2, .05, 's']],
+    bloom: [['--sp-bloom', 'Pop size', 1, 2, .05, ''], ['--sp-bloom-dur', 'Length', .8, 3, .1, 's']],
+    tada: [['--sp-tada', 'Arm fling', 0, 60, 1, 'deg'], ['--sp-drag', 'Jazz hands', 0, 1.5, .05, ''], ['--sp-tada-dur', 'Length', .6, 2.5, .05, 's']],
+    peek: [['--sp-sink', 'Sink depth', 70, 110, 1, 'px'], ['--sp-peek-dur', 'Length', 1.6, 6, .1, 's']],
+    hips: [['--sp-sass', 'Head tilt', 0, 12, 1, 'deg'], ['--sp-hips-dur', 'Length', 1.4, 5, .1, 's']],
+    shrug: [['--sp-shrug', 'Lift', 0, 10, 1, 'px'], ['--sp-shrug-dur', 'Length', .8, 3, .1, 's']],
+    think: [['--sp-think-dur', 'Length', 2, 6, .1, 's']],
+    flex: [['--sp-flex', 'Curl', 8, 30, 1, 'deg'], ['--sp-flex-dur', 'Length', 1, 4, .1, 's']],
+    clap: [['--sp-clap', 'Clap reach', .5, 1.2, .05, '']]
+  };
+  var USES_ELBOWS = { dance: 1, groove: 1, wave: 1, hop: 1, tada: 1, hips: 1, shrug: 1, think: 1, flex: 1, clap: 1 };
+  var DANCES = { dance: 1, groove: 1, shimmy: 1, disco: 1, bop: 1, clap: 1 };
+  var ORDER = [].concat(Spike.moves.dances, Spike.moves.gestures, Spike.moves.elbows, Spike.moves.idles).map(function (m) { return m[0]; });
+
+  var store = (function () {
+    var K = 'spike.studio';
+    function read() { try { return JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) { return {}; } }
+    return { get: read, set: function (patch) { var s = read(); Object.keys(patch).forEach(function (k) { s[k] = patch[k]; }); try { localStorage.setItem(K, JSON.stringify(s)); } catch (e) {} } };
+  })();
+  var saved = store.get();
+  var tune = saved.tune || {};
+
+  /* ---- build the Spikes: stage, perch, and three icon sizes ---- */
+  document.getElementById('big').innerHTML = Spike.svg(LOOK, { label: 'Spike' });
+  document.getElementById('perch').innerHTML = window.FUZZ_SVG + Spike.svg(LOOK, { label: 'Spike beside Fuzz' });
+  document.getElementById('icons').innerHTML = [[64, ''], [32, ''], [32, 'dk']].map(function (s) {
+    return '<figure><div class="tile ' + s[1] + '">' + Spike.svg(LOOK, { size: s[0], square: true, label: 'Spike at ' + s[0] + ' px' }) + '</div>' + s[0] + (s[1] ? ' on dark' : '') + '</figure>';
+  }).join('');
+  var main = document.querySelector('#big .spike');
+  var spikes = [].slice.call(document.querySelectorAll('.spike'));
+  var fuzz = document.querySelector('#perch #bot');
+
+  /* Defaults come from the stylesheet itself, so they can't drift from spike.css. */
+  var DEFAULTS = {};
+  var cs = getComputedStyle(main);
+  Object.keys(KNOBS).forEach(function (m) { KNOBS[m].forEach(function (k) { DEFAULTS[k[0]] = cs.getPropertyValue(k[0]).trim(); }); });
+
+  function applyTune() {
+    spikes.forEach(function (el) {
+      Object.keys(DEFAULTS).forEach(function (v) { if (tune[v] != null) el.style.setProperty(v, tune[v]); else el.style.removeProperty(v); });
+    });
+  }
+
+  /* ---- playback state ---- */
+  var st = { move: saved.move && KNOBS[saved.move] ? saved.move : 'dance', loop: 'idle', playing: true, rate: 1 };
+
+  function anims() { return main.getAnimations({ subtree: true }); }
+  function allAnims() { var out = []; spikes.forEach(function (el) { out = out.concat(el.getAnimations({ subtree: true })); }); return out; }
+  function length() {
+    var len = 0;
+    anims().forEach(function (a) {
+      var t = a.effect.getComputedTiming();
+      len = Math.max(len, (t.delay || 0) + (t.duration || 0));
+    });
+    return len || 1;
+  }
+
+  /* Every restart makes new animation objects, so this one function reapplies speed and paused state. */
+  function start(move, opts) {
+    opts = opts || {};
+    st.move = move;
+    if (!Spike.once[move]) st.loop = move;
+    spikes.forEach(function (el) {
+      el._spRate = st.rate;
+      Spike.play(el, move, { onEnd: el === main ? ended : function () {} });
+    });
+    if (fuzz) fuzz.setAttribute('data-mood', MOOD[move] || 'idle');
+    if (!st.playing) seek(opts.at || 0);
+    store.set({ move: move });
+    render();
+  }
+  function ended(move) {
+    if (move !== st.move) return;
+    if (document.getElementById('repeat').checked) setTimeout(function () { if (st.move === move && st.playing) start(move); }, 450 / st.rate);
+    else { st.playing = true; start(st.loop); }
+  }
+  function seek(ms) {
+    var len = length();
+    ms = Math.max(0, Math.min(len, ms));
+    allAnims().forEach(function (a) { a.pause(); a.currentTime = ms; });
+    showTime(ms, len);
+  }
+  function now() {
+    var a = anims(), len = length(), t = 0;
+    a.forEach(function (x) { t = Math.max(t, x.currentTime || 0); });
+    return Spike.once[st.move] ? Math.min(t, len) : t % len;
+  }
+  function setPlaying(on) {
+    st.playing = on;
+    var len = length();
+    if (on) {
+      if (Spike.once[st.move] && now() >= len - 1) { start(st.move); }
+      else allAnims().forEach(function (a) { a.playbackRate = st.rate; a.play(); });
+    } else {
+      var t = now();
+      allAnims().forEach(function (a) { a.pause(); });
+      seek(t);
+    }
+    document.getElementById('play').textContent = on ? 'Pause' : 'Play';
+  }
+
+  /* ---- transport UI ---- */
+  var scrub = document.getElementById('scrub'), timeOut = document.getElementById('time'), dragging = false;
+  function showTime(ms, len) {
+    if (!dragging) scrub.value = Math.round(ms / len * 1000);
+    timeOut.textContent = (ms / 1000).toFixed(2) + ' / ' + (len / 1000).toFixed(2) + ' s';
+  }
+  function drawTicks() {
+    var ticks = document.getElementById('ticks'), html = '';
+    if (DANCES[st.move]) for (var i = 1; i < 4; i++) html += '<i style="left:' + (i * 25) + '%"></i>';
+    ticks.innerHTML = html;
+  }
+  (function tick() {
+    if (st.playing) showTime(now(), length());
+    requestAnimationFrame(tick);
+  })();
+  scrub.addEventListener('input', function () {
+    dragging = true;
+    if (st.playing) setPlaying(false);
+    seek(scrub.value / 1000 * length());
+  });
+  scrub.addEventListener('change', function () { dragging = false; });
+
+  document.getElementById('play').addEventListener('click', function () { setPlaying(!st.playing); });
+  function replay() { st.playing = true; document.getElementById('play').textContent = 'Pause'; start(st.move); }
+  document.getElementById('replay').addEventListener('click', replay);
+  document.getElementById('big').addEventListener('click', replay);
+  function step(dir) { if (st.playing) setPlaying(false); seek(now() + dir * 1000 / 60); }
+  document.getElementById('back').addEventListener('click', function () { step(-1); });
+  document.getElementById('fwd').addEventListener('click', function () { step(1); });
+  document.getElementById('speeds').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-rate]'); if (!b) return;
+    st.rate = +b.dataset.rate;
+    document.querySelectorAll('#speeds button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    spikes.forEach(function (el) { el._spRate = st.rate; });
+    allAnims().forEach(function (a) { a.playbackRate = st.rate; });
+  });
+
+  var bpm = document.getElementById('bpm'), bpmv = document.getElementById('bpmv');
+  function setBpm(save) {
+    var beat = (60 / +bpm.value).toFixed(3) + 's';
+    spikes.forEach(function (el) { el.style.setProperty('--sp-beat', beat); });
+    bpmv.textContent = bpm.value + ' bpm';
+    if (save) store.set({ bpm: +bpm.value });
+  }
+  if (saved.bpm) bpm.value = saved.bpm;
+  bpm.addEventListener('input', function () { setBpm(true); });
+
+  document.getElementById('calm').addEventListener('change', function (e) {
+    spikes.forEach(function (el) { if (e.target.checked) el.setAttribute('data-calm', ''); else el.removeAttribute('data-calm'); });
+    start(st.move);
+  });
+  document.getElementById('elbows').addEventListener('change', function (e) {
+    spikes.forEach(function (el) { if (e.target.checked) el.removeAttribute('data-elbows'); else el.setAttribute('data-elbows', 'off'); });
+    store.set({ elbows: e.target.checked });
+  });
+  if (saved.elbows === false) { document.getElementById('elbows').checked = false; spikes.forEach(function (el) { el.setAttribute('data-elbows', 'off'); }); }
+  document.getElementById('bg').addEventListener('change', function (e) { document.getElementById('stage').dataset.bg = e.target.value; });
+  ['eyes', 'mouth'].forEach(function (k) {
+    document.getElementById(k).addEventListener('change', function (e) {
+      spikes.forEach(function (el) { if (e.target.value) el.setAttribute('data-' + k, e.target.value); else el.removeAttribute('data-' + k); });
+    });
+  });
+
+  /* ---- move list ---- */
+  var picker = document.getElementById('picker');
+  [['Dances', Spike.moves.dances, 'loop'], ['Gestures', Spike.moves.gestures, 'once'], ['Elbows', Spike.moves.elbows, null], ['Idles', Spike.moves.idles, 'loop']].forEach(function (g) {
+    var d = document.createElement('div');
+    d.className = 'group';
+    d.innerHTML = '<h2>' + g[0] + '</h2><div class="list">' + g[1].map(function (m) {
+      return '<button data-move="' + m[0] + '">' + m[1] + '<small>' + (g[2] || (Spike.once[m[0]] ? 'once' : 'loop')) + '</small></button>';
+    }).join('') + '</div>';
+    picker.appendChild(d);
+  });
+  picker.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-move]'); if (!b) return;
+    st.playing = true; document.getElementById('play').textContent = 'Pause';
+    start(b.dataset.move);
+  });
+
+  /* ---- tuning ---- */
+  function fmt(v, unit) { return (Math.round(v * 1000) / 1000) + unit; }
+  function renderKnobs() {
+    var m = st.move, label = (ORDER.indexOf(m) >= 0) ? document.querySelector('[data-move="' + m + '"]').firstChild.textContent : m;
+    document.getElementById('tuneTitle').textContent = 'Tune ' + label;
+    document.getElementById('tuneHint').textContent = DANCES[m] ? 'Changes apply live. Tempo sets the speed of every dance.' : 'Changes apply live, playing or paused.';
+    document.getElementById('knobs').innerHTML = KNOBS[m].map(function (k) {
+      var cur = tune[k[0]] != null ? tune[k[0]] : DEFAULTS[k[0]], n = parseFloat(cur);
+      var changed = tune[k[0]] != null && tune[k[0]] !== DEFAULTS[k[0]];
+      return '<label class="knob"><span>' + k[1] + '</span><output class="' + (changed ? 'changed' : '') + '">' + fmt(n, k[5]) + '</output>' +
+        '<input type="range" data-var="' + k[0] + '" data-unit="' + k[5] + '" min="' + k[2] + '" max="' + k[3] + '" step="' + k[4] + '" value="' + n + '"></label>';
+    }).join('');
+  }
+  document.getElementById('knobs').addEventListener('input', function (e) {
+    var i = e.target; if (!i.dataset.var) return;
+    var v = fmt(+i.value, i.dataset.unit);
+    if (v === DEFAULTS[i.dataset.var] || parseFloat(DEFAULTS[i.dataset.var]) === +i.value) delete tune[i.dataset.var]; else tune[i.dataset.var] = v;
+    store.set({ tune: tune });
+    applyTune();
+    var out = i.parentNode.querySelector('output');
+    out.textContent = v; out.className = tune[i.dataset.var] != null ? 'changed' : '';
+  });
+  document.getElementById('resetMove').addEventListener('click', function () {
+    KNOBS[st.move].forEach(function (k) { delete tune[k[0]]; });
+    store.set({ tune: tune }); applyTune(); renderKnobs(); status('Reset ' + st.move + '.');
+  });
+  document.getElementById('resetAll').addEventListener('click', function () {
+    tune = {}; store.set({ tune: tune }); applyTune(); renderKnobs(); status('Every move is back to the values in spike.css.');
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var keys = Object.keys(tune);
+    var out = document.getElementById('copyOut');
+    if (!keys.length) { status('Nothing changed yet.'); out.classList.remove('on'); return; }
+    var css = '.spike {\n' + keys.map(function (k) { return '  ' + k + ': ' + tune[k] + ';'; }).join('\n') + '\n}';
+    out.textContent = css; out.classList.add('on');
+    var done = function () { status('Copied ' + keys.length + ' change' + (keys.length > 1 ? 's' : '') + '. Paste them over the defaults at the top of spike.css.'); };
+    status('Here are your changes. Paste them over the defaults at the top of spike.css.');
+    try { navigator.clipboard.writeText(css).then(done, function () { status('Copy the CSS below.'); }); } catch (e) { status('Copy the CSS below.'); }
+  });
+  function status(t) { document.getElementById('status').textContent = t; }
+
+  function render() {
+    document.querySelectorAll('#picker button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.move === st.move)); });
+    document.getElementById('say').textContent = INFO[st.move] + (USES_ELBOWS[st.move] ? ELBOW_NOTE : '');
+    renderKnobs();
+    drawTicks();
+  }
+
+  /* ---- keys. Global keys stand down while any input or select has focus ---- */
+  document.addEventListener('keyup', function (e) { if (e.key === ' ' && e.target.tagName === 'BUTTON') e.preventDefault(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target, tag = t.tagName, type = (t.type || '').toLowerCase();
+    if (tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'INPUT') return;
+    if (e.key === ' ') { e.preventDefault(); if (e.repeat) return; setPlaying(!st.playing); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    else if (e.key === 'r' || e.key === 'R') { replay(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      var i = ORDER.indexOf(st.move) + (e.key === 'ArrowDown' ? 1 : -1);
+      i = (i + ORDER.length) % ORDER.length;
+      st.playing = true; document.getElementById('play').textContent = 'Pause';
+      start(ORDER[i]);
+    }
+  });
+
+  var mode = document.getElementById('mode');
+  mode.value = Themes.resolveMode('auto');
+  function theme() { Themes.apply('terracotta', mode.value, 'standard'); }
+  mode.addEventListener('change', theme);
+  theme();
+
+  applyTune();
+  setBpm(false);
+  start(st.move);
+})();
+</script>
+</body>
+</html>

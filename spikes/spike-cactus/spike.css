@@ -1,0 +1,483 @@
+/* Spike, Fuzz's cactus friend. Self-contained: no app.css or theme variables, so this file and spike.js can move to
+   another site as they are. Every Spike is one <svg class="spike"> with the same named groups, whatever the look:
+
+     .sp-shadow                          ground shadow (shrinks on a hop)
+     .sp-hop     translate               jumps, side steps, the pot shuffle
+       .sp-sway  rotate at the ground    leaning, the pot wobble
+         .sp-squash scale at the ground  breathing, bounce, landing
+           shoes (feet looks)
+           [clip, potted only: a static wrapper that hides whatever sinks into the pot]
+             .sp-sink   translate        sinking into the pot and popping out
+               .sp-plant rotate at the waist (the pot rim, or just above the shoes)
+                 .sp-arm-l / .sp-arm-r   rotate at the shoulder (outline and fill are separate groups, same class)
+                   .sp-fore-l / .sp-fore-r rotate at the elbow (Potted only; data-elbows="off" locks them straight)
+                 .sp-face > .sp-eyes (.sp-eye blinks), .sp-happy, .sp-shut, mouths
+                 .sp-flower, .sp-sparkle
+           pot (potted only), drawn after the plant so the plant sits in it
+
+   One CSS animation per group, because two animations on one element's transform replace each other. Pivots are
+   in viewBox px, set per look by spike.js as --sp-ground, --sp-waist, --sp-shl, --sp-shr, --sp-ell and --sp-elr.
+
+   Every loop's layers share one length (one bar), so Calm and reduced motion can play each layer once and they all
+   stop together, at rest (Sleepy holds its doze). Every amount is a custom property with a default, so it can be tuned from outside
+   (the studio does this). */
+
+.spike {
+  --sp-skin: #5E9E58;
+  --sp-skin-d: #4C8547;
+  --sp-rib: #79B871;
+  --sp-line: #2C4F2B;
+  --sp-spine: #FFF1DC;
+  --sp-ink: #241C19;
+  --sp-cheek: #FF9EA6;
+  --sp-petal: #F2728A;
+  --sp-petal-d: #D9566F;
+  --sp-heart: #FFC65C;
+  --sp-shoe: #C9663C;
+  --sp-shoe-d: #9E4C2A;
+  --sp-pot: #C9663C;
+  --sp-pot-d: #A9532F;
+  --sp-ground: 60px 152px;
+  --sp-waist: 60px 146px;
+
+  /* tempo: one bar is four beats */
+  --sp-beat: .5s;
+  --sp-bar: calc(var(--sp-beat) * 4);
+
+  /* tunable amounts, by move */
+  --sp-breathe: .025; --sp-drift: 4deg;                                  /* idle */
+  --sp-droop: 7deg;                                                     /* sleepy */
+  --sp-look: 3px;                                                       /* look around */
+  --sp-lean: 8deg; --sp-bounce: .07; --sp-bob: 7px; --sp-pump: 38deg;   /* dance */
+  --sp-shake: 2.5px; --sp-spread: 26deg;                                /* shimmy */
+  --sp-shuffle: 6px; --sp-twist: 10deg;                                 /* groove */
+  --sp-point: 75deg; --sp-hip: 6deg;                                    /* disco */
+  --sp-nod: 7deg;                                                       /* bop */
+  --sp-wave: 16deg; --sp-wave-dur: 1.8s;                                /* wave */
+  --sp-hop-h: 38px; --sp-hop-sq: .14; --sp-hop-dur: 1s;                 /* hop */
+  --sp-bloom: 1.35; --sp-bloom-dur: 1.6s;                               /* bloom */
+  --sp-sink: 92px; --sp-peek-dur: 3.2s;                                 /* peekaboo */
+  --sp-tada: 30deg; --sp-tada-dur: 1.3s;                                /* ta-da */
+  --sp-drag: .5;                        /* how far the forearms trail the upper arms (dance, wave, hop, ta-da) */
+  --sp-hips-dur: 2.6s; --sp-sass: 5deg;                                 /* hands on hips */
+  --sp-shrug-dur: 1.6s; --sp-shrug: 4px;                                /* shrug */
+  --sp-think-dur: 3.4s;                                                 /* think */
+  --sp-flex-dur: 2s; --sp-flex: 18deg;                                  /* flex */
+  --sp-clap: 1;                                                         /* clap */
+
+  display: block;
+  overflow: visible;
+}
+
+.spike * { transform-box: view-box; }
+.spike .sp-hop, .spike .sp-sway, .spike .sp-squash, .spike .sp-shadow { transform-origin: var(--sp-ground); }
+.spike .sp-plant { transform-origin: var(--sp-waist); }
+.spike .sp-arm-l { transform-origin: var(--sp-shl); }
+.spike .sp-arm-r { transform-origin: var(--sp-shr); }
+.spike .sp-fore-l { transform-origin: var(--sp-ell); }
+.spike .sp-fore-r { transform-origin: var(--sp-elr); }
+.spike[data-elbows="off"] :is(.sp-fore-l, .sp-fore-r) { animation: none !important; transform: none !important; }
+.spike .sp-flower, .spike .sp-eyes .sp-eye, .spike .sp-sparkle path { transform-box: fill-box; }
+.spike .sp-flower { transform-origin: 50% 85%; }
+.spike .sp-eyes .sp-eye { transform-origin: 50% 50%; }
+.spike .sp-sparkle path { transform-origin: 50% 50%; }
+.spike .sp-shadow { fill: #000; opacity: .14; }
+
+/* ---- paint ---- */
+.spike .sp-o { fill: none; stroke: var(--sp-line); stroke-linecap: round; stroke-linejoin: round; }
+.spike .sp-f { fill: none; stroke: var(--sp-skin); stroke-linecap: round; stroke-linejoin: round; }
+.spike .sp-skin { fill: var(--sp-skin); stroke: var(--sp-line); stroke-width: 2.4; }
+.spike .sp-rib { fill: none; stroke: var(--sp-rib); stroke-width: 2.2; stroke-linecap: round; opacity: .8; }
+.spike .sp-spines { fill: none; stroke: var(--sp-spine); stroke-width: 1.3; stroke-linecap: round; }
+.spike .sp-shoe { fill: var(--sp-shoe); stroke: var(--sp-shoe-d); stroke-width: 1.6; }
+.spike .sp-pot { fill: var(--sp-pot); stroke: var(--sp-pot-d); stroke-width: 1.8; stroke-linejoin: round; }
+.spike .sp-pot-band { fill: var(--sp-pot-d); opacity: .45; }
+.spike .sp-eye rect { fill: var(--sp-ink); }
+.spike .sp-eye circle { fill: #fff; }
+.spike .sp-happy path, .spike .sp-shut path, .spike .sp-m { fill: none; stroke: var(--sp-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.spike .sp-m-open { fill: var(--sp-ink); stroke: none; }
+.spike .sp-tongue { fill: var(--sp-cheek); }
+.spike .sp-cheek { fill: var(--sp-cheek); opacity: .75; }
+.spike .sp-petal { fill: var(--sp-petal); stroke: var(--sp-petal-d); stroke-width: 1; }
+.spike .sp-heart { fill: var(--sp-heart); }
+.spike .sp-sparkle path { fill: var(--sp-heart); opacity: 0; }
+
+/* ---- faces. Idle: open eyes and a smile. Each move picks its own; data-eyes / data-mouth override for the studio ---- */
+.spike .sp-happy, .spike .sp-shut, .spike .sp-mouth-open { display: none; }
+.spike:is([data-anim="dance"], [data-anim="shimmy"], [data-anim="groove"], [data-anim="disco"], [data-anim="bop"], [data-anim="bloom"], [data-anim="tada"], [data-anim="flex"], [data-anim="clap"]) .sp-eyes { display: none; }
+.spike:is([data-anim="dance"], [data-anim="shimmy"], [data-anim="groove"], [data-anim="disco"], [data-anim="bop"], [data-anim="bloom"], [data-anim="tada"], [data-anim="flex"], [data-anim="clap"]) .sp-happy { display: inline; }
+.spike[data-anim="sleepy"] .sp-eyes { display: none; }
+.spike[data-anim="sleepy"] .sp-shut { display: inline; }
+.spike:is([data-anim="dance"], [data-anim="shimmy"], [data-anim="groove"], [data-anim="disco"], [data-anim="wave"], [data-anim="hop"], [data-anim="peek"], [data-anim="tada"], [data-anim="flex"], [data-anim="clap"]) .sp-mouth-smile { display: none; }
+.spike:is([data-anim="dance"], [data-anim="shimmy"], [data-anim="groove"], [data-anim="disco"], [data-anim="wave"], [data-anim="hop"], [data-anim="peek"], [data-anim="tada"], [data-anim="flex"], [data-anim="clap"]) .sp-mouth-open { display: inline; }
+
+.spike[data-eyes] :is(.sp-eyes, .sp-happy, .sp-shut) { display: none !important; }
+.spike[data-eyes="open"] .sp-eyes, .spike[data-eyes="happy"] .sp-happy, .spike[data-eyes="shut"] .sp-shut { display: inline !important; }
+.spike[data-mouth] :is(.sp-mouth-smile, .sp-mouth-open) { display: none !important; }
+.spike[data-mouth="smile"] .sp-mouth-smile, .spike[data-mouth="open"] .sp-mouth-open { display: inline !important; }
+
+/* =========================== IDLES (loops) =========================== */
+
+/* Idle: breathe, blink, arms drift */
+.spike[data-anim="idle"] .sp-squash { animation: sp-breathe 3.6s ease-in-out infinite; }
+.spike[data-anim="idle"] .sp-eye { animation: sp-blink 3.6s infinite; }
+.spike[data-anim="idle"] .sp-arm-l { animation: sp-drift 3.6s ease-in-out infinite; }
+.spike[data-anim="idle"] .sp-arm-r { animation: sp-drift-r 3.6s ease-in-out infinite; }
+.spike[data-anim="idle"] .sp-flower { animation: sp-sway-flower 3.6s ease-in-out infinite; }
+@keyframes sp-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(calc(1 - var(--sp-breathe) * .6), calc(1 + var(--sp-breathe))); } }
+@keyframes sp-blink { 0%, 55%, 60%, 100% { transform: scaleY(1); } 57.5% { transform: scaleY(.08); } }
+@keyframes sp-drift { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(calc(var(--sp-drift) * -1)); } }
+@keyframes sp-drift-r { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(var(--sp-drift)); } }
+@keyframes sp-sway-flower { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(4deg); } }
+
+/* Sleepy: slow, deep breaths, the plant droops to one side, arms hang, the flower nods off */
+.spike[data-anim="sleepy"] .sp-squash { animation: sp-sleep-breathe 6s ease-in-out infinite; }
+.spike[data-anim="sleepy"] .sp-plant { animation: sp-droop 6s ease-in-out infinite; }
+.spike[data-anim="sleepy"] .sp-arm-l { animation: sp-hang-l 6s ease-in-out infinite; }
+.spike[data-anim="sleepy"] .sp-arm-r { animation: sp-hang-r 6s ease-in-out infinite; }
+.spike[data-anim="sleepy"] .sp-flower { animation: sp-flower-doze 6s ease-in-out infinite; }
+@keyframes sp-sleep-breathe { 0%, 100% { transform: scale(1, 1); } 45% { transform: scale(.98, 1.035); } }
+@keyframes sp-droop { 0%, 100% { transform: rotate(calc(var(--sp-droop) * .6)); } 45% { transform: rotate(var(--sp-droop)); } }
+@keyframes sp-hang-l { 0%, 100% { transform: rotate(-78deg); } 45% { transform: rotate(-86deg); } }
+@keyframes sp-hang-r { 0%, 100% { transform: rotate(88deg); } 45% { transform: rotate(80deg); } }
+@keyframes sp-flower-doze { 0%, 100% { transform: rotate(14deg); } 45% { transform: rotate(22deg); } }
+
+/* Look around: the eyes glance left, then right, with a blink between, and the plant follows a little */
+.spike[data-anim="look"] .sp-eyes { animation: sp-glance 4.4s ease-in-out infinite; }
+.spike[data-anim="look"] .sp-eye { animation: sp-blink-mid 4.4s infinite; }
+.spike[data-anim="look"] .sp-plant { animation: sp-follow 4.4s ease-in-out infinite; }
+.spike[data-anim="look"] .sp-squash { animation: sp-breathe 4.4s ease-in-out infinite; }
+@keyframes sp-glance {
+  0%, 8%, 92%, 100% { transform: translateX(0); }
+  14%, 38% { transform: translateX(calc(var(--sp-look) * -1)); }
+  52%, 78% { transform: translateX(var(--sp-look)); }
+}
+@keyframes sp-blink-mid { 0%, 43%, 47%, 100% { transform: scaleY(1); } 45% { transform: scaleY(.08); } }
+@keyframes sp-follow { 0%, 8%, 92%, 100% { transform: rotate(0); } 14%, 38% { transform: rotate(-3deg); } 52%, 78% { transform: rotate(3deg); } }
+
+/* =========================== DANCES (loops, one bar = four beats) =========================== */
+
+/* Dance: lean on the bar, bounce on every beat, arms pump in turn */
+.spike[data-anim="dance"] .sp-sway { animation: sp-lean var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-hop { animation: sp-bob4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-arm-l { animation: sp-pump-l var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-arm-r { animation: sp-pump-r var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-flower { animation: sp-nod4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-shadow { animation: sp-shadow4 var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-lean { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(calc(var(--sp-lean) * -1)); } 75% { transform: rotate(var(--sp-lean)); } }
+@keyframes sp-bounce4 {
+  0%, 25%, 50%, 75%, 100% { transform: scale(1, 1); }
+  6.25%, 31.25%, 56.25%, 81.25% { transform: scale(calc(1 + var(--sp-bounce)), calc(1 - var(--sp-bounce) * 1.1)); }
+  15.6%, 40.6%, 65.6%, 90.6% { transform: scale(calc(1 - var(--sp-bounce) * .45), calc(1 + var(--sp-bounce) * .6)); }
+}
+@keyframes sp-bob4 { 0%, 25%, 50%, 75%, 100% { transform: translateY(0); } 15.6%, 40.6%, 65.6%, 90.6% { transform: translateY(calc(var(--sp-bob) * -1)); } }
+@keyframes sp-shadow4 { 0%, 25%, 50%, 75%, 100% { transform: scale(1); } 15.6%, 40.6%, 65.6%, 90.6% { transform: scale(.85); } }
+@keyframes sp-pump-l { 0%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(calc(var(--sp-pump) * -1)); } 37.5%, 87.5% { transform: rotate(calc(var(--sp-pump) * .3)); } }
+@keyframes sp-pump-r { 0%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(calc(var(--sp-pump) * -.3)); } 37.5%, 87.5% { transform: rotate(var(--sp-pump)); } }
+@keyframes sp-nod4 { 0%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(-6deg); } 37.5%, 87.5% { transform: rotate(6deg); } }
+
+/* Shimmy: a quick shake in place with the arms thrown wide. Twelve shakes to a bar */
+.spike[data-anim="shimmy"] .sp-hop { animation: sp-shake var(--sp-bar) linear infinite; }
+.spike[data-anim="shimmy"] .sp-sway { animation: sp-wiggle var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="shimmy"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="shimmy"] .sp-arm-l { animation: sp-jazz-l var(--sp-bar) linear infinite; }
+.spike[data-anim="shimmy"] .sp-arm-r { animation: sp-jazz-r var(--sp-bar) linear infinite; }
+.spike[data-anim="shimmy"] .sp-flower { animation: sp-nod4 var(--sp-bar) linear infinite; }
+@keyframes sp-shake {
+  0%, 100% { transform: translateX(0); }
+  4.17%, 20.83%, 37.5%, 54.17%, 70.83%, 87.5% { transform: translateX(calc(var(--sp-shake) * -1)); }
+  12.5%, 29.17%, 45.83%, 62.5%, 79.17%, 95.83% { transform: translateX(var(--sp-shake)); }
+}
+@keyframes sp-wiggle { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+@keyframes sp-jazz-l {
+  0%, 100% { transform: rotate(0); }
+  6%, 94% { transform: rotate(calc(var(--sp-spread) * -1)); }
+  16.67%, 50%, 83.33% { transform: rotate(calc(var(--sp-spread) * -1.25)); }
+  33.33%, 66.67% { transform: rotate(calc(var(--sp-spread) * -.85)); }
+}
+@keyframes sp-jazz-r {
+  0%, 100% { transform: rotate(0); }
+  6%, 94% { transform: rotate(var(--sp-spread)); }
+  16.67%, 50%, 83.33% { transform: rotate(calc(var(--sp-spread) * .85)); }
+  33.33%, 66.67% { transform: rotate(calc(var(--sp-spread) * 1.25)); }
+}
+
+/* Groove: the pot (or the feet) shuffles side to side while the plant leans the other way from the waist */
+.spike[data-anim="groove"] .sp-hop { animation: sp-shuffle var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-sway { animation: sp-tilt var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-plant { animation: sp-counter var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-arm-l { animation: sp-pump-l var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-arm-r { animation: sp-pump-r var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="groove"] .sp-flower { animation: sp-nod4 var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-shuffle { 0%, 50%, 100% { transform: translateX(0); } 25% { transform: translateX(var(--sp-shuffle)); } 75% { transform: translateX(calc(var(--sp-shuffle) * -1)); } }
+@keyframes sp-tilt { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(3deg); } 75% { transform: rotate(-3deg); } }
+@keyframes sp-counter { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(calc(var(--sp-twist) * -1)); } 75% { transform: rotate(var(--sp-twist)); } }
+
+/* Disco: the classic point. The right arm stabs up, then down across, on every beat; the hips swing with it */
+.spike[data-anim="disco"] .sp-arm-r { animation: sp-point var(--sp-bar) cubic-bezier(.5, 0, .2, 1) infinite; }
+.spike[data-anim="disco"] .sp-arm-l { animation: sp-hand-hip var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="disco"] .sp-plant { animation: sp-hips var(--sp-bar) cubic-bezier(.5, 0, .2, 1) infinite; }
+.spike[data-anim="disco"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="disco"] .sp-flower { animation: sp-nod4 var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-point {
+  0%, 100% { transform: rotate(0); }
+  8%, 22% { transform: rotate(-20deg); }
+  33%, 47% { transform: rotate(var(--sp-point)); }
+  58%, 72% { transform: rotate(-20deg); }
+  83%, 92% { transform: rotate(var(--sp-point)); }
+}
+@keyframes sp-hand-hip { 0%, 100% { transform: rotate(0); } 8%, 22%, 58%, 72% { transform: rotate(12deg); } 33%, 47%, 83%, 92% { transform: rotate(-30deg); } }
+@keyframes sp-hips {
+  0%, 100% { transform: rotate(0); }
+  8%, 22%, 58%, 72% { transform: rotate(calc(var(--sp-hip) * -1)); }
+  33%, 47%, 83%, 92% { transform: rotate(var(--sp-hip)); }
+}
+
+/* Bop: nod along to the beat from the waist, small bounce, arms tucked and swinging */
+.spike[data-anim="bop"] .sp-plant { animation: sp-bop var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="bop"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="bop"] .sp-arm-l { animation: sp-swing-l var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="bop"] .sp-arm-r { animation: sp-swing-r var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="bop"] .sp-flower { animation: sp-nod4 var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-bop {
+  0%, 25%, 50%, 75%, 100% { transform: rotate(0) translateY(0); }
+  12.5%, 62.5% { transform: rotate(calc(var(--sp-nod) * -1)) translateY(2px); }
+  37.5%, 87.5% { transform: rotate(var(--sp-nod)) translateY(2px); }
+}
+@keyframes sp-swing-l { 0%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(-12deg); } 37.5%, 87.5% { transform: rotate(8deg); } }
+@keyframes sp-swing-r { 0%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(-8deg); } 37.5%, 87.5% { transform: rotate(12deg); } }
+
+/* =========================== GESTURES (once) =========================== */
+
+/* Wave: lean in a touch, the right arm waves from the shoulder */
+.spike[data-anim="wave"] .sp-sway { animation: sp-wave-lean var(--sp-wave-dur) ease-in-out both; }
+.spike[data-anim="wave"] .sp-arm-r { animation: sp-wave var(--sp-wave-dur) ease-in-out both; }
+.spike[data-anim="wave"] .sp-arm-l { animation: sp-drift var(--sp-wave-dur) ease-in-out both; }
+@keyframes sp-wave-lean { 0%, 100% { transform: rotate(0); } 15%, 85% { transform: rotate(-4deg); } }
+@keyframes sp-wave {
+  0%, 100% { transform: rotate(0); }
+  15%, 45%, 75% { transform: rotate(calc(var(--sp-wave) * -1.1)); }
+  30%, 60% { transform: rotate(calc(var(--sp-wave) * .9)); }
+}
+
+/* Hop: crouch, jump, stretch in the air, land with a squash */
+.spike[data-anim="hop"] .sp-hop { animation: sp-jump var(--sp-hop-dur) both; }
+.spike[data-anim="hop"] .sp-squash { animation: sp-jump-sq var(--sp-hop-dur) both; }
+.spike[data-anim="hop"] .sp-shadow { animation: sp-jump-shadow var(--sp-hop-dur) both; }
+.spike[data-anim="hop"] .sp-arm-l { animation: sp-fling-l var(--sp-hop-dur) both; }
+.spike[data-anim="hop"] .sp-arm-r { animation: sp-fling-r var(--sp-hop-dur) both; }
+@keyframes sp-jump {
+  0%, 22% { transform: translateY(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  48% { transform: translateY(calc(var(--sp-hop-h) * -1)); animation-timing-function: cubic-bezier(.6, 0, .8, .4); }
+  70%, 100% { transform: translateY(0); }
+}
+@keyframes sp-jump-sq {
+  0% { transform: scale(1, 1); }
+  20% { transform: scale(calc(1 + var(--sp-hop-sq) * .85), calc(1 - var(--sp-hop-sq))); }
+  32% { transform: scale(calc(1 - var(--sp-hop-sq) * .55), calc(1 + var(--sp-hop-sq) * .7)); }
+  48% { transform: scale(.98, 1.03); }
+  70% { transform: scale(calc(1 + var(--sp-hop-sq)), calc(1 - var(--sp-hop-sq) * 1.15)); }
+  84% { transform: scale(.97, 1.04); }
+  100% { transform: scale(1, 1); }
+}
+@keyframes sp-jump-shadow { 0%, 22%, 70%, 100% { transform: scale(1); opacity: .14; } 48% { transform: scale(.55); opacity: .07; } }
+@keyframes sp-fling-l { 0%, 22%, 80%, 100% { transform: rotate(0); } 45% { transform: rotate(-26deg); } 70% { transform: rotate(10deg); } }
+@keyframes sp-fling-r { 0%, 22%, 80%, 100% { transform: rotate(0); } 45% { transform: rotate(26deg); } 70% { transform: rotate(-10deg); } }
+
+/* Bloom: the flower closes, pops open with a spin, sparkles */
+.spike[data-anim="bloom"] .sp-flower { animation: sp-bloom var(--sp-bloom-dur) both; }
+.spike[data-anim="bloom"] .sp-squash { animation: sp-proud var(--sp-bloom-dur) ease-in-out both; }
+.spike[data-anim="bloom"] .sp-sparkle path { animation: sp-twinkle var(--sp-bloom-dur) both; }
+.spike[data-anim="bloom"] .sp-sparkle path:nth-child(2) { animation-delay: .1s; }
+.spike[data-anim="bloom"] .sp-sparkle path:nth-child(3) { animation-delay: .2s; }
+@keyframes sp-bloom {
+  0% { transform: scale(1) rotate(0); }
+  22% { transform: scale(.25) rotate(-60deg); animation-timing-function: cubic-bezier(.3, 1.6, .5, 1); }
+  55% { transform: scale(var(--sp-bloom)) rotate(20deg); }
+  75%, 100% { transform: scale(1) rotate(0); }
+}
+@keyframes sp-proud { 0%, 100% { transform: scale(1, 1); } 22% { transform: scale(1.04, .95); } 50% { transform: scale(.96, 1.06); } 75% { transform: scale(1, 1); } }
+@keyframes sp-twinkle { 0%, 40% { opacity: 0; transform: scale(0); } 55% { opacity: 1; transform: scale(1.2) rotate(30deg); } 85% { opacity: 1; transform: scale(.9) rotate(60deg); } 100% { opacity: 0; transform: scale(0) rotate(90deg); } }
+
+/* Peekaboo (potted): ducks into the pot, the pot wobbles, the eyes peek over the rim and look around, then he pops
+   out with his arms up. A look with feet has no pot to hide in, so the pages only offer it for Potted. */
+.spike[data-anim="peek"] .sp-sink { animation: sp-peek var(--sp-peek-dur) both; }
+.spike[data-anim="peek"] .sp-sway { animation: sp-pot-wobble var(--sp-peek-dur) ease-in-out both; }
+.spike[data-anim="peek"] .sp-squash { animation: sp-peek-sq var(--sp-peek-dur) both; }
+.spike[data-anim="peek"] .sp-eyes { animation: sp-peek-look var(--sp-peek-dur) ease-in-out both; }
+.spike[data-anim="peek"] .sp-arm-l { animation: sp-peek-arm-l var(--sp-peek-dur) both; }
+.spike[data-anim="peek"] .sp-arm-r { animation: sp-peek-arm-r var(--sp-peek-dur) both; }
+.spike[data-anim="peek"] .sp-sparkle path { animation: sp-peek-twinkle var(--sp-peek-dur) both; }
+@keyframes sp-peek {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(.5, -.4, .8, .6); }
+  14%, 40% { transform: translateY(var(--sp-sink)); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  50%, 70% { transform: translateY(calc(var(--sp-sink) * .42)); animation-timing-function: cubic-bezier(.6, 0, .6, 1); }
+  74% { transform: translateY(calc(var(--sp-sink) * .5)); animation-timing-function: cubic-bezier(.2, .8, .3, 1.2); }
+  84% { transform: translateY(-10px); animation-timing-function: ease-in-out; }
+  92%, 100% { transform: translateY(0); }
+}
+@keyframes sp-pot-wobble {
+  0%, 14%, 40%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-5deg); } 26% { transform: rotate(4deg); } 32% { transform: rotate(-2.5deg); } 37% { transform: rotate(1.5deg); }
+}
+@keyframes sp-peek-sq {
+  0%, 10%, 18%, 76%, 92%, 100% { transform: scale(1, 1); }
+  15% { transform: scale(1.06, .94); }
+  80% { transform: scale(1.08, .92); }
+  86% { transform: scale(.96, 1.05); }
+}
+@keyframes sp-peek-look {
+  0%, 52%, 70%, 100% { transform: translateX(0); }
+  56%, 60% { transform: translateX(-3px); }
+  64%, 67% { transform: translateX(3px); }
+}
+@keyframes sp-peek-arm-l { 0%, 74%, 100% { transform: rotate(0); } 86% { transform: rotate(-34deg); } 94% { transform: rotate(-24deg); } }
+@keyframes sp-peek-arm-r { 0%, 74%, 100% { transform: rotate(0); } 86% { transform: rotate(34deg); } 94% { transform: rotate(24deg); } }
+@keyframes sp-peek-twinkle { 0%, 80% { opacity: 0; transform: scale(0); } 88% { opacity: 1; transform: scale(1.2) rotate(30deg); } 100% { opacity: 0; transform: scale(0) rotate(90deg); } }
+
+/* Ta-da: a small hop, arms flung up and out, the flower pops, sparkles */
+.spike[data-anim="tada"] .sp-hop { animation: sp-tada-hop var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-squash { animation: sp-tada-sq var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-arm-l { animation: sp-tada-l var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-arm-r { animation: sp-tada-r var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-flower { animation: sp-tada-flower var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-sparkle path { animation: sp-twinkle var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-shadow { animation: sp-tada-shadow var(--sp-tada-dur) both; }
+@keyframes sp-tada-hop {
+  0%, 15% { transform: translateY(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  32% { transform: translateY(-14px); animation-timing-function: cubic-bezier(.6, 0, .8, .4); }
+  46%, 100% { transform: translateY(0); }
+}
+@keyframes sp-tada-sq { 0%, 100% { transform: scale(1, 1); } 13% { transform: scale(1.09, .9); } 25% { transform: scale(.94, 1.07); } 46% { transform: scale(1.07, .92); } 58% { transform: scale(.98, 1.02); } 70% { transform: scale(1, 1); } }
+@keyframes sp-tada-l { 0%, 15%, 100% { transform: rotate(0); } 32% { transform: rotate(calc(var(--sp-tada) * -1.25)); } 46%, 85% { transform: rotate(calc(var(--sp-tada) * -1)); } }
+@keyframes sp-tada-r { 0%, 15%, 100% { transform: rotate(0); } 32% { transform: rotate(calc(var(--sp-tada) * 1.25)); } 46%, 85% { transform: rotate(var(--sp-tada)); } }
+@keyframes sp-tada-flower { 0%, 25%, 100% { transform: scale(1); } 40% { transform: scale(1.3) rotate(15deg); } 55% { transform: scale(1) rotate(0); } }
+@keyframes sp-tada-shadow { 0%, 15%, 46%, 100% { transform: scale(1); } 32% { transform: scale(.75); } }
+
+/* =========================== FOLLOW-THROUGH (Potted's forearms) ===========================
+   The forearms trail the upper arms: each peak lands a little after the upper arm's, the other way, by --sp-drag.
+   With elbows off these layers are switched off and the moves are exactly the shoulder-only versions. */
+.spike[data-anim="dance"] .sp-fore-l, .spike[data-anim="groove"] .sp-fore-l { animation: sp-drag-l var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="dance"] .sp-fore-r, .spike[data-anim="groove"] .sp-fore-r { animation: sp-drag-r var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-drag-l {
+  0%, 100% { transform: rotate(0); }
+  19%, 69% { transform: rotate(calc(var(--sp-pump) * var(--sp-drag) * 1.2)); }
+  44%, 94% { transform: rotate(calc(var(--sp-pump) * var(--sp-drag) * -.5)); }
+}
+@keyframes sp-drag-r {
+  0%, 100% { transform: rotate(0); }
+  19%, 69% { transform: rotate(calc(var(--sp-pump) * var(--sp-drag) * .5)); }
+  44%, 94% { transform: rotate(calc(var(--sp-pump) * var(--sp-drag) * -1.2)); }
+}
+.spike[data-anim="wave"] .sp-fore-r { animation: sp-wave-fore var(--sp-wave-dur) ease-in-out both; }
+@keyframes sp-wave-fore {
+  0%, 100% { transform: rotate(0); }
+  10% { transform: rotate(calc(var(--sp-drag) * -40deg)); }
+  21%, 51%, 81% { transform: rotate(calc(var(--sp-drag) * 50deg)); }
+  36%, 66% { transform: rotate(calc(var(--sp-drag) * -50deg)); }
+}
+.spike[data-anim="hop"] .sp-fore-l { animation: sp-flail-l var(--sp-hop-dur) both; }
+.spike[data-anim="hop"] .sp-fore-r { animation: sp-flail-r var(--sp-hop-dur) both; }
+@keyframes sp-flail-l { 0%, 25%, 90%, 100% { transform: rotate(0); } 50% { transform: rotate(calc(var(--sp-drag) * 70deg)); } 76% { transform: rotate(calc(var(--sp-drag) * -50deg)); } }
+@keyframes sp-flail-r { 0%, 25%, 90%, 100% { transform: rotate(0); } 50% { transform: rotate(calc(var(--sp-drag) * -70deg)); } 76% { transform: rotate(calc(var(--sp-drag) * 50deg)); } }
+.spike[data-anim="tada"] .sp-fore-l { animation: sp-jazz-fore-l var(--sp-tada-dur) both; }
+.spike[data-anim="tada"] .sp-fore-r { animation: sp-jazz-fore-r var(--sp-tada-dur) both; }
+@keyframes sp-jazz-fore-l { 0%, 15%, 100% { transform: rotate(0); } 32% { transform: rotate(calc(var(--sp-drag) * 50deg)); } 46% { transform: rotate(calc(var(--sp-drag) * -60deg)); } 56%, 85% { transform: rotate(calc(var(--sp-drag) * -40deg)); } }
+@keyframes sp-jazz-fore-r { 0%, 15%, 100% { transform: rotate(0); } 32% { transform: rotate(calc(var(--sp-drag) * -50deg)); } 46% { transform: rotate(calc(var(--sp-drag) * 60deg)); } 56%, 85% { transform: rotate(calc(var(--sp-drag) * 40deg)); } }
+
+/* =========================== ELBOW MOVES (Potted) ===========================
+   Poses that need a bend. The angles come from where the hand should land (hip, chin, the other hand). The
+   forearms swing outward on the way in, so a hand never sweeps across the face. */
+
+/* Hands on hips: elbows out, a sassy head tilt or three, then back */
+.spike[data-anim="hips"] .sp-arm-l { animation: sp-hips-al var(--sp-hips-dur) both; }
+.spike[data-anim="hips"] .sp-arm-r { animation: sp-hips-ar var(--sp-hips-dur) both; }
+.spike[data-anim="hips"] .sp-fore-l { animation: sp-hips-fl var(--sp-hips-dur) both; }
+.spike[data-anim="hips"] .sp-fore-r { animation: sp-hips-fr var(--sp-hips-dur) both; }
+.spike[data-anim="hips"] .sp-plant { animation: sp-sass var(--sp-hips-dur) ease-in-out both; }
+.spike[data-anim="hips"] .sp-squash { animation: sp-settle var(--sp-hips-dur) both; }
+@keyframes sp-hips-al { 0%, 100% { transform: rotate(0); } 16% { transform: rotate(-16deg); } 24%, 80% { transform: rotate(-9deg); } }
+@keyframes sp-hips-ar { 0%, 100% { transform: rotate(0); } 16% { transform: rotate(28deg); } 24%, 80% { transform: rotate(21deg); } }
+@keyframes sp-hips-fl { 0%, 100% { transform: rotate(0); } 16% { transform: rotate(-224deg); } 24%, 80% { transform: rotate(-213deg); } }
+@keyframes sp-hips-fr { 0%, 100% { transform: rotate(0); } 16% { transform: rotate(203deg); } 24%, 80% { transform: rotate(192deg); } }
+@keyframes sp-sass {
+  0%, 22%, 86%, 100% { transform: rotate(0); }
+  34%, 60% { transform: rotate(calc(var(--sp-sass) * -1)); }
+  47%, 73% { transform: rotate(var(--sp-sass)); }
+}
+@keyframes sp-settle { 0%, 18%, 30%, 100% { transform: scale(1, 1); } 24% { transform: scale(1.05, .95); } }
+
+/* Shrug: elbows drop, forearms open out, the plant lifts out of the pot a touch */
+.spike[data-anim="shrug"] .sp-arm-l { animation: sp-shrug-al var(--sp-shrug-dur) both; }
+.spike[data-anim="shrug"] .sp-arm-r { animation: sp-shrug-ar var(--sp-shrug-dur) both; }
+.spike[data-anim="shrug"] .sp-fore-l { animation: sp-shrug-fl var(--sp-shrug-dur) both; }
+.spike[data-anim="shrug"] .sp-fore-r { animation: sp-shrug-fr var(--sp-shrug-dur) both; }
+.spike[data-anim="shrug"] .sp-sink { animation: sp-shrug-lift var(--sp-shrug-dur) both; }
+.spike[data-anim="shrug"] .sp-plant { animation: sp-shrug-tilt var(--sp-shrug-dur) ease-in-out both; }
+@keyframes sp-shrug-al { 0%, 100% { transform: rotate(0); } 22% { transform: rotate(-42deg); } 30%, 70% { transform: rotate(-35deg); } }
+@keyframes sp-shrug-ar { 0%, 100% { transform: rotate(0); } 22% { transform: rotate(42deg); } 30%, 70% { transform: rotate(35deg); } }
+@keyframes sp-shrug-fl { 0%, 100% { transform: rotate(0); } 22% { transform: rotate(-24deg); } 30%, 70% { transform: rotate(-12deg); } }
+@keyframes sp-shrug-fr { 0%, 100% { transform: rotate(0); } 22% { transform: rotate(24deg); } 30%, 70% { transform: rotate(12deg); } }
+@keyframes sp-shrug-lift { 0%, 100% { transform: translateY(0); } 22% { transform: translateY(calc(var(--sp-shrug) * -1.3)); } 30%, 70% { transform: translateY(calc(var(--sp-shrug) * -1)); } }
+@keyframes sp-shrug-tilt { 0%, 22%, 100% { transform: rotate(0); } 40%, 66% { transform: rotate(4deg); } }
+
+/* Think: right hand to the chin with a few taps, left hand on the hip, eyes up and to the side */
+.spike[data-anim="think"] .sp-arm-r { animation: sp-think-ar var(--sp-think-dur) both; }
+.spike[data-anim="think"] .sp-fore-r { animation: sp-think-fr var(--sp-think-dur) both; }
+.spike[data-anim="think"] .sp-arm-l { animation: sp-think-al var(--sp-think-dur) both; }
+.spike[data-anim="think"] .sp-fore-l { animation: sp-think-fl var(--sp-think-dur) both; }
+.spike[data-anim="think"] .sp-eyes { animation: sp-ponder var(--sp-think-dur) ease-in-out both; }
+.spike[data-anim="think"] .sp-plant { animation: sp-think-tilt var(--sp-think-dur) ease-in-out both; }
+@keyframes sp-think-ar { 0%, 100% { transform: rotate(0); } 18%, 84% { transform: rotate(20deg); } }
+@keyframes sp-think-fr {
+  0%, 100% { transform: rotate(0); }
+  18%, 34%, 44%, 54%, 84% { transform: rotate(-110deg); }
+  39%, 49%, 59% { transform: rotate(-100deg); }
+}
+@keyframes sp-think-al { 0%, 100% { transform: rotate(0); } 18%, 84% { transform: rotate(-9deg); } }
+@keyframes sp-think-fl { 0%, 100% { transform: rotate(0); } 18%, 84% { transform: rotate(-213deg); } }
+@keyframes sp-ponder { 0%, 14%, 88%, 100% { transform: translate(0, 0); } 24%, 66% { transform: translate(2.5px, -2.5px); } 72%, 82% { transform: translate(-1px, -2px); } }
+@keyframes sp-think-tilt { 0%, 14%, 88%, 100% { transform: rotate(0); } 24%, 80% { transform: rotate(-4deg); } }
+
+/* Flex: both forearms curl in, pump twice, chest out */
+.spike[data-anim="flex"] .sp-arm-l { animation: sp-flex-al var(--sp-flex-dur) both; }
+.spike[data-anim="flex"] .sp-arm-r { animation: sp-flex-ar var(--sp-flex-dur) both; }
+.spike[data-anim="flex"] .sp-fore-l { animation: sp-flex-fl var(--sp-flex-dur) both; }
+.spike[data-anim="flex"] .sp-fore-r { animation: sp-flex-fr var(--sp-flex-dur) both; }
+.spike[data-anim="flex"] .sp-squash { animation: sp-flex-chest var(--sp-flex-dur) both; }
+@keyframes sp-flex-al { 0%, 100% { transform: rotate(0); } 10% { transform: rotate(-12deg); } 16%, 84% { transform: rotate(4deg); } }
+@keyframes sp-flex-ar { 0%, 100% { transform: rotate(0); } 10% { transform: rotate(12deg); } 16%, 84% { transform: rotate(-4deg); } }
+@keyframes sp-flex-fl {
+  0%, 100% { transform: rotate(0); }
+  10% { transform: rotate(calc(var(--sp-flex) * -1)); }
+  16%, 46%, 76%, 84% { transform: rotate(calc(var(--sp-flex) * .6)); }
+  31%, 61% { transform: rotate(calc(var(--sp-flex) * 1.4)); }
+}
+@keyframes sp-flex-fr {
+  0%, 100% { transform: rotate(0); }
+  10% { transform: rotate(var(--sp-flex)); }
+  16%, 46%, 76%, 84% { transform: rotate(calc(var(--sp-flex) * -.6)); }
+  31%, 61% { transform: rotate(calc(var(--sp-flex) * -1.4)); }
+}
+@keyframes sp-flex-chest { 0%, 100% { transform: scale(1, 1); } 16%, 46%, 76% { transform: scale(1.02, 1.01); } 31%, 61% { transform: scale(1.06, 1.03); } }
+
+/* Clap (loop): hands meet in front of the belly on every beat */
+.spike[data-anim="clap"] .sp-arm-l { animation: sp-clap-al var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="clap"] .sp-arm-r { animation: sp-clap-ar var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="clap"] .sp-fore-l { animation: sp-clap-fl var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="clap"] .sp-fore-r { animation: sp-clap-fr var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="clap"] .sp-squash { animation: sp-bounce4 var(--sp-bar) ease-in-out infinite; }
+.spike[data-anim="clap"] .sp-flower { animation: sp-nod4 var(--sp-bar) ease-in-out infinite; }
+@keyframes sp-clap-al { 0%, 100% { transform: rotate(0); } 12.5%, 37.5%, 62.5%, 87.5% { transform: rotate(-13deg); } 25%, 50%, 75% { transform: rotate(-10deg); } }
+@keyframes sp-clap-ar { 0%, 100% { transform: rotate(0); } 12.5%, 37.5%, 62.5%, 87.5% { transform: rotate(12deg); } 25%, 50%, 75% { transform: rotate(10deg); } }
+@keyframes sp-clap-fl { 0%, 100% { transform: rotate(0); } 12.5%, 37.5%, 62.5%, 87.5% { transform: rotate(calc(114deg * var(--sp-clap))); } 25%, 50%, 75% { transform: rotate(calc(50deg * var(--sp-clap))); } }
+@keyframes sp-clap-fr { 0%, 100% { transform: rotate(0); } 12.5%, 37.5%, 62.5%, 87.5% { transform: rotate(calc(-136deg * var(--sp-clap))); } 25%, 50%, 75% { transform: rotate(calc(-60deg * var(--sp-clap))); } }
+
+/* ---- Calm: every move plays once and settles. Each loop's layers are one bar long, so they all stop together, and
+   each one holds its last frame: at rest for every loop but Sleepy, which stays dozing. ---- */
+.spike[data-calm] * { animation-iteration-count: 1 !important; animation-fill-mode: both !important; }
+@media (prefers-reduced-motion: reduce) {
+  .spike * { animation-iteration-count: 1 !important; animation-fill-mode: both !important; }
+}

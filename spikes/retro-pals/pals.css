@@ -1,0 +1,540 @@
+/* Retro pals: a boombox and a rotary phone, Fuzz's old-machine friends. Self-contained like spike.css: no app CSS,
+   no ids. Each pal is one <svg class="rpal" data-kind="boombox|phone" data-anim="..."> with named groups. Pivots are
+   inline transform-origin styles in viewBox px, set by pals.js; one animation per group.
+
+   Shared groups:  .pl-hop (translate)  >  .pl-body (rotate/scale at the ground)  >  parts
+   Boombox parts:  .bb-spk (speaker pump)  .bb-blink (eye blink, speaker-eye design)  .bb-pupil (look)
+                   .bb-reel  .bb-key  .bb-handle  .bb-ant  .bb-note  .bb-wave  .bb-eq  .bb-rew
+   Phone parts:    .ph-hand (handset)  .ph-dial (finger-hole ring)  .ph-cord  .ph-ring  .ph-note
+   Faces:          .pl-eye (blink)  .pl-eyes  .pl-happy  .pl-m-smile  .pl-m-open  .pl-m-flat */
+
+.rpal {
+  --pl-ink: #241C19;
+  --pl-line: #3B2B23;
+  --pl-cream: #FFF1DC;
+  --pl-cheek: #FF9EA6;
+  --pl-glow: #FFC65C;
+  --pl-green: #7BD88F;
+  --bb-body: #E9DCC6;
+  --bb-band: #D8C8AE;
+  --bb-ring: #3B2B23;
+  --bb-cone: #241C19;
+  --bb-cone-l: #4A3A32;
+  --bb-chrome: #BDB8AC;
+  --bb-chrome-l: #E4E0D8;
+  --bb-silver: #CBC6BC;
+  --bb-silver-d: #A9A398;
+  --bb-black: #2B2522;
+  --bb-grille: #1E1A17;
+  --ph-body: #E8A33D;
+  --ph-body-d: #B97A22;
+  --ph-hand: #3B2B23;
+  --pl-beat: .5s;
+  --pl-bar: calc(var(--pl-beat) * 4);
+  display: block;
+  overflow: visible;
+}
+.rpal * { transform-box: view-box; }
+.rpal :is(.pl-eye, .bb-blink, .bb-reel, .bb-eq rect, .bb-note, .ph-note) { transform-box: fill-box; transform-origin: 50% 50%; }
+.rpal .bb-eq rect { transform-origin: 50% 100%; }
+.rpal .pl-shadow { fill: #000; opacity: .14; }
+
+/* ---- paint ---- */
+.rpal .pl-o { stroke: var(--pl-line); stroke-width: 2.4; stroke-linejoin: round; }
+.rpal .pl-eye rect { fill: var(--pl-ink); }
+.rpal .pl-eye circle { fill: #fff; }
+.rpal .pl-happy path, .rpal .pl-m { fill: none; stroke: var(--pl-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.rpal .pl-m-open path:first-child { fill: var(--pl-ink); stroke: none; }
+.rpal .pl-m-open ellipse { fill: var(--pl-cheek); }
+.rpal .pl-cheek { fill: var(--pl-cheek); opacity: .75; }
+.rpal .pl-glowface .pl-eye rect { fill: var(--pl-glow); }
+.rpal .pl-glowface .pl-eye circle { fill: #fff8e6; }
+.rpal .pl-glowface .pl-happy path { stroke: var(--pl-glow); }
+.rpal .bb-wave { fill: none; stroke: var(--pl-glow); stroke-width: 3; opacity: 0; }
+.rpal .bb-note, .rpal .ph-note { opacity: 0; }
+.rpal .bb-rew { opacity: 0; }
+.rpal .ph-ring { opacity: 0; }
+
+/* ---- faces: open eyes and a smile by default ---- */
+.rpal .pl-happy, .rpal .pl-m-open, .rpal .pl-m-flat { display: none; }
+.rpal:is([data-anim="groove"], [data-anim="tiphat"], [data-anim="bop"]) .pl-eyes { display: none; }
+.rpal:is([data-anim="groove"], [data-anim="tiphat"], [data-anim="bop"]) .pl-happy { display: inline; }
+.rpal:is([data-anim="groove"], [data-anim="bass"], [data-anim="surprise"], [data-anim="ring"], [data-anim="bop"]) .pl-m-smile { display: none; }
+.rpal:is([data-anim="groove"], [data-anim="bass"], [data-anim="surprise"], [data-anim="ring"], [data-anim="bop"]) .pl-m-open { display: inline; }
+.rpal[data-anim="hangup"] .pl-m-smile { display: none; }
+.rpal[data-anim="hangup"] .pl-m-flat { display: inline; }
+/* The display-face boombox shows its mood in the equalizer mouth, so it hides the drawn mouths there */
+.rpal:is([data-design="display"], [data-design="door"], [data-design="reels"], [data-design="wdoor"], [data-design="wreels"], [data-design^="wmix"]) .pl-m { display: none !important; }
+.rpal :is(.bb-blink, .bb-slide) { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* =========================== SHARED =========================== */
+@keyframes pl-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(.99, 1.02); } }
+@keyframes pl-blink { 0%, 55%, 60%, 100% { transform: scaleY(1); } 57.5% { transform: scaleY(.08); } }
+@keyframes pl-bounce4 {
+  0%, 25%, 50%, 75%, 100% { transform: scale(1, 1); }
+  6.25%, 31.25%, 56.25%, 81.25% { transform: scale(1.06, .92); }
+  15.6%, 40.6%, 65.6%, 90.6% { transform: scale(.97, 1.04); }
+}
+@keyframes pl-bob4 { 0%, 25%, 50%, 75%, 100% { transform: translateY(0); } 15.6%, 40.6%, 65.6%, 90.6% { transform: translateY(-6px); } }
+@keyframes pl-lean { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+@keyframes pl-spin { to { transform: rotate(360deg); } }
+@keyframes pl-spin-back { to { transform: rotate(-360deg); } }
+@keyframes pl-note {
+  0% { opacity: 0; transform: translate(0, 0) rotate(-10deg); }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -30px) rotate(12deg); }
+}
+
+/* =========================== BOOMBOX =========================== */
+
+/* Idle: breathe, blink, the reels turn slowly, the antenna sways */
+.rpal[data-anim="idle"] .pl-body { animation: pl-breathe 3.6s ease-in-out infinite; }
+.rpal[data-anim="idle"] :is(.pl-eye, .bb-blink) { animation: pl-blink 3.6s infinite; }
+.rpal[data-anim="idle"] .bb-reel { animation: pl-spin 4s linear infinite; }
+.rpal[data-anim="idle"] .bb-ant { animation: bb-ant-sway 3.6s ease-in-out infinite; }
+@keyframes bb-ant-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(4deg); } }
+
+/* Groove (loop): bounce on every beat, speakers pump, keys press in turn, reels race, notes float out */
+.rpal[data-anim="groove"] .pl-hop { animation: pl-bob4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="groove"] .pl-body { animation: pl-bounce4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="groove"] .pl-tilt { animation: pl-lean var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-spk { animation: bb-pump var(--pl-beat) ease-out infinite; }
+.rpal[data-anim="groove"] .bb-reel { animation: pl-spin .8s linear infinite; }
+.rpal[data-anim="groove"] .bb-ant { animation: bb-ant-beat var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-key { animation: bb-key var(--pl-bar) steps(1, end) infinite; }
+.rpal[data-anim="groove"] .bb-key:nth-child(2) { animation-delay: calc(var(--pl-beat) * -3); }
+.rpal[data-anim="groove"] .bb-key:nth-child(3) { animation-delay: calc(var(--pl-beat) * -2); }
+.rpal[data-anim="groove"] .bb-key:nth-child(4) { animation-delay: calc(var(--pl-beat) * -1); }
+.rpal[data-anim="groove"] .bb-note { animation: pl-note var(--pl-bar) ease-out infinite; }
+.rpal[data-anim="groove"] .bb-note:nth-of-type(2) { animation-delay: calc(var(--pl-bar) * -.33); }
+.rpal[data-anim="groove"] .bb-note:nth-of-type(3) { animation-delay: calc(var(--pl-bar) * -.66); }
+.rpal[data-anim="groove"] .bb-eq rect { animation: bb-eq var(--pl-beat) ease-in-out infinite alternate; }
+.rpal[data-anim="groove"] .bb-eq rect:nth-child(2n) { animation-delay: calc(var(--pl-beat) * -.5); }
+.rpal[data-anim="groove"] .bb-eq rect:nth-child(3) { animation-duration: calc(var(--pl-beat) * .5); }
+@keyframes bb-pump { 0% { transform: scale(1.12); } 40%, 100% { transform: scale(1); } }
+@keyframes bb-ant-beat { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+@keyframes bb-key { 0%, 25% { transform: translateY(2.5px); } 25.01%, 100% { transform: translateY(0); } }
+@keyframes bb-eq { from { transform: scaleY(.35); } to { transform: scaleY(1.6); } }
+
+/* Bass drop (once): crouch, then BOOM: speakers blow out, shockwaves, the handle jumps, a wobbly settle */
+.rpal[data-anim="bass"] .pl-body { animation: bb-boom-body 1.5s both; }
+.rpal[data-anim="bass"] .bb-spk { animation: bb-boom-spk 1.5s both; }
+.rpal[data-anim="bass"] .bb-wave { animation: bb-wave 1.5s ease-out both; }
+.rpal[data-anim="bass"] .bb-handle { animation: bb-handle-jump 1.5s both; }
+.rpal[data-anim="bass"] .bb-ant { animation: bb-ant-boing 1.5s both; }
+.rpal[data-anim="bass"] .bb-eq rect { animation: bb-eq-boom 1.5s both; }
+@keyframes bb-boom-body {
+  0% { transform: scale(1, 1); }
+  28% { transform: scale(1.06, .88); animation-timing-function: cubic-bezier(.2, 1.8, .4, 1); }
+  38% { transform: scale(.94, 1.12); }
+  52% { transform: scale(1.04, .96); }
+  64% { transform: scale(.98, 1.02); }
+  76%, 100% { transform: scale(1, 1); }
+}
+@keyframes bb-boom-spk { 0%, 26% { transform: scale(.92); } 34% { transform: scale(1.32); } 46% { transform: scale(.96); } 56% { transform: scale(1.08); } 70%, 100% { transform: scale(1); } }
+@keyframes bb-wave { 0%, 30% { opacity: 0; transform: scale(.8); } 34% { opacity: .9; transform: scale(1); } 80%, 100% { opacity: 0; transform: scale(2.1); } }
+@keyframes bb-handle-jump { 0%, 30% { transform: translateY(0); } 40% { transform: translateY(-10px); } 54% { transform: translateY(1px); } 64%, 100% { transform: translateY(0); } }
+@keyframes bb-ant-boing { 0%, 30%, 100% { transform: rotate(0); } 40% { transform: rotate(-22deg); } 52% { transform: rotate(14deg); } 64% { transform: rotate(-7deg); } 76% { transform: rotate(3deg); } }
+@keyframes bb-eq-boom { 0%, 28% { transform: scaleY(.3); } 36% { transform: scaleY(2); } 60% { transform: scaleY(.8); } 100% { transform: scaleY(1); } }
+
+/* Rewind (once): the reels whirr backwards, he jitters, a "<<" pops up, then a click and a little hop */
+.rpal[data-anim="rewind"] .bb-reel { animation: pl-spin-back .35s linear 4 both; }
+.rpal[data-anim="rewind"] .pl-hop { animation: bb-jitter 1.6s both; }
+.rpal[data-anim="rewind"] .bb-rew { animation: bb-rew 1.6s both; }
+.rpal[data-anim="rewind"] .bb-key:first-child { animation: bb-key-hold 1.6s both; }
+.rpal[data-anim="rewind"] .pl-body { animation: bb-click 1.6s both; }
+.rpal[data-anim="rewind"] .bb-pupil { animation: bb-dizzy 1.6s both; }
+@keyframes bb-jitter {
+  0%, 92%, 100% { transform: translate(0, 0); }
+  5%, 15%, 25%, 35%, 45%, 55%, 65%, 75% { transform: translate(-2px, 0); }
+  10%, 20%, 30%, 40%, 50%, 60%, 70%, 80% { transform: translate(1.5px, 0); }
+  86% { transform: translate(0, -10px); }
+}
+@keyframes bb-rew { 0% { opacity: 0; transform: translate(0, 6px); } 10%, 80% { opacity: 1; transform: translate(0, 0); } 90%, 100% { opacity: 0; transform: translate(-10px, 0); } }
+@keyframes bb-key-hold { 0%, 82% { transform: translateY(2.5px); } 86%, 100% { transform: translateY(0); } }
+@keyframes bb-click { 0%, 80% { transform: scale(1, 1); } 83% { transform: scale(1.05, .93); } 90% { transform: scale(.97, 1.04); } 100% { transform: scale(1, 1); } }
+@keyframes bb-dizzy { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-2px, 1px); } 40% { transform: translate(0, 2px); } 60% { transform: translate(2px, 1px); } 80% { transform: translate(0, -1px); } }
+
+/* Surprise (once): the antenna shoots up and sparks, the handle jumps, eyes go wide */
+.rpal[data-anim="surprise"] .bb-ant { animation: bb-ant-up 1.2s both; }
+.rpal[data-anim="surprise"] .bb-handle { animation: bb-handle-jump 1.2s both; }
+.rpal[data-anim="surprise"] .pl-hop { animation: bb-startle 1.2s both; }
+.rpal[data-anim="surprise"] :is(.bb-spk, .pl-eyes) { animation: bb-wide 1.2s both; }
+@keyframes bb-ant-up { 0%, 18% { transform: scale(1); } 30% { transform: scale(1.4); } 40%, 70% { transform: scale(1.3) rotate(-4deg); } 100% { transform: scale(1); } }
+@keyframes bb-startle { 0%, 15% { transform: translateY(0); } 30% { transform: translateY(-14px); } 46%, 100% { transform: translateY(0); } }
+@keyframes bb-wide { 0%, 15%, 100% { transform: scale(1); } 30%, 70% { transform: scale(1.14); } }
+
+/* ---- second-round parts: the tuner needle, the singing tape door, the slider smile ---- */
+.rpal[data-anim="idle"] .bb-tune { animation: bb-tune-drift 7.2s ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-tune { animation: bb-tune-sweep var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-door { animation: bb-sing var(--pl-beat) ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-slide { animation: bb-slide var(--pl-beat) ease-in-out infinite alternate; }
+.rpal[data-anim="groove"] .bb-slide:nth-of-type(2n) { animation-delay: calc(var(--pl-beat) * -1); }
+.rpal[data-anim="bass"] .bb-door { animation: bb-door-boom 1.5s both; }
+.rpal[data-anim="bass"] .bb-slide { animation: bb-slide-boom 1.5s both; }
+.rpal[data-anim="surprise"] .bb-door { animation: bb-door-gasp 1.2s both; }
+.rpal[data-anim="surprise"] .bb-blink { animation: bb-wide 1.2s both; }
+.rpal[data-anim="rewind"] .bb-tune { animation: bb-tune-rew 1.6s both; }
+@keyframes bb-tune-drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
+@keyframes bb-tune-sweep { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(34px); } }
+@keyframes bb-tune-rew { 0%, 100% { transform: translateX(0); } 80% { transform: translateX(-36px); } }
+@keyframes bb-sing { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.3); } }
+@keyframes bb-door-boom { 0%, 26% { transform: scaleY(1); } 34%, 56% { transform: scaleY(.12); } 76%, 100% { transform: scaleY(1); } }
+@keyframes bb-door-gasp { 0%, 15%, 100% { transform: scaleY(1); } 28%, 70% { transform: scaleY(.25); } }
+@keyframes bb-slide { from { transform: translateY(2.5px); } to { transform: translateY(-4px); } }
+@keyframes bb-slide-boom { 0%, 28% { transform: translateY(3px); } 36% { transform: translateY(-7px); } 60% { transform: translateY(-1px); } 100% { transform: translateY(0); } }
+
+/* VU needles: twitch at rest, swing to the beat, slam over on the bass drop */
+.rpal[data-anim="idle"] .bb-vu { animation: bb-vu-idle 3.6s ease-in-out infinite; }
+.rpal[data-anim="groove"] .bb-vu { animation: bb-vu-beat var(--pl-beat) ease-out infinite; }
+.rpal[data-anim="groove"] .bb-vu:nth-of-type(1) { animation-delay: calc(var(--pl-beat) * -.4); }
+.rpal[data-anim="bass"] .bb-vu { animation: bb-vu-slam 1.5s both; }
+.rpal[data-anim="surprise"] .bb-vu { animation: bb-vu-slam 1.2s both; }
+@keyframes bb-vu-idle { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(8deg); } 55% { transform: rotate(3deg); } 75% { transform: rotate(12deg); } }
+@keyframes bb-vu-beat { 0% { transform: rotate(52deg); } 60%, 100% { transform: rotate(6deg); } }
+@keyframes bb-vu-slam { 0%, 26% { transform: rotate(0); } 34%, 50% { transform: rotate(62deg); } 64% { transform: rotate(40deg); } 100% { transform: rotate(4deg); } }
+
+/* =========================== PHONE =========================== */
+
+.rpal[data-kind="phone"][data-anim="idle"] .ph-cord { animation: ph-cord-sway 3.6s ease-in-out infinite; }
+@keyframes ph-cord-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(5deg); } }
+
+/* Ring (loop): two bursts a bar. The handset rattles on the cradle, he shakes, ring lines flash */
+.rpal[data-anim="ring"] .ph-hand { animation: ph-rattle var(--pl-bar) linear infinite; }
+.rpal[data-anim="ring"] .pl-body { animation: ph-shake var(--pl-bar) linear infinite; }
+.rpal[data-anim="ring"] .ph-ring { animation: ph-ring var(--pl-bar) steps(1, end) infinite; }
+.rpal[data-anim="ring"] .ph-cord { animation: ph-cord-jiggle var(--pl-bar) linear infinite; }
+@keyframes ph-rattle {
+  0%, 36%, 50%, 86%, 100% { transform: translateY(0) rotate(0); }
+  3%, 9%, 15%, 21%, 27%, 33%, 53%, 59%, 65%, 71%, 77%, 83% { transform: translateY(-6px) rotate(-4deg); }
+  6%, 12%, 18%, 24%, 30%, 56%, 62%, 68%, 74%, 80% { transform: translateY(-2px) rotate(4deg); }
+}
+@keyframes ph-shake {
+  0%, 36%, 50%, 86%, 100% { transform: rotate(0); }
+  4.5%, 13.5%, 22.5%, 31.5%, 54.5%, 63.5%, 72.5%, 81.5% { transform: rotate(-2.5deg); }
+  9%, 18%, 27%, 59%, 68%, 77% { transform: rotate(2.5deg); }
+}
+@keyframes ph-ring { 0% { opacity: 1; } 6% { opacity: .2; } 12% { opacity: 1; } 18% { opacity: .2; } 24% { opacity: 1; } 30% { opacity: .2; } 36% { opacity: 0; } 50% { opacity: 1; } 56% { opacity: .2; } 62% { opacity: 1; } 68% { opacity: .2; } 74% { opacity: 1; } 80% { opacity: .2; } 86%, 100% { opacity: 0; } }
+@keyframes ph-cord-jiggle { 0%, 36%, 50%, 86%, 100% { transform: rotate(0); } 10%, 30%, 60%, 80% { transform: rotate(6deg); } 20%, 70% { transform: rotate(-3deg); } }
+
+/* Dial (once): the ring turns slowly to a number, his eyes follow it, then it springs back in ticks. Twice. */
+.rpal[data-anim="dial"] .ph-dial { animation: ph-dial 2.4s both; }
+.rpal[data-anim="dial"] .pl-eyes { animation: ph-dial-look 2.4s ease-in-out both; }
+.rpal[data-anim="dial"] .pl-body { animation: ph-dial-lean 2.4s ease-in-out both; }
+@keyframes ph-dial {
+  0% { transform: rotate(0); animation-timing-function: ease-in-out; }
+  25% { transform: rotate(150deg); animation-timing-function: steps(6, end); }
+  45% { transform: rotate(0); animation-timing-function: ease-in-out; }
+  68% { transform: rotate(95deg); animation-timing-function: steps(4, end); }
+  84%, 100% { transform: rotate(0); }
+}
+@keyframes ph-dial-look { 0%, 100% { transform: translate(0, 0); } 25%, 30% { transform: translate(2px, 2px); } 45% { transform: translate(0, 0); } 68%, 72% { transform: translate(2px, 1.5px); } 84% { transform: translate(0, 0); } }
+@keyframes ph-dial-lean { 0%, 90%, 100% { transform: rotate(0); } 25%, 70% { transform: rotate(2deg); } }
+
+/* Tip hat (once): lifts the handset off like a hat, tilts it, a little bow, puts it back */
+.rpal[data-anim="tiphat"] .ph-hand { animation: ph-tip 1.8s both; }
+.rpal[data-anim="tiphat"] .pl-body { animation: ph-bow 1.8s ease-in-out both; }
+.rpal[data-anim="tiphat"] .ph-cord { animation: ph-cord-lift 1.8s ease-in-out both; }
+@keyframes ph-tip {
+  0% { transform: translate(0, 0) rotate(0); }
+  12% { transform: translate(0, 2px) rotate(0); }
+  30% { transform: translate(-4px, -18px) rotate(-16deg); }
+  42%, 62% { transform: translate(-6px, -16px) rotate(-22deg); }
+  80% { transform: translate(0, -2px) rotate(0); }
+  86% { transform: translate(0, 1px) rotate(0); }
+  92%, 100% { transform: translate(0, 0) rotate(0); }
+}
+@keyframes ph-bow { 0%, 30%, 70%, 100% { transform: scale(1, 1); } 45%, 58% { transform: scale(1.04, .94); } }
+@keyframes ph-cord-lift { 0%, 12%, 86%, 100% { transform: rotate(0); } 30%, 62% { transform: rotate(-8deg); } }
+
+/* Hang up (once): lifts the handset, slams it down, a big squash and a grumpy bounce */
+.rpal[data-anim="hangup"] .ph-hand { animation: ph-slam 1.5s both; }
+.rpal[data-anim="hangup"] .pl-body { animation: ph-slam-body 1.5s both; }
+.rpal[data-anim="hangup"] .ph-cord { animation: ph-cord-jiggle 1.5s both; }
+@keyframes ph-slam {
+  0% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-16px) rotate(6deg); animation-timing-function: cubic-bezier(.7, 0, 1, .6); }
+  45% { transform: translateY(2px) rotate(0); }
+  52% { transform: translateY(-5px) rotate(-2deg); }
+  60%, 100% { transform: translateY(0) rotate(0); }
+}
+@keyframes ph-slam-body { 0%, 44% { transform: scale(1, 1); } 48% { transform: scale(1.1, .86); } 58% { transform: scale(.96, 1.05); } 68% { transform: scale(1.02, .98); } 78%, 100% { transform: scale(1, 1); } }
+
+/* Bop (loop): bounces on the beat, the handset hops off the cradle on the off-beats, notes float up */
+.rpal[data-anim="bop"] .pl-hop { animation: pl-bob4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="bop"] .pl-body { animation: pl-bounce4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="bop"] .pl-tilt { animation: pl-lean var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="bop"] .ph-hand { animation: ph-hop4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="bop"] .ph-cord { animation: ph-cord-jiggle var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="bop"] .ph-note { animation: pl-note var(--pl-bar) ease-out infinite; }
+.rpal[data-anim="bop"] .ph-note:nth-of-type(2) { animation-delay: calc(var(--pl-bar) * -.5); }
+@keyframes ph-hop4 { 0%, 25%, 50%, 75%, 100% { transform: translateY(0) rotate(0); } 15.6%, 65.6% { transform: translateY(-8px) rotate(-5deg); } 40.6%, 90.6% { transform: translateY(-8px) rotate(5deg); } }
+
+/* ---- reduced motion: play each move once and settle ---- */
+@media (prefers-reduced-motion: reduce) {
+  .rpal * { animation-iteration-count: 1 !important; }
+}
+
+/* =========================== MOODS (Reels + door) ===========================
+   A mood is separate from the move: pals.js sets the numbers below as inline custom properties, plus data-eye-l/-r,
+   data-mouth, data-fx, data-reel and data-act. The numbers are registered, so a change of mood eases in. Mood poses
+   sit on wrappers the moves never animate (.bb-pose, .bb-ant-pose, .bb-handle-pose, .bb-jaw, .bb-gaze, .bb-iris,
+   the lids), so a mood holds through Idle, Groove and the one-shots. */
+@property --lid-l { syntax: '<number>'; inherits: true; initial-value: .12; }
+@property --lid-r { syntax: '<number>'; inherits: true; initial-value: .12; }
+@property --tilt-l { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --tilt-r { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --low-l { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --low-r { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --look-x { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --look-y { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --iris { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --door { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --ant { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --handle { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --lean { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --blush { syntax: '<number>'; inherits: true; initial-value: .75; }
+
+.rpal[data-design^="wmix"] {
+  --pl-mood-t: .28s;
+  transition: --lid-l var(--pl-mood-t), --lid-r var(--pl-mood-t), --tilt-l var(--pl-mood-t), --tilt-r var(--pl-mood-t),
+    --low-l var(--pl-mood-t), --low-r var(--pl-mood-t), --look-x var(--pl-mood-t), --look-y var(--pl-mood-t),
+    --iris .35s cubic-bezier(.3, 1.6, .5, 1), --door .22s, --ant .5s cubic-bezier(.3, 1.5, .5, 1),
+    --handle .3s cubic-bezier(.3, 1.8, .5, 1), --lean .4s, --blush .4s;
+}
+.rpal .bb-blink.bb-m { transform-box: view-box; }
+.rpal .bb-lid-l { transform: translateY(calc((var(--lid-l) * 2 - 1) * var(--ri) - 1px)) rotate(calc(var(--tilt-l) * 1deg)); }
+.rpal .bb-lid-r { transform: translateY(calc((var(--lid-r) * 2 - 1) * var(--ri) - 1px)) rotate(calc(var(--tilt-r) * 1deg)); }
+.rpal .bb-low-l { transform: translateY(calc((1 - var(--low-l) * 2) * var(--ri) + 3px)); }
+.rpal .bb-low-r { transform: translateY(calc((1 - var(--low-r) * 2) * var(--ri) + 3px)); }
+.rpal .bb-gaze { transform: translate(calc(var(--look-x) * 1px), calc(var(--look-y) * 1px)); }
+.rpal .bb-iris { transform: scale(var(--iris)); }
+.rpal .bb-jaw { transform: scaleY(calc(1 - var(--door) * .86)); }
+.rpal .bb-ant-pose { transform: rotate(calc(var(--ant) * 1deg)); }
+.rpal .bb-handle-pose { transform: translateY(calc(var(--handle) * 1px)); }
+.rpal .bb-pose { transform: rotate(calc(var(--lean) * 1deg)); }
+.rpal[data-design^="wmix"] .pl-cheek { opacity: var(--blush); }
+
+/* eye shapes and mouths: the reel and the smile unless the mood says otherwise */
+.rpal .bb-es, .rpal .bb-dm, .rpal .bfx { display: none; }
+.rpal .dm-smile { display: inline; }
+.rpal[data-mouth]:not([data-mouth="smile"]) .dm-smile { display: none; }
+.rpal[data-mouth="grin"] .dm-grin, .rpal[data-mouth="flat"] .dm-flat, .rpal[data-mouth="frown"] .dm-frown,
+.rpal[data-mouth="smirk"] .dm-smirk, .rpal[data-mouth="wobble"] .dm-wobble, .rpal[data-mouth="o"] .dm-o,
+.rpal[data-mouth="grit"] .dm-grit { display: inline; }
+.rpal[data-eye-l]:not([data-eye-l="reel"]) .bb-eye-l .bb-reelwrap, .rpal[data-eye-r]:not([data-eye-r="reel"]) .bb-eye-r .bb-reelwrap { display: none; }
+.rpal[data-eye-l="heart"] .bb-eye-l .es-heart, .rpal[data-eye-r="heart"] .bb-eye-r .es-heart,
+.rpal[data-eye-l="star"] .bb-eye-l .es-star, .rpal[data-eye-r="star"] .bb-eye-r .es-star,
+.rpal[data-eye-l="spiral"] .bb-eye-l .es-spiral, .rpal[data-eye-r="spiral"] .bb-eye-r .es-spiral,
+.rpal[data-eye-l="x"] .bb-eye-l .es-x, .rpal[data-eye-r="x"] .bb-eye-r .es-x,
+.rpal[data-eye-l="happy"] .bb-eye-l .es-happy, .rpal[data-eye-r="happy"] .bb-eye-r .es-happy,
+.rpal[data-eye-l="line"] .bb-eye-l .es-line, .rpal[data-eye-r="line"] .bb-eye-r .es-line,
+.rpal[data-eye-l="sad"] .bb-eye-l .es-sad, .rpal[data-eye-r="sad"] .bb-eye-r .es-sad { display: inline; }
+/* a shut eye hides its lids and glint, so the arc reads cleanly */
+.rpal:is([data-eye-l="happy"], [data-eye-l="line"], [data-eye-l="sad"]) .bb-eye-l :is(.bb-lid, .bb-low, .bb-glint),
+.rpal:is([data-eye-r="happy"], [data-eye-r="line"], [data-eye-r="sad"]) .bb-eye-r :is(.bb-lid, .bb-low, .bb-glint) { display: none; }
+.rpal:is([data-eye-l="happy"], [data-eye-l="line"], [data-eye-l="sad"]) .bb-eye-l .bb-blink,
+.rpal:is([data-eye-r="happy"], [data-eye-r="line"], [data-eye-r="sad"]) .bb-eye-r .bb-blink { animation: none !important; }
+.rpal .es-heart, .rpal .es-star { transform-box: fill-box; transform-origin: 50% 50%; }
+.rpal .bb-swirl { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* reels: the mood sets their speed while idle; stopped when off, split when dizzy */
+.rpal[data-design^="wmix"][data-anim="idle"] .bb-reel { animation-duration: var(--spin); }
+.rpal[data-reel="stop"] .bb-reel { animation-play-state: paused; }
+.rpal[data-reel="back"] .bb-reel, .rpal[data-reel="split"] .bb-eye-r .bb-reel { animation-direction: reverse; }
+.rpal[data-reel="split"] .bb-reel { animation: pl-spin .7s linear infinite; }
+.rpal[data-reel="split"] .bb-eye-r .bb-reel { animation-direction: reverse; }
+
+/* fx: shown by data-fx, each with its own little loop */
+.rpal[data-fx~="zzz"] .bfx-zzz, .rpal[data-fx~="bang"] .bfx-bang, .rpal[data-fx~="q"] .bfx-q, .rpal[data-fx~="dots"] .bfx-dots,
+.rpal[data-fx~="sweat"] .bfx-sweat, .rpal[data-fx~="tears"] .bfx-tears, .rpal[data-fx~="hearts"] .bfx-hearts,
+.rpal[data-fx~="sparkle"] .bfx-sparkle, .rpal[data-fx~="steam"] .bfx-steam, .rpal[data-fx~="vein"] .bfx-vein,
+.rpal[data-fx~="blush"] .bfx-blush, .rpal[data-fx~="tape"] .bfx-tape, .rpal[data-fx~="rec"] .bfx-rec,
+.rpal[data-fx~="bulb"] .bfx-bulb, .rpal[data-fx~="stars"] .bfx-stars { display: inline; }
+.rpal :is(.bfx-z, .bfx-heart, .bfx-spark, .bfx-puff, .bfx-drip, .bfx-tear, .bfx-dot, .bfx-halo, .bfx-bang-in, .bfx-q-in, .bfx-vein-in) { transform-box: fill-box; transform-origin: 50% 50%; }
+.rpal .bfx-z { animation: bfx-float 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.8s); }
+.rpal .bfx-heart { animation: bfx-float 2.1s ease-out infinite; animation-delay: calc(var(--i) * -.7s); }
+.rpal .bfx-sparkle .bfx-spark, .rpal .bfx-stars .bfx-spark { animation: bfx-twinkle .9s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.3s); }
+.rpal .bfx-stars { animation: pl-spin 2.4s linear infinite; transform-box: view-box; transform-origin: 110px 70px; }
+.rpal .bfx-puff { animation: bfx-puff 1.2s ease-out infinite; animation-delay: calc(var(--i) * -.3s); }
+.rpal .bfx-drip { animation: bfx-drip 1.6s ease-in infinite; }
+.rpal .bfx-tear { animation: bfx-tear 1s ease-in infinite; animation-delay: calc(var(--i) * -.25s); }
+.rpal .bfx-dot { animation: bfx-dot 1.2s ease-in-out infinite; animation-delay: calc(var(--i) * .2s); }
+.rpal .bfx-halo { animation: bfx-twinkle .6s ease-in-out infinite alternate; }
+.rpal .bfx-bang-in, .rpal .bfx-q-in { animation: bfx-pop .4s cubic-bezier(.3, 1.8, .5, 1) both; }
+.rpal .bfx-vein-in { animation: bfx-throb .6s ease-in-out infinite alternate; }
+.rpal .bfx-rec { animation: bfx-rec 1.2s steps(2) infinite; }
+@keyframes bfx-float { 0% { opacity: 0; transform: translate(0, 4px) scale(.7); } 25%, 70% { opacity: 1; } 100% { opacity: 0; transform: translate(4px, -10px) scale(1.05); } }
+@keyframes bfx-twinkle { from { transform: scale(.6) rotate(0); opacity: .6; } to { transform: scale(1.1) rotate(20deg); opacity: 1; } }
+@keyframes bfx-puff { 0% { opacity: 0; transform: translate(0, 4px) scale(.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(0, -12px) scale(1.2); } }
+@keyframes bfx-drip { 0% { opacity: 0; transform: translateY(-2px); } 20%, 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(9px); } }
+@keyframes bfx-tear { 0% { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: 1; transform: translateY(2px) scale(1); } 100% { opacity: 0; transform: translateY(22px) scale(.9); } }
+@keyframes bfx-dot { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes bfx-pop { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+@keyframes bfx-throb { from { transform: scale(.85); } to { transform: scale(1.15); } }
+@keyframes bfx-rec { 0% { opacity: 1; } 100% { opacity: .15; } }
+
+/* data-act: a little loop that belongs to the mood. These animate the mood wrappers, so they fold the pose in. */
+.rpal[data-act="buzz"] .bb-ant-pose { animation: bb-act-buzz .24s ease-in-out infinite alternate; }
+.rpal[data-act="perk"] .bb-ant-pose { animation: bb-act-perk .5s cubic-bezier(.3, 1.9, .5, 1) both; }
+.rpal[data-act="ponder"] .bb-ant-pose { animation: bb-act-ponder 1.6s ease-in-out infinite; }
+.rpal[data-act="ponder"] .bb-tune { animation: bb-tune-seek 2.4s ease-in-out infinite !important; }
+.rpal[data-act="glance"] .bb-glance { animation: bb-act-glance 6s ease-in-out infinite; }
+.rpal[data-act="glance"] .bb-tune { animation: bb-tune-seek 3.6s ease-in-out infinite !important; }
+.rpal[data-act="doze"] .bb-pose { animation: bb-act-doze 4s ease-in-out infinite; }
+.rpal[data-act="shiver"] .bb-pose { animation: bb-act-shiver .14s steps(2) infinite; }
+.rpal[data-act="shiver"] .bb-ant-pose { animation: bb-act-buzz .1s ease-in-out infinite alternate; }
+.rpal[data-act="sway"] .bb-pose { animation: bb-act-sway 2.4s ease-in-out infinite; }
+.rpal[data-act="boop"] .bb-ant-pose { animation: bb-act-buzz .08s ease-in-out 6 alternate; }
+.rpal[data-act="boop"] .bb-pose { animation: bb-act-boop .5s cubic-bezier(.3, 1.8, .5, 1) both; }
+.rpal[data-act="startle"] .bb-handle-pose { animation: bb-act-handle .5s cubic-bezier(.3, 1.9, .5, 1) both; }
+.rpal[data-act="sob"] .bb-pose { animation: bb-act-sob 1.1s ease-in-out infinite; }
+.rpal[data-act="sob"] .bb-jaw { animation: bb-act-sob-jaw .55s ease-in-out infinite alternate; }
+.rpal[data-act="fume"] .bb-pose { animation: bb-act-shiver .1s steps(2) infinite; }
+.rpal[data-act="fume"] .bb-spk { animation: bb-pump .6s ease-out infinite; }
+.rpal[data-act="woozy"] .bb-pose { animation: bb-act-woozy 2.4s ease-in-out infinite; }
+.rpal[data-act="woozy"] .bb-swirl { animation: pl-spin 1s linear infinite; }
+.rpal[data-act="woozy"] .bb-eye-r .bb-swirl { animation-direction: reverse; }
+.rpal[data-act="laugh"] .bb-pose { animation: bb-act-laugh .3s ease-in-out infinite alternate; }
+.rpal[data-act="laugh"] .bb-jaw { animation: bb-act-laugh-jaw .15s ease-in-out infinite alternate; }
+@keyframes bb-act-buzz { from { transform: rotate(calc(var(--ant) * 1deg - 4deg)); } to { transform: rotate(calc(var(--ant) * 1deg + 4deg)); } }
+@keyframes bb-act-perk { 0% { transform: rotate(0deg) scale(1); } 60% { transform: rotate(calc(var(--ant) * 1deg)) scale(1.15); } 100% { transform: rotate(calc(var(--ant) * 1deg)) scale(1); } }
+@keyframes bb-act-ponder { 0%, 100% { transform: rotate(calc(var(--ant) * 1deg)); } 30% { transform: rotate(calc(var(--ant) * 1deg - 12deg)); } 60% { transform: rotate(calc(var(--ant) * 1deg + 6deg)); } }
+@keyframes bb-act-glance { 0%, 20%, 100% { transform: translate(0, 0); } 28%, 45% { transform: translate(-3px, 1px); } 55%, 75% { transform: translate(3px, 1px); } }
+@keyframes bb-tune-seek { 0%, 100% { transform: translateX(-30px); } 50% { transform: translateX(40px); } }
+@keyframes bb-act-doze { 0%, 100% { transform: rotate(calc(var(--lean) * 1deg)) scale(1, 1); } 50% { transform: rotate(calc(var(--lean) * 1deg + 2deg)) scale(1.01, .98); } }
+@keyframes bb-act-shiver { from { transform: rotate(calc(var(--lean) * 1deg)) translateX(-.8px); } to { transform: rotate(calc(var(--lean) * 1deg)) translateX(.8px); } }
+@keyframes bb-act-sway { 0%, 100% { transform: rotate(calc(var(--lean) * 1deg - 3deg)); } 50% { transform: rotate(calc(var(--lean) * 1deg + 3deg)); } }
+@keyframes bb-act-boop { 0% { transform: scale(1, 1); } 30% { transform: scale(1.06, .9); } 60% { transform: scale(.97, 1.05); } 100% { transform: scale(1, 1); } }
+@keyframes bb-act-handle { 0% { transform: translateY(0); } 100% { transform: translateY(calc(var(--handle) * 1px)); } }
+@keyframes bb-act-sob { 0%, 100% { transform: rotate(calc(var(--lean) * 1deg)) translateY(0); } 15%, 45% { transform: rotate(calc(var(--lean) * 1deg)) translateY(1.5px); } 30% { transform: rotate(calc(var(--lean) * 1deg)) translateY(-.5px); } }
+@keyframes bb-act-sob-jaw { from { transform: scaleY(calc(1 - var(--door) * .86)); } to { transform: scaleY(calc(1 - var(--door) * .4)); } }
+@keyframes bb-act-woozy { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bb-act-laugh { from { transform: rotate(calc(var(--lean) * 1deg)) translateY(0) scale(1, 1); } to { transform: rotate(calc(var(--lean) * 1deg - 2deg)) translateY(-1.5px) scale(.99, 1.02); } }
+@keyframes bb-act-laugh-jaw { from { transform: scaleY(calc(1 - var(--door) * .86)); } to { transform: scaleY(calc(1 - var(--door) * .5)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rpal[data-design^="wmix"] { transition: none; }
+  .rpal [class*="bfx"], .rpal[data-act] :is(.bb-pose, .bb-ant-pose, .bb-handle-pose, .bb-jaw, .bb-glance, .bb-swirl) { animation-iteration-count: 1 !important; }
+}
+
+/* =========================== WORKSHOP BOT ===========================
+   Parts: .bt-sh (shoulder) > .bt-el (elbow) > .bt-wr (wrist) > .bt-fa / .bt-fb (claw fingers), .bt-held (the nut
+   in the claw), .bt-floor (the nut on the floor), .bt-wheel, .bt-light, .bt-beacon, .bt-note, .bt-bang.
+   Roller also has .bt-sh2 / .bt-wr2 (the left arm). The Fetch pose differs per design: --f-sh, --f-el, --f-wr. */
+.rpal[data-kind="bot"] {
+  --bt-mint: #8CC7B8; --bt-mint-d: #5E9C8E; --bt-butter: #F3DDB0; --bt-terra: #C9663C; --bt-lamp: #F2C46B;
+  --f-sh: 68deg; --f-el: -19deg; --f-wr: -49deg;
+}
+.rpal[data-design="roller"] { --f-sh: 82deg; --f-el: -70deg; --f-wr: -12deg; }
+.rpal .bt-light { fill: var(--bt-lamp); }
+.rpal .bt-held, .rpal .bt-floor, .rpal .bt-note, .rpal .bt-bang { opacity: 0; }
+.rpal .bt-note { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* faces */
+.rpal[data-kind="bot"][data-anim="boogie"] .pl-eyes, .rpal[data-kind="bot"][data-anim="wave"] .pl-eyes { display: none; }
+.rpal[data-kind="bot"][data-anim="boogie"] .pl-happy, .rpal[data-kind="bot"][data-anim="wave"] .pl-happy { display: inline; }
+.rpal[data-kind="bot"]:is([data-anim="boogie"], [data-anim="alarm"]) .pl-m-smile { display: none; }
+.rpal[data-kind="bot"]:is([data-anim="boogie"], [data-anim="alarm"]) .pl-m-open { display: inline; }
+
+/* Idle: breathe and blink (shared), the arm drifts, the claw clicks now and then, the lamp glows */
+.rpal[data-kind="bot"][data-anim="idle"] .bt-sh { animation: bt-drift 4.8s ease-in-out infinite; }
+.rpal[data-kind="bot"][data-anim="idle"] .bt-el { animation: bt-drift-el 4.8s ease-in-out infinite; }
+.rpal[data-kind="bot"][data-anim="idle"] .bt-sh2 { animation: bt-drift 4.8s ease-in-out -2.4s infinite reverse; }
+.rpal[data-kind="bot"][data-anim="idle"] .bt-fa { animation: bt-click-a 4.8s infinite; }
+.rpal[data-kind="bot"][data-anim="idle"] .bt-fb { animation: bt-click-b 4.8s infinite; }
+.rpal[data-kind="bot"][data-anim="idle"] .bt-light { animation: bt-glow 2.4s ease-in-out infinite alternate; }
+@keyframes bt-drift { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
+@keyframes bt-drift-el { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(6deg); } }
+@keyframes bt-click-a { 0%, 78%, 84%, 90%, 100% { transform: rotate(0); } 81%, 87% { transform: rotate(16deg); } }
+@keyframes bt-click-b { 0%, 78%, 84%, 90%, 100% { transform: rotate(0); } 81%, 87% { transform: rotate(-16deg); } }
+@keyframes bt-glow { from { opacity: .7; } to { opacity: 1; } }
+
+/* Boogie (loop): steps side to side on the wheels, the arm pumps on the beat, the claw snaps, notes */
+.rpal[data-anim="boogie"] .pl-hop { animation: bt-step var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .pl-body { animation: pl-bounce4 var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .pl-tilt { animation: pl-lean var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .bt-wheel { animation: bt-roll var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .bt-sh { animation: bt-pump var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .bt-el { animation: bt-pump-el var(--pl-bar) ease-in-out infinite; }
+.rpal[data-anim="boogie"] .bt-wr { animation: bt-flick var(--pl-beat) ease-in-out infinite alternate; }
+.rpal[data-anim="boogie"] .bt-sh2 { animation: bt-pump var(--pl-bar) ease-in-out calc(var(--pl-bar) * -.5) infinite; }
+.rpal[data-anim="boogie"] .bt-fa { animation: bt-snap-a var(--pl-beat) ease-out infinite; }
+.rpal[data-anim="boogie"] .bt-fb { animation: bt-snap-b var(--pl-beat) ease-out infinite; }
+.rpal[data-anim="boogie"] .bt-light { animation: bt-blink var(--pl-beat) steps(1, end) infinite; }
+.rpal[data-anim="boogie"] .bt-note { animation: pl-note var(--pl-bar) ease-out infinite; }
+.rpal[data-anim="boogie"] .bt-note:nth-of-type(2) { animation-delay: calc(var(--pl-bar) * -.5); }
+@keyframes bt-step { 0%, 50%, 100% { transform: translate(0, 0); } 15.6% { transform: translate(-5px, -5px); } 25% { transform: translate(-6px, 0); } 65.6% { transform: translate(5px, -5px); } 75% { transform: translate(6px, 0); } }
+@keyframes bt-roll { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(-110deg); } 75% { transform: rotate(110deg); } }
+@keyframes bt-pump { 0%, 50%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(-14deg); } 37.5%, 87.5% { transform: rotate(6deg); } }
+@keyframes bt-pump-el { 0%, 50%, 100% { transform: rotate(0); } 12.5%, 62.5% { transform: rotate(-22deg); } 37.5%, 87.5% { transform: rotate(10deg); } }
+@keyframes bt-flick { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+@keyframes bt-snap-a { 0% { transform: rotate(20deg); } 35%, 100% { transform: rotate(0); } }
+@keyframes bt-snap-b { 0% { transform: rotate(-20deg); } 35%, 100% { transform: rotate(0); } }
+@keyframes bt-blink { 0% { fill: var(--pl-glow); } 50% { fill: #E2563B; } }
+
+/* Wave (once): the arm swings up, the claw opens and waggles hello, then settles */
+.rpal[data-anim="wave"] .bt-sh { animation: bt-wave-sh 2s ease-in-out both; }
+.rpal[data-anim="wave"] .bt-el { animation: bt-wave-el 2s ease-in-out both; }
+.rpal[data-anim="wave"] .bt-wr { animation: bt-wave-wr 2s ease-in-out both; }
+.rpal[data-anim="wave"] .bt-fa { animation: bt-wave-fa 2s ease-in-out both; }
+.rpal[data-anim="wave"] .bt-fb { animation: bt-wave-fb 2s ease-in-out both; }
+.rpal[data-anim="wave"] .pl-tilt { animation: bt-wave-lean 2s ease-in-out both; }
+@keyframes bt-wave-sh { 0%, 100% { transform: rotate(0); } 18%, 82% { transform: rotate(-22deg); } }
+@keyframes bt-wave-el { 0%, 100% { transform: rotate(0); } 18%, 82% { transform: rotate(-62deg); } }
+@keyframes bt-wave-wr {
+  0%, 18%, 100% { transform: rotate(0); }
+  28%, 48%, 68% { transform: rotate(-28deg); }
+  38%, 58%, 78% { transform: rotate(24deg); }
+}
+@keyframes bt-wave-fa { 0%, 12%, 88%, 100% { transform: rotate(0); } 20%, 80% { transform: rotate(24deg); } }
+@keyframes bt-wave-fb { 0%, 12%, 88%, 100% { transform: rotate(0); } 20%, 80% { transform: rotate(-24deg); } }
+@keyframes bt-wave-lean { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-3deg); } }
+
+/* Fetch (once): spots a nut, reaches down for it, grabs it, holds it up to show you, then tucks it away */
+.rpal[data-anim="fetch"] .bt-sh { animation: bt-fetch-sh 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .bt-el { animation: bt-fetch-el 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .bt-wr { animation: bt-fetch-wr 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .bt-fa { animation: bt-fetch-fa 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .bt-fb { animation: bt-fetch-fb 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .bt-floor { animation: bt-fetch-floor 3s both; }
+.rpal[data-anim="fetch"] .bt-held { animation: bt-fetch-held 3s both; }
+.rpal[data-anim="fetch"] .pl-eyes { animation: bt-fetch-look 3s ease-in-out both; }
+.rpal[data-anim="fetch"] .pl-tilt { animation: bt-fetch-lean 3s ease-in-out both; }
+@keyframes bt-fetch-sh { 0%, 10% { transform: rotate(0); } 32%, 42% { transform: rotate(var(--f-sh)); } 60%, 80% { transform: rotate(-18deg); } 100% { transform: rotate(0); } }
+@keyframes bt-fetch-el { 0%, 10% { transform: rotate(0); } 32%, 42% { transform: rotate(var(--f-el)); } 60%, 80% { transform: rotate(-48deg); } 100% { transform: rotate(0); } }
+@keyframes bt-fetch-wr { 0%, 10% { transform: rotate(0); } 32%, 42% { transform: rotate(var(--f-wr)); } 60% { transform: rotate(20deg); } 66% { transform: rotate(-10deg); } 72% { transform: rotate(20deg); } 80% { transform: rotate(0); } 100% { transform: rotate(0); } }
+@keyframes bt-fetch-fa { 0%, 20% { transform: rotate(0); } 28%, 34% { transform: rotate(22deg); } 40%, 100% { transform: rotate(0); } }
+@keyframes bt-fetch-fb { 0%, 20% { transform: rotate(0); } 28%, 34% { transform: rotate(-22deg); } 40%, 100% { transform: rotate(0); } }
+@keyframes bt-fetch-floor { 0% { opacity: 0; transform: scale(.4); } 8%, 39.9% { opacity: 1; transform: scale(1); } 40%, 100% { opacity: 0; } }
+@keyframes bt-fetch-held { 0%, 39.9% { opacity: 0; } 40%, 86% { opacity: 1; } 96%, 100% { opacity: 0; } }
+@keyframes bt-fetch-look { 0%, 4% { transform: translate(0, 0); } 10%, 42% { transform: translate(3px, 2.5px); } 58%, 82% { transform: translate(2.5px, -3px); } 100% { transform: translate(0, 0); } }
+@keyframes bt-fetch-lean { 0%, 10% { transform: rotate(0); } 32%, 42% { transform: rotate(4deg); } 60%, 80% { transform: rotate(-2deg); } 100% { transform: rotate(0); } }
+
+/* Alarm (once): the lamp flashes red, he jumps, the arm flails and the claw snaps, then he shakes it off */
+.rpal[data-anim="alarm"] .bt-light { animation: bt-alarm-light 1.8s steps(1, end) both; }
+.rpal[data-anim="alarm"] .bt-beacon { animation: bt-beacon 1.8s both; }
+.rpal[data-anim="alarm"] .pl-hop { animation: bt-jump 1.8s both; }
+.rpal[data-anim="alarm"] .pl-body { animation: bt-shake 1.8s both; }
+.rpal[data-anim="alarm"] .bt-sh { animation: bt-flail 1.8s ease-in-out both; }
+.rpal[data-anim="alarm"] .bt-sh2 { animation: bt-flail2 1.8s ease-in-out both; }
+.rpal[data-anim="alarm"] .bt-el { animation: bt-flail-el 1.8s ease-in-out both; }
+.rpal[data-anim="alarm"] .bt-fa { animation: bt-chatter-a .12s linear 10 alternate both; }
+.rpal[data-anim="alarm"] .bt-fb { animation: bt-chatter-b .12s linear 10 alternate both; }
+.rpal[data-anim="alarm"] .bt-bang { animation: bt-bang 1.8s both; }
+.rpal[data-anim="alarm"] .pl-eyes { animation: bb-wide 1.8s both; }
+@keyframes bt-alarm-light { 0%, 20%, 40%, 60% { fill: #E2563B; } 10%, 30%, 50%, 70%, 100% { fill: var(--bt-lamp); } }
+@keyframes bt-beacon { 0%, 100% { transform: scale(1); } 10%, 60% { transform: scale(1.25); } }
+@keyframes bt-jump { 0%, 4% { transform: translateY(0); } 16% { transform: translateY(-16px); } 30%, 100% { transform: translateY(0); } }
+@keyframes bt-shake { 0%, 30% { transform: scale(1, 1); } 33% { transform: scale(1.06, .92); } 40%, 50%, 60% { transform: rotate(-2deg); } 45%, 55%, 65% { transform: rotate(2deg); } 72%, 100% { transform: rotate(0) scale(1, 1); } }
+@keyframes bt-flail { 0%, 4% { transform: rotate(0); } 16% { transform: rotate(-38deg); } 24% { transform: rotate(-24deg); } 32% { transform: rotate(-40deg); } 40% { transform: rotate(-26deg); } 70% { transform: rotate(-10deg); } 100% { transform: rotate(0); } }
+@keyframes bt-flail2 { 0%, 4% { transform: rotate(0); } 16% { transform: rotate(38deg); } 24% { transform: rotate(24deg); } 32% { transform: rotate(40deg); } 40% { transform: rotate(26deg); } 70% { transform: rotate(10deg); } 100% { transform: rotate(0); } }
+@keyframes bt-flail-el { 0%, 4% { transform: rotate(0); } 16%, 40% { transform: rotate(-40deg); } 28% { transform: rotate(-20deg); } 100% { transform: rotate(0); } }
+@keyframes bt-chatter-a { from { transform: rotate(0); } to { transform: rotate(22deg); } }
+@keyframes bt-chatter-b { from { transform: rotate(0); } to { transform: rotate(-22deg); } }
+@keyframes bt-bang { 0%, 6% { opacity: 0; transform: scale(.6); } 14%, 50% { opacity: 1; transform: scale(1); } 64%, 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rpal[data-kind="bot"] * { animation-iteration-count: 1 !important; }
+}

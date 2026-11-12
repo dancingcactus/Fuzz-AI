@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boombox Moods</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="pals.css">
+<style>
+  body { padding: 0 16px 64px; }
+  main { max-width: 1100px; margin: 0 auto; }
+  header.top { padding: 28px 0 8px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+  header.top h1 { font-family: var(--font-display); font-size: 26px; }
+  header.top p { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 40px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 12px; max-width: 74ch; }
+  select { font: inherit; padding: 6px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); }
+  .toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+  .toggles input[type=range] { width: 120px; accent-color: var(--accent); }
+
+  .hero { background: var(--field); border-radius: 22px; padding: 18px 16px 0; margin-top: 12px; }
+  .hero .row { display: flex; align-items: end; justify-content: center; gap: 18px; flex-wrap: wrap; }
+  .hero #bot { width: 150px; flex: none; }
+  .hero .big { width: min(100%, 560px); cursor: pointer; }
+  .hero .big .rpal { width: 100%; height: auto; }
+  .hero .floor { height: 12px; background: var(--line); opacity: .5; margin: 2px -16px 0; border-radius: 0 0 22px 22px; }
+  .say { min-height: 1.5em; font-size: 14px; color: var(--muted); margin: 10px 0 0; text-align: center; }
+
+  .group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0; }
+  .group > span { font-size: 13px; color: var(--muted); min-width: 92px; }
+  .group button { padding: 7px 12px; border-radius: 12px; border: var(--bw) solid var(--line); background: var(--surface); font-size: 14px; color: var(--ink); cursor: pointer; }
+  .group button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+  .sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; padding: 10px 10px 8px; cursor: pointer; text-align: left; font: inherit; color: var(--ink); }
+  .card:hover { border-color: var(--accent); }
+  .card .rpal { width: 100%; height: auto; }
+  .card b { font-family: var(--font-display); font-size: 15px; display: block; margin-top: 2px; }
+  .card small { color: var(--muted); font-size: 12px; }
+
+  .smalls { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .smalls figure { margin: 0; display: grid; justify-items: center; gap: 4px; }
+  .smalls .tiles { display: flex; gap: 4px; align-items: end; }
+  .tile { border-radius: 8px; padding: 4px; background: #FBF5EC; border: 1px solid #E8DCCB; display: grid; }
+  .tile.dk { background: #1E1814; border-color: #3A2E26; }
+  .smalls figcaption { font-size: 11.5px; color: var(--muted); }
+
+  .notes { columns: 2 320px; gap: 28px; }
+  .notes li { margin-bottom: 8px; break-inside: avoid; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Boombox moods</h1>
+      <p>Reels + door, taken further: can he show as many feelings as Fuzz without arms or a screen? A mood is
+        separate from the move, so every mood holds while he grooves, drops the bass or rewinds. Click him to replay
+        a move.</p>
+    </div>
+    <div class="toggles">
+      <label>Face <select id="face"><option value="wmixL">Bigger</option><option value="wmix">As before</option></select></label>
+      <label>Tempo <input type="range" id="bpm" min="70" max="160" step="2" value="120"> <span id="bpmv">120 bpm</span></label>
+      <label>Page <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="row">
+      <div id="fuzz"></div>
+      <div class="big" id="big"></div>
+    </div>
+    <div class="floor"></div>
+  </section>
+  <p class="say" id="say"></p>
+  <div class="group" id="g-fuzz"><span>Fuzz's moods</span></div>
+  <div class="group" id="g-more"><span>More</span></div>
+  <div class="group" id="g-move"><span>Move</span></div>
+
+  <h2>Every mood</h2>
+  <p class="sub">Each one still, at card size. Click one to try it on the big one. The first thirteen are Fuzz's
+    moods, so Fuzz shows the same one beside him.</p>
+  <div class="sheet" id="sheet"></div>
+
+  <h2>Small</h2>
+  <p class="sub">The same moods at 64 and 32 px tall, on light and dark. Can you tell them apart without the labels?</p>
+  <div class="smalls" id="smalls"></div>
+
+  <h2>What carries a mood</h2>
+  <ul class="notes">
+    <li><b>Eyelids in the reel windows.</b> An upper lid that drops and tilts (sleepy, sad, grumpy, smug) and a
+      lower lid that rises for a happy squint. The lid angle does the job brows would, since there's no room for
+      brows under the tuner.</li>
+    <li><b>The reels.</b> Where they look, how big they are (small with fright, big with eagerness), and how fast
+      they turn: racing when he's happy, crawling when he's bored, stopped when he's off, turning opposite ways when
+      he's dizzy. They also swap for hearts, stars, spirals and shut-eye arcs.</li>
+    <li><b>The door.</b> Eight mouths drawn on it (smile, grin, flat, frown, smirk, wobble, "o" and gritted teeth),
+      and it opens to gasp, laugh, sob or sing. Dizzy spills a loop of tape like a tongue.</li>
+    <li><b>The hardware.</b> The antenna perks up or droops, the handle jumps like raised brows, the tuner needle
+      seeks while he thinks, a red record light blinks while he works, and the bulb on the antenna lights up when
+      he's eager.</li>
+  </ul>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="pals.js"></script>
+<script>
+(function () {
+  var M = Pals.moods, names = Object.keys(M);
+  var MOVES = [['idle', 'Idle'], ['groove', 'Groove'], ['bass', 'Bass drop'], ['rewind', 'Rewind'], ['surprise', 'Surprise']];
+  var SAY = {
+    idle: 'Content. A resting lid, a smile, reels turning slowly.',
+    happy: 'Happy: the lower lids rise into a squint, a big grin, the reels race and the antenna buzzes.',
+    eager: 'Eager: wide open, big reels, the handle lifts, the antenna perks up and its bulb lights.',
+    proud: 'Proud: shut happy eyes, a grin, leaning back a little, sparkles.',
+    thinking: 'Thinking: looking up and away, a flat mouth, the tuner needle seeks, the antenna ponders.',
+    working: 'Working: eyes glance from side to side, the record light blinks, the tuner seeks.',
+    sleepy: 'Sleepy: heavy lids, the reels crawl, the antenna droops, a slow doze.',
+    sheepish: 'Sheepish: looking down and away, a wobbly mouth, blushing, a bead of sweat.',
+    worried: 'Worried: lids tilt up in the middle, small reels, gritted teeth, a shiver.',
+    bored: 'Bored: half shut, looking off to the side, the reels barely turn.',
+    grateful: 'Grateful: heart eyes, a soft smile, a sway, hearts float up.',
+    boop: 'Boop: eyes go wide, an "o", the handle jumps, the antenna boings.',
+    chill: 'Off: eyes shut, the reels stopped, the antenna all the way down.',
+    surprised: 'Surprised: tiny reels, the door drops open, the handle shoots up.',
+    sad: 'Sad: lids tilt down at the outside, looking down, a frown, the antenna flops over.',
+    crying: 'Crying: tears from both windows, a sobbing door.',
+    grumpy: 'Grumpy: lids tilt down in the middle, a frown, steam from the woofers, a throbbing vein.',
+    dizzy: 'Dizzy: spiral eyes spinning opposite ways, a loop of tape hanging out, a woozy sway.',
+    wink: 'Wink: one eye shut, a smirk, a sparkle.',
+    smug: 'Smug: half lids from above and below, a sideways look, a smirk.',
+    laugh: 'Laughing: shut happy eyes, the door flaps open, he bounces.',
+    starstruck: 'Starstruck: star eyes, door open, sparkles.'
+  };
+  var MOVESAY = {
+    groove: 'Groove: the mood holds while he bounces on the beat and the door sings.',
+    bass: 'Bass drop, in this mood.', rewind: 'Rewind, in this mood.', surprise: 'Surprise, in this mood.'
+  };
+  var big = document.getElementById('big'), fuzzBox = document.getElementById('fuzz'), say = document.getElementById('say');
+  var cur = { mood: 'idle', move: 'idle' };
+
+  var faceSel = document.getElementById('face'), design = faceSel.value;
+  big.innerHTML = Pals.svg('boombox', design, { mood: 'idle', label: 'Boombox, Reels + door' });
+  var bigEl = big.firstChild;
+  fuzzBox.innerHTML = window.FUZZ_SVG;
+  var bot = document.getElementById('bot');
+
+  function button(group, label, on) {
+    var b = document.createElement('button');
+    b.textContent = label; b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', on);
+    document.getElementById(group).appendChild(b);
+    return b;
+  }
+  function press(group, btn) {
+    document.querySelectorAll('#g-fuzz button, #g-more button').forEach(function (b) { if (group === 'mood') b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+    if (group === 'move') document.querySelectorAll('#g-move button').forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+  }
+  var moodBtns = {};
+  function setMood(name) {
+    cur.mood = name;
+    Pals.mood(bigEl, name);
+    if (bot) bot.setAttribute('data-mood', M[name].fuzz || 'idle');
+    press('mood', moodBtns[name]);
+    say.textContent = SAY[name] + (M[name].fuzz ? '' : ' (Fuzz has no mood for this one, so he idles.)');
+  }
+  names.forEach(function (n) {
+    moodBtns[n] = button(M[n].fuzz ? 'g-fuzz' : 'g-more', M[n].label, function () { setMood(n); });
+  });
+  var moveBtns = {};
+  MOVES.forEach(function (mv) {
+    moveBtns[mv[0]] = button('g-move', mv[1], function () {
+      cur.move = mv[0];
+      Pals.play(bigEl, mv[0]);
+      press('move', moveBtns[mv[0]]);
+      say.textContent = MOVESAY[mv[0]] || SAY[cur.mood];
+    });
+  });
+  big.firstChild.addEventListener('pal:end', function () { press('move', moveBtns[bigEl._plLoop || 'idle']); });
+  big.addEventListener('click', function () { Pals.play(bigEl, cur.move); });
+  setMood('idle'); press('move', moveBtns.idle);
+
+  var sheet = document.getElementById('sheet'), smalls = document.getElementById('smalls');
+  function drawAll() {
+  sheet.innerHTML = ''; smalls.innerHTML = '';
+  names.forEach(function (n) {
+    var c = document.createElement('button');
+    c.className = 'card';
+    c.innerHTML = Pals.svg('boombox', design, { mood: n, label: 'Boombox, ' + M[n].label }) + '<b>' + M[n].label + '</b><small>' + (M[n].fuzz ? 'Fuzz: ' + M[n].fuzz : 'new') + '</small>';
+    c.addEventListener('click', function () { setMood(n); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    sheet.appendChild(c);
+    var fig = document.createElement('figure');
+    fig.innerHTML = '<div class="tiles"><span class="tile">' + Pals.svg('boombox', design, { mood: n, size: 64 }) + '</span></div>' +
+      '<div class="tiles"><span class="tile">' + Pals.svg('boombox', design, { mood: n, size: 32 }) + '</span><span class="tile dk">' + Pals.svg('boombox', design, { mood: n, size: 32 }) + '</span></div>' +
+      '<figcaption>' + M[n].label + '</figcaption>';
+    smalls.appendChild(fig);
+  });
+  }
+  drawAll();
+  faceSel.addEventListener('change', function () {
+    design = faceSel.value;
+    big.innerHTML = Pals.svg('boombox', design, { mood: cur.mood, anim: cur.move, label: 'Boombox, Reels + door' });
+    bigEl = big.firstChild;
+    bigEl.addEventListener('pal:end', function () { press('move', moveBtns[bigEl._plLoop || 'idle']); });
+    drawAll();
+  });
+
+  var bpm = document.getElementById('bpm');
+  bpm.addEventListener('input', function () {
+    document.querySelectorAll('.rpal').forEach(function (s) { s.style.setProperty('--pl-beat', (60 / bpm.value) + 's'); });
+    document.getElementById('bpmv').textContent = bpm.value + ' bpm';
+  });
+  var mode = document.getElementById('mode');
+  mode.value = Themes.resolveMode('auto');
+  function theme() { Themes.apply('terracotta', mode.value, 'standard'); }
+  mode.addEventListener('change', theme);
+  theme();
+})();
+</script>
+</body>
+</html>

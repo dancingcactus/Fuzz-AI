@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Pals</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="../spike-cactus/spike.css">
+<link rel="stylesheet" href="pals.css">
+<style>
+  body { padding: 0 16px 64px; }
+  main { max-width: 1040px; margin: 0 auto; }
+  header.top { padding: 28px 0 8px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+  header.top h1 { font-family: var(--font-display); font-size: 26px; }
+  header.top p { color: var(--muted); max-width: 66ch; margin: 6px 0 0; }
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 40px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 12px; max-width: 72ch; }
+  select { font: inherit; padding: 6px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); }
+
+  .moves { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+  .moves button { padding: 8px 13px; border-radius: 12px; border: var(--bw) solid var(--line); background: var(--surface); font-size: 14px; color: var(--ink); cursor: pointer; }
+  .moves button small { color: var(--muted); margin-left: 4px; }
+  .moves button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .moves button[aria-pressed="true"] small { color: inherit; }
+  .say { min-height: 1.5em; font-size: 14px; color: var(--muted); margin: 0 0 12px; }
+
+  .designs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; }
+  .design { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 20px; padding: 14px 16px 16px; box-shadow: var(--shadow); }
+  .design .stage { display: grid; place-items: end center; height: 280px; cursor: pointer; }
+  .design .stage .rpal { width: 260px; height: 260px; }
+  .design .stage .rpal[data-wide] { width: 370px; max-width: 100%; height: auto; }
+  .design h3 { font-family: var(--font-display); font-size: 16px; margin-top: 6px; }
+  .design p { color: var(--muted); font-size: 13.5px; margin: 2px 0 0; }
+  .design .icons { display: flex; align-items: end; gap: 10px; margin-top: 12px; }
+  .icons .tile { border-radius: 10px; padding: 5px; background: #FBF5EC; border: 1px solid #E8DCCB; display: grid; }
+  .icons .tile.dk { background: #1E1814; border-color: #3A2E26; }
+  .icons span { font-size: 11px; color: var(--muted); align-self: center; }
+
+  .lineup { background: var(--field); border-radius: 20px; padding: 18px 16px 0; }
+  .lineup .row { display: flex; align-items: end; justify-content: center; gap: 4px; flex-wrap: wrap; }
+  .lineup .row > * { flex: none; }
+  .lineup #bot { width: 120px; }
+  .lineup .spike { height: 116px; width: auto; }
+  .lineup .rpal { width: 130px; height: 130px; }
+  .lineup .rpal[data-wide] { width: 200px; height: 136px; }
+  .lineup .floor { height: 12px; background: var(--line); opacity: .5; margin: 2px -16px 0; border-radius: 0 0 20px 20px; }
+  .picks { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+  .picks label { display: inline-flex; align-items: center; gap: 6px; }
+  .toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+  .toggles input[type=range] { width: 120px; accent-color: var(--accent); }
+
+  .notes { columns: 2 300px; gap: 28px; }
+  .notes li { margin-bottom: 8px; break-inside: avoid; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Retro pals</h1>
+      <p>Two more old machines for Fuzz's family: a boombox and a rotary phone, each in two designs, with a few moves.
+        Neither has arms, so they test how far a gimmick (speakers, tape reels, a handset, a curly cord) can carry a
+        character. Click any pal to replay the move.</p>
+    </div>
+    <div class="toggles">
+      <label>Tempo <input type="range" id="bpm" min="70" max="160" step="2" value="120"> <span id="bpmv">120 bpm</span></label>
+      <label>Page <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </div>
+  </header>
+
+  <div id="kinds"></div>
+
+  <h2>The family</h2>
+  <p class="sub">Fuzz, Spike and the new pals at the same scale. <b>Party</b> starts everyone on the same beat.</p>
+  <div class="lineup">
+    <div class="moves" id="party" style="justify-content:center;margin-top:0">
+      <button data-party="idle" aria-pressed="true">Hang out</button>
+      <button data-party="party">Party</button>
+    </div>
+    <div class="row" id="family"></div>
+    <div class="floor"></div>
+  </div>
+  <div class="picks">
+    <label>Boombox <select id="pickB"></select></label>
+    <label>Phone <select id="pickP"></select></label>
+    <label>Workshop bot <select id="pickR"></select></label>
+  </div>
+
+  <h2>Notes</h2>
+  <ul class="notes">
+    <li><b>Same family rules.</b> The same face as Fuzz and Spike, the warm foundation colours, a dark ink outline and a
+      soft ground shadow. The boombox is cream with Fuzz's terracotta and green keys; the phone is honey.</li>
+    <li><b>Same shape as Spike.</b> One SVG per pal, named groups, one CSS animation per group, pivots in viewBox px,
+      no ids. <code>pals.css</code> and <code>pals.js</code> stand alone.</li>
+    <li><b>Mood signals.</b> Boombox: the speakers pump, the reels turn (backwards to rewind), the antenna shoots up,
+      notes float out. Phone: the handset rattles, lifts like a hat or slams, the dial turns, the cord jiggles.</li>
+  </ul>
+</main>
+
+<script src="../../js/themes.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="../spike-cactus/spike.js"></script>
+<script src="pals.js"></script>
+<script>
+(function () {
+  var INFO = {
+    boombox: {
+      idle: 'Idle: breathing, a blink, the reels turn slowly, the antenna sways.',
+      groove: 'Groove: bounces on every beat, the speakers pump, the keys press in turn, notes float out.',
+      bass: 'Bass drop: a crouch, then BOOM. The speakers blow out, shockwaves, the handle jumps, a wobbly settle.',
+      rewind: 'Rewind: the reels whirr backwards, he jitters, a rewind sign pops up, then a click and a hop.',
+      surprise: 'Surprise: the antenna shoots up, the handle jumps, eyes go wide.'
+    },
+    bot: {
+      idle: 'Idle: breathing, a blink, the arm drifts, the claw clicks now and then, the lamp glows.',
+      boogie: 'Boogie: steps side to side on his wheels, the arm pumps on the beat, the claw snaps, the lamp blinks.',
+      wave: 'Wave: the arm swings up, the claw opens and waggles hello.',
+      fetch: 'Fetch: spots a nut on the floor, reaches down, grabs it and holds it up to show you.',
+      alarm: 'Alarm: the lamp flashes red, he jumps, the arm flails and the claw chatters, then he shakes it off.'
+    },
+    phone: {
+      idle: 'Idle: breathing, a blink, the cord sways.',
+      bop: 'Bop: bounces on the beat, the handset hops off the cradle, notes float up.',
+      ring: 'Ring: two bursts a bar. The handset rattles on the cradle, he shakes, ring lines flash.',
+      dial: 'Dial: the dial turns to a number and ticks back, twice, and his eyes follow it.',
+      tiphat: 'Tip hat: lifts the handset like a hat, tilts it, a little bow, then puts it back.',
+      hangup: 'Hang up: lifts the handset and slams it down. A big squash and a grumpy face.'
+    }
+  };
+
+  var kindsEl = document.getElementById('kinds');
+  Object.keys(Pals.kinds).forEach(function (k) {
+    var K = Pals.kinds[k], sec = document.createElement('section');
+    sec.innerHTML = '<h2>' + K.name + '</h2>' +
+      '<div class="moves" role="group" aria-label="' + K.name + ' moves">' + K.moves.map(function (m, i) {
+        return '<button data-anim="' + m[0] + '" aria-pressed="' + (i === 0) + '">' + m[1] + ' <small>' + (m[2] ? 'once' : 'loop') + '</small></button>';
+      }).join('') + '</div><p class="say" aria-live="polite">' + INFO[k].idle + '</p>' +
+      '<div class="designs">' + K.designs.map(function (d) {
+        return '<article class="design"><div class="stage" title="Click to replay">' + Pals.svg(k, d[0], { label: K.name + ', ' + d[1] }) + '</div>' +
+          '<h3>' + d[1] + '</h3><p>' + d[2] + '</p>' +
+          '<div class="icons"><div class="tile">' + Pals.svg(k, d[0], { size: 64, label: d[1] + ' at 64 px' }) + '</div>' +
+          '<div class="tile">' + Pals.svg(k, d[0], { size: 32, label: d[1] + ' at 32 px' }) + '</div>' +
+          '<div class="tile dk">' + Pals.svg(k, d[0], { size: 32, label: d[1] + ' at 32 px on dark' }) + '</div><span>64 · 32 · 32 on dark</span></div></article>';
+      }).join('') + '</div>';
+    kindsEl.appendChild(sec);
+
+    var buttons = sec.querySelectorAll('.moves button'), say = sec.querySelector('.say'), stages = sec.querySelectorAll('.stage .rpal');
+    var current = 'idle', loop = 'idle';
+    function setMove(anim) {
+      current = anim;
+      if (!Pals.once[anim]) loop = anim;
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.anim === anim)); });
+      stages.forEach(function (el) { Pals.play(el, anim); });
+      say.textContent = INFO[k][anim];
+    }
+    sec.querySelector('.moves').addEventListener('click', function (e) { var b = e.target.closest('button[data-anim]'); if (b) setMove(b.dataset.anim); });
+    sec.querySelectorAll('.stage').forEach(function (st) { st.addEventListener('click', function () { setMove(current); }); });
+    stages[0].addEventListener('pal:end', function (e) {
+      if (current !== e.detail) return;
+      current = loop;
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.anim === loop)); });
+      say.textContent = INFO[k][loop];
+    });
+  });
+
+  /* The family lineup */
+  var pickB = document.getElementById('pickB'), pickP = document.getElementById('pickP');
+  Pals.kinds.boombox.designs.forEach(function (d) { pickB.add(new Option(d[1], d[0])); });
+  pickB.value = 'wmix';
+  Pals.kinds.phone.designs.forEach(function (d) { pickP.add(new Option(d[1], d[0])); });
+  var pickR = document.getElementById('pickR');
+  Pals.kinds.bot.designs.forEach(function (d) { pickR.add(new Option(d[1], d[0])); });
+  var party = 'idle';
+  function family() {
+    document.getElementById('family').innerHTML = window.FUZZ_SVG + Spike.svg('potted', { label: 'Spike' }) +
+      Pals.svg('boombox', pickB.value, { label: 'Boombox' }) + Pals.svg('phone', pickP.value, { label: 'Rotary phone' }) + Pals.svg('bot', pickR.value, { label: 'Workshop bot' });
+    setBpm();
+    setParty(party);
+  }
+  function setParty(p) {
+    party = p;
+    document.querySelectorAll('#party button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.party === p)); });
+    var on = p === 'party', row = document.getElementById('family');
+    row.querySelector('#bot').setAttribute('data-mood', on ? 'happy' : 'idle');
+    Spike.play(row.querySelector('.spike'), on ? 'dance' : 'idle');
+    Pals.play(row.querySelector('.rpal[data-kind="boombox"]'), on ? 'groove' : 'idle');
+    Pals.play(row.querySelector('.rpal[data-kind="phone"]'), on ? 'bop' : 'idle');
+    Pals.play(row.querySelector('.rpal[data-kind="bot"]'), on ? 'boogie' : 'idle');
+  }
+  document.getElementById('party').addEventListener('click', function (e) { var b = e.target.closest('button[data-party]'); if (b) setParty(b.dataset.party); });
+  pickB.addEventListener('change', family);
+  pickP.addEventListener('change', family);
+  pickR.addEventListener('change', family);
+
+  var bpm = document.getElementById('bpm'), bpmv = document.getElementById('bpmv');
+  function setBpm() {
+    var beat = (60 / +bpm.value).toFixed(3) + 's';
+    document.querySelectorAll('.rpal').forEach(function (el) { el.style.setProperty('--pl-beat', beat); });
+    document.querySelectorAll('.spike').forEach(function (el) { el.style.setProperty('--sp-beat', beat); });
+    bpmv.textContent = bpm.value + ' bpm';
+  }
+  bpm.addEventListener('input', setBpm);
+
+  var mode = document.getElementById('mode');
+  mode.value = Themes.resolveMode('auto');
+  function theme() { Themes.apply('terracotta', mode.value, 'standard'); }
+  mode.addEventListener('change', theme);
+  theme();
+  family();
+})();
+</script>
+</body>
+</html>
