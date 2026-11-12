@@ -271,6 +271,12 @@
       it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
       S.log(it, 'status', 'You asked Fuzz to work out the first step.');
     },
+    /* Tell Fuzz (E on any card): a note that goes along with whatever you pick next. It's kept in the notes. */
+    tell: function (id, text) {
+      var it = S.item(id); text = (text || '').trim(); if (!it || !text) return;
+      it.notes = ((it.notes || '') + '\nYou said: ' + text).trim();
+      S.log(it, 'guidance', 'You said: ' + text);
+    },
     stillMatters: function (id) { var it = S.item(id); it.putOff = false; it.ask = 'What should happen to this?'; S.queueUp(it, 'front'); S.log(it, 'status', 'You said this still matters.'); },
     /* Waiting means you're blocked until someone gets back to you, so it always names who, and Fuzz checks back */
     wait: function (id, who) { var it = S.item(id); S.leave(id); it.state = 'waiting'; it.checkBack = false; it.waitingOn = who || it.waitingOn || it.who || 'Someone'; it.waitedFor = 'Today'; it.nextCheck = 'In a few days'; S.log(it, 'status', 'You’re waiting on ' + it.waitingOn + '. Fuzz checks back in a few days, sooner if they reply.'); },

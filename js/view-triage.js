@@ -812,7 +812,7 @@
       '<div class="stale-top"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + BACK_ICON[v] + '</svg><p>' + why + '</p></div>' +
       '<div class="answers" role="group" aria-label="Ways forward">' + ans.map(function (a, i) {
         return '<button type="button" class="ans' + (i === 0 && !go ? ' primary' : '') + '" data-act="' + a[0] + '" aria-keyshortcuts="' + (i + 1) + '"><span class="k" aria-hidden="true">' + (i + 1) + '</span><span><b>' + a[1] + '</b><small>' + a[2] + '</small></span></button>';
-      }).join('') + '</div>' +
+      }).join('') + '</div>' + planHTML(it, true) +
       '<div class="actions back-row">' +
         (keep ? '<button type="button" class="btn" data-act="' + keep[0] + '" data-key="k" aria-keyshortcuts="K">' + keep[1] + kbd('K') + '</button>' : '') +
         (other ? splitHTML('split-later', laterBtn, 'latermenu', 'Clear it another way', other) : laterBtn) +
@@ -849,13 +849,16 @@
       '<p class="typing">You’re typing. ' + kbd('⌘ Enter') + ' hands it to Fuzz. ' + kbd('Esc') + ' keeps ' + (answersOn ? 'your note' : 'your changes') + ' and brings the keys back.</p></div>';
   }
   /* Open the card's box (Tell Fuzz, E); close it again with what you wrote kept */
-  function openBox(select) {
+  function revealBox() {
     var it = cur(), pe = $('#planedit');
     if (it && pe && pe.hidden) {
       planOpen[it.id] = true; pe.hidden = false;
       var p = $('#plan'); if (p) p.hidden = true;
       var l = card.querySelector('.addnote'); if (l) l.hidden = true;
     }
+  }
+  function openBox(select) {
+    revealBox();
     var box = $('#instr') || $('#note'); if (!box) return null;
     if (box.id === 'instr') fit(box);
     box.focus();
@@ -1796,6 +1799,7 @@
     if (!q) { openBox(); Fuzz.say('What should I find out? A question in the box is enough.', { type: false }); return; }
     askingFind = false;
     var fit = cur(); if (fit) forgetEdits(fit.id);
+    var fb = $('#instr'); if (fb) fb.value = '';
     moment(function () { return quickClear('Asked Fuzz to find out about', 'Fuzz is finding out. The card comes back right after the one you’re on, with the answer.', function (i) { Store.findOut(i.id, q); }, 'On it. I’ll bring it back right after this.'); });
   }
   /* Waiting on a named person: you're blocked until they get back to you */
@@ -1806,10 +1810,24 @@
     moment(function () { return quickClear('Waiting on ' + who + ':', 'Waiting on ' + who + '. Fuzz checks back in a few days, sooner if they reply.', function (i) { Store.wait(i.id, who); }, 'I’ll watch for ' + who + '.'); });
   }
 
+  /* What you told Fuzz on this card and haven't sent: the box, when it says something other than his own plan */
+  function pendingNote(it) {
+    var b = $('#instr'); if (!b || it.kind !== 'task') return '';
+    var v = b.value.trim();
+    return v && v !== (it.instr || it.hint || '').trim() ? v : '';
+  }
+  /* A choice that keeps the card in triage as an ordinary one: the note goes now, so the next card starts clean */
+  function sendNote(it) {
+    var note = it && pendingNote(it); if (!note) return false;
+    Store.tell(it.id, note); delete edits[it.id + ':instr']; delete planOpen[it.id];
+    return true;
+  }
   async function quickClear(label, message, change, line, mood) {
     var it = cur(); if (!it) return;
     streak = 0;
-    offer(label + ' “' + it.title + '”.', Store.track([it.id], function () { change(it); }), message);
+    var note = pendingNote(it);
+    if (note) { line += ' I’ve got your note.'; message += ' Your note goes with it.'; }
+    offer(label + ' “' + it.title + '”.', Store.track([it.id], function () { if (note) Store.tell(it.id, note); change(it); }), message);
     Fuzz.setMood(mood || 'happy'); Fuzz.say(line, { type: false }); if (mood !== 'sheepish') Fuzz.pAnim('hop');
     if (Fuzz.isCalm()) await fadeOut();
     else await exitCard([{ transform: 'none', opacity: 1 }, { transform: 'translateX(-110%) rotate(-8deg)', opacity: 0 }], { duration: 260, easing: 'ease-in' });
@@ -1921,6 +1939,7 @@
         var d = zone(); if (!d) return;
         e.preventDefault();
         if (depth++ > 0) return;
+        revealBox();   /* the drop zone is in the card's box: it opens, as E would */
         d.hidden = false; d.classList.add('over');
         document.documentElement.classList.add('dragging-file');
         d.scrollIntoView({ block: 'nearest', behavior: Fuzz.isCalm() ? 'auto' : 'smooth' });
@@ -2031,16 +2050,16 @@
       else if (a === 'findout') startFind();
       else if (a === 'deepwork') moment(function () { var dw = cur(); if (dw) dw.doing = false; return quickClear('Put in Deep Work:', '“' + cur().title + '” is in Deep Work. It waits there for a session with time to do it.', function (i) { Store.deepWork(i.id); }, 'Good call. That one needs real time. It’s in Deep Work.'); });
       else if (a === 'wait-cancel') { askingWho = false; renderCardKeep(); Fuzz.setMood('idle'); var mb2 = $('.more-btn'); if (mb2) mb2.focus(); }
-      else if (a === 'gotit') { var gi = cur(); Store.gotIt(gi.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Nice. What should happen to it now?', { type: false }); }
+      else if (a === 'gotit') { var gi = cur(); sendNote(gi); Store.gotIt(gi.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Nice. What should happen to it now?', { type: false }); }
       else if (a === 'nudge') moment(function () { return quickClear('Nudging ' + (cur().waitingOn || 'them') + ' about', 'Fuzz is drafting a nudge. It comes to you for your OK before anything is sent.', function (i) { Store.nudgeThem(i.id); }, 'On it. I’ll draft something friendly.'); });
       else if (a === 'keepwaiting') moment(function () { return quickClear('Still waiting on ' + (cur().waitingOn || 'them') + ':', 'Still waiting. Fuzz checks back in a few days.', function (i) { Store.keepWaiting(i.id); }, 'Okay, I’ll check back later.'); });
       else if (a === 'theirs') moment(function () { return quickClear('Not yours:', 'Off your list as someone else’s. Find it in Lineup, under Finished.', function (i) { Store.theirs(i.id); }, 'Not yours. I’ll leave it with them.'); });
       else if (a === 'letgo') moment(function () { return quickClear('Let go of', 'Let go. You can bring it back from Let go.', function (i) { Store.letGo(i.id); }, 'Let go. That one’s off your plate.', 'sleepy'); });
       else if (a === 'keepparked') moment(function () { return quickClear('Kept parked', 'Kept “' + cur().title + '” parked. Fuzz won’t ask again for a few weeks.', function (i) { Store.keepParked(i.id); }, 'Kept. It stays parked, no pressure.'); });
-      else if (a === 'clarify') { var ci = cur(); Store.clarify(ci.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('eager'); Fuzz.pAnim('hop'); Fuzz.say('Back on your list. What should happen to it?', { type: false }); }
+      else if (a === 'clarify') { var ci = cur(); sendNote(ci); Store.clarify(ci.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('eager'); Fuzz.pAnim('hop'); Fuzz.say('Back on your list. What should happen to it?', { type: false }); }
       else if (a === 'unclear') moment(function () { return quickClear('Working out the first step for', 'Fuzz is working out what this needs and the smallest first step. It comes back to you with one question if anything is still unclear.', function (i) { Store.unclear(i.id); }, 'On it. I’ll find the first step.'); });
-      else if (a === 'stillmatters') { var si = cur(); Store.stillMatters(si.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('eager'); Fuzz.pAnim('hop'); Fuzz.say('Okay. What should happen to it now?', { type: false }); }
-      else if (a === 'keep') { keptStale[cur().id] = true; renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Kept. It stays on your list.', { type: false }); setTimeout(function () { if (alive && Fuzz.mood() === 'happy') Fuzz.setMood('idle'); }, 1500); }
+      else if (a === 'stillmatters') { var si = cur(); sendNote(si); Store.stillMatters(si.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('eager'); Fuzz.pAnim('hop'); Fuzz.say('Okay. What should happen to it now?', { type: false }); }
+      else if (a === 'keep') { sendNote(cur()); keptStale[cur().id] = true; renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Kept. It stays on your list.', { type: false }); setTimeout(function () { if (alive && Fuzz.mood() === 'happy') Fuzz.setMood('idle'); }, 1500); }
       else if (a === 'send') moment(sendDraft);
       else if (a === 'sentself') moment(done);
       else if (a === 'notnow') moment(schedule);
@@ -2152,6 +2171,10 @@
         else if (k === 'escape') b = card.querySelector('[data-act="wait-cancel"]');
       } else if (k === 'i' && $('#details')) {
         e.preventDefault(); var dd = $('#details'); dd.open = !dd.open; return;
+      } else if (k === 'e' && $('#instr')) {
+        /* Tell Fuzz: into the card's box. Esc leaves it with what you wrote, and the keys work again. */
+        if (openBox()) e.preventDefault();
+        return;
       } else if (card.querySelector('.comeback:not([hidden])')) {
         /* A card that came back: numbers are its ways forward; K, S and L the same row on every one; the
            keys behind Later's arrow work without opening it */

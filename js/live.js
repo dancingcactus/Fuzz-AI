@@ -531,6 +531,8 @@
        where you left off; stuck sends it back to Triage. */
     wrap('deepWork', function (id) { return decide(S.item(id), 'deep_work', undefined, 'deep_work'); });
     wrap('deepWorkLeftOff', function (id, note) { var it = S.item(id); return it && function () { return api('POST', '/tasks/' + it.coreId + '/deep_work', { left_off: (note || '').trim() }); }; });
+    /* Tell Fuzz: the note goes first, so it's in the notes when the choice after it lands */
+    wrap('tell', function (id, text) { var it = S.item(id); return it && it.coreId && (text || '').trim() ? function () { return api('POST', '/tasks/' + it.coreId + '/note', { text: text.trim() }); } : null; });
     wrap('done', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('markDone', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('park', function (id) { return decide(S.item(id), 'park', undefined, 'park'); });

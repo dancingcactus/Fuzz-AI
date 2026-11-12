@@ -77,6 +77,8 @@ TASK_VERBS = {
     "back": (lambda core, tid, body: tasks.to_back(core, tid), ()),
     "find_out": (lambda core, tid, body: tasks.find_out(core, tid, body.get("question")), ("find_out",)),
     "reopen": (_reopen, ()),
+    # Tell Fuzz: a note sent just before your choice on the card, so it goes along with it
+    "note": (lambda core, tid, body: tasks.tell(core, tid, body.get("text")), ()),
 }
 
 

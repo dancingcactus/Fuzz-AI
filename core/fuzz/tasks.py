@@ -677,6 +677,20 @@ def update_brief(core, task_id, context_md=None, question=None, effort_mins=None
     return sorted(f)
 
 
+def tell(core, task_id, text, actor="human"):
+    """Tell Fuzz (E on any card): a note that goes along with whatever you pick next. It's added to the
+    task's notes, where every later run reads it, and to its log as something you said."""
+    t = require(core, task_id)
+    text = (text if isinstance(text, str) else "").strip()
+    if not text:
+        raise FuzzError("What should Fuzz know? A few words is plenty.", "text")
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.task(t["id"], notes=((t.get("notes") or "") + f"\nYou said: {text[:1000]}").strip())
+        events.emit(core, "task.notes_saved", task_id=t["id"], changes=ch, data={"told": True},
+                    log=("guidance", f"You said: {text[:1000]}"))
+
+
 def save_notes(core, task_id, text, actor="fuzz:executor"):
     t = require(core, task_id)
     with core.tx(actor):
