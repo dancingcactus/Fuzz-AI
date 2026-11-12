@@ -179,7 +179,7 @@
   var MISSED_FROM = { email: 'Email', slack: 'Slack', meeting: 'Meeting' };
 
   /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
-  var MEMORY_KINDS = ['entity_person', 'entity_term', 'decision', 'fact_conflict'];
+  var MEMORY_KINDS = FuzzVocab.memoryKinds;   /* js/vocab.js, from the core */
 
   /* Memory's events, from the stream: the ask box's answers. Each taken once (the stream replays the log when
      it connects). */
