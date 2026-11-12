@@ -52,14 +52,14 @@
   }
   function sectionHTML(id, title, rows, empty, extra) {
     if (!rows.length && !empty) return '';
-    return '<section class="lsec" aria-labelledby="sec-' + id + '"><h2 id="sec-' + id + '">' + title + (rows.length ? ' <span class="lcount">' + rows.length + '</span>' : '') + '</h2>' + (extra || '') +
+    return '<section class="lsec" aria-labelledby="sec-' + id + '"><h2 id="sec-' + id + '">' + title + '</h2>' + (extra || '') +
       (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : '<p class="lempty">' + empty + '</p>') + '</section>';
   }
 
   /* A section that starts closed (Parked, Finished) and stays as you left it while the page updates */
   function foldHTML(id, title, rows, extra) {
     if (!rows.length && !extra) return '';
-    return '<details class="lsec fold" id="' + id + '"' + (openSecs[id] ? ' open' : '') + '><summary><h2 id="sec-' + id + '">' + title + (rows.length ? ' <span class="lcount">' + rows.length + '</span>' : '') + '</h2></summary>' +
+    return '<details class="lsec fold" id="' + id + '"' + (openSecs[id] ? ' open' : '') + '><summary><h2 id="sec-' + id + '">' + title + '</h2></summary>' +
       (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : '') + (extra || '') + '</details>';
   }
 
@@ -175,7 +175,7 @@
     var busy = run.length, slots = Store.slots(), pips = '';
     for (var i = 0; i < slots; i++) pips += '<i class="' + (i < busy ? 'on' : '') + '"></i>';
     var h = '<section class="lane" aria-labelledby="sec-fuzz"><div class="lane-head">' + Fuzz.mini(busy ? 'think' : 'good', { cls: 'lane-av' + (busy ? ' working' : '') }) +
-      '<div class="lane-titles"><h2 id="sec-fuzz">With Fuzz' + (ids.length ? ' <span class="lcount">' + ids.length + '</span>' : '') + '</h2>' +
+      '<div class="lane-titles"><h2 id="sec-fuzz">With Fuzz</h2>' +
       '<p class="lane-slots"><span class="pips" aria-hidden="true">' + pips + '</span>' + busy + ' of ' + slots + ' slots busy' + (next.length ? ', ' + next.length + ' next up' : '') + '</p></div></div>';
     if (!ids.length && !out.length) return h + '<p class="lempty lane-idle">Nothing on my desk. Assign me something from Triage.</p></section>';
     h += '<ul class="lrows lane-rows">';
@@ -222,7 +222,8 @@
     /* Live updates keep your place: focus returns to the same row */
     var ae = document.activeElement, keep = ae && board.contains(ae) ? (ae.dataset.open || ae.id || null) : null;
     var queue = Store.queue(), q = queue.length;
-    var h = q ? '<a class="decide" href="#/triage"><span class="decide-n">' + q + '</span><span class="decide-t"><strong>To decide</strong>' + (q === 1 ? '1 card' : q + ' cards') + ' in Triage</span><span class="decide-go" aria-hidden="true">→</span></a>' + decideHTML(queue)
+    /* One neutral row that names what's first, so Triage reads as a next step, not a pile (the ADHD pass, #5) */
+    var h = q ? '<a class="decide" href="#/triage"><span class="decide-t"><strong>Triage</strong>' + esc(queue[0].title) + ' is first.' + (q > 1 ? ' A few more are waiting behind it.' : '') + '</span><span class="decide-go" aria-hidden="true">→</span></a>' + decideHTML(queue)
       : '<p class="decide decide--clear">Nothing to decide. Triage is clear.</p>';
     h += sectionHTML('yours', 'Yours', yoursRows(), 'Nothing is waiting on you right now.');
     h += deepHTML();

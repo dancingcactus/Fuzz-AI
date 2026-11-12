@@ -481,6 +481,15 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .keylist dd { margin: 0; }
 .keylist kbd { margin-left: 0; min-width: 28px; height: 24px; font-size: 12.5px; }
 .keys-dlg .dlg-in section > h3 { font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.arrive-list { list-style: none; margin: 8px 0 18px; padding: 0; display: grid; gap: 8px; }
+.arrive-list li { display: flex; gap: 10px; align-items: baseline; font-size: 15.5px; }
+.arrive-mark { flex: none; width: 20px; text-align: center; color: var(--muted); font-weight: 700; }
+.arrive-pick { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: var(--bw, 1px) solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 16px; padding: 12px 16px; }
+.arrive-pick .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 4px; }
+.arrive-pick h2 { margin: 0 0 4px; }
+.arrive-pick .meta { margin: 0; }
+.arrive-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.arrive-btns .btn { flex: 1 1 180px; min-height: 48px; }
 .keys-dlg .keys-all { margin-top: 12px; }
 .keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
 .keys-dlg #keys-card:empty { display: none; }
@@ -1034,6 +1043,12 @@ p.onb-note { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px
 .guide-fz { width: 40px; flex: none; }
 
 /* The dictation tip on the first New task screen */
+.cap-drop { position: relative; }
+.cap-dropzone { display: none; position: absolute; inset: 26px 0 0; border: 2px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
+.cap-dropzone small { color: var(--muted); }
+.cap-dragging .cap-dropzone { display: flex; }
+.cap-drop.over .cap-dropzone { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.cap-add { margin: 2px 0 0; font-size: 14px; }
 .cap-tip { display: flex; gap: 10px; align-items: center; margin: -4px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--chip); font-size: 15px; }
 .tip-fz { width: 32px; flex: none; }
 

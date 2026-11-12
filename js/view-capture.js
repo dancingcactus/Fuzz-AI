@@ -3,7 +3,7 @@
 (function () {
   var V = {};
   var esc = UI.esc;
-  var root, unsub = null, timer = 0, moodTimer = 0, boredTimer = 0, listening = false, attached = [], confirm = '', draft = '', escKey = null, unhold = null;
+  var root, unsub = null, timer = 0, moodTimer = 0, boredTimer = 0, listening = false, attached = [], confirm = '', draft = '', escKey = null, unhold = null, docDrag = null;
   var IDLE_LINE = 'Get it out of your head. I’ll sort it later.';
 
   function statusFor(c) {
@@ -45,11 +45,12 @@
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div class="card cap-card">' +
         '<h1 id="cap-h" class="cap-title">What is on your mind?</h1>' +
-        '<div class="drop" id="drop"><button type="button" class="dropbtn" id="dropbtn"><span class="dropicon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>' +
-          '<span class="droptxt"><b>Drop a document to add context</b><small>Optional. Fuzz reads it along with your task. With Fuzz running, it keeps a copy on this computer.</small></span><span class="droplink">Choose files</span></button>' +
-          '<input type="file" id="file" multiple hidden></div>' +
+        /* The field comes first and has focus. While a file is dragged over the page, the box is the drop zone. */
+        '<div class="field cap-drop" id="drop"><label for="cap-text">New task</label><textarea id="cap-text" rows="4" placeholder="For example: send Sam the slides from Tuesday"' + (ob && ob.tip ? ' aria-describedby="cap-tip"' : '') + '></textarea>' +
+          '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div></div>' +
         '<ul class="files" id="files" aria-label="Attached documents"></ul>' +
-        '<div class="field"><label for="cap-text">New task</label><textarea id="cap-text" rows="4" placeholder="For example: send Sam the slides from Tuesday"' + (ob && ob.tip ? ' aria-describedby="cap-tip"' : '') + '></textarea></div>' +
+        '<p class="cap-add"><button type="button" class="linkbtn inline" id="dropbtn">Add a document</button><span class="meta"> or drop one on the box. Fuzz reads it along with your task.</span>' +
+          '<input type="file" id="file" multiple hidden></p>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
           '<button type="button" class="btn dictate" id="cap-mic" aria-pressed="false" aria-keyshortcuts="Alt+Space"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="mic-l">Dictate</span></button>' +
@@ -86,10 +87,22 @@
     }
     $('#dropbtn').addEventListener('click', function () { $('#file').click(); });
     $('#file').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
-    var drop = $('#drop');
-    ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); if (!drop.classList.contains('over')) { nudge(); Fuzz.setMood('eager'); } drop.classList.add('over'); }); });
-    ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
-    drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
+    /* Drag a file anywhere over the page and the box turns into a drop zone; it lights up under the file */
+    var drop = $('#drop'), depth = 0;
+    function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') > -1; }
+    function endDrag() { depth = 0; root.classList.remove('cap-dragging'); drop.classList.remove('over'); }
+    docDrag = {
+      dragenter: function (e) { if (!hasFiles(e)) return; e.preventDefault(); if (depth++ === 0) { root.classList.add('cap-dragging'); nudge(); Fuzz.setMood('eager'); } },
+      dragover: function (e) { if (!hasFiles(e)) return; e.preventDefault(); var on = drop.contains(e.target); e.dataTransfer.dropEffect = on ? 'copy' : 'none'; drop.classList.toggle('over', on); },
+      dragleave: function (e) { if (hasFiles(e) && --depth <= 0) endDrag(); },
+      drop: function (e) {
+        if (!hasFiles(e)) return;
+        e.preventDefault(); var on = drop.contains(e.target); endDrag();
+        if (on) addFiles(e.dataTransfer.files);
+        else Fuzz.say('Drop it on the box and I’ll read it with your task.', { type: false });
+      }
+    };
+    Object.keys(docDrag).forEach(function (n) { window.addEventListener(n, docDrag[n]); });
     $('#files').addEventListener('click', function (e) { var b = e.target.closest('[data-rm]'); if (!b) return; attached.splice(parseInt(b.dataset.rm, 10), 1); paintFiles(); });
 
     /* Dictation (dictate.js): the button starts and stops it, and holding Alt (Option) + Space listens
@@ -135,6 +148,7 @@
   };
   V.unmount = function () {
     document.removeEventListener('keydown', escKey);
+    if (docDrag) Object.keys(docDrag).forEach(function (n) { window.removeEventListener(n, docDrag[n]); }); docDrag = null;
     if (unhold) unhold(); unhold = null; Dictate.abort(); listening = false;
     if (unsub) unsub(); unsub = null; clearInterval(timer); clearTimeout(moodTimer); clearTimeout(boredTimer);
     Fuzz.unmount(); root = null;

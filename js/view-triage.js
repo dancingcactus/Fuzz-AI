@@ -20,6 +20,9 @@
   var shownCard = null, lastTask = null, streak = 0, rushTimer = 0, ambientTimer = 0;
   /* Cards whose box you opened (Tell Fuzz, E): it stays open through a redraw until you close it */
   var planOpen = {};
+  /* Arriving shows what happened and a card to start with, once a session (the ADHD pass, #7). The focus
+     question waits behind Something else (O). */
+  var arrived = false, foMode = 'ask';
   var scheduling = false, askingWho = false, askingFind = false, booking = false, pausing = false, wayOpen = false, schedMore = false, tab = null, keptStale = {}, edits = {}, greeted = false, refs = {}, refPick = {};
   var docClick = null, docKey = null, unhold = null, docDrag = null, booting = false, offSay = null, onScroll = null, echoTimer = 0, scrollHold = 0;
 
@@ -103,7 +106,7 @@
     if (onScroll) window.removeEventListener('scroll', onScroll); onScroll = null;
     Fuzz.unmount(); root = null;
   };
-  V.hardReset = function () { foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciLastAt = 0; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
+  V.hardReset = function () { arrived = false; foMode = 'ask'; foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciLastAt = 0; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();
@@ -246,7 +249,7 @@
   function stats() {
     if (!root) return;
     var st = Store.get(), left = st.queue.length, cleared = Math.max(st.totalEver - left, 0);
-    Progress.render(cleared, cleared + left);
+    Progress.render(cleared, cleared);   /* no empty slots for what's left (#5): the bar only grows */
     /* count what's cleared, never what's left */
     document.getElementById('left').textContent = left === 0 ? 'All clear' : cleared ? '✓ ' + cleared : 'Ready';
   }
@@ -1746,14 +1749,43 @@
       Store.focusPreview(text).then(function (m) { if (seq === foSeq) { foMatch = m; foNot = {}; paintPreview(); } });
     }, 600);
   }
+  /* What happened while you were away, from what's waiting now: drafts ready, cards that came back, Fuzz's work */
+  function arriveHTML(q) {
+    var lines = [], first = q[0];
+    q.filter(function (i) { return i.state === 'review'; }).slice(0, 3).forEach(function (i) { lines.push(['✓', esc(i.title) + ' is drafted and waiting for your OK.']); });
+    q.filter(function (i) { return i.handedBack && i.state !== 'review'; }).slice(0, 2).forEach(function (i) { lines.push(['↩', esc(i.title) + ' came back. I need one answer from you.']); });
+    var w = Store.inState('working').length;
+    if (w) lines.push(['…', 'Still working on ' + (w === 1 ? 'one' : w) + '. Nothing needs you there.']);
+    var head = first.kind === 'task' && !hasAnswers(first) && !first.handedBack && first.state !== 'review' ? first.title : first.ask || first.title;
+    var why = first.dueAt ? (mins(first) <= 0 ? 'It’s past its time, so I put it first.' : 'It’s due in ' + fmtDue(mins(first)) + ', so I put it first.')
+      : first.state === 'review' ? 'It’s ready and only needs your OK.'
+      : first.handedBack ? 'I need one answer from you on it.'
+      : (first.mins || 99) <= 5 ? 'A quick one to warm up with.' : 'It’s next in line.';
+    return (lines.length ? '<div class="tagrow"><span class="src">While you were away</span></div><ul class="arrive-list">' +
+        lines.map(function (l) { return '<li><span class="arrive-mark" aria-hidden="true">' + l[0] + '</span><span>' + l[1] + '</span></li>'; }).join('') + '</ul>' : '') +
+      '<div class="arrive-pick"><p class="lbl">Start with</p><h2 id="fo-h" tabindex="-1">' + esc(head) + '</h2><p class="meta">' + why + '</p></div>' +
+      '<div class="arrive-btns"><button type="button" class="btn primary" data-fo="start" aria-keyshortcuts="Enter">Start here' + kbd('Enter') + '</button>' +
+      '<button type="button" class="btn" data-fo="other" aria-keyshortcuts="O">Something else' + kbd('O') + '</button></div>';
+  }
   function showFocus() {
     foAsked = true; foOpen = true;
     card.style.display = 'none'; $('#checkin').hidden = true; $('#dropbtn').hidden = true;
-    var fc = $('#focuscard'); fc.innerHTML = focusHTML(); fc.hidden = false;
+    var fc = $('#focuscard');
+    if (!arrived) {
+      arrived = true; foMode = 'arrive';
+      fc.innerHTML = arriveHTML(Store.queue()); fc.hidden = false;
+      Fuzz.setMood('happy'); Fuzz.say(fc.querySelector('.arrive-list') ? 'Welcome back. Here’s what happened while you were away.' : 'Here’s where I’d start.', { type: false });
+      refocus($('#fo-h'));
+      return;
+    }
+    foMode = 'ask';
+    fc.innerHTML = focusHTML(); fc.hidden = false;
     foMatch = null; foNot = {};
     Fuzz.setMood('eager'); Fuzz.say('What are we working on?', { type: false });
     refocus($('#fo-q'));
   }
+  /* Start here: the usual order, with the card Fuzz named first */
+  function arriveStart() { foMode = 'ask'; Store.setFocus(null, null, true); closeFocus('Okay, that one first.'); }
   function closeFocus(line) {
     foOpen = false; $('#focuscard').hidden = true; paintFocusLine();
     if (line) { Fuzz.setMood('happy'); Fuzz.say(line, { type: false }); Say.announce(line); }
@@ -1898,6 +1930,8 @@
       var c = e.target.closest('[data-fochip]'); if (c) { var chip = Store.focusChips()[+c.dataset.fochip]; return focusOn(chip.text || chip.label, chip); }
       var n = e.target.closest('[data-fonot]'); if (n) { foNot[n.dataset.fonot] = !foNot[n.dataset.fonot]; return paintPreview(); }
       if (e.target.closest('[data-fo="skip"]')) { Store.setFocus(null, null, true); closeFocus('The usual order, then.'); }
+      if (e.target.closest('[data-fo="start"]')) arriveStart();
+      if (e.target.closest('[data-fo="other"]')) showFocus();
     });
     $('#focuscard').addEventListener('submit', function (e) { e.preventDefault(); focusOn($('#fo-q').value); });
     $('#focuscard').addEventListener('input', function (e) { if (e.target.id === 'fo-q') preview(e.target.value); });
@@ -2127,6 +2161,12 @@
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (t && t.closest && t.closest('dialog, [role="dialog"]')) return;
       if (e.key === '?') { e.preventDefault(); openKeys(); return; }
+      if (foOpen && foMode === 'arrive') {
+        if (e.key === 'Enter' && !(t && t.closest && t.closest('button'))) { e.preventDefault(); arriveStart(); }
+        else if (e.key === 'Escape') { e.preventDefault(); arriveStart(); }
+        else if (e.key.toLowerCase() === 'o') { e.preventDefault(); showFocus(); }
+        return;
+      }
       if (foOpen) {
         if (e.key === 'Escape') { e.preventDefault(); Store.setFocus(null, null, true); closeFocus('The usual order, then.'); }
         else if (/^[1-9]$/.test(e.key)) { var fb = $('#focuscard').querySelectorAll('[data-fochip]')[+e.key - 1]; if (fb) { e.preventDefault(); fb.click(); } }
