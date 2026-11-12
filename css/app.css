@@ -452,6 +452,9 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .keylist dd { margin: 0; }
 .keylist kbd { margin-left: 0; min-width: 28px; height: 24px; font-size: 12.5px; }
 .keys-dlg .dlg-in section > h3 { font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.keys-dlg .keys-all { margin-top: 12px; }
+.keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.keys-dlg #keys-card:empty { display: none; }
 @media (hover: none), (pointer: coarse) { .keys-link, .keys-sep { display: none; } }
 /* Fuzz's finding, in one line above the instructions */
 /* The label sits on the block's top edge, like the Due soon tag on the card */

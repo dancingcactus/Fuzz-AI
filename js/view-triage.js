@@ -165,17 +165,33 @@
     }
   }
 
-  /* The key guide (press ? on Triage). Letters act on a task card; numbers pick from whatever choice is showing. */
+  /* The key guide (press ? on Triage). It opens on the keys for the card in front of you; All keys is one
+     tap further. One letter, one meaning (the ADHD pass, #6): numbers pick from whatever choice is showing. */
+  function keyRows(list) { return '<dl class="keylist">' + list.map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + k[1] + '</dd></div>'; }).join('') + '</dl>'; }
   function keysHTML() {
     var g = [
-      ['On a task card', [['A', 'Assign to Fuzz'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (X for an exact time, M for more times)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'Deep Work (yours, and it takes real time: it waits for a session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
-      ['On a draft', [['R', 'Ask Fuzz to change it'], ['L', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
-      ['Choices on screen', [['1 – 9', 'Pick an answer, a time or a mood'], ['K', 'Keep a stale card, or keep a parked one parked'], ['R', 'Bring a parked card back'], ['G / U', 'On a check-back: they got back to you, or nudge them'], ['H', 'On a task that keeps coming back: Fuzz works out the first step'], ['E', 'When picking a time: move it to the end of the list instead'], ['L', 'Let a stale or parked card go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
+      ['On a task card', [['A', 'Assign to Fuzz'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'Deep Work (yours, and it takes real time: it waits for a session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
+      ['On a draft', [['E', 'Ask Fuzz to change it'], ['S', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
+      ['Choices on screen', [['1 – 9', 'Every choice on screen: an answer, a time (End of the list and Exact time too) or a mood'], ['E', 'Tell Fuzz: into the card’s box'], ['K', 'Keep a stale card, or keep a parked one parked'], ['R', 'Bring a parked card back'], ['G / U', 'On a check-back: they got back to you, or nudge them'], ['H', 'On a task that keeps coming back: Fuzz works out the first step'], ['L', 'Let a stale or parked card go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
       ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New task (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
     ];
-    return g.map(function (s) { return '<section><h3>' + s[0] + '</h3><dl class="keylist">' + s[1].map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + k[1] + '</dd></div>'; }).join('') + '</dl></section>'; }).join('') +
-      '<p class="meta">A card without a draft starts with the cursor in its text box. Press Esc first to use the letter and number keys.</p>' +
+    return '<section id="keys-card"></section>' +
+      '<details class="keys-all"><summary>All keys</summary>' + g.map(function (s) { return '<section><h3>' + s[0] + '</h3>' + keyRows(s[1]) + '</section>'; }).join('') + '</details>' +
       '<p class="meta">Send is never on a single key, so nothing goes out by accident.</p>';
+  }
+  /* The keys on the card in front of you, read from its buttons (menu items too: their keys work closed) */
+  function cardKeys() {
+    var seen = {}, rows = [];
+    if (card && card.style.display !== 'none') card.querySelectorAll('[aria-keyshortcuts]').forEach(function (b) {
+      if (b.disabled || b.closest('[hidden]:not(.menu)')) return;
+      var k = b.getAttribute('aria-keyshortcuts').split(' ')[0];
+      if (k === 'Escape' || seen[k]) return;
+      var lab = (b.querySelector('b') || b.querySelector('span') || b).cloneNode(true);
+      lab.querySelectorAll('kbd, svg, small').forEach(function (x) { x.remove(); });
+      seen[k] = true; rows.push([k, esc(lab.textContent.trim())]);
+    });
+    if (!seen.E && card && card.style.display !== 'none' && ($('#instr') || $('#note'))) rows.push(['E', 'Tell Fuzz: into the card’s box']);
+    return rows;
   }
 
   /* ---------- Layout ---------- */
@@ -289,12 +305,18 @@
       /* Three likely times first, then End of the list and an exact time. The rest wait behind More times,
          but only when there are at least two more: a single extra time just shows as a fourth tile. */
       var all = schedOpts(it), fold = !schedMore && all.length > 4, opts = fold ? all.slice(0, 3) : all;
-      var tiles = opts.map(function (o, n) { return '<button type="button" class="when" data-when="' + n + '" aria-keyshortcuts="' + (n + 1) + '"><span>' + esc(o.label) + kbd(n + 1) + '</span><small>' + esc(Sched.hint(o)) + '</small></button>'; });
+      /* Every tile is a number, in order, so no letter here means something else on the card (E is Tell Fuzz,
+         X is Not mine). M still opens More times. */
+      var tiles = opts.map(function (o, n) { return { attrs: 'data-when="' + n + '"', label: esc(o.label), small: esc(Sched.hint(o)) }; });
       /* No time at all: it stays in triage and comes up after everything else */
-      tiles.push('<button type="button" class="when" data-sched="back" aria-keyshortcuts="E"><span>End of the list' + kbd('E') + '</span><small>After everything else waiting here</small></button>');
+      tiles.push({ attrs: 'data-sched="back"', label: 'End of the list', small: 'After everything else waiting here' });
       /* An exact time: opens the picker below the tiles */
-      tiles.push('<button type="button" class="when" data-sched="exact" aria-keyshortcuts="X" aria-controls="exact" aria-expanded="false"><span>Exact time' + kbd('X') + '</span><small>Pick the day and time</small></button>');
-      if (fold) tiles.push('<button type="button" class="when when-more" data-sched="more" aria-keyshortcuts="M"><span>More times' + kbd('M') + '</span><small>Later options</small></button>');
+      tiles.push({ attrs: 'data-sched="exact" aria-controls="exact" aria-expanded="false"', label: 'Exact time', small: 'Pick the day and time' });
+      if (fold) tiles.push({ attrs: 'data-sched="more"', cls: ' when-more', label: 'More times', small: 'Later options', key: 'M' });
+      tiles = tiles.map(function (x, n) {
+        var keys = [n < 9 ? String(n + 1) : '', x.key || ''].filter(Boolean);
+        return '<button type="button" class="when' + (x.cls || '') + '" ' + x.attrs + (keys.length ? ' aria-keyshortcuts="' + keys.join(' ') + '"' : '') + '><span>' + x.label + (n < 9 ? kbd(n + 1) : x.key ? kbd(x.key) : '') + '</span><small>' + x.small + '</small></button>';
+      });
       var meta = it.state === 'review' ? 'Pick a rough time. The draft waits, unsent, and comes back then for your OK.'
         : it.result ? 'Pick a rough time. What Fuzz found waits, and comes back then to ask if it’s done.'
         : 'Pick a rough time. Fuzz finds the right moment around your day. Anything you wrote in the instructions, Fuzz looks into before it comes back.';
@@ -852,8 +874,8 @@
         '<div class="menu" role="menu" id="moremenu" hidden aria-label="Finish it another way">' +
           '<button type="button" role="menuitem" data-act="sentself" aria-keyshortcuts="D"><b>Mark done' + kbd('D') + '</b><span>You send it yourself. Fuzz won’t send this draft.</span></button>' +
         '</div></div>' : '') +
-      '<button type="button" class="btn" data-act="revise" aria-expanded="false" aria-controls="revise" aria-keyshortcuts="R">Ask Fuzz to change it' + kbd('R') + '</button>' +
-      '<button type="button" class="btn" data-act="notnow" aria-keyshortcuts="L">Not now' + kbd('L') + '</button></div>' +
+      '<button type="button" class="btn" data-act="revise" aria-expanded="false" aria-controls="revise" aria-keyshortcuts="E">Ask Fuzz to change it' + kbd('E') + '</button>' +
+      '<button type="button" class="btn" data-act="notnow" aria-keyshortcuts="S">Not now' + kbd('S') + '</button></div>' +
       (r ? '<p class="sendnote">Fuzz sends exactly this once you approve. You can undo until it has gone out.</p>' : it.afterApprove ? '<p class="sendnote">' + esc(it.afterApprove) + '</p>' : '') +
       '<form class="revise" id="revise" hidden><label for="revise-text">Tell Fuzz what to change</label><div class="parkrow"><input id="revise-text" type="text" autocomplete="off" placeholder="For example: shorter, and mention the two maybes">' + Dictate.button('revise-text', 'Dictate what to change') + '<button class="btn" type="submit">Send back to Fuzz</button></div></form>';
   }
@@ -937,12 +959,9 @@
   }
   /* When what had focus is gone (the card was replaced) or sits in the stack, carry focus to the new
      heading, so keyboard and screen reader users land on what to decide next. */
-  /* A card with no draft starts with the cursor in its box, so you can type straight away. Touch
-     screens keep the heading, or the keyboard would cover the card. */
-  function landing() {
-    var box = !$('#draft') && window.matchMedia && matchMedia('(pointer: fine)').matches && ($('#instr') || $('#note'));
-    return box || $('#ask');
-  }
+  /* A card starts at its heading, never in a text box, so the letters on its buttons always do what they
+     say (the ADHD pass, #2). E opens the box when you want to tell Fuzz something. */
+  function landing() { return $('#ask'); }
   function forgetEdits(id) { ['instr', 'note', 'draft'].forEach(function (b) { delete edits[id + ':' + b]; }); delete refs[id]; delete refPick[id]; }
   function refocus(el) {
     var a = document.activeElement;
@@ -1257,7 +1276,13 @@
   ];
   /* "A while" is time on the clock, not cards cleared: half an hour in. */
   function longSession() { return Date.now() - sessionAt >= 30 * 60000; }
-  function openKeys() { var d = $('#keysdlg'); if (d && !d.open) d.showModal(); }
+  function openKeys() {
+    var d = $('#keysdlg'); if (!d || d.open) return;
+    var rows = cardKeys(), sec = $('#keys-card'), all = d.querySelector('.keys-all');
+    sec.innerHTML = rows.length ? '<h3>On this card</h3>' + keyRows(rows) : '';
+    all.open = !rows.length;
+    d.showModal();
+  }
 
   function showCheckin(demo) {
     ciDemo = !!demo;
@@ -1978,7 +2003,7 @@
        (A assign, D done, S schedule, P park, W waiting, X not mine; K keep and L let go on a stale card). Numbers pick
        from whatever choice is on screen: a time while scheduling, an answer on an entity or duplicate
        card, a quick answer on a handback, a mood (then a follow-up) on a check-in. Escape backs out. */
-    var KEYS = { a: 'assign', d: 'done', s: 'schedule', p: 'park', c: 'claude', w: 'waiting', x: 'theirs', q: 'findout', b: 'book', z: 'pause', g: 'deepwork' }, STALE = { k: 'keep', l: 'letgo' }, PARKREV = { k: 'keepparked', r: 'clarify', l: 'letgo' }, CHECKBACK = { g: 'gotit', u: 'nudge', k: 'keepwaiting', l: 'letgo' }, PUTOFF = { h: 'unclear', k: 'stillmatters', l: 'letgo' }, REVIEW = { r: 'revise', l: 'notnow', d: 'sentself' };
+    var KEYS = { a: 'assign', d: 'done', s: 'schedule', p: 'park', c: 'claude', w: 'waiting', x: 'theirs', q: 'findout', b: 'book', z: 'pause', g: 'deepwork' }, STALE = { k: 'keep', l: 'letgo' }, PARKREV = { k: 'keepparked', r: 'clarify', l: 'letgo' }, CHECKBACK = { g: 'gotit', u: 'nudge', k: 'keepwaiting', l: 'letgo' }, PUTOFF = { h: 'unclear', k: 'stillmatters', l: 'letgo' }, REVIEW = { e: 'revise', s: 'notnow', d: 'sentself' };
     docKey = function (e) {
       /* Finding out: Cmd/Ctrl+Enter in the instructions sends the question */
       if (askingFind && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'instr') { e.preventDefault(); findOut(e.target.value); return; }
@@ -2033,10 +2058,8 @@
       } else if (wayOpen || (cur() && cur().inTheWay)) {
         if (n > -1) b = card.querySelectorAll('.way [data-act]')[n];
       } else if (scheduling) {
-        if (n > -1) b = card.querySelectorAll('[data-when]')[n];
+        if (n > -1) b = card.querySelectorAll('.when-grid .when')[n];
         else if (k === 'm') b = card.querySelector('[data-sched="more"]');
-        else if (k === 'x') b = card.querySelector('[data-sched="exact"]');
-        else if (k === 'e') b = card.querySelector('[data-sched="back"]');
         else if (k === 'escape') b = card.querySelector('[data-sched="cancel"]');
       } else if (REVIEW[k] && card.querySelector('.actions.review')) {
         b = card.querySelector('[data-act="' + REVIEW[k] + '"]');
@@ -2051,6 +2074,11 @@
         b = card.querySelector('[data-act="' + PARKREV[k] + '"]');
       } else if (STALE[k] && card.querySelector('.stale:not([hidden])')) {
         b = card.querySelector('[data-act="' + STALE[k] + '"]');
+      } else if (k === 'e') {
+        /* Tell Fuzz: into the card's box. Esc leaves it with what you wrote, and the keys work again. */
+        var box = $('#instr') || $('#note');
+        if (box) { e.preventDefault(); box.focus(); box.selectionStart = box.selectionEnd = box.value.length; }
+        return;
       } else if (KEYS[k]) {
         b = card.querySelector('[data-act="' + KEYS[k] + '"]');
       } else if (n > -1) {

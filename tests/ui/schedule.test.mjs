@@ -50,13 +50,15 @@ async function openLater(n) {
 const tiles = () => page.locator('.sched-panel [data-when]');
 const more = () => page.locator('[data-sched="more"]');
 
-test('Exact time is a tile shown before More times, on X', async () => {
+test('Exact time is a numbered tile shown before More times', async () => {
   await openLater(5);
   assert.equal(await page.locator('.sched-links [data-sched="exact"]').count(), 0, 'no exact-time link under the tiles');
   const exactTile = page.locator('.when-grid [data-sched="exact"]');
   assert.equal(await exactTile.count(), 1);
   assert.equal(await page.locator('#exact').isVisible(), false);
-  await page.keyboard.press('x');
+  /* three times, End of the list, then Exact time: 5. X is Not mine, never a time */
+  assert.equal(await exactTile.getAttribute('aria-keyshortcuts'), '5');
+  await page.keyboard.press('5');
   assert.equal(await page.locator('#exact').isVisible(), true);
   assert.equal(await exactTile.getAttribute('aria-expanded'), 'true');
 });
@@ -76,9 +78,16 @@ test('Two or more extra times fold behind More times', async () => {
   assert.equal(await more().count(), 0);
 });
 
+test('End of the list is a number, not E', async () => {
+  await openLater(5);
+  assert.equal(await page.locator('[data-sched="back"]').getAttribute('aria-keyshortcuts'), '4');
+  await page.keyboard.press('e');
+  assert.equal(await page.locator('.sched-panel').count(), 1, 'E does nothing in the time picker');
+});
+
 test('An open exact time stays open through More times, until a real time is picked', async () => {
   await openLater(5);
-  await page.keyboard.press('x');
+  await page.keyboard.press('5');
   const exact = page.locator('#exact');
   /* Set something in the picker, so we can tell it was kept rather than drawn fresh */
   const tomorrow = exact.locator('[data-xpchip]').nth(1);
