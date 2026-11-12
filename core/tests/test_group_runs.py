@@ -6,7 +6,7 @@ import unittest
 from helpers import CoreCase
 from test_http import Server
 
-from fuzz import answers, cards, drafts, events, groups, scheduler, tasks, tools
+from fuzz import actions, answers, cards, drafts, events, groups, scheduler, tasks, tools
 
 
 def email(n, asks, conv="AAQk1", ts="2026-10-20T09:00:00Z"):
@@ -129,7 +129,7 @@ class Runs(CoreCase):
         self.answer("venue", "assign")
         self.answer("lunch", "done")
         self.assertNotIn("held", self.tags("venue"))
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertIn("held", self.tags("venue"))
         self.assertEqual(self.task(self.tid("lunch"))["state"], "triage")
         self.assertIsNotNone(groups.run(self.core))
@@ -150,7 +150,7 @@ class Runs(CoreCase):
         gid = self.group()
         self.answer("venue", "assign")
         groups.finish_later(self.core, gid)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertIn("held", self.tags("venue"))
         self.assertEqual(groups.run(self.core)["group_id"], gid)
 

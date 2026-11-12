@@ -587,7 +587,7 @@ class App:
         return {"recent": events.undo_list(core)}
 
     def undo(self, core, m, body, q):
-        return events.undo(core, body.get("group"))
+        return actions.undo(core, body.get("group"))
 
     def events_since(self, core, m, body, q):
         return {"events": events.since(core, int(q.get("after") or 0), min(int(q.get("limit") or 200), 1000))}

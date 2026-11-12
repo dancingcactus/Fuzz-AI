@@ -396,8 +396,12 @@ def undo_list(core, limit=10):
     return out
 
 
-def undo(core, group=None):
+def undo(core, group=None, *, hooks):
     """Reverse the newest human command (or the one named), on its own: commands aren't a stack.
+
+    hooks: event type -> fn(core, event), for what a command changed outside the projection (the matcher's
+    and the memory's derived tables, eval cases, the engine choice), which replay can't put back. Required,
+    so nothing undoes without them: call actions.undo, which passes actions.UNDO_HOOKS.
 
     Refused (409) when a later event changed a decisive field the undo would put back. Bookkeeping
     fields a later event changed keep their newer value. Returns {"undid": root, "event_id": id}."""
@@ -421,24 +425,8 @@ def undo(core, group=None):
     restore = {t: rows for t, rows in restore.items() if rows}
     with core.tx(actor="human"):
         for e in evs:
-            if e["type"] == "task.merged":
-                from . import matching  # the side tables a merge moved
-                matching.unmerge_side_tables(core, e["payload"]["data"]["merge_id"])
-            if e["type"] in ("entity.merged", "entity.kept_separate"):   # the entity tables are derived, not replayed
-                from .memory import facts as mfacts
-                mfacts.undo_entity_event(core, e)
-            if e["type"] == "task.let_go":   # Not a task taken back: its eval case was a wrong label
-                from . import evals
-                evals.retire_for_task(core, e["task_id"])
-            if e["type"] == "task.missed_confirmed":   # Yes taken back: the case waits on the card again
-                from . import evals
-                d = e["payload"].get("data") or {}
-                evals.unconfirm(core, d.get("case_id"))
-                if d.get("link_source"):
-                    core.q("UPDATE sources SET withdrawn=1 WHERE id=? AND user_id=?", (d["link_source"], core.user_id))
-            if e["type"] == "engine.selected":
-                from . import engine
-                engine.restore_selection(core, e["payload"]["data"].get("prior"))
+            if e["type"] in hooks:
+                hooks[e["type"]](core, e)
         task_id = evs[0]["task_id"]
         eid = emit(core, "task.restored", task_id=task_id, changes=restore,
                    data={"undoes": root, "type": evs[0]["type"]},

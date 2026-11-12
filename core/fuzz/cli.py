@@ -273,7 +273,7 @@ def cmd_split(a):
 
 def cmd_undo(a):
     core = _core(a)
-    _print(events.undo_list(core) if a.list else events.undo(core, a.group))
+    _print(events.undo_list(core) if a.list else actions.undo(core, a.group))
 
 
 def cmd_tick(a):

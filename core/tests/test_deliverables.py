@@ -7,7 +7,7 @@ import unittest
 from helpers import CoreCase
 from test_http import Server
 
-from fuzz import answers, cards, checkins, deliverables, events, focus, scheduler, tasks, tools
+from fuzz import actions, answers, cards, checkins, deliverables, events, focus, scheduler, tasks, tools
 from fuzz.db import FuzzError, parse_iso
 
 TICKET = "https://jira.example.com/browse/REP-118"
@@ -54,7 +54,7 @@ class Deliverables(CoreCase):
         tools.report_deliverable_done(self.core, did, "REP-118 is Done and in the release notes")
         d = deliverables.get(self.core, did)
         self.assertEqual((d["state"], d["evidence"]), ("done", "REP-118 is Done and in the release notes"))
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(deliverables.get(self.core, did)["state"], "open")
         self.assertEqual(events.check_replay(self.core), [])
 

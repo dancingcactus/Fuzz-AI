@@ -5,7 +5,7 @@ from unittest import mock
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, config, events, scheduler, tasks, tools
+from fuzz import actions, answers, cards, config, events, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 
@@ -87,7 +87,7 @@ class Rename(Claimed):
                          "Renamed “Can you summarize my last 5 slack threads?” to “Summarize my last 5 emails”.")
         top = events.undo_list(self.core)[0]
         self.assertEqual((top["type"], top["by"]), ("task.retitled", "fuzz:executor"))
-        events.undo(self.core, top["group"])
+        actions.undo(self.core, top["group"])
         t = self.task(tid)
         self.assertEqual(t["title"], "Can you summarize my last 5 slack threads?")
         self.assertEqual(t["context_md"], "**Five emails**", "Undo takes back the rename, not the brief")
@@ -153,7 +153,7 @@ class PrepNote(Claimed):
         answers.answer(self.core, card["id"], "approve")
         t = self.task(tid)
         self.assertEqual((t["state"], t["schedule_fire_at"]), ("scheduled", "2026-10-26T09:00:00Z"))
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(tid)["state"], "review", "Undo takes the approval back")
         answers.answer(self.core, card["id"], "approve")
         self.clock.advance(days=6, hours=1)

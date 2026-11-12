@@ -17,7 +17,7 @@ from unittest import mock
 
 from helpers import HERE, CoreCase
 
-from fuzz import adapters, doctor, engine, events, files, installer, runner, tasks
+from fuzz import actions, adapters, doctor, engine, events, files, installer, runner, tasks
 from fuzz.db import FuzzError
 
 
@@ -198,7 +198,7 @@ class Doctor(FakeHome):
         installer.install(self.core, "copilot")
         engine.select(self.core, "copilot", "some-model")
         self.assertEqual(self.core.config["engine"], {"client": "copilot", "model": "some-model"})
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.config["engine"]["client"], "claude-code")
         installer.uninstall(self.core, "copilot")
         with self.assertRaises(FuzzError):

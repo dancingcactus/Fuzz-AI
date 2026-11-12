@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from helpers import HERE, CoreCase
 
-from fuzz import answers, cards, config, events, scheduler, tasks, tools
+from fuzz import actions, answers, cards, config, events, scheduler, tasks, tools
 from fuzz.db import FuzzError
 from fuzz.matching import entities
 from fuzz.memory import briefs, extract, facts, inspect, knowledge, mcards, recall
@@ -148,7 +148,7 @@ class Facts(MemoryCase):
         self.assertEqual(facts.winners(self.core, m)["role"], "Payments lead")
         self.assertEqual(self.core.one("SELECT status FROM facts WHERE id=?", (new,))["status"], "rejected")
         self.assertEqual(events.check_replay(self.core), [])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.one("SELECT status FROM facts WHERE id=?", (new,))["status"], "live")
         self.assertEqual(cards.get(self.core, card["id"])["status"], "open")
         self.assertEqual(events.check_replay(self.core), [])
@@ -164,7 +164,7 @@ class Facts(MemoryCase):
         answers.answer(self.core, card["id"], "neither", "Head of Product")
         self.assertEqual(facts.winners(self.core, m)["role"], "Head of Product")
         self.assertEqual(facts.disputes(self.core, m), [])
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(len(facts.disputes(self.core, m)), 1, "one undo puts both back")
 
     def test_merging_people_brings_their_facts_and_undo_splits_them(self):
@@ -178,7 +178,7 @@ class Facts(MemoryCase):
         answers.answer(self.core, card["id"], "same")
         w = facts.winners(self.core, tricia)
         self.assertEqual((w["role"], w["owns"]), ("SRE", ["The ORN runbook"]))
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertNotIn("owns", facts.winners(self.core, tricia), "Undo splits them back")
         self.assertIsNone(self.core.one("SELECT redirect_to FROM entities WHERE id=?", (pat,))["redirect_to"])
         self.assertEqual(events.check_replay(self.core), [])
@@ -217,7 +217,7 @@ class Facts(MemoryCase):
         [card] = self.memory_cards("entity_person")
         answers.answer(self.core, card["id"], "different")
         self.assertEqual(len(self.core.all("SELECT * FROM entity_links")), 1)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.core.all("SELECT * FROM entity_links"), [])
 
     def test_old_definitions_become_facts_and_a_fresh_store_emits_nothing(self):
@@ -307,8 +307,8 @@ class Decisions(MemoryCase):
         self.assertEqual((d["status"], d["why"]), ("recorded", "Lower fees"))
         answers.answer(self.core, guess["id"], "not_decision")
         self.assertEqual(knowledge.get_decision(self.core, guess["payload"]["decision_id"])["status"], "rejected")
-        events.undo(self.core)
-        events.undo(self.core)
+        actions.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual({d["status"] for d in self.core.all("SELECT * FROM decision_log")}, {"proposed"})
         self.assertEqual(events.check_replay(self.core), [])
 
@@ -497,8 +497,8 @@ class Recall(MemoryCase):
         p = r["entity_id"]
         self.assertEqual(facts.winners(self.core, p)["role"], "Director of Billing")
         self.assertEqual(self.core.one("SELECT status FROM facts WHERE id=?", (role["fact_id"],))["status"], "rejected")
-        events.undo(self.core)
-        events.undo(self.core)
+        actions.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(facts.winners(self.core, p)["role"], "Billing lead")
 
     def test_the_scripted_ask_answers_on_the_event_stream(self):

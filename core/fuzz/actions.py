@@ -5,8 +5,9 @@ the command should start, which the interface hands to followups.run() once the 
 HTTP, the CLI and anything else that answers for you go through here, so they can't drift apart.
 """
 
-from . import answers, cards, config, onboarding, tasks
+from . import answers, cards, config, engine, evals, events, matching, missed, onboarding, tasks
 from .db import FuzzError
+from .memory import facts as mfacts
 
 GATHER_AFTER = ("schedule", "wait", "keep_waiting", "nudge")   # answers that give Fuzz something to look into or draft
 GATHER = [{"kind": "gather"}]   # after a file lands: a task captured with files waits for them before it's gathered
@@ -87,3 +88,23 @@ def task_action(core, task_id, verb, body=None):
     do(core, task_id, body)
     follow = [{"kind": k, "task_id": task_id} for k in starts]
     return {"task_id": task_id, "state": tasks.get(core, task_id)["state"]}, follow
+
+
+# What undo puts back outside the projection, by the event that changed it (see events.undo)
+UNDO_HOOKS = {
+    # the side tables a merge moved
+    "task.merged": lambda core, e: matching.unmerge_side_tables(core, e["payload"]["data"]["merge_id"]),
+    # the entity tables are derived, not replayed
+    "entity.merged": mfacts.undo_entity_event,
+    "entity.kept_separate": mfacts.undo_entity_event,
+    # Not a task taken back: its eval case was a wrong label
+    "task.let_go": lambda core, e: evals.retire_for_task(core, e["task_id"]),
+    # Yes taken back: the case waits on the card again
+    "task.missed_confirmed": missed.undo_confirmed,
+    "engine.selected": lambda core, e: engine.restore_selection(core, e["payload"]["data"].get("prior")),
+}
+
+
+def undo(core, group=None):
+    """Undo one of your commands (the newest, or the group named): POST /undo and `fuzz undo`."""
+    return events.undo(core, group, hooks=UNDO_HOOKS)

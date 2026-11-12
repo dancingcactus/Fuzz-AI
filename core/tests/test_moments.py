@@ -7,7 +7,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, events, http_api, presence, scheduler, tasks, timeres, tools
+from fuzz import actions, answers, cards, events, http_api, presence, scheduler, tasks, timeres, tools
 from fuzz.db import FuzzError
 
 LEADERSHIP = {"type": "moment", "key": "leadership-1030", "label": "Before the leadership meeting",
@@ -118,7 +118,7 @@ class WhenItChanges(CoreCase):
         scheduler.suggest_schedule(self.core, tid, moment(cancelled=True), "")
         self.assertEqual(events.check_replay(self.core), [])
         answers.answer(self.core, self.card_for(tid, "task")["id"], "park")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(tid)["state"], "triage")
 
 

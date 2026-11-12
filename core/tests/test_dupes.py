@@ -5,7 +5,7 @@ import unittest
 from helpers import CoreCase
 from test_http import Server
 
-from fuzz import answers, cards, events, scheduler, tasks, tools
+from fuzz import actions, answers, cards, events, scheduler, tasks, tools
 from fuzz.matching import dupes, entities
 
 TICKET = "https://jira.example.com/browse/PROJ-1234"
@@ -60,7 +60,7 @@ class Dupes(CoreCase):
         new = tasks.capture(self.core, "Check PROJ-1234 test setup")
         answers.answer(self.core, self.card_for(new, "duplicate")["id"], "merge")
         self.assertEqual((self.task(new)["state"], self.task(new)["merged_into"]), ("merged", old))
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.task(new)["state"], "triage")
 
     def test_with_gathering_it_is_matched_once_fuzz_has_looked(self):
@@ -256,7 +256,7 @@ class SameAskAgain(CoreCase):
     def test_undo_brings_the_task_and_its_possible_duplicates_back(self):
         first, second, third = self.three_from_people()
         tasks.theirs(self.core, first)
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual([tasks.get(self.core, t)["state"] for t in (first, second, third)], ["triage"] * 3)
         self.assertEqual(self.card_for(second, "duplicate")["other_id"], first)
 

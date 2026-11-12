@@ -54,9 +54,21 @@ top-level imports only there is none. Low layers call up: `cards` into `tasks`, 
 Layers to aim for: `db`/`config` → `events`/`states` → domain (`tasks`, `cards`, `drafts`, `groups`…)
 → orchestration (`answers`, `scheduler`) → interfaces (`http_api`, `mcp_server`, `cli`).
 
-- [ ] 2a. Undo hooks: `events.UNDO_HOOKS[type] = fn`, registered by `matching`, `memory.facts`, `evals`, `engine`
-- [ ] 2b. A test that fails when a new upward import appears (baseline the current ones, ratchet down)
-- [ ] 2c. Break `cards` → domain calls (card views take what they need, or hooks)
+- [x] 2a. Undo's side effects are `actions.UNDO_HOOKS` (merge side tables, entity tables, eval cases, the
+  missed message's link, the engine choice), passed to `events.undo`, which now requires them: a caller
+  can't undo without them by mistake. `actions.undo` is the command (`POST /undo`, `fuzz undo`, the tests).
+  The hooks aren't registered on import, since one whose module wasn't loaded would silently not run.
+  `events` now imports only `db`; the cycle went from 34 modules to 26 plus 2, as `events`, `connectors`,
+  `evals`, `installer`, `learning` and `runs` dropped out.
+- [x] 2b. `core/tests/test_layers.py`: the foundation (`config`, `db`, `states`, `events`) imports nothing
+  above it, nothing below imports the top (`actions`, `followups`, the interfaces), and no module joins an
+  import cycle (`CYCLE_BASELINE`, which must be trimmed when one leaves). Checked by planting an upward
+  import in `db.py`: two failures, naming it.
+- [ ] 2c. **Needs a decision.** The 28 modules still in cycles are one tightly knit domain layer. Simulated
+  cuts: moving the card view and queue out of `cards` changes nothing (28); `cards` importing nothing above
+  it takes out only `cards` (27); the biggest single lever, `tasks` importing nothing, leaves 20. Shrinking
+  it means a redesign (say, `cards.sync` driven by events rather than called from every command), not a
+  cleanup. Recommended: accept the domain cycle, guarded by 2b, and spend the effort on item 4.
 
 ## 3. Adding a card kind or a projected table means editing many places in step (verified)
 

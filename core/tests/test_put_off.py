@@ -4,7 +4,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, events, scheduler, tasks
+from fuzz import actions, answers, cards, events, scheduler, tasks
 
 DESK = {"type": "at_desk"}
 
@@ -92,7 +92,7 @@ class PutOff(CoreCase):
         tid = tasks.capture(self.core, "Update the naming guide")
         self.put_off(tid, 3)
         answers.answer(self.core, self.card_for(tid, "task")["id"], "now")
-        events.undo(self.core)
+        actions.undo(self.core)
         t = self.task(tid)
         self.assertIn("put_off", t["variant_tags"])
         self.assertEqual(t["reschedules"], 3)

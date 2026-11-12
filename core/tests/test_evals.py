@@ -5,7 +5,7 @@ import unittest
 
 from helpers import CoreCase
 
-from fuzz import answers, cards, evals, events, learning, missed, scheduler, tasks, tools
+from fuzz import actions, answers, cards, evals, events, learning, missed, scheduler, tasks, tools
 from fuzz.db import FuzzError
 
 SEEDS = json.loads((evals.SEEDS / "extract.json").read_text())["cases"]
@@ -197,7 +197,7 @@ class FromNotTask(CoreCase):
     def test_undo_retires_the_case(self):
         ids, card = self.message(["Review the Q3 plan", "Book the room"])
         answers.answer(self.core, card["id"], "not_task")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(self.pending(), [])
         self.assertEqual(len(evals.cases(self.core, "extract", status="retired")), 1)
         self.assertEqual(events.check_replay(self.core), [])
@@ -364,7 +364,7 @@ class Missed(CoreCase):
         tid, _ = self.capture()
         tools.report_missed(self.core, tid, self.found())
         answers.answer(self.core, self.card(tid)["id"], "yes")
-        events.undo(self.core)
+        actions.undo(self.core)
         self.assertEqual(evals.cases(self.core, "extract"), [])
         self.assertEqual(len(evals.cases(self.core, "extract", status="unconfirmed")), 1)
         self.assertEqual(self.core.all("SELECT id FROM sources WHERE task_id=? AND role='link' AND withdrawn=0", (tid,)), [])
@@ -426,7 +426,7 @@ class Missed(CoreCase):
         answers.answer(self.core, self.card(tid)["id"], "skip")
         [c] = evals.cases(self.core, "extract", status="retired")
         self.assertNotIn("text", c["input"])
-        events.undo(self.core)
+        actions.undo(self.core)
         answers.answer(self.core, self.card(tid)["id"], "yes")
         self.assertEqual(evals.cases(self.core, "extract"), [])
         self.assertIn("wasn't kept", self.core.one("SELECT payload FROM events WHERE type='task.missed_confirmed'")
