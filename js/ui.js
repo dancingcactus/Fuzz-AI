@@ -31,8 +31,10 @@
   var COPY_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5 H12.5 V13 H5.5 Z M3.5 10.5 V3 H10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var DONE_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function idTag(it) {
-    var core = it.coreId != null, val = String(core ? it.coreId : it.id);
-    return '<p class="taskid"><span class="taskid-txt">' + (core ? 'Task #' : 'Local ') + esc(val) + '</span>' +
+    /* A deliverable or memory card belongs to no task: it carries the core's card id instead */
+    var card = it.coreId == null && it.cardId != null, core = it.coreId != null || card;
+    var val = String(card ? it.cardId : core ? it.coreId : it.id);
+    return '<p class="taskid"><span class="taskid-txt">' + (card ? 'Card #' : core ? 'Task #' : 'Local ') + esc(val) + '</span>' +
       '<button type="button" class="taskid-copy" data-copyid="' + esc(val) + '" aria-label="Copy task number" title="Copy">' + COPY_SVG + '</button></p>';
   }
   /* The id's copy button: the number alone goes on the clipboard, and a tick says it went */

@@ -694,7 +694,7 @@
       '<div id="actions"><div class="actions">' +
       '<button type="button" class="btn primary" data-act="hold-approve">' + (it.holdRemove ? 'Remove it' : 'Add the hold') + '</button>' +
       (it.holdRemove ? '' : '<button type="button" class="btn" data-act="hold-always">Always allow for my calendar</button>') +
-      '<button type="button" class="btn" data-act="hold-skip">' + (it.holdRemove ? 'Keep it' : 'Skip') + '</button></div></div>';
+      '<button type="button" class="btn" data-act="hold-skip">' + (it.holdRemove ? 'Keep it' : 'Skip') + '</button></div></div>' + UI.idTag(it);
   }
   /* Deliverable cards: one decision each, like any question card */
   var DV_LABEL = { keep_going: 'Keep going', make_active: 'Make it active', its_done: 'It’s done', let_go: 'Let it go',
@@ -759,7 +759,7 @@
   function delivHTML(it) {
     var p = it.payload || {}, h = '<div class="tagrow"><span class="src">' + esc(it.source || 'Your deliverables') + '</span></div>' + askHTML(it.ask);
     if (it.incoming) h += '<p class="dlg-what">' + esc(it.incoming) + '</p>';
-    if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []);
+    if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
     if (it.cardKind === 'week_plan' && p.steps) {
       h += (p.all || []).map(function (d) {
         return '<section class="dv-steps"><h3>' + esc(d.title) + '</h3>' + (d.open && d.open.length ? '<p class="meta">Open: ' + esc(d.open.slice(0, 4).join(' · ')) + '</p>' : '') +
@@ -775,10 +775,10 @@
         '<p class="meta">A state Fuzz can check: a ticket’s status, a document, a sent message. Or tick the box and you’ll check it yourself.</p>' +
         '<label class="check"><input type="checkbox" id="dv-you"> <span>I’ll check it myself</span></label></div>';
     }
-    return h + dvButtons(it, it.cardOptions || []);
+    return h + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
   }
   function partOfQHTML(it) {
-    return tagrow(it) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']);
+    return tagrow(it) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
   }
   function dvValue(it, opt) {
     if (opt === 'keep_these') return [].map.call(card.querySelectorAll('[data-dvpick]:checked'), function (b) { return +b.dataset.dvpick; });
@@ -1660,9 +1660,9 @@
     await showNext(shown);
   }
 
-  function renderActionsArea() { var it = cur(); var a = $('#actions'); if (a && it) { a.innerHTML = actionsHTML(it); } }
+  function renderActionsArea() { var it = cur(); var a = $('#actions'); if (a && taskButtons(it)) { a.innerHTML = actionsHTML(it); } }
   async function schedule() {
-    var it = cur(); if (!it || it.kind !== 'task') return;
+    var it = cur(); if (!taskButtons(it)) return;
     streak = 0;
     if ($('#instr')) edits[it.id + ':instr'] = $('#instr').value;
     var review = it.state === 'review', res = !!it.result;
@@ -1726,7 +1726,10 @@
     Fuzz.setMood('idle');
     await showNext(shown);
   }
-  function renderCardKeep() { var it = cur(); if (!it) return; var panel = scheduling || booking; $('#actions').innerHTML = card.querySelector('.comeback') && !panel ? '' : actionsHTML(it); var st = card.querySelector('.stale'); if (st) st.hidden = panel; }
+  /* Only a task card has the task's buttons. A deliverable, memory, hold or part-of card, and an entity or
+     duplicate question, carry their own answers, so nothing here redraws them as a task's. */
+  function taskButtons(it) { return !!it && it.kind === 'task' && it.cardKind !== 'part_of' && it.cardKind !== 'hold'; }
+  function renderCardKeep() { var it = cur(); if (!taskButtons(it)) return; var panel = scheduling || booking; $('#actions').innerHTML = card.querySelector('.comeback') && !panel ? '' : actionsHTML(it); var st = card.querySelector('.stale'); if (st) st.hidden = panel; }
 
   /* Approve a draft. Fuzz then sends it with its own connected tools; Undo takes the approval back
      until it has gone out, and not after. A draft just for you is only filed. */
@@ -1816,7 +1819,7 @@
   }
   function stuckCheck() {
     var it = cur();
-    if (!alive || !it || !shown || shown.id !== it.id || busy || ciOpen || scOpen || document.hidden || card.style.display === 'none') return;
+    if (!alive || !taskButtons(it) || !shown || shown.id !== it.id || busy || ciOpen || scOpen || document.hidden || card.style.display === 'none') return;
     if (wayOpen || asked[it.id] || it.inTheWay || scheduling || booking || askingWho || askingFind || pausing) return;
     var quiet = Date.now() - (it.doing ? lastInput : shown.at) - awayS * 1000;
     if (quiet < stuckAfter(it)) return;

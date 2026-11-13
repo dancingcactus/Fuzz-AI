@@ -47,6 +47,37 @@ test('an ordinary task leads with the task, and Fuzz’s plan is plain text', as
   assert.match(await page.locator('#card [data-act="assign"]').first().textContent(), /Hand it to Fuzz/);
 });
 
+test('every card says its id: a task its task number, a deliverable or memory card its card number', async () => {
+  const tags = await page.evaluate(() => [
+    { coreId: 14, kind: 'task', id: 't14' }, { coreId: 15, kind: 'task', cardKind: 'hold', cardId: 3, id: 't15' },
+    { kind: 'deliv', cardId: 7, id: 'c7' }, { kind: 'task', id: 'local-1' },
+  ].map(it => new DOMParser().parseFromString(UI.idTag(it), 'text/html').querySelector('.taskid-txt').textContent));
+  assert.deepEqual(tags, ['Task #14', 'Task #15', 'Card #7', 'Local local-1']);
+});
+
+test('a memory card left in front keeps its own answers: What’s in the way? is for tasks', { timeout: 60000 }, async () => {
+  await page.evaluate(() => {
+    const st = Store.get();
+    st.work = { stuck_minutes: { sort: 0.001, work: 25 } };
+    st.items.push({ id: 'c901', kind: 'deliv', cardKind: 'fact_conflict', cardId: 901, memory: true, state: 'triage',
+      cardOptions: ['first', 'second', 'neither', 'not_sure'], title: 'Which is right?', ask: 'Which is right?', incoming: '',
+      payload: { facts: [{ value: 'Tuesday', level: 'reported' }, { value: 'Thursday', level: 'reported' }] },
+      source: 'Fuzz’s memory', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+    st.queue.unshift('c901');
+  });
+  await show('c901');
+  await page.locator('#card [data-dv="first"]').waitFor();
+  /* the stuck check runs every 15 seconds */
+  await page.waitForTimeout(16500);
+  assert.equal(await page.locator('#way-h').count(), 0, 'no What’s in the way? on a memory card');
+  assert.equal(await page.locator('#card [data-dv="first"]').count(), 1, 'its own answers stay');
+  assert.equal(await page.locator('#card [data-act="assign"]').count(), 0, 'no task buttons');
+  /* a task left in front still gets asked */
+  const t = await page.evaluate(() => Store.get().queue.find(id => { const i = Store.item(id); return i && i.kind === 'task' && i.state === 'triage' && !i.doing; }));
+  await show(t);
+  await page.locator('#way-h').waitFor({ timeout: 20000 });
+});
+
 test('E edits the plan; Esc keeps the change in the plan text', async () => {
   await page.keyboard.press('e');
   assert.equal(await page.locator('#instr').isVisible(), true);
