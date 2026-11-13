@@ -284,10 +284,6 @@
   }
 
   /* ---------- The card ---------- */
-  function ageChip(it) {
-    var m = { fresh: ['Fresh', 1, 'ok'], settling: ['Aging', 2, 'warn'], stale: ['Sitting', 3, 'muted'] }[it.stage || 'fresh'];
-    return '<span class="agechip agechip--' + m[2] + '"><span class="segs" aria-hidden="true">' + [1, 2, 3].map(function (n) { return '<i class="' + (n <= m[1] ? 'on' : '') + '"></i>'; }).join('') + '</span>' + m[0] + ' · ' + esc(it.age || 'today') + '</span>';
-  }
   function duePanel(it) {
     if (!it.due) return '';
     var d = it.due, tone = d.frac < 0.25 ? 'tight' : d.frac < 0.5 ? 'mid' : 'ok';
@@ -520,26 +516,35 @@
     var tb = $('#tab-' + name); if (tb) tb.focus();
   }
 
-  function tagrow(it, extra) {
+  /* The top line, one flowing line: what changed (Updated, Handed back…), where it came from, then (withMeta)
+     its age, size, group and deliverable as quiet text, and the due time last. Nothing sits between the question
+     and the decision. Each item carries its own separator, and the line hides the one that would start a row. */
+  function ebItem(html, sep) { return '<span class="eb-i"><span class="eb-sep" aria-hidden="true">' + (sep ? '·' : '') + '</span>' + html + '</span>'; }
+  function tagrow(it, extra, withMeta) {
     var tags = extra || '';
     if (it.handedBack) tags += '<span class="tag">Handed back</span>';
-    if (it.updated) tags += '<span class="tag">Updated</span>';
+    if (it.updated) tags += '<span class="tag">Back again</span>';
     if (it.kind === 'dup') tags += '<span class="tag tag--info">Possible duplicate</span>';
     if (it.isNew) tags += '<span class="tag tag--ok">Just captured</span>';
-    tags += '<span class="tag due" id="duetag" hidden></span>';
-    return '<div class="tagrow"><span class="src">' + esc(it.source + (it.who ? ' · ' + it.who : '')) + '</span>' + tags + '</div>';
+    var h = tags.split('</span>').filter(Boolean).map(function (t) { return ebItem(t + '</span>'); }).join('');
+    h += ebItem('<span class="src">' + esc(it.source + (it.who ? ' · ' + it.who : '')) + '</span>') + (withMeta ? metaHTML(it) : '');
+    return '<div class="tagrow"><p class="eyebrow">' + h + ebItem('<span class="tag due" id="duetag" hidden></span>') + '</p></div>';
+  }
+  function metaHTML(it) {
+    var h = '', st = it.stage || 'fresh', stage = { fresh: 'Fresh', settling: 'Aging', stale: 'Sitting' }[st] || 'Fresh';
+    if (it.age) h += ebItem('<span class="eb' + (st === 'fresh' ? '' : ' eb-warn') + '" title="' + esc(stage + ' · ' + it.age) + '">' + (st === 'fresh' ? '' : stage + ' · ') + esc(it.age) + '</span>', true);
+    if (it.sizeLabel) h += ebItem('<span class="eb' + (Store.isBig(it) ? ' eb-warn' : '') + '" title="' + esc(it.sizeLabel) + '">' + esc(it.sizeLabel.split(' · ')[0]) + '</span>', true);
+    var g = Store.groupOf(it);
+    if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);
+    if (it.deliverable) h += ebItem('<button type="button" class="eb eb-link" data-act="forline" title="For ' + esc(it.deliverable.title) + '">For ' + esc(it.deliverable.title) + '</button>', true);
+    return h;
   }
   /* The question leads the card. "The one thing to decide" stays for screen readers only. */
   function askHTML(text) {
     return '<h2 class="ask" id="ask" tabindex="-1"><span class="sr">The one thing to decide: </span>' + esc(text) + '</h2>';
   }
   function titleHTML(it, asHeadline) {
-    return '<div class="title-block">' + (asHeadline ? '' : '<h3 class="task-title">' + esc(it.title) + '</h3>') + '<div class="chips">' + ageChip(it) + '<span class="meta">' + esc(it.meta || '') + '</span>' + (it.sizeLabel ? '<span class="sizechip' + (Store.isBig(it) ? ' big' : '') + '">' + esc(it.sizeLabel) + '</span>' : '') + '</div>' + partOfHTML(it) + forHTML(it) + '</div>';
-  }
-  /* A group is context on the card, never a card of its own: one line, which opens the group sheet */
-  function partOfHTML(it) {
-    var line = Store.partOf(it, true); if (!line) return '';
-    return '<button type="button" class="partof" data-act="group"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="13" width="18" height="5" rx="1.5"/></svg>' + esc(line) + '</button>';
+    return asHeadline ? '' : '<div class="title-block"><h3 class="task-title">' + esc(it.title) + '</h3></div>';
   }
   /* ---------- Working through a group ----------
      A group's cards come one at a time, back to back. While you go through them a band above the card names
@@ -778,7 +783,7 @@
     return h + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
   }
   function partOfQHTML(it) {
-    return tagrow(it) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
+    return tagrow(it, '', true) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
   }
   function dvValue(it, opt) {
     if (opt === 'keep_these') return [].map.call(card.querySelectorAll('[data-dvpick]:checked'), function (b) { return +b.dataset.dvpick; });
@@ -791,11 +796,6 @@
     if (it.cardKind === 'entity_person' && opt === 'same') { var r = card.querySelector('input[name="mem-who"]:checked'); return r ? +r.value : undefined; }
     if (it.cardKind === 'entity_person' && opt === 'different') return (($('#mem-other') || {}).value || '').trim() || undefined;
     return undefined;
-  }
-  /* "For …": its deliverable, which opens the deliverable sheet */
-  function forHTML(it) {
-    if (!it.deliverable) return '';
-    return '<button type="button" class="partof forline" data-act="forline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>For ' + esc(it.deliverable.title) + '</button>';
   }
   /* Cards that come back to ask (the ADHD pass, #6): waiting on someone, back from Parked, keeps coming back,
      quiet for a while. One layout and one set of keys: Fuzz's ways forward are numbered answers, and It still
@@ -911,7 +911,7 @@
     var answersOn = isTask && !parkrev && !checkback && !putoff && !stale && !it.doing && hasAnswers(it);   /* a result's follow-up too */
     var plain = ordinary && !answersOn && !it.handedBack && !it.joinReply;
     var back = checkback ? 'Has ' + (it.waitingOn || 'them') + ' gotten back to you?' : parkrev ? 'Still want this?' : putoff ? 'What’s in the way?' : stale ? 'Does this still matter?' : null;
-    var h = (g ? g.html : '') + tagrow(it) + askHTML(plain ? it.title : back || it.ask) + titleHTML(it, plain) + duePanel(it);
+    var h = (g ? g.html : '') + tagrow(it, '', true) + askHTML(plain ? it.title : back || it.ask) + titleHTML(it, plain) + duePanel(it);
     /* What Fuzz found comes before what you tell him to do, so you edit with the answer in view */
     if (isTask && !stale && it.aiNote) h += findingHTML(it);
     /* What Fuzz couldn't find: Find out… comes first */
@@ -953,7 +953,7 @@
      the single-letter keys. */
   function reviewHTML(it) {
     var r = Store.recipient(it), val = edits[it.id + ':draft'] !== undefined ? edits[it.id + ':draft'] : (it.draft || '');
-    var h = tagrow(it, '<span class="tag tag--ok">Needs your OK</span>');
+    var h = tagrow(it, '<span class="tag tag--ok">Needs your OK</span>', true);
     h += askHTML(r ? 'Send this to ' + r.to + '?' : 'Does this look right?') + titleHTML(it);
     /* After "Ask Fuzz to change it", the draft says it was reworked and what you asked for */
     if (it.revisedNote) h += '<div class="finding"><span class="finding-tag">Updated from your note</span>' + Fuzz.mini('good', { cls: 'finding-av' }) + '<p>“' + esc(it.revisedNote) + '”</p></div>';

@@ -438,15 +438,25 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .sched-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
 /* The question leads; the task title sits right under it as what the question is about. */
 .ask { font-family: var(--font-display); font-size: 27px; line-height: 1.2; font-weight: 800; text-wrap: balance; margin-top: 2px; }
+/* The top line carries age, size, group and deliverable as quiet text after the source (option C) */
+.tagrow { display: block; min-height: 24px; overflow-x: clip; }
+/* Every item opens with an 18px separator slot; the -18px margin clips the slot that starts each row */
+.eyebrow { margin: 0 0 0 -18px; display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.eb-i { display: inline-flex; align-items: center; white-space: nowrap; min-width: 0; max-width: 100%; }
+.eb-i:has(> .tag[hidden]) { display: none; }
+.eb-i .src { white-space: normal; }
+.eb-sep { flex: none; width: 18px; text-align: center; opacity: .7; }
+.eyebrow .eb-warn { color: var(--ink); }
+.eyebrow .eb-warn::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--warn); vertical-align: 1px; }
+.eb-link { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 4px 0; margin: -4px 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; text-align: left; }
+.eb-link { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); text-underline-offset: 3px; }
+.eb-link:hover { color: var(--ink); text-decoration-color: var(--accent); }
+.eb-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .title-block { display: flex; flex-direction: column; gap: 8px; margin-top: -6px; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chips .meta { font-size: 13px; }
 .chips .meta:empty { display: none; }
 .task-title { font-family: var(--font-body); font-size: 16px; line-height: 1.4; font-weight: 600; color: var(--muted); text-wrap: pretty; }
-.agechip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; font-size: 12px; font-weight: 600; padding: 3px 10px; background: var(--chip); color: var(--ink); }
-.segs { display: inline-flex; gap: 3px; }
-.segs i { display: block; width: 5px; height: 12px; border-radius: 2px; background: var(--line); }
-.agechip--ok .segs i.on { background: var(--ok); } .agechip--warn .segs i.on { background: var(--warn); } .agechip--muted .segs i.on { background: var(--muted); }
 .duebox { background: var(--field); border: var(--bw) solid var(--line); border-radius: 16px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .duebox-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 14px; }
 .due-tight { color: var(--link); font-weight: 600; } .due-mid { font-weight: 600; } .due-ok { font-weight: 600; }
@@ -958,8 +968,6 @@ html.calm .gdots li { transition: none; }
 .lead-choice .btn { align-self: flex-start; }
 
 /* Working sessions: the size on every card, a big task's four choices, and the working card */
-.sizechip { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 10px; border: var(--bw) solid var(--line); border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 12.5px; font-weight: 700; }
-.sizechip.big { border-color: var(--wait); color: var(--ink); }
 .lead-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .lead-choice .lead-btns .btn { align-self: auto; }
 .card.working { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
