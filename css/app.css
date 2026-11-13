@@ -802,14 +802,17 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 
 /* ---------- Small screens ---------- */
 @media (max-width: 760px) {
-  /* One row of nav and icon buttons; on triage the progress bar takes its own slim row underneath. */
+  /* Fuzz and the icon buttons on top, the four tabs on a row of their own, and on Triage or Deep Work the progress bar in a slim row under that */
   .appbar { padding-top: 6px; padding-bottom: 6px; grid-template-columns: auto auto; justify-content: space-between; gap: 4px 8px; }
-  .appbar-left { gap: 8px; }
+  .appbar-left { display: contents; }
+  .brand { grid-column: 1; grid-row: 1; }
+  .appbar-left .mainnav { grid-column: 1 / -1; grid-row: 2; margin: 0 -8px; }
+  .mainnav a { white-space: nowrap; }
   .brand-name { display: none; }
   .brand-av { width: 34px; }
   .mainnav a { padding: 0 11px; }
   .appbar-right { grid-column: 2; grid-row: 1; gap: 6px; }
-  .hprog { grid-column: 1 / -1; grid-row: 2; max-width: none; }
+  .hprog { grid-column: 1 / -1; grid-row: 3; max-width: none; }
   .hprog { --pg-segmax: 9999; }
   .hprog .left { width: auto; text-align: left; }
   .appbar-right .nav-cta { display: none; }
@@ -860,7 +863,6 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 }
 @media (max-width: 420px) {
   .view { padding-left: 12px; padding-right: 12px; }
-  .brand { display: none; } /* the Triage tab already goes home */
   .appbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
   .palettes { grid-template-columns: 1fr; }
   .ask, .cap-title { font-size: 23px; }
@@ -871,7 +873,8 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .appbar-right { gap: 4px; }
 }
 @media (max-width: 340px) {
-  .mainnav a { padding: 0 7px; gap: 6px; }
+  .mainnav { gap: 0; }
+  .mainnav a { padding: 0 6px; gap: 5px; font-size: 13.5px; }
 }
 @media (prefers-reduced-motion: reduce) {
   body, .pg-seg { transition: none; }
