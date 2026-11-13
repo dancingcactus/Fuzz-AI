@@ -1,0 +1,51 @@
+/* Fuzz tucked into the card. Page chrome first, then the tuck layout itself (the part the app would take). */
+body { background: var(--bg); color: var(--ink); margin: 0; }
+.spike { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+.top h1 { font-family: var(--font-display); font-weight: 800; font-size: 28px; margin: 0 0 6px; }
+.top p { margin: 0 0 16px; max-width: 70ch; color: var(--muted); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.controls fieldset { border: var(--bw, 1px) solid var(--line); border-radius: 14px; padding: 8px 12px 10px; margin: 0; display: flex; flex-direction: column; gap: 6px; background: var(--surface); font-size: 14px; }
+.controls legend { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 4px; }
+.controls label { display: flex; align-items: center; gap: 6px; }
+.controls small { color: var(--muted); }
+.controls input[type="range"] { width: 120px; }
+.controls input[type="number"] { width: 64px; }
+.controls output { font-variant-numeric: tabular-nums; min-width: 4.5em; color: var(--muted); }
+
+.frame { margin: 0 auto; background: var(--bg); border: var(--bw, 1px) dashed var(--line); border-radius: 24px; padding: 20px 18px 28px; transition: width .2s; box-sizing: border-box; max-width: 100%; }
+.frame .stage { position: relative; }
+
+.numbers { max-width: 720px; margin: 28px auto 0; }
+.numbers h2 { font-family: var(--font-display); font-size: 18px; margin: 0 0 4px; }
+.numbers table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 14px; }
+.numbers th, .numbers td { text-align: left; padding: 6px 8px; border-bottom: var(--bw, 1px) solid var(--line); font-variant-numeric: tabular-nums; }
+.numbers tr.on td { font-weight: 700; }
+.numbers .note { margin-top: 12px; color: var(--muted); }
+
+/* ---------- The tuck (what the app would take) ----------
+   tuck.js sets the custom properties from one scale (Fuzz's width / 200, the rig's viewBox) and one line
+   (the rig y where the card's top edge crosses him). */
+.stage.tuck .perch { display: block; position: relative; height: var(--perch-h); margin: 0; padding: 0; }
+.stage.tuck .pwrap { position: absolute; left: var(--fuzz-x); top: 0; width: var(--fuzz-w); z-index: 5; }
+/* His box is a 200 by 222 rectangle over the card's text: only the parts that are drawn take clicks */
+.stage.tuck .pwrap, .stage.tuck .pwrap svg { pointer-events: none; }
+.stage.tuck .pwrap svg * { pointer-events: auto; }
+.stage.tuck .perch .bubble { position: absolute; left: var(--bubble-x); top: var(--bubble-y); max-width: var(--bubble-w); margin: 0; }
+
+/* Floats need a block box: the card's flex gap becomes margins */
+.stage.tuck .card { display: block; }
+.stage.tuck .card > * { margin-top: 0; margin-bottom: 0; }
+.stage.tuck .card > * + * { margin-top: 14px; }
+.stage.tuck .card > .tuck-hole + * { margin-top: 0; }
+.stage.tuck .card > .stamp { margin-top: -34px; }
+/* Boxes with a fill or a rule would slide under him, so they stand clear as a rectangle instead
+   (.finding, .draft, .answers and .actions are flex or grid, so they already do) */
+.stage.tuck .card .plan, .stage.tuck .card .card-details { display: flow-root; }
+.stage.tuck .card .plan { margin: 0; }
+.stage.tuck .card > .finding { margin-top: 20px; }
+
+/* The float's box is a rectangle even when its shape isn't, and it would swallow clicks on the text it lets in */
+.tuck-hole { pointer-events: none; float: left; shape-outside: var(--hole-shape); width: var(--hole-w); height: var(--hole-h); }
+.show-shape .tuck-hole { background: color-mix(in srgb, var(--accent) 22%, transparent); clip-path: var(--hole-shape); }
+.show-shape .tuck-hole.rect { clip-path: none; outline: 1px dashed var(--accent); }

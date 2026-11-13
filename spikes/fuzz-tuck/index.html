@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuzz Tuck Spike</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="../../css/fuzz-rig.css">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="tuck.css">
+<script src="../../js/themes.js"></script>
+</head>
+<body>
+<main class="spike">
+  <header class="top">
+    <h1>Fuzz tucked into the card</h1>
+    <p>A bigger Fuzz stands half inside the card's top-left corner. His head and his line stay above the card, and the
+      card's text wraps around his body. The card, Fuzz and the CSS are the app's own. Nothing here talks to the core.</p>
+  </header>
+
+  <form class="controls" id="controls" onsubmit="return false">
+    <fieldset>
+      <legend>Layout</legend>
+      <label><input type="radio" name="mode" value="today"> Today <small>160 px, stands on the card</small></label>
+      <label><input type="radio" name="mode" value="big"> Bigger, not tucked</label>
+      <label><input type="radio" name="mode" value="tuck" checked> Tucked in</label>
+    </fieldset>
+    <fieldset>
+      <legend>Wrap</legend>
+      <label><input type="radio" name="shape" value="silhouette" checked> His outline</label>
+      <label><input type="radio" name="shape" value="rect"> A box</label>
+      <label><input type="checkbox" id="live"> Follows his pose</label>
+      <label><input type="checkbox" id="showShape"> Show the wrap shape</label>
+    </fieldset>
+    <fieldset>
+      <legend>Size and place</legend>
+      <label>Fuzz <input type="range" id="size" min="150" max="280" step="2" value="220"> <output id="sizeOut"></output></label>
+      <label>Card edge at <input type="range" id="tuck" min="96" max="176" step="1" value="120"> <output id="tuckOut"></output></label>
+      <label>Sideways <input type="range" id="side" min="-40" max="40" step="1" value="0"> <output id="sideOut"></output></label>
+    </fieldset>
+    <fieldset>
+      <legend>Card and screen</legend>
+      <label>Card <select id="cardSel">
+        <option value="task">Task: hand it over</option>
+        <option value="question">Question: numbered answers</option>
+        <option value="stale">Coming back: paragraphs</option>
+        <option value="draft">Draft: needs your OK</option>
+      </select></label>
+      <button type="button" class="btn small" id="next">Next card</button>
+      <label>Width <select id="widthSel">
+        <option value="720">Desktop (720)</option>
+        <option value="560">Narrow window (560)</option>
+        <option value="390">Phone (390)</option>
+        <option value="320">Small phone (320)</option>
+      </select></label>
+      <label><input type="checkbox" id="autoOff"> Tuck off below <input type="number" id="autoW" value="440" min="280" max="800" step="10"> px card</label>
+    </fieldset>
+    <fieldset>
+      <legend>Fuzz</legend>
+      <label>Reaction <select id="poseSel"></select></label>
+      <label>Theme <select id="themeSel"></select></label>
+      <label>Mode <select id="modeSel"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </fieldset>
+  </form>
+
+  <section class="frame" id="frame" aria-label="Triage mockup">
+    <div class="stage" id="stage">
+      <div class="perch" id="perch">
+        <div class="pwrap" id="pwrap" aria-hidden="true"></div>
+        <div class="bubble" id="bubble"><span class="line" id="say"></span></div>
+      </div>
+      <div class="stack" id="stack"><article class="card" id="card"></article></div>
+    </div>
+  </section>
+
+  <section class="numbers">
+    <h2>How far down the decision starts</h2>
+    <p class="meta">Measured live from the top of Fuzz's area, for this card, width and size. "Today" is always the app at 160 px.</p>
+    <div id="metrics"></div>
+    <p class="note" id="note"></p>
+  </section>
+</main>
+
+<script src="../../js/vendor/anime.umd.min.js"></script>
+<script src="../../js/fuzz-svg.js"></script>
+<script src="../../js/fuzz-rig.js"></script>
+<script src="tuck.js"></script>
+</body>
+</html>
