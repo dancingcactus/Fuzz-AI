@@ -167,6 +167,40 @@ class Facts(MemoryCase):
         actions.undo(self.core)
         self.assertEqual(len(facts.disputes(self.core, m)), 1, "one undo puts both back")
 
+    def test_the_same_claim_worded_twice_is_not_asked(self):
+        p = self.person("James Torio", "torio@acme.example")
+        facts.add(self.core, p, "manager", "Russell Lewis", source_kind="email", source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, p, "manager", "Russell Lewis (rulewis@acme.example)", source_kind="email",
+                  source_ts="2026-11-12T09:00:00Z")
+        j = self.person("Jacob Tedders", "jacob@acme.example")
+        facts.add(self.core, j, "role", "Product Manager", source_kind="slack", source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, j, "role", "Product Manager - Adobe Target", source_kind="slack", source_ts="2026-11-12T09:00:00Z")
+        self.assertEqual((facts.disputes(self.core, p), facts.disputes(self.core, j)), ([], []))
+        self.assertEqual(facts.winners(self.core, j)["role"], "Product Manager - Adobe Target", "the newer one wins")
+        self.assertFalse(facts.same_claim("Payments PM", "Payments PMM"), "a longer word is a different claim")
+        self.assertFalse(facts.same_claim("Payments PM", "Platform PM"))
+
+    def test_prose_is_never_asked_about(self):
+        org = facts.resolve_about(self.core, {"type": "org", "name": "Verizon"})
+        facts.add(self.core, org, "what_it_is", "Customer using Adobe Analytics, not CJA, for the tracking.",
+                  source_kind="email", source_ts="2026-11-11T19:31:53Z")
+        facts.add(self.core, org, "what_it_is", "Customer whose team confirms tracking is in Adobe Analytics, not CJA.",
+                  source_kind="email", source_ts="2026-11-11T17:09:04Z")
+        self.assertEqual(facts.disputes(self.core, org), [])
+        self.assertTrue(facts.winners(self.core, org)["what_it_is"].startswith("Customer using"), "the newer one wins")
+
+    def test_a_conflict_card_that_no_longer_disagrees_is_withdrawn(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        a, _ = facts.add(self.core, m, "role", "Payments PM", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Platform PM", source_kind="slack", source_ts="2026-10-18T09:00:00Z")
+        mcards.raise_cards(self.core)
+        [card] = self.memory_cards("fact_conflict")
+        self.assertIn("Marcus Lee's role", card["reason"])
+        facts.reject(self.core, a)
+        mcards.raise_cards(self.core)
+        self.assertEqual(cards.get(self.core, card["id"])["status"], "withdrawn")
+        self.assertEqual(events.check_replay(self.core), [])
+
     def test_merging_people_brings_their_facts_and_undo_splits_them(self):
         pat = entities.resolve_person(self.core, {"name": "Pat"}, self.core.config["me"])[0]
         tricia = self.person("Patricia Lee", "patricia@acme.example")

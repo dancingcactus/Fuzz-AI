@@ -78,6 +78,8 @@
         age: '1 day', stage: 'settling', mins: 2, energy: 'low', dueMin: 250,
         incoming: 'In the staff sync you said you would book a room for the Thursday workshop. Eight people are coming.',
         ask: 'Should I take the big room on 3 or the quiet one on 5?',
+        quick: [{ label: 'The big room on 3', instr: 'Book the big room on 3 for Thursday at 2 PM, and send the invite to the eight attendees.' },
+          { label: 'The quiet one on 5', instr: 'Book the quiet room on 5 for Thursday at 2 PM, and send the invite to the eight attendees.' }],
         hint: 'Book the earliest open room that fits eight people on Thursday afternoon, and send the invite to the attendees.',
         aiHeading: 'What Fuzz did', aiNote: 'Both rooms are free Thursday at 2 PM. The big room has a screen, and the quiet one does not.',
         firstStep: 'Look at the calendar for Thursday afternoon.',

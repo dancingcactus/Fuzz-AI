@@ -373,6 +373,30 @@ class Gathering(CoreCase):
         t, _ = scheduler.claim_next(self.core, tid)
         self.assertFalse(tools.get_task(self.core, tid)["gathering"], "once assigned it's ordinary work")
 
+    def test_a_question_reaches_triage_with_its_answers(self):
+        tid = self.gathered("Tell the venue the headcount")
+        tools.update_brief(self.core, tid, context_md="14 yes, 2 maybe.", question="Is it 14 or 16 people?",
+                           effort_mins=5, steps=1)
+        tools.finish_gathering(self.core, tid, options=["16, count the maybes: tell the venue 16",
+                                                        "14, confirmed only: tell the venue 14", " "])
+        t = self.task(tid)
+        self.assertEqual(t["state"], "triage")
+        self.assertEqual(t["quick_answers"], ["16, count the maybes: tell the venue 16",
+                                              "14, confirmed only: tell the venue 14"])
+        card = self.card_for(tid, "task")
+        view = cards.view(self.core, card)
+        self.assertEqual((view["prompt"], view["options"][0], card["suggested"]), ("Is it 14 or 16 people?", "quick", "quick"))
+        answers.answer(self.core, card["id"], "quick", "14, confirmed only: tell the venue 14")
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["quick_answers"]), ("queued", None), "answered: handed over, answers gone")
+
+    def test_a_gather_without_options_offers_no_answers(self):
+        tid = self.gathered()
+        tools.update_brief(self.core, tid, context_md="Nothing to choose.", effort_mins=5, steps=1)
+        tools.finish_gathering(self.core, tid)
+        self.assertIsNone(self.task(tid)["quick_answers"])
+        self.assertNotIn("quick", cards.view(self.core, self.card_for(tid, "task"))["options"])
+
     def test_a_lookup_task_arrives_done(self):
         tid = self.gathered("Summarize my email from today")
         self.assertTrue(tools.get_task(self.core, tid)["may_finish"])

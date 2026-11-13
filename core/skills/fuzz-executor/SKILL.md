@@ -121,7 +121,12 @@ To gather:
    `save_notes` with what you checked, so the run that
    works the task later doesn't repeat it.
 4. `finish_gathering` (without `result`). The task goes to their triage with your brief on the card.
-   Call it even if you found nothing; nothing is still worth knowing.
+   Call it even if you found nothing; nothing is still worth knowing. When the one thing to decide is a
+   question with two or three likely answers ("Is it 14 or 16 people?"), set it with `update_brief`'s
+   `question` and pass the answers in `options`, each worded as the instruction you'd follow if picked
+   ("16, count the maybes: tell the venue 16 and let Marcus know"). The card shows them as numbered
+   answers; picking one hands the task to you with that instruction. Leave `options` out when there's
+   nothing to choose between.
 
 While gathering you can't draft, hand back, ask for permission or split the task: those wait until
 they assign it to you.

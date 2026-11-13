@@ -9,6 +9,8 @@ from contextlib import contextmanager
 
 DEFAULTS = {
     "me": {"names": [], "emails": [], "slack_ids": [], "folders": {}},
+    # Whose asks come first after anything urgent: your manager and a few more (docs/energy-and-priority.md)
+    "vips": {"manager": "", "people": []},
     "engine": {"client": None, "model": None},
     "roles": {},
     "budget": {"max_working": 2, "max_steps": 20, "max_attempts": 3, "lease_minutes": 10},

@@ -110,8 +110,8 @@ class Review(CoreCase):
         self.assertEqual(self.task(tid)["state"], "letgo")
 
     def test_bring_it_back_puts_a_fresh_card_first(self):
-        other = tasks.capture(self.core, "Reply to Dana")
         tid = self.parked(1)[0]
+        other = tasks.capture(self.core, "Reply to Dana")   # after the clock moved, so it isn't stale (Coming back)
         checkins.record(self.core, "okay")
         scheduler.tick(self.core)
         answers.answer(self.core, self.card_for(tid, "task")["id"], "now")

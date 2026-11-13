@@ -240,6 +240,11 @@ html.calm .echo { animation: none; }
 .stale p { margin: 0; color: var(--muted); }
 .stale-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .stale-btns .btn { flex: 1 1 150px; min-height: 46px; }
+.comeback .answers { margin-top: 0; }
+.back-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.back-row > .btn, .back-row > .split { flex: 1 1 140px; min-height: 46px; }
+.back-row .split { display: flex; }
+.back-row .split .split-main { flex: 1; }
 .instr-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
 .instr-top label { margin: 0; }
 .instr-top span { font-size: 12.5px; color: var(--muted); }
@@ -275,6 +280,30 @@ html.calm .echo { animation: none; }
 .refopt input { flex: none; width: 18px; height: 18px; accent-color: var(--accent); }
 .refpick-done { align-self: flex-end; min-height: 36px; padding: 6px 4px; }
 .instr .drop { margin-top: 8px; }
+/* The ADHD pass: a question answered on the card, a plan as plain text, and the rest under Details */
+.answers { display: grid; gap: 8px; margin-top: 12px; }
+.ans { display: flex; gap: 12px; align-items: center; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: var(--bw2, 2px) solid var(--line); border-radius: 16px; padding: 12px 14px; cursor: pointer; min-height: 56px; transition: border-color .15s, transform .15s; }
+.ans:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.ans:active { transform: scale(.98); }
+.ans:disabled { opacity: .6; cursor: default; }
+.ans.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.ans b { display: block; font-size: 16px; }
+.ans small { display: block; color: var(--muted); font-size: 13px; margin-top: 1px; }
+.ans .k { flex: none; width: 28px; height: 28px; border-radius: 8px; border: var(--bw, 1px) solid var(--line); display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--field); transition: opacity .2s; }
+.plan { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: var(--bw, 1px) solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 14px; padding: 10px 14px; margin: 12px 0 6px; }
+.plan .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+.plantext { font-size: 16px; margin: 4px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.linkbtn.inline { min-height: 36px; padding: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--link); }
+.addnote { margin-top: 8px; }
+.instr .typing { margin: 8px 0 0; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 10px; padding: 7px 10px; }
+.instr:not(:focus-within) .typing { display: none; }
+.card:has(#instr:focus) .ans .k, .card:has(#instr:focus) #actions kbd, .card:has(#instr:focus) .card-details kbd { opacity: .25; }
+.card-details { margin-top: 14px; border-top: var(--bw, 1px) solid var(--line); padding-top: 6px; }
+.card-details > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; min-height: 44px; }
+.card-details > summary::-webkit-details-marker { display: none; }
+.card-details > summary::before { content: "▸"; color: var(--muted); }
+.card-details[open] > summary::before { content: "▾"; }
+.card-details > summary .meta { font-weight: 400; }
 .drop[hidden] { display: none; }
 /* A file you added can come off its task; removing asks once, in place of the row */
 .sources li:has(.src-rm) { display: flex; gap: 6px; align-items: stretch; }
@@ -452,6 +481,21 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .keylist dd { margin: 0; }
 .keylist kbd { margin-left: 0; min-width: 28px; height: 24px; font-size: 12.5px; }
 .keys-dlg .dlg-in section > h3 { font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.arrive-list { list-style: none; margin: 8px 0 18px; padding: 0; display: grid; gap: 8px; }
+.arrive-list li { display: flex; gap: 10px; align-items: baseline; font-size: 15.5px; }
+.arrive-mark { flex: none; width: 20px; text-align: center; color: var(--muted); font-weight: 700; }
+.arrive-pick { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: var(--bw, 1px) solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 16px; padding: 12px 16px; }
+.arrive-pick .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 4px; }
+.arrive-pick h2 { margin: 0 0 4px; }
+.arrive-pick .meta { margin: 0; }
+.arrive-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.arrive-btns .btn { flex: 1 1 180px; min-height: 48px; }
+.upnext { display: flex; gap: 10px; align-items: center; font-size: 14px; background: var(--surface); border: var(--bw, 1px) solid var(--line); border-radius: 999px; padding: 6px 14px 6px 8px; margin: 0 auto 10px; width: fit-content; max-width: 100%; }
+.upnext[hidden] { display: none; }
+.upnext .finding-av { position: static; width: 24px; height: 24px; flex: none; }
+.keys-dlg .keys-all { margin-top: 12px; }
+.keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.keys-dlg #keys-card:empty { display: none; }
 @media (hover: none), (pointer: coarse) { .keys-link, .keys-sep { display: none; } }
 /* Fuzz's finding, in one line above the instructions */
 /* The label sits on the block's top edge, like the Due soon tag on the card */
@@ -1002,6 +1046,12 @@ p.onb-note { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px
 .guide-fz { width: 40px; flex: none; }
 
 /* The dictation tip on the first New task screen */
+.cap-drop { position: relative; }
+.cap-dropzone { display: none; position: absolute; inset: 26px 0 0; border: 2px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
+.cap-dropzone small { color: var(--muted); }
+.cap-dragging .cap-dropzone { display: flex; }
+.cap-drop.over .cap-dropzone { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.cap-add { margin: 2px 0 0; font-size: 14px; }
 .cap-tip { display: flex; gap: 10px; align-items: center; margin: -4px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--chip); font-size: 15px; }
 .tip-fz { width: 32px; flex: none; }
 

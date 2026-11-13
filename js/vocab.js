@@ -305,7 +305,8 @@ window.FuzzVocab = {
   "schedule",
   "back",
   "find_out",
-  "reopen"
+  "reopen",
+  "note"
  ],
  "memoryKinds": [
   "entity_person",

@@ -9,7 +9,7 @@ import asyncio
 
 from mcp import Client
 
-from fuzz import actions, cards, cli, followups, mcp_server, onboarding, tasks
+from fuzz import actions, cards, cli, events, followups, mcp_server, onboarding, tasks
 from fuzz.db import FuzzError
 
 from helpers import CoreCase
@@ -88,6 +88,17 @@ class TaskAction(Base):
         out, follow = actions.task_action(self.core, tid, "find_out", {"question": "Which budget?"})
         self.assertEqual(out["task_id"], tid)
         self.assertEqual(follow, [{"kind": "find_out", "task_id": tid}])
+
+    def test_a_note_goes_in_the_notes_and_the_log(self):
+        tid, _ = self.triage_task()
+        with self.assertRaises(FuzzError):
+            actions.task_action(self.core, tid, "note", {"text": "  "})
+        out, follow = actions.task_action(self.core, tid, "note", {"text": "She's out until Monday"})
+        self.assertEqual((out["state"], follow), ("triage", []), "a note changes nothing else")
+        self.assertIn("You said: She's out until Monday", tasks.get(self.core, tid)["notes"])
+        self.assertEqual(events.task_log(self.core, tid)[0]["text"], "You said: She's out until Monday")
+        actions.task_action(self.core, tid, "park")
+        self.assertEqual(tasks.get(self.core, tid)["state"], "parked", "the choice after it goes ahead as usual")
 
     def test_reopen_checks_where(self):
         tid, _ = self.triage_task()

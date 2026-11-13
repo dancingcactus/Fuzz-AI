@@ -102,7 +102,7 @@ def move(core, ch, t, to, card=None, add_tags=(), remove_tags=(), **fields):
     if t["state"] == "triage" and to != "triage":
         if "put_off" in (pend.get("variant_tags") or t.get("variant_tags") or []):
             fields.setdefault("reschedules", 0)   # it asked what's in the way and you answered: the count starts over
-        remove |= cards.TRIAGE_TAGS | {"unconfirmed", "missed", "missed_found"}
+        remove |= cards.TRIAGE_TAGS | {"unconfirmed", "missed", "missed_found", "checkin_hold"}
         if "missed_found" in (pend.get("variant_tags") or t.get("variant_tags") or []):
             from . import missed   # "Is it this one?" left unanswered: the message it showed isn't kept
             missed.drop_finds(core, t["id"], "The task moved on before you said.")
@@ -256,7 +256,7 @@ def session(core, task_id, card=None):
                 card=card, option="session", data={"to": "session"}, question=None)
 
 
-def deep_work(core, task_id, card=None, left_off=None):
+def deep_work(core, task_id, card=None, left_off=None, log=None):
     """Yours, and it takes real time: out of Triage into the Deep Work pool, for a session you start
     when you have the time. Triage only decides; the doing happens there.
     left_off: on a task already in the pool, "Done for now" in a session keeps where you left off in its notes,
@@ -272,7 +272,7 @@ def deep_work(core, task_id, card=None, left_off=None):
                                log=("guidance", f"Done for now in Deep Work. Where you left off: {said}") if said
                                else ("status", "Done for now in Deep Work."))
     return _one(core, "human", "task.assigned", t, "deepwork",
-                ("status", "You put this in Deep Work. It waits there for a session with time to do it."),
+                log or ("status", "You put this in Deep Work. It waits there for a session with time to do it."),
                 card=card, option="deep_work", data={"to": "deepwork"}, question=None)
 
 
@@ -358,7 +358,7 @@ def let_go(core, task_id, card=None, option="drop", why=None):
                 card=card, option=option, question=None, reason=why)
 
 
-def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=None, gather=False):
+def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=None, gather=False, add_tags=()):
     """offered_only: a human pick must be one of the card's options (or exact). The core's own
     scheduling, like "hold the rest until tomorrow", may use any anchor.
 
@@ -389,7 +389,7 @@ def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=N
     with core.tx("human"):
         ch = events.Changes()
         fire = fire_at and fire_at.strftime("%Y-%m-%dT%H:%M:%SZ")
-        move(core, ch, t, "queued" if look else "scheduled", card=card, add_tags=("gather",) if look else keep,
+        move(core, ch, t, "queued" if look else "scheduled", card=card, add_tags=(("gather",) if look else keep) + tuple(add_tags),
              schedule_anchor=anchor, schedule_fire_at=fire, question=None, attempts=0, **extra)
         # a group reply put off takes the tasks it answers with it; they come back to review together
         d = core.one("SELECT covers FROM drafts WHERE task_id=? AND user_id=? AND status='pending' AND covers IS NOT NULL",
@@ -675,6 +675,20 @@ def update_brief(core, task_id, context_md=None, question=None, effort_mins=None
             cards.refresh_schedule_options(core, ch, t["id"])
         events.emit(core, "task.brief_updated", task_id=t["id"], changes=ch, data={"fields": sorted(f)})
     return sorted(f)
+
+
+def tell(core, task_id, text, actor="human"):
+    """Tell Fuzz (E on any card): a note that goes along with whatever you pick next. It's added to the
+    task's notes, where every later run reads it, and to its log as something you said."""
+    t = require(core, task_id)
+    text = (text if isinstance(text, str) else "").strip()
+    if not text:
+        raise FuzzError("What should Fuzz know? A few words is plenty.", "text")
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.task(t["id"], notes=((t.get("notes") or "") + f"\nYou said: {text[:1000]}").strip())
+        events.emit(core, "task.notes_saved", task_id=t["id"], changes=ch, data={"told": True},
+                    log=("guidance", f"You said: {text[:1000]}"))
 
 
 def save_notes(core, task_id, text, actor="fuzz:executor"):

@@ -18,7 +18,7 @@ This repository is a clickable, no-build demo with invented data. Its current jo
 
 ## Positioning
 
-Fuzz is an execution partner, not a list. "Assign to Fuzz" is the primary action, the work is visible as a "Done so far" log, and the interface is built around the user's emotional state as much as the task: check-ins reorder the queue, the progress bar only grows, and nothing counts against you.
+Fuzz is an execution partner, not a list. "Hand it to Fuzz" is the primary action, the work is visible as a "Done so far" log, and the interface is built around the user's emotional state as much as the task: check-ins reorder the queue, the progress bar only grows, and nothing counts against you.
 
 ## Operating Context
 

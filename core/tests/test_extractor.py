@@ -381,8 +381,6 @@ class TwoDays(CoreCase):
         self.assertEqual(cards.view(self.core, card)["prompt"], "When should I block time for it?")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
     def park_contract(self):
         self.day("day1.json")
@@ -490,3 +488,7 @@ class Lapsed(CoreCase):
         with self.assertRaises(FuzzError) as e:
             tools.submit_signals(self.core, [self.ask("after the meeting")])
         self.assertEqual(e.exception.field, "signals[0].candidates[0].until")
+
+
+if __name__ == "__main__":
+    unittest.main()

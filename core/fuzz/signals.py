@@ -100,6 +100,7 @@ SIGNAL = {
         "links": {"type": "array", "items": {"type": "string"}},
         "quote": {"type": "string", "maxLength": 600},
         "withdrawn": {"type": "boolean"},
+        "nudge": {"type": "boolean"},     # someone chasing an earlier ask: it's waiting on you (priority.py)
         "answers": {"type": "boolean"},   # the person's own reply, doing what the thread asked of them
         "resolved": {"type": "boolean"},  # the one who asked, saying it's sorted: nothing more is needed
         # the next move on the thread is this person's, not the person's: they were handed it, or took it on

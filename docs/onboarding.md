@@ -66,7 +66,7 @@ These three are the only tips in the onboarding itself:
    Fuzz offers a one-click calendar file for a time inside their working hours, with a link back to
    Fuzz. The app sends no reminders of its own.
 2. **Don't be afraid to ask Fuzz to change things, or to send a task back to him as often as you
-   like.** On a draft, R asks for a change. On other cards, the instructions box does it. Fuzz repeats
+   like.** On a draft, E asks for a change. On other cards, E (Tell Fuzz) opens the card's box. Fuzz repeats
    this on their first draft.
 3. **Missing a session loses nothing.** Nothing is lost, and stopping at 20 minutes with cards left is
    fine. This one matters most, because it stops the appointment becoming one more thing to fail at.

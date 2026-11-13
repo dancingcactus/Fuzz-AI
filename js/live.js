@@ -223,6 +223,8 @@
       source: origin ? (origin.title || 'Found by Fuzz') : tags.indexOf('kickoff') > -1 ? 'A task for Fuzz' : 'Captured by you', who: '',
       age: ago(t.created_at) || 'Just now', stage: tags.indexOf('stale') > -1 ? 'stale' : 'fresh',
       mins: t.effort_mins || 5, energy: t.energy || 'normal',
+      /* its categories from the core (priority.py), and its estimate for momentum: 15 minutes when there's none */
+      cats: c && c.categories ? c.categories : null, estMins: t.effort_mins || 15, checkinHold: tags.indexOf('checkin_hold') > -1,
       incoming: t.reason || (t.ask && t.ask !== t.title ? t.ask : origin ? '' : 'You captured this.'),
       ask: ((tags.indexOf('review') > -1 || tags.indexOf('check_back') > -1) && t.reason) || (c && c.prompt) || t.question || 'What should happen to this?',
       hint: '', instr: it.instr && it.coreId === t.id ? it.instr : '',
@@ -235,7 +237,8 @@
       handedBack: tags.indexOf('handed_back') > -1 && state === 'triage',
       result: tags.indexOf('result') > -1 && state === 'triage',
       askBack: tags.indexOf('handed_back') > -1 ? t.question : null,
-      quick: tags.indexOf('handed_back') > -1 && t.quick_answers && t.quick_answers.length ? t.quick_answers : null,
+      /* a handback's answers, or the ones Fuzz offered for a gathered question: numbered answers on the card */
+      quick: t.quick_answers && t.quick_answers.length ? t.quick_answers : null,
       updated: tags.indexOf('returning') > -1 || tags.indexOf('reopened') > -1 || tags.indexOf('woke') > -1,
       woke: tags.indexOf('woke') > -1, gathering: tags.indexOf('gather') > -1, kickoff: tags.indexOf('kickoff') > -1,
       /* A parked task back to ask if you still want it; after a few keeps the card leans toward letting go */
@@ -368,6 +371,7 @@
         Store.get().work = r[1].work || null;   /* the stuck thresholds and what counts as big */
         Store.get().focus = r[1].focus || null;   /* this session's focus (the core orders the cards by it) */
         Store.get().focusChips = r[1].focus_chips || [];
+        Store.get().energy = r[1].energy || null;   /* your last check-in answer today (a core from before #9 has none) */
         apply(list, cards, r[1].moment, groups);
       });
     }).catch(function (e) {
@@ -432,7 +436,8 @@
     var order = [], seen = {};
     cards.forEach(function (c) { var id = c.task ? 't' + c.task.id : 'c' + c.id; if (id && !seen[id] && keep[id]) { seen[id] = true; order.push(id); } });
     /* The card on screen stays first, so nothing jumps while you read it */
-    var restart = unpin, front = unpin ? null : st.queue[0];
+    var restart = unpin, front = unpin ? null : (Store.shown() || st.queue[0]);
+    if (unpin) st.shown = null;
     unpin = false;
     if (front && seen[front] && order[0] !== front) order = [front].concat(order.filter(function (id) { return id !== front; }));
     var added = order.filter(function (id) { return st.queue.indexOf(id) < 0; });
@@ -529,6 +534,8 @@
        where you left off; stuck sends it back to Triage. */
     wrap('deepWork', function (id) { return decide(S.item(id), 'deep_work', undefined, 'deep_work'); });
     wrap('deepWorkLeftOff', function (id, note) { var it = S.item(id); return it && function () { return api('POST', '/tasks/' + it.coreId + '/deep_work', { left_off: (note || '').trim() }); }; });
+    /* Tell Fuzz: the note goes first, so it's in the notes when the choice after it lands */
+    wrap('tell', function (id, text) { var it = S.item(id); return it && it.coreId && (text || '').trim() ? function () { return api('POST', '/tasks/' + it.coreId + '/note', { text: text.trim() }); } : null; });
     wrap('done', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('markDone', function (id) { return decide(S.item(id), 'done', undefined, 'done'); });
     wrap('park', function (id) { return decide(S.item(id), 'park', undefined, 'park'); });
@@ -632,6 +639,12 @@
     S.checkin = function (answer, followUp) {
       extra = function () { return api('POST', '/checkin', followUp ? { answer: answer, follow_up: followUp } : { answer: answer }); };
       quiet++; try { return checkin.apply(S, arguments); } finally { quiet--; extra = null; }
+    };
+    /* "Sure, just a few more": the core moves you up a level and brings back what it held */
+    var more = S.more;
+    S.more = function () {
+      extra = function () { return api('POST', '/checkin/more', {}); };
+      quiet++; try { return more.apply(S, arguments); } finally { quiet--; extra = null; }
     };
 
     /* Capture: in the queue at once, then given its core id */
@@ -755,6 +768,9 @@
     saveOnboarding: function (body) { return api('PUT', '/onboarding', body); },
     answerSetup: function (name, answer) { return api('POST', '/onboarding/setup/' + name, { answer: answer }); },
     me: function () { return api('GET', '/me'); },
+    /* Your manager and a few more whose asks come first (#9); null on a core from before them */
+    vips: function () { return api('GET', '/vips').catch(function () { return null; }); },
+    saveVips: function (body) { return api('PUT', '/vips', body); },
     hours: function () { return api('GET', '/hours'); },
     saveHours: function (body) { return api('PUT', '/hours', body); },
     /* How many tasks Fuzz may work on at once: the Lineup's slots */

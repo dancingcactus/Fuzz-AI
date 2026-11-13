@@ -2,6 +2,7 @@
    each, saved on its own. Replaces the old four-step guided setup and the header's quick settings.
 
    About you        your other names, emails and Slack IDs (PUT /me)
+   Who comes first  your manager and a few more people whose asks come first after anything urgent (PUT /vips)
    App              the app Fuzz works through: status, install, repair, switch (/engine); then, under a rule,
                     how many tasks he works on at once, his slots (PUT /slots, 1 to 10)
    Working hours    when Fuzz reads for new asks (PUT /hours), the same choices as Fuzz's first question
@@ -48,8 +49,8 @@
 
   function load() {
     return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; }),
-      Live.lessons().catch(function () { return null; })]).then(function (r) {   /* a core from before lessons has no /lessons */
-      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null };
+      Live.lessons().catch(function () { return null; }), Live.vips()]).then(function (r) {   /* a core from before lessons has no /lessons, nor VIPs */
+      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null, vips: r[6] };
       return data;
     });
   }
@@ -64,13 +65,13 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What Fuzz knows about you, what he may do, and how he looks. Each part saves on its own.</p>' +
-      meHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + vipsHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
   var FN = null;
   function repaint(id) {
-    FN = FN || { me: meHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML };
+    FN = FN || { me: meHTML, vips: vipsHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML };
     var el = root && root.querySelector('#sec-' + id); if (!el) return;
     var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
     var grp = a && a.getAttribute && a.getAttribute('data-group');
@@ -97,6 +98,19 @@
     ME.forEach(function (f) { body[f[0]] = list(root.querySelector('#me-' + f[0]).value); });
     if (!body.emails.length) delete body.emails;   /* the core keeps at least one */
     return Live.saveMe(body).then(function (r) { data.me = r; return 'Saved.'; });
+  }
+
+  /* ---------- Who comes first (#9) ---------- */
+  function vipsHTML() {
+    if (!data.vips) return '';   /* a core from before VIPs */
+    return section('vips', 'Who comes first', 'Asks from these people come first, after anything urgent. A name, an email address or a Slack ID.',
+      '<form data-form="vips"><div class="field"><label for="vip-manager">Your manager</label><input id="vip-manager" type="text" autocomplete="off" spellcheck="false" placeholder="Priya Raman" value="' + esc(data.vips.manager || '') + '"></div>' +
+      '<div class="field"><label for="vip-people">A few more</label><input id="vip-people" type="text" autocomplete="off" spellcheck="false" placeholder="Marcus, elena@work.example" value="' + esc((data.vips.people || []).join(', ')) + '"></div>' +
+      saveBtn('vips') + '</form>');
+  }
+  function saveVips() {
+    var body = { manager: root.querySelector('#vip-manager').value.trim(), people: list(root.querySelector('#vip-people').value) };
+    return Live.saveVips(body).then(function (r) { data.vips = r; return 'Saved.'; });
   }
 
   /* ---------- App ---------- */
@@ -354,7 +368,7 @@
   }
 
   /* ---------- Events ---------- */
-  var SAVE = { me: saveMe, hours: saveHours, slots: saveSlots, sources: saveSources, folder: saveFolder };
+  var SAVE = { me: saveMe, vips: saveVips, hours: saveHours, slots: saveSlots, sources: saveSources, folder: saveFolder };
   function onSubmit(e) {
     var f = e.target.dataset.form; if (!f) return;
     e.preventDefault();
