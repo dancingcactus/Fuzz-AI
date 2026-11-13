@@ -321,16 +321,26 @@ def moment(core):
 
 def queue(core, front=None):
     """Open cards in triage order: the working card (a booked block), then time-sensitive, then your focus,
-    handbacks and postponed last, then the moment, then order. A card you sent to the end of the list waits
+    handbacks and postponed last, then the moment, then order. Once you've answered a check-in today, the
+    middle is the order for your energy instead (priority.keys), and each card carries its "categories". A card you sent to the end of the list waits
     behind all of them, deadline or not. front: the card on screen, which stays first while it's open (a
     focus or a refined focus never changes the card in front)."""
-    from . import focus
+    from . import focus, priority
     m = moment(core)
     fids = focus.focus_ids(core)
     cards = core.all("SELECT * FROM cards WHERE user_id=? AND status='open'", (core.user_id,))
     by_id = {t["id"]: t for t in core.all(   # every card's task in one query, not one each
         "SELECT * FROM tasks WHERE user_id=? AND id IN (SELECT task_id FROM cards WHERE user_id=? AND status='open')",
         (core.user_id, core.user_id))}
+    # Each card's categories, and once you've said how you are today, the order for your energy
+    # (priority.py, docs/energy-and-priority.md)
+    level = priority.energy(core)
+    ctx = priority.Context(core, by_id.keys(), fids | focus.weekly_ids(core))
+    for c in cards:
+        c["categories"] = sorted(priority.categories(c, by_id.get(c["task_id"]) if c["task_id"] else None, ctx))
+    by_energy = priority.keys(level, [
+        (c, by_id.get(c["task_id"]) if c["task_id"] else None, set(c["categories"]),
+         (0 if c["task_id"] in fids else 1, 1 if c["postponed"] else 0)) for c in cards]) if level else {}
     keyed = []
     for c in cards:
         t = by_id.get(c["task_id"]) if c["task_id"] else None
@@ -347,7 +357,10 @@ def queue(core, front=None):
         # Monday's deliverable cards, that day
         doing = 0 if ("doing" in tags and c["kind"] == "task") or (c.get("payload") or {}).get("monday") else 1
         infocus = 0 if t and t["id"] in fids else 1
-        k = (doing, at_end, urgent, infocus, back, fits, c["order_key"] or 0)
+        if level:   # today's set, then the order for your energy; ties keep focus, then order
+            k = (doing, at_end) + by_energy[c["id"]] + (0, c["order_key"] or 0)
+        else:
+            k = (doing, at_end, urgent, infocus, back, fits, 0, 0, c["order_key"] or 0)
         keyed.append((k, c, t))
     out = [(c, t) for _, c, t in sorted(_back_to_back(core, keyed), key=lambda x: x[0])]
     # A Find out… answer that landed comes next, right after the card in front, which never changes under you
@@ -437,6 +450,8 @@ def view(core, card, task=None):
            "options": options(card, task or {}), "suggested": suggested,
            "postponed": card["postponed"], "payload": payload, "task": task_summary(task),
            "created_at": card.get("created_at")}
+    if "categories" in card:   # from queue(): urgent, vip, quick… (priority.py); internal names, never shown
+        out["categories"] = card["categories"]
     if len(many) > 1:
         out["asks"] = [task_summary(a) for a in many]
     if len(same) > 1:   # one answer settles them all

@@ -102,7 +102,7 @@ def move(core, ch, t, to, card=None, add_tags=(), remove_tags=(), **fields):
     if t["state"] == "triage" and to != "triage":
         if "put_off" in (pend.get("variant_tags") or t.get("variant_tags") or []):
             fields.setdefault("reschedules", 0)   # it asked what's in the way and you answered: the count starts over
-        remove |= cards.TRIAGE_TAGS | {"unconfirmed", "missed", "missed_found"}
+        remove |= cards.TRIAGE_TAGS | {"unconfirmed", "missed", "missed_found", "checkin_hold"}
         if "missed_found" in (pend.get("variant_tags") or t.get("variant_tags") or []):
             from . import missed   # "Is it this one?" left unanswered: the message it showed isn't kept
             missed.drop_finds(core, t["id"], "The task moved on before you said.")
@@ -358,7 +358,7 @@ def let_go(core, task_id, card=None, option="drop", why=None):
                 card=card, option=option, question=None, reason=why)
 
 
-def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=None, gather=False):
+def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=None, gather=False, add_tags=()):
     """offered_only: a human pick must be one of the card's options (or exact). The core's own
     scheduling, like "hold the rest until tomorrow", may use any anchor.
 
@@ -389,7 +389,7 @@ def schedule(core, task_id, anchor, card=None, offered_only=True, instructions=N
     with core.tx("human"):
         ch = events.Changes()
         fire = fire_at and fire_at.strftime("%Y-%m-%dT%H:%M:%SZ")
-        move(core, ch, t, "queued" if look else "scheduled", card=card, add_tags=("gather",) if look else keep,
+        move(core, ch, t, "queued" if look else "scheduled", card=card, add_tags=(("gather",) if look else keep) + tuple(add_tags),
              schedule_anchor=anchor, schedule_fire_at=fire, question=None, attempts=0, **extra)
         # a group reply put off takes the tasks it answers with it; they come back to review together
         d = core.one("SELECT covers FROM drafts WHERE task_id=? AND user_id=? AND status='pending' AND covers IS NOT NULL",

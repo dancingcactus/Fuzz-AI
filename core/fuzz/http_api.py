@@ -199,6 +199,9 @@ class App:
             ("POST", r"/undo", self.undo),
             ("GET", r"/events", self.events_since),
             ("POST", r"/checkin", self.checkin),
+            ("POST", r"/checkin/more", self.checkin_more),
+            ("GET", r"/vips", self.vips_get),
+            ("PUT", r"/vips", self.vips_put),
             ("GET", r"/focus", self.focus_get),
             ("GET", r"/focus/preview", self.focus_preview),
             ("POST", r"/focus", self.focus_set),
@@ -574,12 +577,13 @@ class App:
 
     def list_cards(self, core, m, body, q):
         """group_run: the group you're working through, so the UI can show its band (see groups.run)."""
-        from . import focus
+        from . import focus, priority
         front = int(q["front"]) if (q.get("front") or "").isdigit() else None   # the card on screen stays first
         with core.reading():
             cur = groups.run(core)
             return {"cards": [cards.view(core, c, t) for c, t in cards.queue(core, front)],
-                    "moment": cards.moment(core), "focus": focus.current(core), "focus_chips": focus.chips(core),
+                    "moment": cards.moment(core), "energy": priority.energy(core),
+                    "focus": focus.current(core), "focus_chips": focus.chips(core),
                     "group_run": {"group_id": cur["group_id"], "tasks": cur["tasks"]} if cur else None,
                     "work": core.config.get("work")}
 
@@ -603,6 +607,35 @@ class App:
         """The UI asked how you're doing: {answer, follow_up?}. It decides when to ask; the core keeps the answer."""
         from . import checkins
         return checkins.record(core, body.get("answer"), body.get("follow_up")), 201
+
+    def checkin_more(self, core, m, body, q):
+        """"Sure, just a few more": one level up, and some of what a check-in held comes back."""
+        from . import checkins
+        return checkins.more(core), 201
+
+    def vips_get(self, core, m, body, q):
+        """Your manager and a few more people whose asks come first (docs/energy-and-priority.md)."""
+        v = core.config.get("vips") or {}
+        return {"manager": v.get("manager") or "", "people": list(v.get("people") or [])}
+
+    def vips_put(self, core, m, body, q):
+        """{manager?, people?}: a name, email or Slack ID each; what's given replaces what is there."""
+        manager, people = body.get("manager"), body.get("people")
+        if manager is not None and not isinstance(manager, str):
+            raise FuzzError("manager is a name, email or Slack ID", "manager")
+        if people is not None and (not isinstance(people, list) or not all(isinstance(p, str) for p in people)):
+            raise FuzzError("people is a list of names, emails or Slack IDs", "people")
+        if people is not None and len([p for p in people if p.strip()]) > 10:
+            raise FuzzError("Keep it to a few people: ten at most", "people")
+
+        def put(cfg):
+            v = cfg.setdefault("vips", {})
+            if manager is not None:
+                v["manager"] = manager.strip()
+            if people is not None:
+                v["people"] = [p.strip() for p in people if p.strip()]
+        core.update_config(put)
+        return self.vips_get(core, m, body, q)
 
     # ---- Focus: what you're working on this session
     def focus_get(self, core, m, body, q):

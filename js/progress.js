@@ -1,7 +1,8 @@
-/* Triage progress: a segmented bar that only ever grows (ported from the segmented progress bar prototype).
+/* Triage progress: a segmented bar (ported from the segmented progress bar prototype).
    Left to right: [bank] [ticks...] [open segments...] [ghost, ghost]. Each cleared card is a tick; when the ticks
    overflow they fly into the bank block, which pops and counts up, then the open segments slide left in a wave.
-   New cards only append to the open side, so adding work never takes anything away. Fixed width, any number of tasks. */
+   The open segments are the stretch to the next check-in (#9), not the whole queue; after a check-in the next
+   stretch slides in on the open side, so nothing is ever taken away. Fixed width, any number of tasks. */
 (function () {
   /* Sizing for the header (the prototype used 34 / 9 / 6 at 16px tall). */
   var GAP = 5, SEGW = 26, SEGMAX = 40, TICKW = 8, DONE_SHARE = 0.35, PAD = 4;
@@ -120,7 +121,7 @@
     }
     bar.setAttribute('aria-valuemax', String(Math.max(total, 1)));
     bar.setAttribute('aria-valuenow', String(done));
-    bar.setAttribute('aria-valuetext', done + ' cleared' + (open ? ', ' + open + ' waiting' : ', all clear'));
+    bar.setAttribute('aria-valuetext', done + ' cleared' + (open ? ', ' + open + ' before the next check-in' : ''));
     lastDone = done; lastBanked = banked; lastTotal = total; lastW = W;
   }
 

@@ -229,10 +229,11 @@ class QueueRules(CoreCase):
         order = [c["task_id"] for c in self.open_cards()]
         self.assertEqual(order[0], urgent, "time-sensitive first")
         self.assertEqual(order[-1], back, "handbacks last")
-        checkins.record(self.core, "overloaded")
+        checkins.record(self.core, "okay")   # the order for your energy (priority.py; more in test_priority)
         order = [c["task_id"] for c in self.open_cards()]
-        self.assertEqual(order[:2], [urgent, quick], "overloaded brings quick ones first")
-        self.assertLess(order.index(quick), order.index(plain))
+        self.assertEqual(order[0], urgent, "urgent is never left out")
+        self.assertLess(order.index(back), order.index(quick), "on an okay day, what Fuzz handed back comes first")
+        self.assertLess(order.index(quick), order.index(plain), "then quick ones")
 
     def test_end_of_the_list(self):
         first = tasks.capture(self.core, "First", due="2026-10-20T11:00:00Z")

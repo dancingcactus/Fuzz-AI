@@ -4,9 +4,11 @@
 (function () {
   var V = {};
   var ABORT = {};
-  /* Check-ins come often at first, then back off. The first comes after 2 cleared cards; each later one
-     waits for at least 2 more cleared cards and a stretch of time that doubles: 5, 10, 20 minutes… */
+  /* Check-ins count cards, not time (#9, docs/energy-and-priority.md). The first comes after 2 cleared cards;
+     after that, how you answer sets the stretch to the next one, and the progress bar shows it as boxes.
+     Work mode (one long card) still runs on time: 10 minutes, then 5, 10, 20… */
   var CI_FIRST = 2, CI_GAP_MIN = 5;
+  var CI_STRETCH = Prio.STRETCH, CI_STRETCH_SKIP = 4;
   /* The Fuzz mood lab is a design tool, not part of the product: open the app with ?lab to get it. */
   var LAB = /[?&]lab(=|&|$)/.test(location.search);
   var esc = UI.esc;
@@ -16,7 +18,9 @@
   /* Your answer and follow-up, kept by the core (Store.checkin; POST /checkin) once the check-in closes */
   var ciAnswer = null, ciFollow = null;
   var CI_ANSWER = { good: 'good', okay: 'okay', tired: 'tired', over: 'overloaded' };
-  var ciCount = 0, ciNextAt = CI_FIRST, ciLastAt = 0, sessionAt = Date.now();
+  var ciCount = 0, ciNextAt = CI_FIRST, ciSize = CI_FIRST, ciLastAt = 0, sessionAt = Date.now();
+  /* A momentum check-in (more, lighter) and the level it set; rested: you said you'd done the important stuff */
+  var ciMode = null, ciLevel = null, pace = { n: 0, secs: 0, mins: 0, skips: 0, run: 0 }, rested = false;
   var shownCard = null, lastTask = null, streak = 0, rushTimer = 0, ambientTimer = 0;
   /* Cards whose box you opened (Tell Fuzz, E): it stays open through a redraw until you close it */
   var planOpen = {};
@@ -106,7 +110,7 @@
     if (onScroll) window.removeEventListener('scroll', onScroll); onScroll = null;
     Fuzz.unmount(); root = null;
   };
-  V.hardReset = function () { arrived = false; foMode = 'ask'; foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciLastAt = 0; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
+  V.hardReset = function () { arrived = false; foMode = 'ask'; foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();
@@ -255,9 +259,16 @@
   function stats() {
     if (!root) return;
     var st = Store.get(), left = st.queue.length, cleared = Math.max(st.totalEver - left, 0);
-    Progress.render(cleared, cleared);   /* no empty slots for what's left (#5): the bar only grows */
+    Progress.render(cleared, cleared + boxes(left, cleared));
     /* count what's cleared, never what's left */
     document.getElementById('left').textContent = left === 0 ? 'All clear' : cleared ? '✓ ' + cleared : 'Ready';
+  }
+  /* The open boxes are the stretch to the next check-in (#9), never the whole queue: the cards still to come
+     in it, or only what's left when that's fewer. Capped at the stretch, so cards an Undo puts back don't
+     stretch it. While the check-in waits (something due, a group partway through), the card in front is one box. */
+  function boxes(left, done) {
+    var n = Math.min(Math.max(ciNextAt - done, 0), ciSize, left);
+    return left && !n && !ciOpen ? 1 : n;
   }
   /* The cards underneath are only a stack: what's on them, or how many, stays out of view until each is the one
      in front. Except a group's: while you work through one, the rest of it shows bound together under the card. */
@@ -1033,19 +1044,44 @@
   function cleared() { var st = Store.get(); return Math.max(st.totalEver - st.queue.length, 0); }
   /* Never mid-rush: wait until the time-sensitive cards are handled. */
   function shouldCheckin(next) {
-    var waited = !ciCount || Date.now() - ciLastAt >= CI_GAP_MIN * Math.pow(2, ciCount - 1) * 60000;
     /* In work mode it runs on time, not on cleared cards: you may be on one card for a long while */
-    if (next && next.doing) return ciCount ? waited : Date.now() - sessionAt >= CI_GAP_MIN * 2 * 60000;
+    if (next && next.doing) return ciCount ? Date.now() - ciLastAt >= CI_GAP_MIN * Math.pow(2, ciCount - 1) * 60000 : Date.now() - sessionAt >= CI_GAP_MIN * 2 * 60000;
+    /* Otherwise it comes when the boxes run out, or early when several in a row were put off */
+    closeShown();
     /* nor while Fuzz is asking what he may read (the onboarding's last task): it waits until he's done */
     /* …nor partway through a group: it waits until you've been through all of it */
-    return waited && cleared() >= ciNextAt && !Store.queue().some(function (i) { return i.dueAt; }) && !next.dueAt && !next.handedBack && !next.kickoff &&
+    return (cleared() >= ciNextAt || (pace.run >= SKIP_RUN && !!Store.energy() && Store.energy() !== 'overloaded')) && !Store.queue().some(function (i) { return i.dueAt; }) && !next.dueAt && !next.handedBack && !next.kickoff &&
       !(grun && !runOver(grun)) && !runFor(next);
   }
   function ciDone() {
-    if (ciAnswer && !ciDemo && ciFollow !== 'hold_rest') Store.checkin(ciAnswer, ciFollow);
-    ciAnswer = null; ciFollow = null;
+    var answer = ciAnswer, level = answer || ciLevel, r = null;
+    /* One call per answer: tired and overloaded move what's left out to tomorrow morning, in one change */
+    if (ciAnswer && !ciDemo) r = Store.checkin(ciAnswer, ciFollow);
+    ciAnswer = null; ciFollow = null; ciLevel = null; ciMode = null;
     if (ciDemo) { ciDemo = false; return; }
-    ciCount++; ciNextAt = cleared() + 2; ciLastAt = Date.now();
+    if (r && r.held) offer('The rest can wait until tomorrow morning.', r.change);
+    /* Your answer sets the next stretch; Skip keeps the last one (or a middling one if there wasn't one).
+       Counted after the rest has moved out, so it doesn't use up the boxes. */
+    ciSize = level ? CI_STRETCH[level] : ciCount ? ciSize : CI_STRETCH_SKIP;
+    ciCount++; ciNextAt = cleared() + ciSize; ciLastAt = Date.now();
+    pace = newPace();
+  }
+  /* Momentum (#9): this stretch's pace and put-offs, from the times kept for tuning (Live.screen, screen_times) */
+  var SKIP_RUN = 3;
+  function newPace() { return { n: 0, secs: 0, mins: 0, skips: 0, run: 0 }; }
+  /* How the card on screen left: put off (Later, End of the list) counts against the stretch's momentum */
+  function howLeft(id) {
+    var it = Store.item(id); if (!it) return 'cleared';
+    if (Store.inQueue(id)) return it.atEnd ? 'end' : 'moved';
+    return it.state === 'scheduled' && !it.checkinHold ? 'later' : it.state;
+  }
+  /* Cards a check-in moved to tomorrow, still waiting there (a few more brings some back) */
+  function heldWaiting() { return (Store.get().held || []).map(Store.item).some(function (i) { return i && i.state === 'scheduled' && i.checkinHold; }); }
+  function ciModeNow() {
+    var level = Store.energy();
+    if (pace.run >= SKIP_RUN && level && level !== 'overloaded') return 'lighter';
+    if ((level === 'tired' || level === 'overloaded') && pace.n && !pace.skips && pace.secs <= pace.mins * 60) return 'more';
+    return null;
   }
   /* When what had focus is gone (the card was replaced) or sits in the stack, carry focus to the new
      heading, so keyboard and screen reader users land on what to decide next. */
@@ -1103,10 +1139,17 @@
       if (runOver(grun)) await exitRun();   /* the last answer of a group is in */
       var q = Store.queue();
       /* Nothing left to order, so the focus question goes too */
-      if (!q.length) { if (foOpen) { foOpen = false; $('#focuscard').hidden = true; paintFocusLine(); } return zeroState(); }
+      if (!q.length) {
+        if (foOpen) { foOpen = false; $('#focuscard').hidden = true; paintFocusLine(); }
+        /* Today's set ran out after a quick tired or overloaded stretch, with cards waiting for tomorrow: a few more? */
+        closeShown();
+        if (!rested && ciModeNow() === 'more' && heldWaiting()) return showCheckin();
+        return zeroState();
+      }
       /* While you're saying what you're working on, the queue waits behind the question: a card drawn
          now would sit under it with its keys dead (they go to the focus card until it closes) */
       if (foOpen) return;
+      if (rested) return restState();   /* you stopped for today: the queue waits until you ask for one more */
       var t = q[0];
       if (needFocus(q)) return showFocus();
       if (t.id !== shown) {
@@ -1325,6 +1368,22 @@
     stack.appendChild(e);
     e.querySelector('h2').tabIndex = -1;
   }
+  /* "Nah, I've done the important stuff": the session ends on what you did. Nothing moved; one more is a click away. */
+  function restState(first) {
+    stats(); updateStack(false);
+    card.style.display = 'none'; $('#checkin').hidden = true; $('#dropbtn').hidden = true;
+    var old = stack.querySelector('.empty'); if (old) old.remove();
+    var e = document.createElement('div'), n = cleared(); e.className = 'empty rested';
+    e.innerHTML = '<h2>You did the important stuff</h2>' + (n ? '<p class="recap">You cleared ' + n + (n === 1 ? ' card' : ' cards') + '.</p>' : '') +
+      '<p class="meta">That’s a good place to stop. The rest will be here whenever you want it.</p>' +
+      '<button type="button" class="btn" data-rest="more">Show me one more</button>';
+    stack.appendChild(e);
+    e.querySelector('h2').tabIndex = -1;
+    refocus(e.querySelector('h2'));
+    if (!first) return;   /* redrawn as things change: said once */
+    Fuzz.setMood('proud'); if (!Fuzz.isCalm()) Fuzz.pAnim('bow');
+    Fuzz.say('Nice work today.', { type: false }); Say.announce('Nice work today.');
+  }
   function zeroState(quiet) {
     if (!quiet && showSetup()) return;
     stats(); updateStack(false);
@@ -1356,8 +1415,14 @@
   var CI_REPLY = {
     good: { mood: 'happy', moment: 'any', line: 'Love that. Let’s keep the momentum.', auto: true },
     okay: { mood: 'idle', moment: 'any', line: 'Okay works. I’ll keep things light.', auto: true },
-    tired: { mood: 'caring', moment: 'low', line: 'Okay. I’ll bring the gentle ones first. Want to take five? I’ll watch the queue.', longLine: 'Long stretch. I’ll bring the gentle ones first. Want to take five? I’ll watch the queue.', said: 'tired', ask: 'Gentle ones come first. Take a break?', opts: [['break', 'Take 5'], ['go', 'Keep going']] },
-    over: { mood: 'caring', moment: 'quick', line: 'That’s a lot at once. I’ll put the quick ones first. Want me to hold the rest until tomorrow?', said: 'overloaded', ask: 'Quick ones come first. Hold the rest?', opts: [['slow', 'Quick ones first'], ['hold', 'Hold the rest until tomorrow']] }
+    tired: { mood: 'caring', moment: 'low', line: 'Okay. Gentle ones first, and anything that can’t wait. The rest can wait until tomorrow. Want to take five? I’ll watch the queue.', longLine: 'Long stretch. Gentle ones first, and anything that can’t wait. The rest can wait until tomorrow. Want to take five?', said: 'tired', ask: 'Gentle ones first. The rest waits for tomorrow. Take a break?', opts: [['break', 'Take 5'], ['go', 'Keep going']] },
+    over: { mood: 'caring', moment: 'quick', line: 'That’s a lot at once. Just what can’t wait, quickest first. The rest can wait until tomorrow. Take five first?', said: 'overloaded', ask: 'Just what can’t wait, quickest first. Take five first?', opts: [['break', 'Take 5'], ['go', 'Keep going']] }
+  };
+  /* Momentum (#9): a tired or overloaded stretch that went quickly, with nothing put off, asks for a few more;
+     several put off in a row ask to make it lighter. Both answers are fine answers. */
+  var CI_MODE = {
+    more: { h: 'That went quickly. Want a few more?', say: 'Look at you go.', mood: 'happy', opts: [['more', 'Sure, just a few more'], ['enough', 'Nah, I’ve done the important stuff']] },
+    lighter: { h: 'Not feeling these? I can make it lighter.', say: 'No pressure either way.', mood: 'caring', opts: [['lighter', 'Make it lighter'], ['go', 'Keep going']] }
   };
   var CI_ASK = [
     ['Quick pause. How are you doing?', 'Got a second? Just checking in.'],
@@ -1391,6 +1456,21 @@
     var handled = lastTask && lastTask.dueAt && ['done', 'working', 'queued', 'session', 'review'].indexOf(lastTask.state) > -1;
     var ask = handled ? ['The urgent stuff is handled. How are you doing?', 'Urgent stuff, handled. Nice.'] : CI_ASK[longSession() ? 2 : Math.min(ciCount, 1)];
     $('#ci-h').textContent = ask[0];
+    var mode = !demo && ciModeNow();
+    if (mode) {
+      var cm = CI_MODE[mode]; ciMode = mode;
+      $('#ci-h').textContent = cm.h; $('#ci-moods').hidden = true; ci.querySelector('.meta').hidden = true;
+      ci.classList.add('picked');
+      var f = $('#ci-follow');
+      cm.opts.forEach(function (o, i) {
+        var b = document.createElement('button'); b.className = 'btn' + (i === 0 ? ' primary' : ''); b.dataset.ci = o[0];
+        b.setAttribute('aria-keyshortcuts', String(i + 1)); b.innerHTML = esc(o[1]) + kbd(i + 1); f.appendChild(b);
+      });
+      Fuzz.setMood(cm.mood); if (cm.mood === 'happy') Fuzz.pAnim('hop');
+      refocus($('#ci-h'));
+      Fuzz.say(cm.say, { type: false });
+      return;
+    }
     refocus($('#ci-h'));
     var ct = !demo && Onboard.tip('checkin');
     Fuzz.say(ct || ask[1], { type: false });
@@ -1422,21 +1502,22 @@
     if (ciBusy) return;
     try {
       if (a === 'skip') return ciClose('Okay, no pause. Back to it.');
-      if (a === 'go') return ciClose('Okay. Gentle ones first.');
-      if (a === 'slow') { ciFollow = 'quick_first'; return ciClose('Okay. Quick ones first, one at a time.'); }
-      if (a === 'hold') {
-        /* Everything without a deadline goes to tomorrow morning, in one change you can undo */
-        ciBusy = true; ciFollow = 'hold_rest';
-        var held = ciDemo ? null : Store.checkin(ciAnswer || 'overloaded', 'hold_rest');
-        ciDone();
-        stats(); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Done. They’ll be waiting for you tomorrow morning.', { type: false });
-        var tm = Sched.tomorrowMorning(); Fuzz.schedGlyph(Sched.glyph(tm), 'TOMORROW ' + new Date(tm.fire_at).toLocaleTimeString([], { hour: 'numeric' }).replace(/\s/g, '').toUpperCase());
-        if (held) offer('Held the rest until tomorrow.', held.change);
-        await sleep(800);
-        Fuzz.clearSched();
-        $('#checkin').hidden = true; ciOpen = false; ciBusy = false; lock(busy);
-        return Store.queue().length ? showNext() : zeroState();   /* questions and anything due stay */
+      if (a === 'go') return ciClose(ciMode === 'lighter' ? 'Okay. Back to it.' : ciAnswer === 'overloaded' ? 'Okay. Quickest first.' : 'Okay. Gentle ones first.');
+      /* "Sure, just a few more": one level up, and some of what waited for tomorrow comes back */
+      if (a === 'more') {
+        var up = ciDemo ? null : Store.more();
+        if (up) { ciLevel = up.energy; if (up.back) offer('A few came back from tomorrow.', up.change); }
+        Fuzz.pAnim('hop');
+        return ciClose('Love it. A few more, then.', true);
       }
+      /* "Nah, I've done the important stuff": a warm end. Nothing moves; the rest is here when you want it. */
+      if (a === 'enough') {
+        ciBusy = true; clearInterval(ciTimer); ciDone();
+        $('#checkin').hidden = true; ciOpen = false; ciBusy = false; lock(busy);
+        rested = true; return restState(true);
+      }
+      /* Several put off in a row: one level down, and what that leaves out waits for tomorrow */
+      if (a === 'lighter') { ciAnswer = Prio.down(Store.energy() || 'okay'); return ciClose('Done. Lighter from here.'); }
       if (a === 'break') {
         ciFollow = 'take_5';
         $('#ci-moods').hidden = true; $('#ci-follow').innerHTML = ''; $('#ci-skip').hidden = true; $('#ci-break').hidden = false;
@@ -1715,9 +1796,23 @@
   function stuckAfter(it) { var w = Store.workConfig(); return (it && it.doing ? w.work : w.sort) * 60000; }
   function seen(it) {
     if (shown && shown.id === it.id) return;
-    if (shown) Live.on() && Live.screen({ task_id: shown.coreId || null, card_id: shown.cardId || null, mode: shown.mode, shown_at: new Date(shown.at).toISOString(), left_at: new Date().toISOString(), away_s: Math.round(awayS) });
+    closeShown(true);
     shown = { id: it.id, coreId: it.coreId, cardId: it.cardId, mode: it.doing ? 'work' : 'sort', at: Date.now() };
     lastInput = Date.now(); awayS = 0; wayOpen = false;
+  }
+  /* The card that was on screen has left: keep its time and how it left, and count it toward the stretch's
+     pace (#9). Still the card in front, it hasn't left, unless the next card is being shown (any). */
+  function closeShown(any) {
+    if (!shown) return;
+    var f = Store.front();
+    if (!any && f && f.id === shown.id) return;
+    var how = howLeft(shown.id), it = Store.item(shown.id), secs = Math.max(0, (Date.now() - shown.at) / 1000 - awayS);
+    if (Live.on()) Live.screen({ task_id: shown.coreId || null, card_id: shown.cardId || null, mode: shown.mode, shown_at: new Date(shown.at).toISOString(), left_at: new Date().toISOString(), away_s: Math.round(awayS), how: how });
+    if (how !== 'moved') {
+      pace.n++; pace.secs += secs; pace.mins += it ? Prio.mins(it) : 1;
+      if (how === 'later' || how === 'end') { pace.skips++; pace.run++; } else pace.run = 0;
+    }
+    shown = null;
   }
   function stuckCheck() {
     var it = cur();
@@ -2319,6 +2414,12 @@
     $('#checkin').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
       if (b.dataset.pick) ciPick(b.dataset.pick); else if (b.dataset.ci) ciAction(b.dataset.ci);
+    });
+    /* After "I've done the important stuff": one more card, whenever you want it */
+    stack.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rest]'); if (!b) return;
+      rested = false; var old = stack.querySelector('.empty'); if (old) old.remove();
+      Fuzz.setMood('idle'); showNext();
     });
 
     /* Mood lab */

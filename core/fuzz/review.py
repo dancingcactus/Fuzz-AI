@@ -19,10 +19,9 @@ def _today_start(core):
 
 
 def energy_today(core):
-    """Your last check-in answer today, or None."""
-    row = core.one("SELECT payload FROM events WHERE user_id=? AND type='checkin.answered' AND ts>=? "
-                   "ORDER BY id DESC LIMIT 1", (core.user_id, _today_start(core)))
-    return (row["payload"].get("data") or {}).get("answer") if row else None
+    """Your energy today: your last check-in answer, as Undo and "a few more" left it (priority.py), or None."""
+    from . import priority
+    return priority.energy(core)
 
 
 def _released_since(core, since):

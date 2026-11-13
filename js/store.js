@@ -35,7 +35,9 @@
       state.moment = 'any';
       state.maxOrder = state.items.length;
       state.minOrder = 0;
-      captureN = 0; sentN = 0; celebrated = {}; state.checkins = [];
+      captureN = 0; sentN = 0; celebrated = {}; state.checkins = []; state.energy = null; state.held = [];
+      /* whose asks come first after anything urgent (Settings, in your real queue): the demo's manager */
+      state.vips = state.vips || { manager: 'Priya Raman', people: [] };
       /* drafts already waiting for your OK start out in the queue too */
       S.inState('review').forEach(function (it) { S.queueUp(it, 'back'); });
       /* the demo's tasks show a size from their minutes */
@@ -82,9 +84,9 @@
     track: function (ids, fn) {
       ids = ids.filter(function (id, i) { return S.item(id) && ids.indexOf(id) === i; });
       var before = ids.map(function (id) { return { item: clone(S.item(id)), queued: S.inQueue(id), logAt: S.item(id).log.length }; });
-      var m0 = state.moment, n0 = state.items.length, p0 = groupsById();
+      var m0 = state.moment, e0 = state.energy || null, n0 = state.items.length, p0 = groupsById();
       fn();
-      var after, logAt, m1 = state.moment;
+      var after, logAt, m1 = state.moment, e1 = state.energy || null;
       /* Tasks the change made and groups it touched undo with it */
       var made = state.items.slice(n0).map(function (i) { return i.id; }), madeAt, p1 = groupsById();
       var pids = Object.keys(Object.assign({}, p0, p1)).filter(function (k) { return p0[k] !== p1[k]; });
@@ -109,7 +111,7 @@
           for (var j = 0; j < made.length; j++) if (S.item(made[j]) && fingerprint(S.item(made[j])) !== madeAt[j]) return 'You changed “' + S.item(made[j]).title + '” since. Undo that first.';
           var pn = groupsById();
           if (pids.some(function (k) { return pn[k] !== p1[k]; })) return 'You changed that group since. Undo that first.';
-          if (m1 !== m0 && state.moment !== m1) return 'You answered another check-in since. Undo that first.';
+          if ((m1 !== m0 || e1 !== e0) && (state.moment !== m1 || (state.energy || null) !== e1)) return 'You answered another check-in since. Undo that first.';
           return null;
         },
         undo: function () {
@@ -130,6 +132,7 @@
             if (p0[k]) state.groups.push(JSON.parse(p0[k]));
           });
           if (m1 !== m0) state.moment = m0;
+          if (e1 !== e0) state.energy = e0;
           settle();
           state.shown = null;   /* the undone card comes back where it was, ahead of the one on screen */
           S.sortQueue(); emit({ type: 'restore' });
@@ -156,12 +159,18 @@
         if (m === 'low') return it.energy === 'low';
         return true;
       }
+      var fo = (state.focus && state.focus.task_ids) || [];
+      /* Once you've answered a check-in, the middle is the order for your energy (Prio; the core's priority.py) */
+      var ek = state.energy ? Prio.keys(state.energy, S.queue()) : null;
+      function key(x) {
+        var inFocus = fo.indexOf(x.coreId || x.id) > -1 ? 0 : 1;
+        var mid = ek ? ek[x.id].concat([inFocus, 0, 0]) : [x.dueAt ? 0 : 1, inFocus, x.handedBack ? 1 : 0, fits(x) ? 0 : 1, 0, 0];
+        return [x.id === state.shown ? 0 : 1, x.picked ? 0 : 1, x.doing ? 0 : 1, x.atEnd ? 1 : 0].concat(mid, [x.order]);
+      }
       state.queue.sort(function (a, b) {
         var x = S.item(a), y = S.item(b);
         /* the working card first; then deadlines; then this session's focus (the core orders live cards the same way) */
-        var fo = (state.focus && state.focus.task_ids) || [];
-        var kx = [x.id === state.shown ? 0 : 1, x.picked ? 0 : 1, x.doing ? 0 : 1, x.atEnd ? 1 : 0, x.dueAt ? 0 : 1, fo.indexOf(x.coreId || x.id) > -1 ? 0 : 1, x.handedBack ? 1 : 0, fits(x) ? 0 : 1, x.order];
-        var ky = [y.id === state.shown ? 0 : 1, y.picked ? 0 : 1, y.doing ? 0 : 1, y.atEnd ? 1 : 0, y.dueAt ? 0 : 1, fo.indexOf(y.coreId || y.id) > -1 ? 0 : 1, y.handedBack ? 1 : 0, fits(y) ? 0 : 1, y.order];
+        var kx = key(x), ky = key(y);
         for (var i = 0; i < kx.length; i++) if (kx[i] !== ky[i]) return kx[i] - ky[i];
         return 0;
       });
@@ -198,7 +207,7 @@
     inQueue: function (id) { return state.queue.indexOf(id) > -1; },
     /* You picked this one from Lineup: it goes first, ahead of deadlines, until it leaves triage */
     pick: function (id) { var it = S.item(id); if (!it || !S.inQueue(id)) return; it.picked = true; state.shown = null; state.queue = [id].concat(state.queue.filter(function (q) { return q !== id; })); },
-    leave: function (id) { var it = S.item(id); if (state.shown === id) state.shown = null; if (it) { it.atEnd = false; it.picked = false; it.putOff = false; } state.queue = state.queue.filter(function (q) { return q !== id; }); },
+    leave: function (id) { var it = S.item(id); if (state.shown === id) state.shown = null; if (it) { it.atEnd = false; it.picked = false; it.putOff = false; it.checkinHold = false; } state.queue = state.queue.filter(function (q) { return q !== id; }); },
 
     /* ---- decisions from triage ---- */
     /* read: sources you pointed Fuzz to with this ask */
@@ -251,17 +260,46 @@
     /* The UI decides when to ask how you're doing; the answer is kept (POST /checkin in the core) and sets
        the moment. hold_rest schedules what isn't time-sensitive for tomorrow morning, as one change. */
     checkin: function (answer, followUp) {
-      var moment = followUp === 'quick_first' ? 'quick' : { good: 'any', okay: 'any', tired: 'low', overloaded: 'quick' }[answer];
-      var held = followUp === 'hold_rest' ? S.queue().filter(function (i) { return i.kind === 'task' && !i.dueAt; }) : [];
+      var moment = followUp === 'quick_first' ? 'quick' : Prio.MOMENT[answer];
+      /* Tired and overloaded: the task cards outside today's set wait for tomorrow morning; hold_rest: every
+         task card that isn't time-sensitive. One change, so one Undo puts them all back (the core's checkins.record) */
+      var held = S.queue().filter(function (i) {
+        /* a card asking its own question would lose it if it moved: it stays, last (the core's KEEP_TAGS) */
+        if (i.kind !== 'task' || i.doing || i.block || i.blockEnd || i.handedBack || i.result || i.foundOut || i.review || i.checkBack || i.putOff || i.inTheWay) return false;
+        if (followUp === 'hold_rest') return !i.dueAt;
+        return (answer === 'tired' || answer === 'overloaded') && !Prio.included(answer, Prio.cats(i));
+      });
       var ch = S.track(held.map(function (i) { return i.id; }), function () {
         state.checkins.unshift({ answer: answer, followUp: followUp || null, moment: moment, at: Date.now() });
-        state.moment = moment; state.shown = null;
-        held.forEach(function (i) { S.schedule(i.id, Sched.tomorrowMorning()); });
+        state.moment = moment; state.energy = answer; state.shown = null;
+        held.forEach(function (i) { S.schedule(i.id, Sched.tomorrowMorning()); i.checkinHold = true; });
+        state.held = (state.held || []).concat(held.map(function (i) { return i.id; }));
         S.sortQueue();
       });
       emit({ type: 'moment' });
       return { change: ch, held: held.length };
     },
+    /* Momentum ("Sure, just a few more"): one level up, and a few of what a check-in held come back: the new
+       level's stretch, best placed first (never a card you scheduled yourself). The core's checkins.more. */
+    more: function () {
+      var from = state.energy || 'okay', to = Prio.up(from);
+      var cand = (state.held || []).map(S.item).filter(function (i, n, all) { return i && all.indexOf(i) === n && i.state === 'scheduled' && i.checkinHold && Prio.included(to, Prio.cats(i)); });
+      /* a few more, not the whole pile: the new level's stretch, the ones it would put first */
+      var ek = Prio.keys(to, cand);
+      var back = cand.slice().sort(function (a, b) {
+        var x = ek[a.id].concat([a.order || 0]), y = ek[b.id].concat([b.order || 0]);
+        for (var k = 0; k < x.length; k++) if (x[k] !== y[k]) return x[k] - y[k];
+        return 0;
+      }).slice(0, Prio.STRETCH[to]);
+      var ch = S.track(back.map(function (i) { return i.id; }), function () {
+        state.energy = to; state.moment = Prio.MOMENT[to]; state.shown = null;
+        back.forEach(function (i) { i.scheduledFor = null; i.scheduleAnchor = null; i.now = ''; S.enqueue(i, 'back'); S.log(i, 'status', 'Back from tomorrow: you had energy for a few more.'); });
+        S.sortQueue();
+      });
+      emit({ type: 'moment' });
+      return { change: ch, back: back.length, energy: to };
+    },
+    energy: function () { return state.energy || null; },
     park: function (id) { var it = S.item(id); S.leave(id); it.state = 'parked'; it.woke = false; it.parkedAgo = 'Today'; it.now = ''; S.log(it, 'status', 'You parked this from triage.'); },
     /* The parked review: a parked task came back to ask "Still want this?" */
     keepParked: function (id) { var it = S.item(id); S.leave(id); it.state = 'parked'; it.review = false; it.woke = false; it.parkedAgo = 'Today'; it.now = ''; S.log(it, 'status', 'You kept this parked.'); },

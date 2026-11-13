@@ -126,11 +126,26 @@ class Api(Server):
     def test_checkin_is_recorded_not_raised(self):
         self.req("POST", "/tasks", {"text": "One"})
         status, body = self.req("POST", "/checkin", {"answer": "tired"})
-        self.assertEqual((status, body["moment"]), (201, "low"))
+        self.assertEqual((status, body["moment"], body["energy"], body["held"]), (201, "low", "tired", 1))
         self.assertEqual(self.req("GET", "/cards")[1]["moment"], "low")
-        self.assertEqual({c["kind"] for c in self.req("GET", "/cards")[1]["cards"]}, {"task"})
+        self.assertEqual(self.req("GET", "/cards")[1]["energy"], "tired")
+        self.assertEqual(self.req("GET", "/cards")[1]["cards"], [], "a plain task waits for tomorrow; no check-in card")
         status, body = self.req("POST", "/checkin", {"answer": "meh"})
         self.assertEqual((status, body["field"]), (400, "answer"))
+
+    def test_vips_and_a_few_more(self):
+        self.assertEqual(self.req("GET", "/vips")[1], {"manager": "", "people": []})
+        status, body = self.req("PUT", "/vips", {"manager": " Priya Shah ", "people": ["rob@acme.example", " "]})
+        self.assertEqual((status, body), (200, {"manager": "Priya Shah", "people": ["rob@acme.example"]}))
+        self.assertEqual(self.req("PUT", "/vips", {"people": "Rob"})[1]["field"], "people")
+        self.assertEqual(self.req("PUT", "/vips", {"people": [f"P{i}" for i in range(11)]})[1]["field"], "people")
+        self.req("POST", "/tasks", {"text": "One"})
+        self.req("POST", "/checkin", {"answer": "overloaded"})
+        status, body = self.req("POST", "/checkin/more")
+        self.assertEqual((status, body["energy"]), (201, "tired"))
+        cards_ = self.req("GET", "/cards")[1]
+        self.assertEqual(cards_["energy"], "tired")
+        self.assertTrue(all("categories" in c for c in cards_["cards"]))
 
     def test_groups(self):
         sig = {"source": "email", "source_id": "m1", "anchor": "email:AAQk1", "ts": "2026-10-20T09:00:00Z",

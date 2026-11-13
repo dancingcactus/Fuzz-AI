@@ -223,6 +223,8 @@
       source: origin ? (origin.title || 'Found by Fuzz') : tags.indexOf('kickoff') > -1 ? 'A task for Fuzz' : 'Captured by you', who: '',
       age: ago(t.created_at) || 'Just now', stage: tags.indexOf('stale') > -1 ? 'stale' : 'fresh',
       mins: t.effort_mins || 5, energy: t.energy || 'normal',
+      /* its categories from the core (priority.py), and its estimate for momentum: 15 minutes when there's none */
+      cats: c && c.categories ? c.categories : null, estMins: t.effort_mins || 15, checkinHold: tags.indexOf('checkin_hold') > -1,
       incoming: t.reason || (t.ask && t.ask !== t.title ? t.ask : origin ? '' : 'You captured this.'),
       ask: ((tags.indexOf('review') > -1 || tags.indexOf('check_back') > -1) && t.reason) || (c && c.prompt) || t.question || 'What should happen to this?',
       hint: '', instr: it.instr && it.coreId === t.id ? it.instr : '',
@@ -369,6 +371,7 @@
         Store.get().work = r[1].work || null;   /* the stuck thresholds and what counts as big */
         Store.get().focus = r[1].focus || null;   /* this session's focus (the core orders the cards by it) */
         Store.get().focusChips = r[1].focus_chips || [];
+        Store.get().energy = r[1].energy || null;   /* your last check-in answer today (a core from before #9 has none) */
         apply(list, cards, r[1].moment, groups);
       });
     }).catch(function (e) {
@@ -637,6 +640,12 @@
       extra = function () { return api('POST', '/checkin', followUp ? { answer: answer, follow_up: followUp } : { answer: answer }); };
       quiet++; try { return checkin.apply(S, arguments); } finally { quiet--; extra = null; }
     };
+    /* "Sure, just a few more": the core moves you up a level and brings back what it held */
+    var more = S.more;
+    S.more = function () {
+      extra = function () { return api('POST', '/checkin/more', {}); };
+      quiet++; try { return more.apply(S, arguments); } finally { quiet--; extra = null; }
+    };
 
     /* Capture: in the queue at once, then given its core id */
     var capture = S.capture;
@@ -759,6 +768,9 @@
     saveOnboarding: function (body) { return api('PUT', '/onboarding', body); },
     answerSetup: function (name, answer) { return api('POST', '/onboarding/setup/' + name, { answer: answer }); },
     me: function () { return api('GET', '/me'); },
+    /* Your manager and a few more whose asks come first (#9); null on a core from before them */
+    vips: function () { return api('GET', '/vips').catch(function () { return null; }); },
+    saveVips: function (body) { return api('PUT', '/vips', body); },
     hours: function () { return api('GET', '/hours'); },
     saveHours: function (body) { return api('PUT', '/hours', body); },
     /* How many tasks Fuzz may work on at once: the Lineup's slots */

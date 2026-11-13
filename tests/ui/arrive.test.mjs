@@ -46,11 +46,11 @@ test('O asks what we’re working on instead', async () => {
   await page.locator('#focuscard #fo-q').waitFor();
 });
 
-test('the header counts what’s cleared, with no empty slots for what’s left', async () => {
+test('the header shows the stretch to the first check-in, not the whole queue (#9)', async () => {
   await page.keyboard.press('Enter');
   await page.locator('#card [data-act]').first().waitFor();
   const open = await page.evaluate(() => [...document.querySelectorAll('.pg-seg')].filter(s => !s.classList.contains('is-tick') && !s.classList.contains('is-bank') && !s.classList.contains('is-ghost')).length);
-  assert.equal(open, 0);
+  assert.equal(open, await page.evaluate(() => Math.min(2, Store.queue().length)));
 });
 
 test('Lineup names what’s first, with no counts of what’s left', async () => {

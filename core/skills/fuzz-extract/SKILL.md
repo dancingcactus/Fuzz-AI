@@ -60,8 +60,11 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
      answered before choosing it. The person lets almost every `unclear` ask go.
    - When it helps, add `context_md` (a short Markdown brief: what it is, when it's due, links) and
      `question` (the one thing the person must decide) to a candidate.
-   - Always estimate each ask's size: `effort_mins` (minutes for the whole job) and `steps` (how
-     many steps it takes). A rough guess beats none: the card shows it, and a big task gets booked.
+   - Always estimate each ask's size: `effort_mins` (minutes for the whole job), `steps` (how
+     many steps it takes) and `energy` (`low` for a quick reply or a click, `high` for writing,
+     deciding or untangling, else `normal`). A rough guess beats none: the card shows it, a big task
+     gets booked, and the person's check-ins use them to pick what fits their energy (five minutes or
+     less is a quick one). With no estimate a task counts as 15 minutes, normal energy.
    - When an ask hangs on a meeting or a person ("before the leadership meeting"), look the meeting
      up with your calendar connector and add up to two `moments`: `{"key": "leadership-1030",
      "label": "Before the leadership meeting", "at": "2026-10-30T09:00:00Z"}`, where `at` is when the
