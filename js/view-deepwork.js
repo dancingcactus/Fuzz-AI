@@ -161,8 +161,96 @@
     root.querySelector('.dw').classList.toggle('dw-focus', v === 'focus');
     $('#dw-mode').textContent = { entry: 'Deep Work › getting started', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › done for now' }[v];
     ({ entry: vEntry, focus: vFocus, between: vBetween, wrap: vWrap })[v]();
-    paintPool();
+    paintFoot(v === 'focus');
+    paintPool(); paintBar();
     if (S && S.take) renderTake();
+  }
+
+  /* ---------- The key guide (? anywhere in Deep Work), like Triage's: it opens on the keys for where you
+     are, and All keys is one tap further. Kept by hand next to onKey, which is what they describe. ---------- */
+  var KEYS = [
+    ['entry', 'Getting started', [['Enter', 'Start: Fuzz’s pick, or what you typed'], ['↑ ↓', 'In the box: another match'], ['/', 'Back to the box'], ['Esc', 'Not now']]],
+    ['focus', 'Working on a task', [['D', 'Finished it'], ['S', 'I’m stuck: options to make it easier'], ['B', 'Break now'], ['E', 'Tell Fuzz (Enter hands it over with your note)'], ['T', 'Park a stray thought (Esc closes it)'], ['Esc', 'Done for now']]],
+    ['stuck', 'When you’re stuck', [['1', 'Show me the sources'], ['2', 'Switch to something else (your place is kept)'], ['3', 'Hand it to Fuzz'], ['4', 'Send it back to Triage'], ['Esc', 'Never mind']]],
+    ['between', 'Between tasks', [['Enter', 'Go on to the next one (or Stop here, when it’s the only choice)'], ['O', 'Something else'], ['Esc', 'Stop here (or close the box)']]],
+    ['wrap', 'Done for now', [['Enter', 'Save and go to Triage'], ['Esc', 'Back to work']]],
+    ['take', 'Breaks and time’s up', [['1 – 4', 'The choices on screen'], ['Enter', 'The highlighted one']]],
+    ['any', 'Anywhere', [['?', 'This list']]]
+  ];
+  function keyRows(list) { return '<dl class="keylist">' + list.map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + esc(k[1]) + '</dd></div>'; }).join('') + '</dl>'; }
+  function openKeys() {
+    var d = $('#dw-keysdlg'); if (!d || d.open) return;
+    var where = !S ? 'entry' : S.view === 'focus' && S.sheet ? 'stuck' : S.view;
+    var g = KEYS.filter(function (x) { return x[0] === where; })[0];
+    $('#dw-keys-now').innerHTML = g ? '<h3>Right now</h3>' + keyRows(g[2]) : '';
+    d.querySelector('.keys-all').open = !g;
+    d.showModal();
+  }
+
+  /* ---------- Under the card: Tell Fuzz, park a thought, the clock on or off (like Triage's links) ---------- */
+  function footHTML() {
+    return '<div class="triage-foot dw-foot" id="dw-foot"><span class="dw-footfocus" id="dw-footfocus" hidden>' +
+      '<button type="button" class="linkbtn" id="dw-tellbtn" aria-expanded="false" aria-controls="dw-tellform" aria-keyshortcuts="E">Tell Fuzz<kbd aria-hidden="true">E</kbd></button><span aria-hidden="true">·</span>' +
+      '<button type="button" class="linkbtn" id="dw-parkbtn" aria-expanded="false" aria-controls="dw-parkform" aria-keyshortcuts="T">Park a stray thought<kbd aria-hidden="true">T</kbd></button><span aria-hidden="true">·</span>' +
+      '<button type="button" class="linkbtn" id="dw-clocktoggle"></button>' +
+      '<span class="dw-parked" id="dw-parked" role="status"></span><span class="keys-sep" aria-hidden="true">·</span></span>' +
+      '<button type="button" class="linkbtn keys-link" id="dw-keysbtn" aria-keyshortcuts="?">Keys</button></div>' +
+      '<dialog class="dlg keys-dlg" id="dw-keysdlg" aria-labelledby="dw-keys-h"><div class="dlg-in"><div class="dlg-top"><h2 id="dw-keys-h">Keys</h2><button type="button" class="iconbtn" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
+        '<section id="dw-keys-now"></section><details class="keys-all"><summary>All keys</summary>' + KEYS.map(function (g) { return '<section><h3>' + g[1] + '</h3>' + keyRows(g[2]) + '</section>'; }).join('') + '</details>' +
+        '<p class="meta">Nothing is sent or finished by accident: a time screen waits a moment before its keys work.</p></div></dialog>' +
+      '<form class="parkform" id="dw-tellform" hidden><label for="dw-telltext">Tell Fuzz about this task</label>' +
+        '<div class="parkrow"><input id="dw-telltext" type="text" autocomplete="off" aria-describedby="dw-tellhint" placeholder="What you want done, or what Fuzz should know"></div>' +
+        '<div class="parkrow dw-tellrow"><button class="btn primary" type="submit" id="dw-handit">Hand it to Fuzz</button><button class="btn" type="button" id="dw-noteit">Just save the note</button></div>' +
+        '<p class="parkhint" id="dw-tellhint">Hand it over and Fuzz takes it from here with what you wrote, and you go on to the next one. Or save the note on the task and keep working.</p></form>' +
+      '<form class="parkform" id="dw-parkform" hidden><label for="dw-parktext">Park it without leaving this task</label><div class="parkrow"><input id="dw-parktext" type="text" autocomplete="off" aria-describedby="dw-parkhint" placeholder="A stray thought, in a few words"><button class="btn" type="submit">Park</button></div>' +
+        '<p class="parkhint" id="dw-parkhint">It goes to Parked and you stay on this task.</p></form>';
+  }
+  function paintFoot(on) {
+    var f = $('#dw-footfocus'); if (!f) return;
+    f.hidden = !on;
+    if (!on) { closeForm('dw-tellform', 'dw-tellbtn', true); closeForm('dw-parkform', 'dw-parkbtn', true); }
+    $('#dw-clocktoggle').textContent = S && S.hideClock ? 'Show time' : 'Hide time';
+    $('#dw-parked').textContent = S && S.thoughts ? S.thoughts + ' parked ✓' : '';
+  }
+  function openForm(form, btn, input) {
+    var other = form === 'dw-tellform' ? ['dw-parkform', 'dw-parkbtn'] : ['dw-tellform', 'dw-tellbtn'];
+    closeForm(other[0], other[1], true);
+    $('#' + form).hidden = false; $('#' + btn).setAttribute('aria-expanded', 'true'); $('#' + input).focus();
+  }
+  function closeForm(form, btn, quiet) {
+    var f = $('#' + form), b = $('#' + btn); if (!f || f.hidden) return;
+    f.hidden = true; b.setAttribute('aria-expanded', 'false'); if (!quiet) b.focus();
+  }
+  function wireFoot() {
+    $('#dw-tellbtn').onclick = function () { if ($('#dw-tellform').hidden) openForm('dw-tellform', 'dw-tellbtn', 'dw-telltext'); else closeForm('dw-tellform', 'dw-tellbtn'); };
+    $('#dw-parkbtn').onclick = function () { if ($('#dw-parkform').hidden) openForm('dw-parkform', 'dw-parkbtn', 'dw-parktext'); else closeForm('dw-parkform', 'dw-parkbtn'); };
+    $('#dw-keysbtn').onclick = openKeys;
+    var kd = $('#dw-keysdlg');
+    kd.addEventListener('click', function (e) { if (e.target === e.currentTarget || e.target.closest('[data-close]')) kd.close(); });
+    kd.addEventListener('close', function () { var b = $('#dw-keysbtn'); if (b && b.offsetParent) b.focus(); });
+    $('#dw-clocktoggle').onclick = function () { if (!S) return; S.hideClock = !S.hideClock; paintFoot(inSession() && S.view === 'focus'); paintBar(); };
+    $('#dw-parkform').onsubmit = function (e) {
+      e.preventDefault(); var inp = $('#dw-parktext'), v = inp.value.trim(); if (!v || !S) return;
+      Store.parkThought(v); S.thoughts++; inp.value = '';
+      closeForm('dw-parkform', 'dw-parkbtn'); paintFoot(true);
+      say('Parked. It’s in Parked when you’re done.', 'happy'); settle();
+    };
+    /* Hand it to Fuzz with what you wrote (the note goes first, so Fuzz reads it), or only save the note */
+    $('#dw-tellform').onsubmit = function (e) {
+      e.preventDefault(); var it = task(); if (!it || S.take) return;
+      var note = $('#dw-telltext').value.trim(); $('#dw-telltext').value = '';
+      closeForm('dw-tellform', 'dw-tellbtn', true); S.sheet = null;
+      var ch = Store.track([it.id], function () { if (note) Store.tell(it.id, note); Store.handToFuzz(it.id); });
+      Say.offerUndo('Handed “' + it.title + '” to Fuzz from Deep Work.', function () { return ch.undo(); }, null, ch.blocked);
+      toBetween('handed');
+    };
+    $('#dw-noteit').onclick = function () {
+      var it = task(), inp = $('#dw-telltext'), note = inp.value.trim();
+      if (!it) return; if (!note) { inp.focus(); return; }
+      Store.tell(it.id, note); inp.value = '';
+      closeForm('dw-tellform', 'dw-tellbtn');
+      say('Noted. It’s on the task for whoever picks it up next.', 'happy'); settle();
+    };
   }
 
   /* Enter Deep Work: how long, and one box for what */
@@ -213,26 +301,18 @@
       '<h1 class="dw-step" id="dw-step" tabindex="-1">' + esc(lead) + '</h1>' +
       (it.leftOff ? '<p class="dw-crumb"><b>Where you left off:</b> ' + esc(it.leftOff) + '</p>' : '') +
       (brief ? '<details class="dw-prepfold"><summary>What Fuzz got ready</summary><div class="dw-prep">' + UI.text(brief) + '</div></details>' : '') +
-      clockHTML() +
-      '<form class="dw-thought" id="dw-thought-f"><input id="dw-thought" placeholder="A stray thought? Park it here and keep going (T)" aria-label="Park a stray thought" autocomplete="off"><button class="btn" type="submit">Park it</button></form>' +
-      (S.thoughts ? '<p class="dw-parked">' + S.thoughts + ' parked ✓</p>' : '') +
       '<div id="dw-sheet"></div>' +
       '<div class="dw-row" id="dw-main"><button type="button" class="btn primary" id="dw-done">Finished it<kbd aria-hidden="true">D</kbd></button>' +
       '<button type="button" class="btn" id="dw-stuck">I’m stuck<kbd aria-hidden="true">S</kbd></button>' +
       '<button type="button" class="btn" id="dw-brk">Break now<kbd aria-hidden="true">B</kbd></button>' +
       '<button type="button" class="btn" id="dw-later">Done for now<kbd aria-hidden="true">Esc</kbd></button></div>' +
-      '<section class="rich dw-rich" id="dw-rich">' + richHTML(it) + '</section></div>';
+      '<section class="rich dw-rich" id="dw-rich">' + richHTML(it) + '</section>' + UI.idTag(it) + '</div>';
     $('#dw-done').onclick = finishTask;
     $('#dw-stuck').onclick = function () { openSheet('stuck'); };
     $('#dw-brk').onclick = function () { startBreak(); };
     $('#dw-later').onclick = doneForNow;
-    wireClock();
-    $('#dw-thought-f').onsubmit = function (e) {
-      e.preventDefault(); var v = $('#dw-thought').value.trim(); if (!v) return;
-      Store.parkThought(v); S.thoughts++; render(); say('Parked. It’s in Parked when you’re done.', 'happy'); settle();
-    };
     view.querySelector('#dw-rich').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; $('#dw-rich').innerHTML = richHTML(task()); var tb = $('#dwtab-' + S.tab); if (tb) tb.focus(); });
-    renderSheet(); tickClock();
+    renderSheet();
   }
   /* The tabs you use to finish it, like the task card: one is always open */
   function richHTML(it) {
@@ -345,7 +425,7 @@
     if (!el) { el = document.createElement('div'); el.id = 'dw-take'; el.className = 'dw-take'; el.hidden = true; document.body.appendChild(el); }
     return el;
   }
-  function pend(kind) { if (!S.pending) { S.pending = kind; S.pendingAt = S.workClock; tickClock(); } }
+  function pend(kind) { if (!S.pending) { S.pending = kind; S.pendingAt = S.workClock; paintBar(); } }
   function fire() { var k = S.pending; S.pending = null; S.forceAt = null; if (k) take(k); }
   function take(kind, extra) {
     S.take = { kind: kind, armed: false }; for (var x in extra || {}) S.take[x] = extra[x];
@@ -469,55 +549,47 @@
   }
   function endSession() { clearInterval(timer); timer = 0; closeTake(); S = null; E.asked = false; }
 
-  /* ---------- The clock: a session dial ----------
-     With an end time, the whole session is a pie eaten up to the hand: work in the accent, breaks green.
-     With no end time it fills up instead: one lap is an hour, and each finished hour adds a ring.
-     It is drawn from what actually happened plus the plan ahead, so snoozes and extra time show up. */
-  function clockHTML() {
-    return '<div class="dw-clock' + (S.hideClock ? ' hidden-clock' : '') + '" id="dw-clock"><svg class="dw-dial" id="dw-dial" viewBox="0 0 100 100" aria-hidden="true"></svg><span class="dw-read" aria-live="off"><b id="dw-clock-big"></b><span id="dw-clock-small"></span></span>' +
-      '<button type="button" class="btn small" id="dw-clocktoggle">' + (S.hideClock ? 'Show time' : 'Hide time') + '</button></div>';
-  }
-  function wireClock() { $('#dw-clocktoggle').onclick = function () { S.hideClock = !S.hideClock; render(); }; }
+  /* ---------- The clock: a session bar in the header, where Triage keeps its progress ----------
+     It's the session's time, not the task's, so it sits above everything. With an end time the whole
+     session runs left to right: work in the accent, breaks green, filled up to now. With no end time it
+     shows the hour you're in (each finished hour starts a new one). It is drawn from what actually
+     happened plus the plan ahead, so snoozes and extra time show up. */
   function about(left) { left = Math.ceil(left); if (left <= 1) return 'Wrapping up'; if (left < 5) return 'Under 5 min'; return '~' + (Math.round(left / 5) * 5) + ' min'; }
   function inTxt(m) { var r = Math.round(m / 5) * 5; if (r < 5) return 'Just started'; if (r < 60) return '~' + r + ' min in'; var h = Math.floor(r / 60), mm = r % 60; return h + 'h' + (mm ? ' ' + mm + 'm' : '') + ' in'; }
-  function tickClock() {
-    var dial = $('#dw-dial'); if (!dial || !S) return;
-    var m = S.clock / 60, open = S.budget < 0, end = open ? Infinity : S.budgetEnd / 60, hrs = Math.floor(m / 60);
+  function barEl(id) { return document.getElementById(id); }
+  function paintBar() {
+    var wrap = barEl('dwprog'); if (!wrap) return;
+    var on = !!(root && S && inSession() && !S.hideClock);
+    if (wrap.hidden === on) wrap.hidden = !on;
+    if (!on) return;
+    var m = S.clock / 60, open = !isFinite(S.budgetEnd), hrs = Math.floor(m / 60);
     var waiting = S.pending === 'breakdue' || S.pending === 'timeup';
+    /* Between tasks the work clock stands still, so the next break stays where it was */
     var toBreak = waiting ? 0 : S.forceAt != null ? Math.max(0, (S.forceAt - S.workClock) / 60) : Math.max(0, (WORK - S.workSince) / 60);
     var T = m + toBreak, cur = S.curStart / 60;
-    var dNow = waiting ? m : Math.min(m + 5, Math.max(cur, T - Math.round(toBreak / 5) * 5));   /* 5-minute steps, like the words */
-    var dS = open ? hrs * 60 : 0, span = open ? 60 : end, R = open ? 39 : 45;
-    var proj = [{ k: 'work', s: cur, e: T, now: true }], t = T, nb = S.breaksTaken, lim = open ? dS + span : end;
-    while (t < lim) { var bl = nb % 3 === 2 ? 15 : 5; proj.push({ k: 'brk', s: t, e: t + bl }); t += bl; nb++; proj.push({ k: 'work', s: t, e: t + 25 }); t += 25; }
-    function pt(x, r) { var an = (x - dS) / span * 2 * Math.PI; return [50 + r * Math.sin(an), 50 - r * Math.cos(an)]; }
-    function sector(a0, a1, cls) {
-      a0 = Math.max(a0, dS); a1 = Math.min(a1, dS + span); if (a1 - a0 <= 0.01) return '';
-      if (a1 - a0 >= span - 0.01) return '<circle class="' + cls + '" cx="50" cy="50" r="' + R + '"/>';
-      var p0 = pt(a0, R), p1 = pt(a1, R);
-      return '<path class="' + cls + '" d="M50 50 L' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > span / 2 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + ' Z"/>';
-    }
-    function gap(x) { if (x <= dS || x >= dS + span) return ''; var q = pt(x, R); return '<line class="gap" x1="50" y1="50" x2="' + q[0].toFixed(2) + '" y2="' + q[1].toFixed(2) + '"/>'; }
-    var h = '<circle class="rim" cx="50" cy="50" r="' + (open ? 41 : 47) + '"/>';
-    if (!open) {
-      proj.forEach(function (x) { h += sector(Math.max(x.s, dNow), x.e, (x.k === 'brk' ? 'b' : 'w') + (x.now ? ' now' : '')); if (x.s > dNow) h += gap(x.s); });
-    } else {
-      S.hist.forEach(function (x) { h += sector(x.s / 60, x.e / 60, x.k === 'brk' ? 'b' : 'w'); h += gap(x.s / 60); });
-      h += sector(cur, dNow, 'w now') + gap(cur);
-      var nbk = proj[1]; if (nbk) h += sector(nbk.s, nbk.e, 'ahead');
-      for (var k = 0; k < Math.min(hrs, 3); k++) h += '<circle class="ring" cx="50" cy="50" r="' + (44 + k * 2.6) + '"/>';
-    }
-    var hp = pt(dNow, R - 1);
-    h += '<line class="hand" x1="50" y1="50" x2="' + hp[0].toFixed(2) + '" y2="' + hp[1].toFixed(2) + '"/><circle class="hub" cx="50" cy="50" r="5"/>';
+    var dS = open ? hrs * 60 : 0, span = open ? 60 : Math.max(S.budgetEnd / 60, m), lim = dS + span;
+    var segs = S.hist.map(function (x) { return { k: x.k, s: x.s / 60, e: x.e / 60 }; });
+    segs.push({ k: 'work', s: cur, e: T });
+    var t = T, nb = S.breaksTaken;
+    while (t < lim) { var bl = nb % 3 === 2 ? 15 : 5; segs.push({ k: 'brk', s: t, e: t + bl }); t += bl; nb++; segs.push({ k: 'work', s: t, e: t + 25 }); t += 25; }
+    function pc(x) { return (Math.max(0, Math.min(1, (x - dS) / span)) * 100).toFixed(1); }
+    var h = '';
+    segs.forEach(function (x) {
+      var a = Math.max(x.s, dS), b = Math.min(x.e, lim); if (b - a <= 0.05) return;
+      var cls = x.k === 'brk' ? 'b' : 'w';
+      h += '<i class="' + cls + '" style="left:' + pc(a) + '%;width:' + (pc(b) - pc(a)).toFixed(1) + '%"></i>';
+      if (m > a) h += '<i class="' + cls + ' past" style="left:' + pc(a) + '%;width:' + (pc(Math.min(b, m)) - pc(a)).toFixed(1) + '%"></i>';
+    });
+    h += '<i class="now" style="left:' + pc(m) + '%"></i>';
     var endB = S.budgetEnd / 60, sessLeft = endB - m, stopAt = isFinite(S.hardStop) && E.until ? ' · stop at ' + fmt(new Date(E.until - BUFFER * 60000)) : '';
     var big = S.pending === 'timeup' ? 'Time’s up after this' : S.pending === 'breakdue' ? 'Break in a moment'
-      : isFinite(endB) && sessLeft <= toBreak ? 'Last block, ' + about(sessLeft).toLowerCase() + ' left' : 'Break in ' + about(toBreak).replace('Wrapping up', 'a moment').replace('Under', 'under');
-    var small = open ? inTxt(m) + stopAt : sessLeft > 1 ? about(sessLeft) + ' left in the session' : 'Session’s up';
-    /* Redraw only when it changes, so the dial doesn't flicker */
-    if (dial.dataset.h !== h) { dial.dataset.h = h; dial.innerHTML = h; }
-    var bigEl = $('#dw-clock-big'), smallEl = $('#dw-clock-small');
-    if (bigEl.textContent !== big) bigEl.textContent = big;
-    if (smallEl.textContent !== small) smallEl.textContent = small;
+      : !open && sessLeft <= toBreak ? 'Last block' : 'Break in ' + about(toBreak).replace('Wrapping up', 'a moment').replace('Under', 'under');
+    var small = open ? inTxt(m) + stopAt : sessLeft > 1 ? about(sessLeft) + ' left' : 'Session’s up';
+    var txt = big + ' · ' + small;
+    /* Redraw only when it changes, so the bar doesn't flicker */
+    var bar = barEl('dwbar'), te = barEl('dwprog-t');
+    if (bar.dataset.h !== h) { bar.dataset.h = h; bar.innerHTML = h; }
+    if (te.textContent !== txt) { te.textContent = txt; wrap.title = 'This Deep Work session: ' + txt; }
   }
   function breakText(sec) { return sec > 90 ? 'About ' + Math.round(sec / 60) + ' minutes' : sec > 40 ? 'About a minute' : 'Less than a minute'; }
   function wedge(f, r, cls) {
@@ -540,6 +612,7 @@
     lastTick = now;
     if (!S || !inSession()) return;
     S.clock += dt;
+    paintBar();   /* between tasks and with the stuck options open too: the session's time runs on */
     if (S.take) {
       if (S.take.kind === 'break' && !S.take.over) { S.take.left -= dt; tickBreak(); if (S.take.left <= 0) endBreak(); }
       return;
@@ -553,7 +626,6 @@
     if (S.sinceRealBreak >= BODY && !S.pending) { S.sinceRealBreak = 0; take('body'); return; }
     /* With no steps to wait for, a pending break or time's up comes after a short grace */
     if (S.pending && S.workClock - S.pendingAt >= 60) { fire(); return; }
-    tickClock();
   }
 
   /* ---------- Keys ---------- */
@@ -571,10 +643,14 @@
     if (document.querySelector('dialog[open]') || e.defaultPrevented) return;
     var tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select';
     if (typing) {
+      /* Esc in a footer box closes it, back to its link, as in Triage */
+      if (k === 'Escape' && e.target.id === 'dw-telltext') { e.preventDefault(); closeForm('dw-tellform', 'dw-tellbtn'); return; }
+      if (k === 'Escape' && e.target.id === 'dw-parktext') { e.preventDefault(); closeForm('dw-parkform', 'dw-parkbtn'); return; }
       if (k === 'Escape' && e.target.id !== 'dw-what') e.target.blur();
       if (k === 'Enter' && e.target.id === 'dw-crumb') { e.preventDefault(); $('#dw-save').click(); }
       return;
     }
+    if (k === '?') { e.preventDefault(); openKeys(); return; }
     var v = S ? S.view : 'entry', onBtn = e.target.closest && e.target.closest('button, a, summary');
     if (v === 'entry') {
       if (k === 'Enter' && !onBtn) { e.preventDefault(); pickCurrent(startSession); }
@@ -590,7 +666,8 @@
       if (lk === 'd') { e.preventDefault(); finishTask(); }
       else if (lk === 's') { e.preventDefault(); openSheet('stuck'); }
       else if (lk === 'b') { e.preventDefault(); startBreak(); }
-      else if (lk === 't') { e.preventDefault(); $('#dw-thought').focus(); }
+      else if (lk === 't') { e.preventDefault(); openForm('dw-parkform', 'dw-parkbtn', 'dw-parktext'); }
+      else if (lk === 'e') { e.preventDefault(); openForm('dw-tellform', 'dw-tellbtn', 'dw-telltext'); }
       else if (k === 'Escape') { e.preventDefault(); doneForNow(); }
     } else if (v === 'between') {
       if (k === 'Enter' && !onBtn) { e.preventDefault(); var g = view.querySelector('.dw-row .btn.primary'); if (g) g.click(); }
@@ -609,8 +686,9 @@
       '<a class="dw-pool" href="#/tasks">' + pool().length + ' in Deep Work</a></div>' +
       '<div class="stage dw-stage" id="stage"><div class="fx" id="fx"></div>' +
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
-      '<div id="dw-view"></div></div></section>';
+      '<div id="dw-view"></div></div>' + footHTML() + '</section>';
     view = root.querySelector('#dw-view');
+    wireFoot();
     Fuzz.mount(root, {});
     keyFn = onKey; document.addEventListener('keydown', keyFn, true);
     unsub = Store.on(function (e) {
@@ -638,6 +716,7 @@
     clearTimeout(settleT);
     var el = document.getElementById('dw-take'); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('dw-taken');
     Fuzz.unmount(); root = null; view = null;
+    var bar = document.getElementById('dwprog'); if (bar) bar.hidden = true;
   };
   /* From Lineup: open Deep Work with this task as the pick */
   V.start = function (id) { E.want = id; E.query = ''; E.alt = 0; App.navigate('#/deepwork'); };
