@@ -1,6 +1,5 @@
 /* ---------- Deep Work (js/view-deepwork.js): a mode for doing, separate from Triage ----------
    Every class is dw- so nothing here reaches the rest of the app. */
-.themebtn.nav-deep[aria-current="page"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 /* Lineup's Deep Work section */
 .deep-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin: -2px 0 10px; }
 .deep-head .meta { margin: 0; }

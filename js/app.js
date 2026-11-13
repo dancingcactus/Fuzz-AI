@@ -59,6 +59,8 @@
       '<div class="appbar-left"><a class="brand" href="#/triage" aria-label="Fuzz, go to triage">' + Fuzz.mini('good', { cls: 'brand-av' }) + '<span class="brand-name">Fuzz</span></a>' +
       '<nav class="mainnav" aria-label="Main">' +
         '<a href="#/triage" data-nav="triage">Triage<span class="navcount" id="navcount" aria-label="waiting"></span></a>' +
+        /* Deep Work: the mode for doing, whenever you have time. Triage only decides. Its dot means the pool has something. */
+        '<a href="#/deepwork" data-nav="deepwork" title="Deep Work: work through the tasks that need you and take real time">Deep Work<span class="navcount" id="dwcount"></span></a>' +
         '<a href="#/tasks" data-nav="tasks">Lineup</a>' +
         '<a href="#/artifacts" data-nav="artifacts">Artifacts</a>' +
       '</nav></div>' +
@@ -67,8 +69,6 @@
       '<div class="hprog dwprog" id="dwprog" hidden><div class="dwbar" id="dwbar" aria-hidden="true"></div><span class="dwprog-t" id="dwprog-t"></span></div>' +
       /* On narrow screens these collapse to icons (New task moves to the floating #fab); .lbl stays for screen readers. */
       '<div class="appbar-right"><a href="#/capture" data-nav="capture" class="themebtn nav-cta" title="New task (N)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New task</span></a>' +
-        /* Deep Work: the mode for doing, whenever you have time. Triage only decides. */
-        '<a href="#/deepwork" data-nav="deepwork" class="themebtn nav-deep" title="Deep Work: work through the tasks that need you and take real time"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Deep Work</span></a>' +
         '<div class="undowrap"><button type="button" class="themebtn undobtn" id="undobtn" aria-expanded="false" aria-controls="undopop" aria-haspopup="dialog" disabled>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Undo</span><span class="navcount" id="undocount"></span></button>' +
         '<div class="themepop undopop" id="undopop" role="dialog" aria-label="Recent actions" hidden></div></div>' +
@@ -172,6 +172,13 @@
     el.classList.toggle('done', !has);
     el.classList.toggle('has', has);
     el.setAttribute('aria-label', has ? 'Tasks to triage' : 'All triaged');
+    /* Deep Work only gets a dot, and only when its pool has something; nothing when it's empty */
+    var dw = document.getElementById('dwcount');
+    if (dw) {
+      var n = Store.inState('deepwork').length;
+      dw.classList.toggle('has', n > 0);
+      if (n) dw.setAttribute('aria-label', n + ' in Deep Work'); else dw.removeAttribute('aria-label');
+    }
   }
 
   /* Fuzz's background work never interrupts. Anything you need to know arrives as a card in the queue. */
