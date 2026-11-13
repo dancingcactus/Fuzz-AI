@@ -33,11 +33,29 @@ SINGLE = {"role", "team", "company", "manager", "how_met", "works_hours", "defin
 HOW = ("stated", "extracted", "inferred", "edited")
 SOURCE_KINDS = ("email", "slack", "meeting", "calendar", "doc", "directory", "you", "teams")
 CONFLICT_DAYS = 30   # two equally trusted sources this close together that disagree: ask, don't pick
+# Written as a sentence or two, so two sources never word it the same way: comparing text can't tell a
+# paraphrase from a disagreement, and asking about every rewording is noise. The better-sourced one wins.
+PROSE = {"definition", "what_it_is", "relationship", "how_met"}
 VALUE_MAX = 500
 
 
 def norm(v):
     return re.sub(r"\s+", " ", (v or "").strip().rstrip(".")).casefold()
+
+
+_ASIDE = re.compile(r"\s*(\([^()]*\)|<[^<>]*>|[\w.+-]+@[\w-]+(\.[\w-]+)+)\s*")
+
+
+def _gist(v):
+    """The value without asides: "Russell Lewis (rulewis@adobe.com)" is Russell Lewis."""
+    return norm(_ASIDE.sub(" ", v or "")).strip(" ,;:-")
+
+
+def same_claim(a, b):
+    """The same thing said twice: equal once asides are dropped, or one says more after the other ("Product
+    Manager" and "Product Manager - Adobe Target"). Not a disagreement, so nothing to ask."""
+    x, y = sorted((_gist(a), _gist(b)), key=len)
+    return bool(x) and y.startswith(x) and (len(y) == len(x) or not y[len(x)].isalnum())
 
 
 # ---------------------------------------------------------------- entities
@@ -267,7 +285,10 @@ def _judge(core, rows, now):
 
 def _real_conflict(a, b):
     """Both equally trusted (authoritative or reported, not stale), neither confirmed, and their sources close
-    in time: nothing says which is right, so ask instead of picking."""
+    in time: nothing says which is right, so ask instead of picking. Not prose (PROSE), and not the same claim
+    worded twice (same_claim)."""
+    if a["attr"] in PROSE or same_claim(a["value"], b["value"]):
+        return False
     ta, tb = a["trust"], b["trust"]
     if ta["level"] != tb["level"] or ta["level"] not in ("authoritative", "reported"):
         return False

@@ -83,6 +83,7 @@ def held(core):
 
 def raise_cards(core, actor="system"):
     """Raise what fits under today's cap. Returns the card ids."""
+    settle_conflicts(core, actor)
     room = cap(core) - raised_today(core)
     made = []
     if room <= 0:
@@ -112,11 +113,35 @@ def _conflicts(core):
     return out
 
 
+def settle_conflicts(core, actor="system"):
+    """An open "which is right?" whose two facts no longer disagree (one was rejected or undone, or they turn
+    out to say the same thing) has nothing left to ask: withdraw it."""
+    for c in core.all("SELECT * FROM cards WHERE user_id=? AND kind='fact_conflict' AND status='open'", (core.user_id,)):
+        p = c.get("payload") or {}
+        ids = sorted(f["id"] for f in p.get("facts") or [])
+        eid = p.get("entity_id")
+        live = eid is not None and any(sorted((a["id"], b["id"])) == ids
+                                       for a, b in facts.disputes(core, facts.follow(core, eid)))
+        if live:
+            continue
+        with core.tx(actor):
+            ch = events.Changes()
+            ch.card(c["id"], status="withdrawn")
+            events.emit(core, "card.updated", changes=ch, data={"kind": "fact_conflict", "why": "no_longer_disputed"})
+
+
+def _attr_phrase(name, attr):
+    """Verizon's manager; what Verizon is, not Verizon's what it is."""
+    if attr == "what_it_is":
+        return f"what {name} is"
+    return f"{name}'s {attr.replace('_', ' ')}"
+
+
 def _conflict_args(core, eid, a, b):
     e = facts.entity(core, eid)
     name = entities.display_name(core.conn, e)
     return {"prompt": f"Which is right about {name}?",
-            "reason": f"Two sources disagree on {name}'s {a['attr'].replace('_', ' ')}, and neither is more "
+            "reason": f"Two sources disagree on {_attr_phrase(name, a['attr'])}, and neither is more "
                       "trustworthy than the other.",
             "payload": {"entity_id": eid, "name": name, "attr": a["attr"],
                         "facts": [_fact_brief(core, a), _fact_brief(core, b)]}}
