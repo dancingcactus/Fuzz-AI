@@ -63,6 +63,8 @@
         '<a href="#/artifacts" data-nav="artifacts">Artifacts</a>' +
       '</nav></div>' +
       '<div class="hprog" id="hprog" hidden><span class="left" id="left" aria-hidden="true"></span>' + Progress.html('prog') + '</div>' +
+      /* Deep Work's session bar takes the same slot; js/view-deepwork.js shows and paints it */
+      '<div class="hprog dwprog" id="dwprog" hidden><div class="dwbar" id="dwbar" aria-hidden="true"></div><span class="dwprog-t" id="dwprog-t"></span></div>' +
       /* On narrow screens these collapse to icons (New task moves to the floating #fab); .lbl stays for screen readers. */
       '<div class="appbar-right"><a href="#/capture" data-nav="capture" class="themebtn nav-cta" title="New task (N)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New task</span></a>' +
         /* Deep Work: the mode for doing, whenever you have time. Triage only decides. */
@@ -151,6 +153,7 @@
     if (name === 'triage' || name === 'capture') Say.hideDock(); /* Fuzz speaks from the perch there */
     currentName = name; current = ROUTES[name].view;
     document.getElementById('hprog').hidden = name !== 'triage';
+    if (name !== 'deepwork') document.getElementById('dwprog').hidden = true;
     document.body.dataset.view = name;
     /* No floating New task button on capture (you're there) or triage (its actions sit at the bottom on phones) */
     document.getElementById('fab').hidden = name !== 'tasks' && name !== 'artifacts';
