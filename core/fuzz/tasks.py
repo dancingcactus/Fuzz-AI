@@ -256,7 +256,7 @@ def session(core, task_id, card=None):
                 card=card, option="session", data={"to": "session"}, question=None)
 
 
-def deep_work(core, task_id, card=None, left_off=None):
+def deep_work(core, task_id, card=None, left_off=None, log=None):
     """Yours, and it takes real time: out of Triage into the Deep Work pool, for a session you start
     when you have the time. Triage only decides; the doing happens there.
     left_off: on a task already in the pool, "Done for now" in a session keeps where you left off in its notes,
@@ -272,7 +272,7 @@ def deep_work(core, task_id, card=None, left_off=None):
                                log=("guidance", f"Done for now in Deep Work. Where you left off: {said}") if said
                                else ("status", "Done for now in Deep Work."))
     return _one(core, "human", "task.assigned", t, "deepwork",
-                ("status", "You put this in Deep Work. It waits there for a session with time to do it."),
+                log or ("status", "You put this in Deep Work. It waits there for a session with time to do it."),
                 card=card, option="deep_work", data={"to": "deepwork"}, question=None)
 
 

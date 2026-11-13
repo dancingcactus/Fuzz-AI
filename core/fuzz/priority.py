@@ -23,7 +23,7 @@ STRETCH = {"good": 5, "okay": 4, "tired": 3, "overloaded": 2}   # cards between 
 CATEGORIES = ("urgent", "vip", "returned", "waiting", "goal", "quick", "low", "deep", "coming_back")
 
 ORDER = {
-    "good": ("urgent", "vip", "returned", "waiting", "coming_back", "goal"),
+    "good": ("urgent", "vip", "returned", "waiting", "deep", "coming_back", "goal"),
     "okay": ("urgent", "vip", "returned", "quick", "waiting", "goal", "coming_back"),
     "tired": ("urgent", "vip", "returned", "waiting", "quick", "low"),
     "overloaded": ("urgent", "quick"),
@@ -166,7 +166,9 @@ def rank(level, cats):
     if level == "okay" and "coming_back" in cats and "urgent" not in cats:
         return order.index("coming_back")   # late on an okay day, whatever else it is
     hits = [order.index(c) for c in cats if c in order]
-    return min(hits) if hits else len(order)   # Rest (and Deep work, until there's a deep-work queue)
+    if hits:
+        return min(hits)
+    return len(order) + 1 if "deep" in cats else len(order)   # Rest; Deep work after it (on Okay)
 
 
 def soon(task):

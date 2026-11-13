@@ -269,15 +269,19 @@
         if (followUp === 'hold_rest') return !i.dueAt;
         return (answer === 'tired' || answer === 'overloaded') && !Prio.included(answer, Prio.cats(i));
       });
-      var ch = S.track(held.map(function (i) { return i.id; }), function () {
+      /* Deep work waits in the Deep Work pool for a session with time, not for tomorrow morning */
+      var deep = followUp === 'hold_rest' ? [] : held.filter(function (i) { return Prio.cats(i).indexOf('deep') > -1; });
+      held = held.filter(function (i) { return deep.indexOf(i) < 0; });
+      var ch = S.track(held.concat(deep).map(function (i) { return i.id; }), function () {
         state.checkins.unshift({ answer: answer, followUp: followUp || null, moment: moment, at: Date.now() });
         state.moment = moment; state.energy = answer; state.shown = null;
         held.forEach(function (i) { S.schedule(i.id, Sched.tomorrowMorning()); i.checkinHold = true; });
+        deep.forEach(function (i) { S.deepWork(i.id); });
         state.held = (state.held || []).concat(held.map(function (i) { return i.id; }));
         S.sortQueue();
       });
       emit({ type: 'moment' });
-      return { change: ch, held: held.length };
+      return { change: ch, held: held.length + deep.length, deep: deep.length };
     },
     /* Momentum ("Sure, just a few more"): one level up, and a few of what a check-in held come back: the new
        level's stretch, best placed first (never a card you scheduled yourself). The core's checkins.more. */

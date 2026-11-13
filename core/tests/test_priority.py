@@ -146,8 +146,9 @@ class Priority(CoreCase):
         quick_urgent = ask(self.core, "Approve the PO", effort_mins=3, due="2026-10-20T15:00:00Z")
         scheduler.tick(self.core)
         r = checkins.record(self.core, "overloaded")
-        self.assertEqual(r["held"], 2)
-        self.assertEqual({self.task(boss_long)["state"], self.task(quick)["state"]}, {"scheduled"})
+        self.assertEqual((r["held"], r["deep_work"]), (1, 1))
+        self.assertEqual(self.task(quick)["state"], "scheduled")
+        self.assertEqual(self.task(boss_long)["state"], "deepwork", "an hour's work waits in Deep Work")
         self.assertEqual(self.order(), [boss_quick, quick_urgent, slow_urgent],
                          "warm-up, then urgent, quickest first")
 
@@ -168,6 +169,24 @@ class Priority(CoreCase):
         checkins.record(self.core, "overloaded")   # not quick, so not in today's set…
         self.assertEqual(self.task(back)["state"], "triage", "…but moving it would lose Fuzz's question")
         self.assertEqual(self.task(back)["question"], "Which venue?")
+
+    def test_deep_work_by_energy(self):
+        plain = tasks.capture(self.core, "Plain")
+        deep = ask(self.core, "Write the Q3 plan", effort_mins=90)
+        chased = ask(self.core, "Answer Rob about the badge order", sender="Rob", nudge=True)
+        stale = tasks.capture(self.core, "Stale one")
+        self.core.q("UPDATE tasks SET variant_tags=? WHERE id=?", (json.dumps(["stale"]), stale))
+        checkins.record(self.core, "good")
+        self.assertEqual(self.order(), [chased, deep, stale, plain], "good: right after Waiting")
+        checkins.record(self.core, "okay")
+        self.assertEqual(self.order(), [chased, stale, plain, deep], "okay: after the rest")
+        before = self.last_event_id()
+        r = checkins.record(self.core, "tired")
+        self.assertEqual((r["held"], r["deep_work"]), (2, 1))
+        self.assertEqual(self.task(deep)["state"], "deepwork", "tired: to the Deep Work pool, not tomorrow")
+        self.assertIn("task.assigned", self.types_since(before))
+        actions.undo(self.core)
+        self.assertEqual({self.task(t)["state"] for t in (plain, deep, stale)}, {"triage"}, "one Undo")
 
     # ---- momentum
     def test_a_few_more_is_a_few_not_the_whole_pile(self):

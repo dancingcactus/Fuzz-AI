@@ -34,8 +34,8 @@ refines them. A task with no estimate counts as 15 minutes, normal energy.
 
 | Answer | Today's set | Order |
 | --- | --- | --- |
-| **Good** | Everything | Urgent → VIP → Fuzz returned → Waiting → Coming back → This week's goal → Rest |
-| **Okay** | Everything | Urgent → VIP → Fuzz returned → Quick → Waiting → This week's goal → Coming back → Rest |
+| **Good** | Everything | Urgent → VIP → Fuzz returned → Waiting → Deep work → Coming back → This week's goal → Rest |
+| **Okay** | Everything | Urgent → VIP → Fuzz returned → Quick → Waiting → This week's goal → Coming back → Rest → Deep work |
 | **Tired** | Urgent, VIP, Fuzz returned, Waiting, Quick, Low energy | Warm-up (Quick and Low energy) → Urgent → VIP → Fuzz returned → Waiting |
 | **Overloaded** | Urgent, and Quick cards that are VIP or Fuzz returned | Break offer, then warm-up (the quickest one or two) → Urgent, quickest first |
 
@@ -47,7 +47,9 @@ Rules for every answer:
 - **Tired and overloaded:** what's left out moves to tomorrow morning in one command, so one Undo puts
   it all back (as Hold the rest does now, `checkins.record`).
 - **Ties** keep today's order: the working card, group runs back to back, focus, then `order_key`.
-- **Deep work:** open. There's no deep-work queue yet; until there is, Deep work cards sort as Rest.
+- **Deep work** (decided 2026-11-13): by energy. On a good day it comes right after Waiting; on an okay day
+  after the rest; when tired or overloaded, Deep work outside today's set goes to the Deep Work pool (not
+  tomorrow), in the same change as the rest, so one Undo brings it all back. "A few more" doesn't fetch it.
 
 ## Check-ins and the bar
 
@@ -125,4 +127,3 @@ Where the build settled something the design left open, or differs from it:
 - Each card's screen time now records how it left (`how`: later, end, done, parked…).
 - The parked review's daily share (`review.energy_today`) reads the same energy, so Undo and "a few more"
   count there too.
-- **Not built:** the deep-work queue (Deep work still sorts as Rest).

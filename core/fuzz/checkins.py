@@ -32,14 +32,15 @@ def held_ids(core):
 
 def record(core, answer, follow_up=None):
     """Write checkin.answered and set your energy for today (and the moment). Tired and overloaded move
-    the task cards outside today's set to tomorrow morning; hold_rest moves every task card that isn't
-    time-sensitive. All in one command, so one Undo puts them all back."""
+    the task cards outside today's set to tomorrow morning, and the Deep work ones to the Deep Work pool;
+    hold_rest moves every task card that isn't time-sensitive. All in one command, so one Undo puts them
+    all back."""
     if answer not in ANSWERS:
         raise FuzzError(f"answer must be one of {', '.join(ANSWERS)}", "answer")
     if follow_up not in (None,) + FOLLOW_UPS:
         raise FuzzError(f"follow_up must be one of {', '.join(FOLLOW_UPS)}", "follow_up")
     moment = "quick" if follow_up == "quick_first" else MOMENT[answer]
-    held = []
+    held, deep = [], []
     with core.tx("human"):
         ch = events.Changes()
         ch.state("moment", moment)
@@ -50,14 +51,21 @@ def record(core, answer, follow_up=None):
         if follow_up == "hold_rest":
             held = [t for c, t in out if t.get("deadline_level", 0) == 0]
         elif answer in ("tired", "overloaded"):
-            held = [t for c, t in out if not priority.included(answer, set(c["categories"]))
+            out_ = [(c, t) for c, t in out if not priority.included(answer, set(c["categories"]))
                     and not priority.KEEP_TAGS & set(t.get("variant_tags") or [])]
+            # Deep work waits in the Deep Work pool for a session with time, not for tomorrow morning
+            deep = [t for c, t in out_ if "deep" in c["categories"]]
+            held = [t for c, t in out_ if "deep" not in c["categories"]]
         ch.state("checkin_held", json.dumps(sorted({t["id"] for t in held} | set(held_ids(core)))))
         events.emit(core, "checkin.answered", changes=ch,
-                    data={"answer": answer, "follow_up": follow_up, "moment": moment, "held": len(held)})
+                    data={"answer": answer, "follow_up": follow_up, "moment": moment, "held": len(held),
+                          "deep_work": len(deep)})
         for t in held:
             _hold(core, t)
-    return {"moment": moment, "energy": answer, "held": len(held)}
+        for t in deep:
+            tasks.deep_work(core, t["id"], log=("status", "A check-in put this in Deep Work: it waits there for a "
+                                                          "session with time and energy for it."))
+    return {"moment": moment, "energy": answer, "held": len(held), "deep_work": len(deep)}
 
 
 def more(core):

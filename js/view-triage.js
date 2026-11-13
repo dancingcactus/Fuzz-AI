@@ -1059,7 +1059,7 @@
     if (ciAnswer && !ciDemo) r = Store.checkin(ciAnswer, ciFollow);
     ciAnswer = null; ciFollow = null; ciLevel = null; ciMode = null;
     if (ciDemo) { ciDemo = false; return; }
-    if (r && r.held) offer('The rest can wait until tomorrow morning.', r.change);
+    if (r && r.held) offer(r.deep === r.held ? 'The big ones wait in Deep Work.' : r.deep ? 'The rest can wait until tomorrow; the big ones in Deep Work.' : 'The rest can wait until tomorrow morning.', r.change);
     /* Your answer sets the next stretch; Skip keeps the last one (or a middling one if there wasn't one).
        Counted after the rest has moved out, so it doesn't use up the boxes. */
     ciSize = level ? CI_STRETCH[level] : ciCount ? ciSize : CI_STRETCH_SKIP;

@@ -5,7 +5,7 @@
 (function () {
   var DEFAULT_MINS = 15, QUICK_MINS = 5, DEEP_MINS = 30, WARM_UP = 2;
   var ORDER = {
-    good: ['urgent', 'vip', 'returned', 'waiting', 'coming_back', 'goal'],
+    good: ['urgent', 'vip', 'returned', 'waiting', 'deep', 'coming_back', 'goal'],
     okay: ['urgent', 'vip', 'returned', 'quick', 'waiting', 'goal', 'coming_back'],
     tired: ['urgent', 'vip', 'returned', 'waiting', 'quick', 'low'],
     overloaded: ['urgent', 'quick']
@@ -50,7 +50,8 @@
     var order = ORDER[level];
     if (level === 'okay' && has(c, 'coming_back') && !has(c, 'urgent')) return order.indexOf('coming_back');   /* late on an okay day */
     var hits = c.map(function (k) { return order.indexOf(k); }).filter(function (i) { return i > -1; });
-    return hits.length ? Math.min.apply(null, hits) : order.length;   /* Rest, and Deep work until there's a deep-work queue */
+    if (hits.length) return Math.min.apply(null, hits);
+    return has(c, 'deep') ? order.length + 1 : order.length;   /* Rest; Deep work after it (on Okay) */
   }
   /* Due within the hour, or past its time: it goes ahead of the warm-up */
   function soon(it) { return !!it.dueAt && it.dueAt - Date.now() <= 3600000; }
