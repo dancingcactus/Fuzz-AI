@@ -340,10 +340,13 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .actions:not(.working-actions) > .split-assign { grid-column: 1 / -1; }
 /* Every split's menu opens under the arrow that opened it, its right edge on the button's */
 .split > .menu { left: auto; right: 0; max-width: min(300px, calc(100vw - 32px)); }
+/* Later starts its row (left column), so its menu opens from its left edge and stays on screen */
+.split-later > .menu { left: 0; right: auto; }
 /* Under a card's own choice (its answers, a reply to join, a big one's three ways): one quiet row, Later and
    Other ways, a step down from the choice so the choice leads */
 .actions.quiet { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
-.actions.quiet .btn { min-height: 44px; background: transparent; box-shadow: none; }
+.actions.quiet > [data-act="findout"] { grid-column: 1 / -1; }   /* Find out…, when suggested, across the top of the quiet row */
+.actions.quiet .btn:not(.primary) { min-height: 44px; background: transparent; box-shadow: none; }
 .actions.quiet .btn:hover { background: var(--chip); }
 .split .more-btn.other-btn { flex: 1; width: auto; padding: 0 14px; gap: 6px; border-radius: 12px; border-left-width: var(--bw); }
 /* A draft waiting for your OK: who it goes to, the editable text, then the decision */
@@ -377,7 +380,9 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .menu {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 8; width: 300px; max-width: 80vw; background: var(--surface); border: var(--bw) solid var(--line);
   border-radius: 16px; padding: 6px; box-shadow: 0 14px 32px -10px color-mix(in srgb, var(--ink) 45%, transparent); display: flex; flex-direction: column; gap: 2px;
+  max-height: min(480px, 62vh); overflow-y: auto; overscroll-behavior: contain;   /* a long menu (Other ways) scrolls inside itself */
 }
+.menu button { flex: none; }
 .menu[hidden] { display: none; }
 .menu button { display: flex; flex-direction: column; gap: 2px; text-align: left; min-height: 56px; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; }
 .menu button:hover, .menu button:focus-visible { background: var(--field); }
@@ -893,7 +898,9 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   #actions > .actions:not(.result):not(.quiet) > .split-done { grid-area: done; }
   #actions > .actions:not(.quiet) > .split-later { grid-area: sched; }
   #actions > .actions.working-actions { grid-template-areas: none; }
-  #actions > .actions.working-actions > * { grid-area: auto; }
+  #actions > .actions.working-actions > .split, #actions > .actions.working-actions > .btn { grid-area: auto; }   /* out-ranks the task card's areas above */
+  /* The quiet row isn't stuck to the bottom, so its menus open downward like anywhere else on the page */
+  #actions .actions.quiet .split .menu { top: calc(100% + 8px); bottom: auto; }
   #actions .split:not(.split-other) .more-btn { width: 38px; }
   #actions .split .split-main, #actions .split .done-btn { padding-left: 8px; padding-right: 8px; overflow-wrap: normal; word-break: normal; hyphens: none; }
   /* The actions stick to the bottom of the screen, so their menus open upward */
@@ -913,8 +920,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .ask, .cap-title { font-size: 23px; }
   .droptxt small { display: none; } /* the drop zone sits above the field: keep it to one short row */
   /* Phone width: no room for key hints on buttons and links, whatever the pointer (the Keys sheet keeps its list) */
-  kbd { display: none; }
-  .keylist kbd { display: inline-grid; }
+  .btn kbd, .linkbtn kbd, .menu kbd, .ans kbd, .when kbd, .chip kbd, .mood kbd, .keys-link kbd, summary kbd { display: none; }
   /* On a phone the question should land in the first screen: Fuzz perches smaller (as in Deep Work) */
   .view--triage .stage .pwrap, .view--capture .stage .pwrap { width: 104px; }
 }
@@ -1016,6 +1022,8 @@ html.calm .gdots li { transition: none; }
 .lead-choice .lead-btns .btn { align-self: auto; }
 .card.working { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .working-actions { flex-wrap: wrap; }
+/* Done across the top, then Pause and Hand to Fuzz (and Keep going, when it's offered) share the row */
+.actions.working-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .way .when-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
 /* Focus: the session question and the line under the perch */

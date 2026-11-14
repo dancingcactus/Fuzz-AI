@@ -437,14 +437,18 @@
           '<button type="button" class="btn" data-act="firststep">Just the first step</button>' +
           '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">Deep Work' + kbd('G') + '</button></div></div>';
       }
+      /* When Fuzz suggests finding something out first (the brief has gaps), or you're writing the question,
+         Find out… stays in view on the quiet row instead of behind Other ways */
+      var findOut = asks && (!!it.suggestFindOut || askingFind || !!(it.gaps && it.gaps.length && !it.foundOut));
+      var findBtn = findOut ? '<button type="button" class="btn' + (askingFind ? ' primary' : '') + '" data-act="findout" aria-keyshortcuts="Q">Find out…' + kbd('Q') + '</button>' : '';
       /* Other ways: handing it over as it is, and every way to clear it */
       var other = '<div class="split split-other"><button type="button" class="btn more-btn other-btn" data-act="more" data-menu="othermenu" aria-haspopup="menu" aria-expanded="false">Other ways' + ARROW + '</button>' +
         '<div class="menu" role="menu" id="othermenu" hidden aria-label="Other ways">' +
-          menuItem('assign', 'A', asks ? 'Hand it to Fuzz as it is' : 'Hand it to Fuzz', asks ? 'Without picking an answer: Fuzz works out the rest.' : 'Fuzz takes the whole task.') + FIND_ITEM + CLAUDE_ITEM +
+          menuItem('assign', 'A', asks ? 'Hand it to Fuzz as it is' : 'Hand it to Fuzz', asks ? 'Without picking an answer: Fuzz works out the rest.' : 'Fuzz takes the whole task.') + (findOut ? '' : FIND_ITEM) + CLAUDE_ITEM +
           '<p class="menu-h" aria-hidden="true">Clear it</p>' +
           menuItem('done', 'D', 'I did it', 'It’s done. Fuzz logs it.') + (big && it.suggested === 'do_now' ? '' : NOW_ITEM) + CLEAR_ITEMS +
         '</div></div>';
-      return choice + '<div class="actions quiet">' + laterSplit + other + '</div>';
+      return choice + '<div class="actions quiet">' + findBtn + laterSplit + other + '</div>';
     }
 
     /* An ordinary task. Find out… leads instead of Assign when the brief has gaps (Fuzz suggests it). */

@@ -19,7 +19,9 @@
 .dw-lead { font-size: 17px; margin: 6px 0 4px; }
 .dw-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .dw-row .btn { min-height: 46px; padding: 10px 16px; }
-.dw-row .btn.primary { flex: 1 1 220px; }
+.dw-row .btn.primary { flex: 1 1 120px; }   /* at the 640 column all four of the working row fit on one line */
+.dw-row .btn:not(.primary) { flex: 0 1 auto; }
+.dw-row .btn { white-space: nowrap; }
 .dw-row[hidden] { display: none; }
 .dw .btn kbd, .dw-take .btn kbd { margin-left: 8px; }
 .dw-cap { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
