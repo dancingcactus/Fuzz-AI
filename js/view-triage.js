@@ -404,7 +404,7 @@
     var FIND_ITEM = menuItem('findout', 'Q', 'Find out…', FIND_WHAT);
     var BOOK_ITEM = menuItem('book', 'B', 'Book time', 'Hold time on your calendar to do it. It doesn’t count as putting it off.');
     var AFTER_ITEM = menuItem('afterothers', '', 'After the others', 'To the end of this session. No penalty.');
-    var NOW_ITEM = menuItem('donow', '', 'Do it now', 'Open it as your working card, with the rest of the list out of view.');
+    var NOW_ITEM = menuItem('donow', '', 'Do it now', 'Open it in Deep Work now, with a session clock and the rest of the list out of view.');
     var CLEAR_ITEMS = menuItem('park', 'P', 'Park it', 'Out of triage with no date. It waits in Parked until someone follows up, or you bring it back.') +
       menuItem('waiting', 'W', 'Waiting on someone', 'You’re blocked until they get back to you. Fuzz checks back.') +
       menuItem('theirs', 'X', 'Not mine', 'It’s someone else’s to do. Fuzz lets it go, and brings it back if a new ask needs you.');
@@ -1816,16 +1816,18 @@
 
   /* Clear a card quickly without a full ceremony: park, wait, let go, drop. */
   /* Do it now: the working card. The rest of the queue goes out of view; Fuzz stays beside it. */
+  /* Do it now opens the task in Deep Work, the mode for doing: a session clock, breaks, and the rest of the
+     list out of view. It goes into Deep Work's pool first, so Done for now keeps your place there. */
   async function doNow() {
     var it = cur(); if (!it) return;
-    var nn = pendingNote(it);
-    var ch = Store.track([it.id], function () { if (nn) Store.tell(it.id, nn); Store.doNow(it.id); });
-    if (nn) { delete edits[it.id + ':instr']; delete planOpen[it.id]; }
-    offer('Started on “' + it.title + '”.', ch);
-    Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Let’s do it. I’ll keep the rest out of the way.', { type: false });
-    renderCard(cur()); updateStack(false); refocus(landing());
-    await sleep(900);
-    Fuzz.setArm('none'); Fuzz.setMood('idle');
+    var id = it.id, nn = pendingNote(it);
+    var ch = Store.track([id], function () { if (nn) Store.tell(id, nn); Store.deepWork(id); });
+    if (nn) { delete edits[id + ':instr']; delete planOpen[id]; }
+    offer('Opened “' + it.title + '” in Deep Work.', ch);
+    Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Let’s do it. Opening it in Deep Work.', { type: false });
+    await sleep(Fuzz.isCalm() ? 150 : 450);
+    Fuzz.setArm('none');
+    DeepWork.startNow(id);
   }
   /* When a card has sat in front a while (3 minutes sorting; 25 in work mode with no sign of progress) while
      you're here, Fuzz asks what's in the way, once per card. The times on screen are kept for tuning. */

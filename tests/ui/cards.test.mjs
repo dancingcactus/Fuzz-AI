@@ -59,6 +59,18 @@ test('a task card shows three moves and one filled button; every other move wait
   assert.equal(await page.locator('#latermenu [data-act="deepwork"]').count(), 1);
 });
 
+test('Do it now opens the task in a Deep Work session, and Undo brings it back to Triage', async () => {
+  const t = await page.evaluate(() => Store.front());
+  await page.locator('#card .split-done .more-btn').click();
+  await page.locator('#moremenu [data-act="donow"]').click();
+  await page.waitForFunction(() => location.hash === '#/deepwork');
+  await page.locator('#dw-step').waitFor();
+  assert.equal(await page.textContent('.dw-taskline span'), t.title);
+  assert.equal(await page.evaluate((id) => Store.item(id).state, t.id), 'deepwork');
+  await page.evaluate(() => Say.undoList()[0].run());
+  await page.waitForFunction((id) => Store.item(id).state !== 'deepwork', t.id);
+});
+
 test('the top line keeps where it came from, its size and when it’s due; age is under Details, never a warning', async () => {
   await show('room');
   const top = await page.locator('#card .eyebrow').textContent();

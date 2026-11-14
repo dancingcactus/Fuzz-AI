@@ -715,13 +715,22 @@
     });
     if (S) {
       /* Back to a session in progress; from Lineup's Work on it now, on the task you picked (your place on the other is kept) */
-      var want = E.want && Store.item(E.want); E.want = null;
+      var want = E.want && Store.item(E.want); E.want = null; E.go = false;
       if (want && want.state === 'deepwork' && (!S.task || S.task.id !== want.id) && S.view !== 'wrap') { closeTake(); S.pending = null; return beginTask(want); }
       render(); if (S.view === 'focus') stepAnim();
       if (!S.take) say('Back to it. Here’s where you were.', 'happy');
       return;
     }
     setChoice(E.choice);
+    /* Do it now: the session starts on that task at once, with the default time; the next meeting still stops it */
+    if (E.go) {
+      E.go = false;
+      var now = E.want && Store.item(E.want);
+      if (now && now.state === 'deepwork') {
+        loadUntil().then(function () { if (S && E.until && S.hardStop === Infinity) { var mt = meetingIn(); if (mt != null) { S.hardStop = (mt - BUFFER) * 60; S.budgetEnd = Math.min(S.budgetEnd, S.hardStop); } } });
+        return startSession(now);
+      }
+    }
     render();
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); var q = E.query; render(); E.query = q; } });
   };
@@ -734,7 +743,9 @@
     paintBar();   /* a session in progress keeps its bar on the next page */
   };
   /* From Lineup: open Deep Work with this task as the pick */
-  V.start = function (id) { E.want = id; E.query = ''; E.alt = 0; App.navigate('#/deepwork'); };
+  V.start = function (id) { E.want = id; E.go = false; E.query = ''; E.alt = 0; App.navigate('#/deepwork'); };
+  /* From Triage's Do it now: straight into a session on this task, skipping How long do you have? */
+  V.startNow = function (id) { E.want = id; E.go = true; E.query = ''; E.alt = 0; App.navigate('#/deepwork'); };
   V.active = function () { return inSession(); };
   V.dur = dur;
   V.est = est;
