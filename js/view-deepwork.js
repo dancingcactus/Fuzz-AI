@@ -159,7 +159,9 @@
     if (!task() && S && S.view === 'focus') S.view = 'between';
     var v = S ? S.view : 'entry';
     root.querySelector('.dw').classList.toggle('dw-focus', v === 'focus');
-    $('#dw-mode').textContent = { entry: 'Deep Work › getting started', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › done for now' }[v];
+    /* The entry has its own Deep Work heading, so the label above it stays for screen readers only */
+    $('#dw-mode').textContent = { entry: 'Deep Work', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › done for now' }[v];
+    $('#dw-mode').classList.toggle('sr', v === 'entry');
     ({ entry: vEntry, focus: vFocus, between: vBetween, wrap: vWrap })[v]();
     paintFoot(v === 'focus');
     paintPool(); paintBar();
@@ -170,7 +172,7 @@
      are, and All keys is one tap further. Kept by hand next to onKey, which is what they describe. ---------- */
   var KEYS = [
     ['entry', 'Getting started', [['Enter', 'Start: Fuzz’s pick, or what you typed'], ['↑ ↓', 'In the box: another match'], ['/', 'Back to the box'], ['Esc', 'Not now']]],
-    ['focus', 'Working on a task', [['D', 'Finished it'], ['S', 'I’m stuck: options to make it easier'], ['B', 'Break now'], ['E', 'Tell Fuzz (Enter hands it over with your note)'], ['T', 'Park a stray thought (Esc closes it)'], ['Esc', 'Done for now']]],
+    ['focus', 'Working on a task', [['D', 'Finished it'], ['S', 'I’m stuck: options to make it easier'], ['B', 'Break now'], ['E', 'Tell Fuzz (Enter hands it over with your note)'], ['T or N', 'Park a stray thought, without leaving the task (Esc closes it)'], ['Esc', 'Done for now']]],
     ['stuck', 'When you’re stuck', [['1', 'Show me the sources'], ['2', 'Switch to something else (your place is kept)'], ['3', 'Hand it to Fuzz'], ['4', 'Send it back to Triage'], ['Esc', 'Never mind']]],
     ['between', 'Between tasks', [['Enter', 'Go on to the next one (or Stop here, when it’s the only choice)'], ['O', 'Something else'], ['Esc', 'Stop here (or close the box)']]],
     ['wrap', 'Done for now', [['Enter', 'Save and go to Triage'], ['Esc', 'Back to work']]],
@@ -343,8 +345,9 @@
   /* ---------- Stuck: you asked, so it stays in place, not a takeover ---------- */
   function openSheet(k) { if (S.take) return; S.sheet = k; if (k === 'stuck') say('Stuck is normal. Let’s make it easier, not harder.', 'caring'); renderSheet(); }
   function closeSheet() { S.sheet = null; render(); Fuzz.setMood('idle'); }
-  function opt(k, label, sub, cls) { return '<button type="button" class="btn' + (cls ? ' ' + cls : '') + '" data-k="' + k + '"><span class="dw-k">' + k + '</span><span>' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></button>'; }
-  function escBtn(label) { return '<button type="button" class="btn" data-k="0"><span class="dw-k">Esc</span><span>' + esc(label) + '</span></button>'; }
+  /* The key is drawn for the eye; screen readers get it as aria-keyshortcuts, not as part of the button's name */
+  function opt(k, label, sub, cls) { return '<button type="button" class="btn' + (cls ? ' ' + cls : '') + '" data-k="' + k + '" aria-keyshortcuts="' + k + '"><span class="dw-k" aria-hidden="true">' + k + '</span><span>' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></button>'; }
+  function escBtn(label) { return '<button type="button" class="btn" data-k="0" aria-keyshortcuts="Escape"><span class="dw-k" aria-hidden="true">Esc</span><span>' + esc(label) + '</span></button>'; }
   function renderSheet() {
     var el = $('#dw-sheet'); if (!el) return;
     var main = $('#dw-main'); if (main) main.hidden = !!S.sheet;
@@ -559,8 +562,19 @@
   function barEl(id) { return document.getElementById(id); }
   function paintBar() {
     var wrap = barEl('dwprog'); if (!wrap) return;
-    var on = !!(root && S && inSession() && !S.hideClock);
+    /* The session's clock runs while you look at another page, so its bar stays up there too (Triage has its
+       own bar in that slot) and takes you back to the session */
+    var page = document.body.dataset.view;
+    var on = !!(S && inSession() && !S.hideClock && (root || page !== 'triage'));
     if (wrap.hidden === on) wrap.hidden = !on;
+    var away = on && !root;
+    if (wrap.classList.contains('away') !== away) {
+      wrap.classList.toggle('away', away);
+      if (away) { wrap.setAttribute('role', 'link'); wrap.tabIndex = 0; wrap.setAttribute('aria-label', 'Back to your Deep Work session'); }
+      else { wrap.removeAttribute('role'); wrap.removeAttribute('tabindex'); wrap.removeAttribute('aria-label'); }
+      wrap.onclick = away ? function () { App.navigate('#/deepwork'); } : null;
+      wrap.onkeydown = away ? function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); App.navigate('#/deepwork'); } } : null;
+    }
     if (!on) return;
     var m = S.clock / 60, open = !isFinite(S.budgetEnd), hrs = Math.floor(m / 60);
     var waiting = S.pending === 'breakdue' || S.pending === 'timeup';
@@ -666,7 +680,8 @@
       if (lk === 'd') { e.preventDefault(); finishTask(); }
       else if (lk === 's') { e.preventDefault(); openSheet('stuck'); }
       else if (lk === 'b') { e.preventDefault(); startBreak(); }
-      else if (lk === 't') { e.preventDefault(); openForm('dw-parkform', 'dw-parkbtn', 'dw-parktext'); }
+      /* N would leave the session for New task; here a new thing is a stray thought, parked without leaving */
+      else if (lk === 't' || lk === 'n') { e.preventDefault(); openForm('dw-parkform', 'dw-parkbtn', 'dw-parktext'); }
       else if (lk === 'e') { e.preventDefault(); openForm('dw-tellform', 'dw-tellbtn', 'dw-telltext'); }
       else if (k === 'Escape') { e.preventDefault(); doneForNow(); }
     } else if (v === 'between') {
@@ -716,7 +731,7 @@
     clearTimeout(settleT);
     var el = document.getElementById('dw-take'); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('dw-taken');
     Fuzz.unmount(); root = null; view = null;
-    var bar = document.getElementById('dwprog'); if (bar) bar.hidden = true;
+    paintBar();   /* a session in progress keeps its bar on the next page */
   };
   /* From Lineup: open Deep Work with this task as the pick */
   V.start = function (id) { E.want = id; E.query = ''; E.alt = 0; App.navigate('#/deepwork'); };

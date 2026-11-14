@@ -101,6 +101,10 @@ textarea { resize: vertical; }
 .navcount:empty:not(.has) { display: none; }
 .navcount.has { min-width: 0; width: 10px; height: 10px; padding: 0; line-height: 0; }
 .navcount.done { background: color-mix(in srgb, var(--ok) 26%, var(--surface)); color: var(--ink); }
+/* You're already there: the page's own dot would only say "more" at you */
+.mainnav a[aria-current="page"] .navcount.has { display: none; }
+/* In a Deep Work session the page is the session. The nav and New task step back (N parks a thought there). */
+body.dw-session .mainnav, body.dw-session .appbar-right .nav-cta { visibility: hidden; }
 .appbar-right { position: relative; }
 .themebtn {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: var(--bw) solid var(--line); border-radius: 999px;
@@ -108,6 +112,9 @@ textarea { resize: vertical; }
 }
 .themebtn.nav-cta { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
 .themebtn.nav-cta:hover { filter: brightness(1.06); }
+/* Where a card or session holds the one decision, New task stays quiet so the card's own button leads */
+body[data-view="triage"] .themebtn.nav-cta, body[data-view="deepwork"] .themebtn.nav-cta { background: var(--surface); color: var(--ink); border-color: var(--line); }
+body[data-view="triage"] .themebtn.nav-cta:hover, body[data-view="deepwork"] .themebtn.nav-cta:hover { filter: none; background: var(--chip); }
 .iconbtn { justify-content: center; width: 44px; padding: 0; }
 .themepop {
   position: absolute; right: 0; top: calc(100% + 8px); width: 360px; max-width: calc(100vw - 24px); z-index: 50; padding: 16px;
@@ -229,6 +236,12 @@ html.calm .pg-seg { transition: none; }
 .echo-av { width: 30px; flex: none; }
 @keyframes echo-in { from { opacity: 0; transform: translate(-50%, -6px); } }
 html.calm .echo { animation: none; }
+/* With room beside the card, the echo speaks from the corner where the small Fuzz speaks on other pages,
+   so it never sits on the card's own words */
+@media (min-width: 1100px) {
+  .echo { left: auto; right: 16px; bottom: 16px; transform: none; max-width: min(420px, calc((100vw - 640px) / 2)); border-radius: 18px; }
+  @keyframes echo-in { from { opacity: 0; transform: translateY(6px); } }
+}
 /* the card (extends fuzz.css) */
 .card { gap: 14px; background: var(--surface); overflow-wrap: anywhere; }
 .card hr { width: 100%; }
@@ -321,11 +334,18 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .split .done-btn svg { color: var(--ok); }
 .split .more-btn { flex: none; width: 44px; padding: 0; border-radius: 0 12px 12px 0; border-left-width: 1px; }
 .split .split-main { flex: 1; min-width: 0; border-radius: 12px 0 0 12px; border-right-width: 1px; }
-/* A task card's four: Assign (Find out… behind it) across the whole row under the instructions,
-   then Work in Claude, Later (Book time behind it) and Done share the row below. */
-.actions:not(.working-actions):has(> .split-assign) { grid-template-columns: repeat(3, 1fr); }
+/* A task card's three: Hand it to Fuzz (Find out…, Work in Claude behind it) across the whole row, then Later
+   (Book time, Deep Work, After the others) and I did it (the ways to clear it) share the row below. */
+.actions:not(.working-actions):has(> .split-assign) { grid-template-columns: repeat(2, 1fr); }
 .actions:not(.working-actions) > .split-assign { grid-column: 1 / -1; }
-.split-assign .menu, .split-later .menu { left: 0; right: auto; } /* they start their row: open toward the card */
+/* Every split's menu opens under the arrow that opened it, its right edge on the button's */
+.split > .menu { left: auto; right: 0; max-width: min(300px, calc(100vw - 32px)); }
+/* Under a card's own choice (its answers, a reply to join, a big one's three ways): one quiet row, Later and
+   Other ways, a step down from the choice so the choice leads */
+.actions.quiet { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
+.actions.quiet .btn { min-height: 44px; background: transparent; box-shadow: none; }
+.actions.quiet .btn:hover { background: var(--chip); }
+.split .more-btn.other-btn { flex: 1; width: auto; padding: 0 14px; gap: 6px; border-radius: 12px; border-left-width: var(--bw); }
 /* A draft waiting for your OK: who it goes to, the editable text, then the decision */
 .draft { display: flex; flex-direction: column; gap: 8px; }
 .draft-to { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14.5px; }
@@ -446,8 +466,10 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .eb-i:has(> .tag[hidden]) { display: none; }
 .eb-i .src { white-space: normal; }
 .eb-sep { flex: none; width: 18px; text-align: center; opacity: .7; }
-.eyebrow .eb-warn { color: var(--ink); }
-.eyebrow .eb-warn::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--warn); vertical-align: 1px; }
+/* Under Details: when it came in, its group and what it's for, as one quiet line */
+.about { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; margin: 4px 0 10px; font-size: 13.5px; color: var(--muted); }
+.about .eb-sep { width: 16px; }
+.about .eb-link { max-width: 40ch; }
 .eb-link { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 4px 0; margin: -4px 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; text-align: left; }
 .eb-link { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); text-underline-offset: 3px; }
 .eb-link:hover { color: var(--ink); text-decoration-color: var(--accent); }
@@ -494,7 +516,8 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .arrive-list { list-style: none; margin: 8px 0 18px; padding: 0; display: grid; gap: 8px; }
 .arrive-list li { display: flex; gap: 10px; align-items: baseline; font-size: 15.5px; }
 .arrive-mark { flex: none; width: 20px; text-align: center; color: var(--muted); font-weight: 700; }
-.arrive-pick { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: var(--bw, 1px) solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 16px; padding: 12px 16px; }
+/* A tinted band inside the welcome-back card, not a second card inside it */
+.arrive-pick { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-radius: 12px; padding: 12px 16px; }
 .arrive-pick .lbl { font-size: 12px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 4px; }
 .arrive-pick h2 { margin: 0 0 4px; }
 .arrive-pick .meta { margin: 0; }
@@ -504,7 +527,11 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .upnext[hidden] { display: none; }
 .upnext .finding-av { position: static; width: 24px; height: 24px; flex: none; }
 .keys-dlg .keys-all { margin-top: 12px; }
-.keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.keys-dlg .keys-all > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--link); list-style: none; }
+.keys-dlg .keys-all > summary::-webkit-details-marker { display: none; }
+/* A flex summary loses its disclosure triangle, so it reads as an empty heading; the chevron says it opens */
+.keys-dlg .keys-all > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .15s ease-out; }
+.keys-dlg .keys-all[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
 .keys-dlg #keys-card:empty { display: none; }
 @media (hover: none), (pointer: coarse) { .keys-link, .keys-sep { display: none; } }
 /* Fuzz's finding, in one line above the instructions */
@@ -532,8 +559,13 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .tabbtn[aria-selected="true"] span { color: color-mix(in srgb, var(--bg) 70%, var(--ink)); }
 .tabbody:focus-visible { outline-offset: 6px; border-radius: 8px; }
 .ask:focus, .task-title:focus, #ci-h:focus, #sched-h:focus, .empty h2:focus { outline: none; }
-/* Headings take focus when a card changes; a soft ring marks the spot without looking like a text field */
-.ask:focus-visible, #ci-h:focus-visible, #sched-h:focus-visible, .empty h2:focus-visible { outline: 2px solid color-mix(in srgb, var(--link) 40%, transparent); outline-offset: 6px; border-radius: 8px; }
+/* Headings take focus when a card changes. A box around a heading reads as a text field to type in, so the
+   spot is marked the way a reader's eye marks a line: a thick accent underline under the words. */
+.ask:focus-visible, #ci-h:focus-visible, #sched-h:focus-visible, .empty h2:focus-visible {
+  outline: none; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 7px;
+  text-decoration-color: color-mix(in srgb, var(--link) 55%, transparent); text-decoration-skip-ink: none;
+}
+html[data-contrast="high"] .ask:focus-visible, html[data-contrast="high"] #ci-h:focus-visible, html[data-contrast="high"] #sched-h:focus-visible, html[data-contrast="high"] .empty h2:focus-visible { text-decoration-color: var(--link); }
 .ctx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .ctx li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.55; }
 .ctx i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 8px; }
@@ -677,6 +709,10 @@ a.person-meta:hover { color: var(--ink); text-decoration-color: currentColor; }
 
 /* Fuzz's lane: the one lively thing on the page */
 .lane { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 20px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: var(--bw) solid color-mix(in srgb, var(--accent) 28%, var(--line)); box-shadow: var(--shadow); }
+/* Its rows belong to the lane: ruled lines inside it, not a bordered list nested in a card */
+.lane .lrows { background: transparent; border: 0; border-top: var(--bw) solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: 0; margin: 0 -16px; }
+.lane .lrows > li + li { border-top-color: color-mix(in srgb, var(--accent) 16%, var(--line)); }
+.lane .lrows .lrow { padding-left: 16px; padding-right: 16px; }
 .lane-head { display: flex; align-items: center; gap: 14px; }
 .lane-av { width: 64px; flex: none; }
 .lane-av.working { animation: lane-bob 2.4s ease-in-out infinite; }
@@ -757,6 +793,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 .dlg-actions .split .more-btn { flex: none; }
 /* Quiet id at the foot of a card or dialog, for quoting in bug reports; one click selects it all */
 .taskid { margin-top: 14px; display: flex; justify-content: flex-end; align-items: center; gap: 4px; font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); opacity: .7; }
+.taskid[data-local] { display: none; }
 .taskid-txt { user-select: all; }
 .taskid-copy { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s; }
 .taskid-copy:hover, .taskid-copy:focus-visible { opacity: 1; background: var(--chip); }
@@ -846,25 +883,23 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .lane-row .lrow-main { flex: 1 1 0; }
   .dlg-in { padding: 18px; }
   .when-grid { grid-template-columns: 1fr; }
-  /* Two rows instead of three, so the sticky block takes less of the screen: Assign and Done, then Work in Claude and Schedule */
+  /* Two rows, so the sticky block takes little of the screen: Hand it to Fuzz across the top, then Later and I did it */
   .actions { grid-template-columns: repeat(2, 1fr); }
   .actions .split { grid-column: auto; }
-  #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign done" "claude sched"; }
+  #actions > .actions:not(.ent):not(.review):not(.result):not(.quiet):not(.working-actions) { grid-template-columns: 1fr 1fr; grid-template-areas: "assign assign" "sched done"; }
   #actions kbd { display: none; } /* no room for key hints in two tight rows */
-  #actions > .actions > .split-assign, #actions > .actions > [data-act="assign"] { grid-area: assign; }
+  #actions > .actions:not(.result) > .split-assign { grid-area: assign; }
   #actions > .actions [data-act="assign"] { min-height: 46px; }
-  #actions > .actions > .split-done { grid-area: done; }
-  #actions > .actions > [data-act="claude"] { grid-area: claude; }
-  #actions > .actions > .split-later, #actions > .actions > [data-act="schedule"] { grid-area: sched; }
-  #actions > .actions > .split-later .menu { left: auto; right: 0; }
-  /* Three of the four are split buttons: equal columns, a slimmer arrow, and words that never break mid-word */
-  #actions > .actions:not(.ent):not(.review):not(.result):not(.working-actions):has(> .split-assign) { grid-template-columns: 1fr 1fr; }
-  #actions .split .more-btn { width: 38px; }
+  #actions > .actions:not(.result):not(.quiet) > .split-done { grid-area: done; }
+  #actions > .actions:not(.quiet) > .split-later { grid-area: sched; }
+  #actions > .actions.working-actions { grid-template-areas: none; }
+  #actions > .actions.working-actions > * { grid-area: auto; }
+  #actions .split:not(.split-other) .more-btn { width: 38px; }
   #actions .split .split-main, #actions .split .done-btn { padding-left: 8px; padding-right: 8px; overflow-wrap: normal; word-break: normal; hyphens: none; }
   /* The actions stick to the bottom of the screen, so their menus open upward */
   #actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   /* The card's actions stay within thumb reach while you read on down the card */
-  #actions:has(> .actions) {
+  #actions:has(> .actions:not(.quiet)) {
     position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2; margin: 0 -8px; padding: 8px; border-radius: 16px;
     background: var(--surface); box-shadow: 0 -6px 18px -12px color-mix(in srgb, var(--ink) 40%, transparent);
   }
@@ -877,6 +912,11 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .palettes { grid-template-columns: 1fr; }
   .ask, .cap-title { font-size: 23px; }
   .droptxt small { display: none; } /* the drop zone sits above the field: keep it to one short row */
+  /* Phone width: no room for key hints on buttons and links, whatever the pointer (the Keys sheet keeps its list) */
+  kbd { display: none; }
+  .keylist kbd { display: inline-grid; }
+  /* On a phone the question should land in the first screen: Fuzz perches smaller (as in Deep Work) */
+  .view--triage .stage .pwrap, .view--capture .stage .pwrap { width: 104px; }
 }
 @media (max-width: 360px) {
   .mainnav a { padding: 0 9px; }
@@ -966,7 +1006,8 @@ html.calm .gdots li { transition: none; }
 .gaps { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: var(--chip); font-size: 14px; line-height: 1.45; }
 
 /* A choice that leads the card's actions (join a waiting reply; a big task's four choices) */
-.lead-choice { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding: 12px 14px; border: var(--bw) solid var(--accent); border-radius: 16px; background: var(--chip); }
+/* A tinted band in the card, like the welcome-back card's Start with: not a bordered card inside a card */
+.lead-choice { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .lead-choice .meta { margin: 0; }
 .lead-choice .btn { align-self: flex-start; }
 

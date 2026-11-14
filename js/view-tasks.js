@@ -36,10 +36,12 @@
   /* ---------- One page, by who has the ball ---------- */
   var departed = {}, prevLane = null, openSecs = {};
 
+  /* "In a few days" reads "checks back in a few days"; a day or month keeps its capital ("checks back Monday") */
+  function lowerLead(s) { return /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1); }
   function rowHTML(it, status, tone, sub, cls) {
     return '<li><button type="button" class="lrow' + (cls ? ' ' + cls : '') + '" data-open="' + it.id + '">' +
       '<span class="lrow-main"><span class="rt">' + esc(it.title) + '</span><span class="rs">' + esc(it.source) + (it.updated ? ' · Updated' : '') + (Store.partOf(it) ? ' · ' + esc(Store.partOf(it)) : '') + '</span></span>' +
-      '<span class="lrow-side">' + UI.pill(status, tone) + (sub ? '<span class="lrow-sub">' + esc(sub) + '</span>' : '') + '</span></button></li>';
+      '<span class="lrow-side">' + (status ? UI.pill(status, tone) : '') + (sub ? '<span class="lrow-sub">' + esc(sub) + '</span>' : '') + '</span></button></li>';
   }
   /* What's in Triage, closed until you ask. Picking one opens it first in Triage. */
   function decideHTML(q) {
@@ -48,7 +50,9 @@
       return '<li><button type="button" class="lrow" data-pick="' + it.id + '"><span class="lrow-main"><span class="rt">' + esc(it.title) + '</span><span class="rs">' + esc(it.source || '') + '</span></span>' +
         '<span class="lrow-side">' + UI.pill(kind, it.dueAt ? 'warn' : 'muted') + '</span></button></li>';
     });
-    return '<details class="decide-more" id="decide-list"' + (openSecs['decide-list'] ? ' open' : '') + '><summary>See what’s in Triage</summary><ul class="lrows" aria-label="Cards in Triage">' + rows.join('') + '</ul></details>';
+    /* Not a second way into Triage (the row above is that): a way to choose which card comes first */
+    if (q.length < 2) return '';
+    return '<details class="decide-more" id="decide-list"' + (openSecs['decide-list'] ? ' open' : '') + '><summary>Start with a different one</summary><ul class="lrows" aria-label="Cards in Triage">' + rows.join('') + '</ul></details>';
   }
   function sectionHTML(id, title, rows, empty, extra) {
     if (!rows.length && !empty) return '';
@@ -149,7 +153,8 @@
     var pool = Store.inState('deepwork');
     if (!pool.length) return '';
     var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
-    var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Deep Work', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
+    /* Every row here is Deep Work already; only one you started says so */
+    var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : '', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
     var head = '<div class="deep-head"><p class="meta">Yours, and each takes real time.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
       '<a class="btn primary deep-go" href="#/deepwork">Start Deep Work</a></div>';
     return sectionHTML('deep', 'Deep Work', rows, '', head);
@@ -229,7 +234,7 @@
     h += deepHTML();
     h += deliverablesHTML();
     h += laneHTML();
-    h += sectionHTML('others', 'Waiting on others', Store.inState('waiting').map(function (it) { return rowHTML(it, it.waitingOn || 'Someone', 'warn', !it.nextCheck ? '' : /^Fuzz /.test(it.nextCheck) ? it.nextCheck : 'Checks back ' + it.nextCheck.charAt(0).toLowerCase() + it.nextCheck.slice(1)); }));
+    h += sectionHTML('others', 'Waiting on others', Store.inState('waiting').map(function (it) { return rowHTML(it, it.waitingOn || 'Someone', 'warn', !it.nextCheck ? '' : /^(Fuzz |Nudge )/.test(it.nextCheck) ? it.nextCheck : 'Checks back ' + lowerLead(it.nextCheck)); }));
     var later = Store.inState('scheduled').map(function (it) { return rowHTML(it, 'Scheduled', 'muted', it.scheduledFor ? 'Back ' + it.scheduledFor : it.now); });
     var parked = Store.inState('parked').sort(function (a, b) { return (b.woke ? 1 : 0) - (a.woke ? 1 : 0); });
     /* A parked task that woke up (something new came in) stays in view; the rest wait in Parked, closed */
@@ -317,10 +322,17 @@
     }).join('') +
       (revise ? '<button type="button" class="btn" data-revise aria-expanded="false" aria-controls="dlg-revise">Ask Fuzz to change it</button>' : '') + '</div>';
   }
+  /* When it happened, said as a moment ("Asked them 4 days ago"), not a running count ("Waiting: 4 days") */
+  function since(tab, v) {
+    if (!v || v === '—') return '';
+    var verb = { current: 'Came in', parked: 'Parked', waiting: 'Asked them', done: 'Finished', letgo: 'Let go' }[tab] || 'Came in';
+    if (/^(today|yesterday|just now)/i.test(v)) return verb + ' ' + v.charAt(0).toLowerCase() + v.slice(1);
+    return verb + ' ' + v + (/ago$/.test(v) ? '' : ' ago');
+  }
   function detailHTML(it) {
     var tab = keyFor(it) || 'current', c = cells(it, tab), acts = actionsFor(it);
     var draft = (it.state === 'review' || (it.state === 'waiting' && it.nudge)) && it.draft;
-    var h = '<div class="dlg-top"><div class="dlg-titles"><div class="dlg-chips">' + UI.pill(c.c2, c.tone) + '<span class="meta">' + esc(it.source) + ' · ' + esc(TABS[tab].cols[1]) + ': ' + esc(c.c3) + '</span></div>' +
+    var h = '<div class="dlg-top"><div class="dlg-titles"><div class="dlg-chips">' + UI.pill(c.c2, c.tone) + '<span class="meta">' + esc(it.source) + (since(tab, c.c3) ? ' · ' + esc(since(tab, c.c3)) : '') + '</span></div>' +
       '<h2 id="dlg-title">' + esc(it.title) + '</h2>' + (Store.partOf(it) ? '<button type="button" class="partof" data-group="' + it.group + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="13" width="18" height="5" rx="1.5"/></svg>' + esc(Store.partOf(it, true)) + '</button>' : '') + (it.deliverable ? '<button type="button" class="partof forline" data-forline="' + it.deliverable.id + '">For ' + esc(it.deliverable.title) + '</button>' : '') + '</div><button type="button" class="iconbtn" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
       (draft ? draftHTML(it, acts) : '') +
       '<p class="dlg-what">' + esc(it.incoming) + '</p>';

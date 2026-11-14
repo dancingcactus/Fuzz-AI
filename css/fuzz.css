@@ -153,7 +153,7 @@
 .instr label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:4px;letter-spacing:.02em}
 textarea{width:100%;resize:none;background:var(--surface-2);border:var(--bw) solid var(--line);border-radius:12px;padding:10px 12px;line-height:1.45}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.btn{border:var(--bw) solid var(--line);background:transparent;border-radius:12px;padding:9px 10px;font-weight:600;font-size:14px;cursor:pointer;transition:transform .15s cubic-bezier(.3,1.6,.5,1),background .15s}
+.btn{border:var(--bw) solid var(--line);background:transparent;border-radius:12px;padding:9px 10px;font-weight:600;font-size:14px;cursor:pointer;transition:transform .15s cubic-bezier(.22,1,.36,1),background .15s}
 .btn:hover{background:var(--surface-2)}
 .btn:active,.btn.squish{transform:scale(.95)}
 .btn.primary{grid-column:1/-1;background:var(--terra);border-color:var(--terra);color:var(--terra-ink);font-size:15px;padding:12px}
@@ -413,6 +413,15 @@ html.calm #bot[data-fx] *{animation:none!important}
 .card.stamped .stamp.s5{animation:stampnice .7s cubic-bezier(.3,1.7,.5,1) forwards}
 @keyframes stampnice{0%{opacity:0;transform:translateY(26px) scale(.3) rotate(8deg)}60%{opacity:.82;transform:translateY(-6px) scale(1.12) rotate(-10deg)}100%{opacity:.82;transform:rotate(-7deg)}}
 html.calm .card.stamped .stamp{animation:none!important;opacity:.82}
+/* Calm keeps fades and drops the springs: the card and the stack behind it arrive by fading in, tags and
+   counts appear without popping, and a pressed button doesn't squish. Fuzz's own moods are handled above. */
+html.calm .card.enter,html.calm .card.enter-tilt,html.calm .ghost.arrive{animation:calmin .25s ease-out backwards}
+html.calm .ghost{transition:none}
+html.calm .tag,html.calm .stat.pop b{animation:none}
+html.calm .bubble.pop{animation:calmin .2s ease-out}
+html.calm .btn{transition:background .15s}
+html.calm .btn:active,html.calm .btn.squish{transform:none}
+@keyframes calmin{from{opacity:0}}
 @media (max-width:420px){.stamp.s5{font-size:36px}.stamp.s2{font-size:40px}}
 
 
