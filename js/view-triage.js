@@ -381,53 +381,86 @@
       return '<div class="actions working-actions">' +
         '<button type="button" class="btn primary done-btn" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Done' + kbd('D') + '</button>' +
         (it.blockEnd ? '<button type="button" class="btn" data-act="keepgoing" aria-keyshortcuts="K">Keep going' + kbd('K') + '</button>' : '') +
-        '<button type="button" class="btn" data-act="pause" aria-keyshortcuts="Z">Pause' + kbd('Z') + '</button>' +
+        /* Stopping for now: Pause, with booking the time or Deep Work behind it */
+        splitHTML('split-later', '<button type="button" class="btn split-main" data-act="pause" aria-keyshortcuts="Z">Pause' + kbd('Z') + '</button>',
+          'latermenu', 'Other ways to stop for now', menuItem('book', 'B', it.firstStepMode ? 'Book the rest' : 'Book time', 'Hold time on your calendar to finish it.') + DEEP_ITEM) +
         splitHTML('split-assign', '<button type="button" class="btn split-main" data-act="assign" aria-keyshortcuts="A">Hand to Fuzz' + kbd('A') + '</button>',
-          'assignmenu', 'Ask Fuzz something else', menuItem('findout', 'Q', 'Find out…', FIND_WHAT) + DEEP_ITEM) +
-        '<button type="button" class="btn" data-act="claude" aria-keyshortcuts="C">Work in ' + esc(Store.workIn) + kbd('C') + '</button>' +
-        '<button type="button" class="btn" data-act="book" aria-keyshortcuts="B">' + (it.firstStepMode ? 'Book the rest' : 'Book time') + kbd('B') + '</button></div>';
+          'assignmenu', 'Ask Fuzz something else', menuItem('findout', 'Q', 'Find out…', FIND_WHAT) + menuItem('claude', 'C', 'Work in ' + esc(Store.workIn), 'Do it yourself in ' + esc(Store.workIn) + ', with this task’s context already there.')) + '</div>';
     }
     if (it.state === 'review') return reviewActionsHTML(it);
-    /* A result: what Fuzz found is the thing you asked for, so Done leads and Assign is the way to send him further.
-       Not sure yet? Ask me later opens the Schedule picker, and the result comes back to ask again. */
+    /* Every card shows its decision, three or four choices at most, and every other move one step away behind a
+       split button's arrow. Their keys work with the menus closed, so nothing is lost by folding it away.
+       - An ordinary task: Hand it to Fuzz (Find out…, Work in Claude behind it), Later (Book time, Deep Work,
+         After the others), I did it (Do it now, Park, Waiting, Not mine).
+       - A card with answers, a reply to join, or a big task: the choice itself leads (picking an answer hands it
+         over), and a quiet row under it holds Later and Other ways.
+       - A result: Done leads, then Ask me later and Send Fuzz further. */
     var res = !!it.result, join = !!it.joinReply && !res;
-    /* A late ask from a thread whose reply waits for your OK: joining that reply leads */
-    /* A big task leads with four choices, so it gets booked or pushed instead of ground through */
     var big = !join && !res && Store.isBig(it);
-    var bigRow = big ? '<div class="lead-choice big-choice"><p class="meta">' + esc((it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. How do you want to take it?') + '</p><div class="lead-btns">' +
-      '<button type="button" class="btn' + (it.suggested === 'do_now' ? ' primary' : '') + '" data-act="donow">Do it now</button>' +
-      '<button type="button" class="btn' + (it.suggested !== 'do_now' ? ' primary' : '') + '" data-act="book" aria-keyshortcuts="B">Book time' + kbd('B') + '</button>' +
-      '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">Deep Work' + kbd('G') + '</button>' +
-      '<button type="button" class="btn" data-act="afterothers">After the others</button>' +
-      '<button type="button" class="btn" data-act="firststep">Just the first step</button></div></div>' : '';
-    var joinRow = join ? '<div class="lead-choice"><p class="meta">' + esc(it.joinReason || 'A reply to this thread is waiting for your OK.') + '</p>' +
-      '<button type="button" class="btn primary" data-act="joinreply">Add to the reply</button></div>' : '';
-    var asks = hasAnswers(it);   /* the answers lead; handing it over as is waits on the button */
-    var assignBtn = '<button type="button" class="btn' + (res || join || big || asks || it.suggestFindOut ? '' : ' primary') + '" data-act="assign" aria-keyshortcuts="A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' + (res ? 'Send Fuzz further' : 'Hand it to Fuzz') + kbd('A') + '</button>';
-    /* Find out… sits behind Assign's arrow. When the brief has gaps, Fuzz suggests it: it takes the front and
-       Assign goes behind the arrow instead. */
-    var findLeads = (!!it.suggestFindOut || askingFind) && !join && !big;
+    var asks = hasAnswers(it);
+    var lead = asks || join || big;
+    var workIn = esc(Store.workIn);
+    var CLAUDE_ITEM = menuItem('claude', 'C', 'Work in ' + workIn, 'Do it yourself in ' + workIn + ', with this task’s context already there.');
+    var FIND_ITEM = menuItem('findout', 'Q', 'Find out…', FIND_WHAT);
+    var BOOK_ITEM = menuItem('book', 'B', 'Book time', 'Hold time on your calendar to do it. It doesn’t count as putting it off.');
+    var AFTER_ITEM = menuItem('afterothers', '', 'After the others', 'To the end of this session. No penalty.');
+    var NOW_ITEM = menuItem('donow', '', 'Do it now', 'Open it in Deep Work now, with a session clock and the rest of the list out of view.');
+    var CLEAR_ITEMS = menuItem('park', 'P', 'Park it', 'Out of triage with no date. It waits in Parked until someone follows up, or you bring it back.') +
+      menuItem('waiting', 'W', 'Waiting on someone', 'You’re blocked until they get back to you. Fuzz checks back.') +
+      menuItem('theirs', 'X', 'Not mine', 'It’s someone else’s to do. Fuzz lets it go, and brings it back if a new ask needs you.');
+    var CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    var CLOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+    var HAND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+    if (res) {
+      /* What Fuzz found is the thing you asked for: Done leads, and Assign sends him further */
+      return '<div class="actions result">' +
+        splitHTML('split-done', '<button type="button" class="btn done-btn primary split-main" data-act="done" aria-keyshortcuts="D">' + CHECK + 'Done' + kbd('D') + '</button>',
+          'moremenu', 'Clear it another way', '<p class="menu-h" aria-hidden="true">Clear it another way</p>' + CLEAR_ITEMS, true) +
+        '<button type="button" class="btn" data-act="schedule" aria-keyshortcuts="S">Ask me later' + kbd('S') + '</button>' +
+        '<button type="button" class="btn" data-act="assign" aria-keyshortcuts="A">' + HAND + 'Send Fuzz further' + kbd('A') + '</button></div>';
+    }
+
+    /* Later: Book time, Deep Work and After the others behind it (a big task shows Deep Work up top instead) */
+    var laterSplit = splitHTML('split-later', '<button type="button" class="btn split-main" data-act="schedule" aria-keyshortcuts="S">' + CLOCK + 'Later' + kbd('S') + '</button>',
+      'latermenu', 'Other times to do it', (big && it.suggested !== 'do_now' ? '' : BOOK_ITEM) + (big ? '' : DEEP_ITEM) + AFTER_ITEM);
+
+    if (lead) {
+      var choice = '';
+      if (join) choice = '<div class="lead-choice"><p class="meta">' + esc(it.joinReason || 'A reply to this thread is waiting for your OK.') + '</p>' +
+        '<button type="button" class="btn primary" data-act="joinreply">Add to the reply</button></div>';
+      else if (big) {
+        /* Three ways to take a big one: the suggested move, the first step only, or Deep Work */
+        var first = it.suggested === 'do_now' ? '<button type="button" class="btn primary" data-act="donow">Do it now</button>'
+          : '<button type="button" class="btn primary" data-act="book" aria-keyshortcuts="B">Book time' + kbd('B') + '</button>';
+        choice = '<div class="lead-choice big-choice"><p class="meta">' + esc((it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. How do you want to take it?') + '</p><div class="lead-btns">' + first +
+          '<button type="button" class="btn" data-act="firststep">Just the first step</button>' +
+          '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">Deep Work' + kbd('G') + '</button></div></div>';
+      }
+      /* When Fuzz suggests finding something out first (the brief has gaps), or you're writing the question,
+         Find out… stays in view on the quiet row instead of behind Other ways */
+      var findOut = asks && (!!it.suggestFindOut || askingFind || !!(it.gaps && it.gaps.length && !it.foundOut));
+      var findBtn = findOut ? '<button type="button" class="btn' + (askingFind ? ' primary' : '') + '" data-act="findout" aria-keyshortcuts="Q">Find out…' + kbd('Q') + '</button>' : '';
+      /* Other ways: handing it over as it is, and every way to clear it */
+      var other = '<div class="split split-other"><button type="button" class="btn more-btn other-btn" data-act="more" data-menu="othermenu" aria-haspopup="menu" aria-expanded="false">Other ways' + ARROW + '</button>' +
+        '<div class="menu" role="menu" id="othermenu" hidden aria-label="Other ways">' +
+          menuItem('assign', 'A', asks ? 'Hand it to Fuzz as it is' : 'Hand it to Fuzz', asks ? 'Without picking an answer: Fuzz works out the rest.' : 'Fuzz takes the whole task.') + (findOut ? '' : FIND_ITEM) + CLAUDE_ITEM +
+          '<p class="menu-h" aria-hidden="true">Clear it</p>' +
+          menuItem('done', 'D', 'I did it', 'It’s done. Fuzz logs it.') + (big && it.suggested === 'do_now' ? '' : NOW_ITEM) + CLEAR_ITEMS +
+        '</div></div>';
+      return choice + '<div class="actions quiet">' + findBtn + laterSplit + other + '</div>';
+    }
+
+    /* An ordinary task. Find out… leads instead of Assign when the brief has gaps (Fuzz suggests it). */
+    var findLeads = !!it.suggestFindOut || askingFind;
     var assignSplit = findLeads
       ? splitHTML('split-assign', '<button type="button" class="btn primary split-main" data-act="findout" aria-keyshortcuts="Q">Find out…' + kbd('Q') + '</button>',
-          'assignmenu', 'Hand it to Fuzz instead', menuItem('assign', 'A', 'Hand it to Fuzz', 'Fuzz takes the whole task, not just the question.') + DEEP_ITEM, true)
-      : splitHTML('split-assign', assignBtn.replace('class="btn', 'class="btn split-main'), 'assignmenu', 'Ask Fuzz something else',
-          menuItem('findout', 'Q', 'Find out…', FIND_WHAT) + DEEP_ITEM, !(join || big || asks));
-    /* Book time sits behind Later's arrow. A big task already offers it up top, so Later stands alone there. */
-    var laterBtn = '<button type="button" class="btn' + (big ? '' : ' split-main') + '" data-act="schedule" aria-keyshortcuts="S"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Later' + kbd('S') + '</button>';
-    var laterSplit = big ? laterBtn : splitHTML('split-later', laterBtn, 'latermenu', 'Book time instead',
-      menuItem('book', 'B', 'Book time', 'Hold time on your calendar to do it. It doesn’t count as putting it off.'));
-    return joinRow + bigRow + '<div class="actions' + (res ? ' result' : '') + '">' + (res ? '' : assignSplit) +
-      (res ? '' : '<button type="button" class="btn" data-act="claude" aria-keyshortcuts="C">Work in ' + esc(Store.workIn) + kbd('C') + '</button>') +
-      (res ? '' : laterSplit) +
-      '<div class="split split-done"><button type="button" class="btn done-btn' + (res ? ' primary' : '') + '" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' + (res ? 'Done' : 'I did it') + kbd('D') + '</button>' +
-        '<button type="button" class="btn more-btn" data-act="more" aria-haspopup="menu" aria-expanded="false" aria-label="Clear it another way" title="Clear it another way"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
-        '<div class="menu" role="menu" id="moremenu" hidden aria-label="Clear it another way"><p class="menu-h" aria-hidden="true">Clear it another way</p>' +
-          (big ? '' : '<button type="button" role="menuitem" data-act="donow"><b>Do it now</b><span>Open it as your working card, with the rest of the list out of view.</span></button>' +
-          '<button type="button" role="menuitem" data-act="afterothers"><b>After the others</b><span>To the end of this session. No penalty.</span></button>') +
-          '<button type="button" role="menuitem" data-act="park" aria-keyshortcuts="P"><b>Park it' + kbd('P') + '</b><span>Out of triage with no date. It waits in Parked until someone follows up, or you bring it back.</span></button>' +
-          '<button type="button" role="menuitem" data-act="waiting" aria-keyshortcuts="W"><b>Waiting on someone' + kbd('W') + '</b><span>You’re blocked until they get back to you. Fuzz checks back.</span></button>' +
-          '<button type="button" role="menuitem" data-act="theirs" aria-keyshortcuts="X"><b>Not mine' + kbd('X') + '</b><span>It’s someone else’s to do. Fuzz lets it go, and brings it back if a new ask needs you.</span></button>' +
-        '</div></div>' + (res ? '<button type="button" class="btn" data-act="schedule" aria-keyshortcuts="S">Ask me later' + kbd('S') + '</button>' + assignBtn : '') + '</div>';
+          'assignmenu', 'Hand it to Fuzz instead', menuItem('assign', 'A', 'Hand it to Fuzz', 'Fuzz takes the whole task, not just the question.') + CLAUDE_ITEM, true)
+      : splitHTML('split-assign', '<button type="button" class="btn primary split-main" data-act="assign" aria-keyshortcuts="A">' + HAND + 'Hand it to Fuzz' + kbd('A') + '</button>',
+          'assignmenu', 'Other ways to get it done', FIND_ITEM + CLAUDE_ITEM, true);
+    var doneSplit = splitHTML('split-done', '<button type="button" class="btn done-btn split-main" data-act="done" aria-keyshortcuts="D">' + CHECK + 'I did it' + kbd('D') + '</button>',
+      'moremenu', 'Clear it another way', '<p class="menu-h" aria-hidden="true">Clear it another way</p>' + NOW_ITEM + CLEAR_ITEMS);
+    return '<div class="actions">' + assignSplit + laterSplit + doneSplit + '</div>';
   }
 
   /* The drop zone shows only while a file is dragged onto the screen; + is the way in otherwise */
@@ -530,14 +563,19 @@
     h += ebItem('<span class="src">' + esc(it.source + (it.who ? ' · ' + it.who : '')) + '</span>') + (withMeta ? metaHTML(it) : '');
     return '<div class="tagrow"><p class="eyebrow">' + h + ebItem('<span class="tag due" id="duetag" hidden></span>') + '</p></div>';
   }
+  /* The top line keeps three things at most: where it came from, how long it takes, and when it's due.
+     How old it is, its group and what it's for wait under Details (aboutHTML), and age is never a warning. */
   function metaHTML(it) {
-    var h = '', st = it.stage || 'fresh', stage = { fresh: 'Fresh', settling: 'Aging', stale: 'Sitting' }[st] || 'Fresh';
-    if (it.age) h += ebItem('<span class="eb' + (st === 'fresh' ? '' : ' eb-warn') + '" title="' + esc(stage + ' · ' + it.age) + '">' + (st === 'fresh' ? '' : stage + ' · ') + esc(it.age) + '</span>', true);
-    if (it.sizeLabel) h += ebItem('<span class="eb' + (Store.isBig(it) ? ' eb-warn' : '') + '" title="' + esc(it.sizeLabel) + '">' + esc(it.sizeLabel.split(' · ')[0]) + '</span>', true);
+    return it.sizeLabel ? ebItem('<span class="eb" title="' + esc(it.sizeLabel) + '">' + esc(it.sizeLabel.split(' · ')[0]) + '</span>', true) : '';
+  }
+  /* When it came in, said plainly, and the group and deliverable it belongs to: the first line under Details */
+  function aboutHTML(it) {
+    var bits = [];
+    if (it.age) bits.push('<span>Came in ' + esc(/^(today|yesterday|just now)/i.test(it.age) ? it.age.toLowerCase() : it.age + (/ago$/.test(it.age) ? '' : ' ago')) + '</span>');
     var g = Store.groupOf(it);
-    if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);
-    if (it.deliverable) h += ebItem('<button type="button" class="eb eb-link" data-act="forline" title="For ' + esc(it.deliverable.title) + '">For ' + esc(it.deliverable.title) + '</button>', true);
-    return h;
+    if (g) bits.push('<button type="button" class="eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(Store.partOf(it, true)) + '</button>');
+    if (it.deliverable) bits.push('<button type="button" class="eb-link" data-act="forline" title="For ' + esc(it.deliverable.title) + '">For ' + esc(it.deliverable.title) + '</button>');
+    return bits.length ? '<p class="about">' + bits.join('<span class="eb-sep" aria-hidden="true">·</span>') + '</p>' : '';
   }
   /* The question leads the card. "The one thing to decide" stays for screen readers only. */
   function askHTML(text) {
@@ -783,7 +821,7 @@
     return h + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
   }
   function partOfQHTML(it) {
-    return tagrow(it, '', true) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
+    return tagrow(it, '', true) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + aboutHTML(it) + UI.idTag(it);
   }
   function dvValue(it, opt) {
     if (opt === 'keep_these') return [].map.call(card.querySelectorAll('[data-dvpick]:checked'), function (b) { return +b.dataset.dvpick; });
@@ -942,7 +980,7 @@
     }
 
     /* Where it came from, the first step, people and sources fold under Details (I), so the card holds one decision (#4) */
-    var more = (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask && !stale, it.entity === 'is_task');
+    var more = aboutHTML(it) + (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask && !stale, it.entity === 'is_task');
     h += (isTask && !it.doing && !it.result ? '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, people, sources</span>' + kbd('I') + '</summary>' + more + '</details>' : more) + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">DONE</div>';
     return h;
@@ -960,7 +998,7 @@
     h += '<section class="draft"><div class="draft-to">' + (r ? '<span>To</span> <strong>' + esc(r.to) + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
       '<label class="sr" for="draft">' + (r ? 'Message to ' + esc(r.to) : 'Fuzz’s write-up') + '</label><textarea id="draft" rows="4">' + esc(val) + '</textarea></section>';
     h += '<div id="actions">' + actionsHTML(it) + '</div>';
-    h += '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, what Fuzz did</span>' + kbd('I') + '</summary><p class="incoming">' + UI.text(it.incoming) + '</p>' + contextHTML(it, true) + '</details>' + UI.idTag(it);
+    h += '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, what Fuzz did</span>' + kbd('I') + '</summary>' + aboutHTML(it) + '<p class="incoming">' + UI.text(it.incoming) + '</p>' + contextHTML(it, true) + '</details>' + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">OK</div>';
     return h;
   }
@@ -1016,7 +1054,7 @@
     var m = mins(t), tr = tierOf(m);
     if (m <= 0) return 'This one’s past its time. Assign me and I’ll start right now.';
     if (tr === 3) return 'Only ' + Math.max(1, Math.round(m)) + ' minutes! Assign me and I’ll start right now.';
-    if (tr === 2) return 'Due in under 2 hours. Let’s move.';
+    if (tr === 2) return 'Due in under 2 hours. Plenty of time if I start on it now.';   /* urgency without pressure */
     return 'Due later today. I’ll keep an eye on the clock.';
   }
   /* A rush lasts about five seconds, then Fuzz settles. He says it once: the due tag keeps the time,
@@ -1114,7 +1152,8 @@
     if (o && o.cls === 'sign') return;
     if (!alive || Date.now() < scrollHold || !perchHidden()) return hideEcho();
     var e = $('#echo'); $('#echo-t').textContent = text;
-    e.style.top = topEdge() + 8 + 'px'; e.hidden = false;
+    /* under the header on a narrow screen; beside the card (css: bottom corner) when there's room */
+    e.style.top = window.matchMedia('(min-width: 1100px)').matches ? '' : topEdge() + 8 + 'px'; e.hidden = false;
     clearTimeout(echoTimer); echoTimer = setTimeout(hideEcho, 4500);
   }
   function enterCard(t) {
@@ -1777,16 +1816,18 @@
 
   /* Clear a card quickly without a full ceremony: park, wait, let go, drop. */
   /* Do it now: the working card. The rest of the queue goes out of view; Fuzz stays beside it. */
+  /* Do it now opens the task in Deep Work, the mode for doing: a session clock, breaks, and the rest of the
+     list out of view. It goes into Deep Work's pool first, so Done for now keeps your place there. */
   async function doNow() {
     var it = cur(); if (!it) return;
-    var nn = pendingNote(it);
-    var ch = Store.track([it.id], function () { if (nn) Store.tell(it.id, nn); Store.doNow(it.id); });
-    if (nn) { delete edits[it.id + ':instr']; delete planOpen[it.id]; }
-    offer('Started on “' + it.title + '”.', ch);
-    Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Let’s do it. I’ll keep the rest out of the way.', { type: false });
-    renderCard(cur()); updateStack(false); refocus(landing());
-    await sleep(900);
-    Fuzz.setArm('none'); Fuzz.setMood('idle');
+    var id = it.id, nn = pendingNote(it);
+    var ch = Store.track([id], function () { if (nn) Store.tell(id, nn); Store.deepWork(id); });
+    if (nn) { delete edits[id + ':instr']; delete planOpen[id]; }
+    offer('Opened “' + it.title + '” in Deep Work.', ch);
+    Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Let’s do it. Opening it in Deep Work.', { type: false });
+    await sleep(Fuzz.isCalm() ? 150 : 450);
+    Fuzz.setArm('none');
+    DeepWork.startNow(id);
   }
   /* When a card has sat in front a while (3 minutes sorting; 25 in work mode with no sign of progress) while
      you're here, Fuzz asks what's in the way, once per card. The times on screen are kept for tuning. */
@@ -2396,7 +2437,7 @@
         moment(function () { return quickClear('Dismissed', 'Dismissed for now. Fuzz asks again later.', function (i) { Store.answerCard(i.id, later); }, 'Okay, later.', 'idle'); });
         return;
       }
-      moment(function () { return quickClear(cur().kind === 'task' ? 'Dropped' : 'Dismissed', 'Dropped. Undo if that was a slip.', function (i) { if (i.kind === 'task') Store.drop(i.id); else Store.resolve(i.id, 'dismissed'); }, 'Dropped. One less thing.', 'idle'); });
+      moment(function () { return quickClear(cur().kind === 'task' ? 'Dropped' : 'Dismissed', 'Dropped. Undo if that was a slip.', function (i) { if (i.kind === 'task') Store.drop(i.id); else Store.resolve(i.id, 'dismissed'); }, cur().kind === 'task' ? 'Dropped. Undo up top brings it back.' : 'Dismissed. Undo up top brings it back.', 'idle'); });
     });
     $('#parkbtn').addEventListener('click', function (e) {
       var f = $('#parkform'); f.hidden = !f.hidden; e.currentTarget.setAttribute('aria-expanded', String(!f.hidden));
@@ -2439,7 +2480,7 @@
           if (['chill', 'bored', 'sleepy', 'stare', 'caring'].indexOf(v) < 0) setTimeout(function () { if (alive && Fuzz.mood() === v) Fuzz.setMood('idle'); }, 6000);
         } else if (k === 'rush') {
           Fuzz.newTok(); Fuzz.setMood('rushed'); Fuzz.setUrgency(v); Fuzz.setOsd(['', '3h 10m', '1:42', '0:12'][v]); Fuzz.flash();
-          Fuzz.say(['', 'Due later today. I’ll keep an eye on the clock.', 'Due in under 2 hours. Let’s move.', 'Only 12 seconds! Assign me and I’ll start right now.'][v], { type: false });
+          Fuzz.say(['', 'Due later today. I’ll keep an eye on the clock.', 'Due in under 2 hours. Plenty of time if I start on it now.', 'Only 12 seconds! Assign me and I’ll start right now.'][v], { type: false });
           setTimeout(function () { if (alive && Fuzz.mood() === 'rushed') Fuzz.setMood('idle'); }, 6000);
         } else if (k === 'fx') {
           if (v.indexOf('p:') === 0) Fuzz.pAnim(v.slice(2));

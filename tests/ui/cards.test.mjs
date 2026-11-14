@@ -47,6 +47,38 @@ test('an ordinary task leads with the task, and Fuzz’s plan is plain text', as
   assert.match(await page.locator('#card [data-act="assign"]').first().textContent(), /Hand it to Fuzz/);
 });
 
+test('a task card shows three moves and one filled button; every other move waits behind an arrow', async () => {
+  const shown = await page.evaluate(() => [...document.querySelectorAll('#actions .actions > .split > .split-main')].filter(b => b.offsetParent).map(b => b.dataset.act));
+  assert.deepEqual(shown, ['assign', 'schedule', 'done']);
+  assert.equal(await page.locator('#card .btn.primary.split-main').count(), 1);
+  for (const act of ['claude', 'findout', 'book', 'deepwork', 'park', 'waiting', 'theirs']) {
+    assert.equal(await page.locator(`#card [data-act="${act}"]`).count(), 1, act + ' is still on the card');
+    assert.equal(await page.locator(`#card [data-act="${act}"]`).isVisible(), false, act + ' waits behind an arrow');
+  }
+  /* Deep Work sits under Later: it's yours, for when you have the time, not a way of handing it off */
+  assert.equal(await page.locator('#latermenu [data-act="deepwork"]').count(), 1);
+});
+
+test('Do it now opens the task in a Deep Work session, and Undo brings it back to Triage', async () => {
+  const t = await page.evaluate(() => Store.front());
+  await page.locator('#card .split-done .more-btn').click();
+  await page.locator('#moremenu [data-act="donow"]').click();
+  await page.waitForFunction(() => location.hash === '#/deepwork');
+  await page.locator('#dw-step').waitFor();
+  assert.equal(await page.textContent('.dw-taskline span'), t.title);
+  assert.equal(await page.evaluate((id) => Store.item(id).state, t.id), 'deepwork');
+  await page.evaluate(() => Say.undoList()[0].run());
+  await page.waitForFunction((id) => Store.item(id).state !== 'deepwork', t.id);
+});
+
+test('the top line keeps where it came from, its size and when it’s due; age is under Details, never a warning', async () => {
+  await show('room');
+  const top = await page.locator('#card .eyebrow').textContent();
+  assert.doesNotMatch(top, /Aging|Sitting|\d+ days?\b/);
+  assert.equal(await page.locator('#card .eb-warn').count(), 0);
+  assert.match(await page.locator('#details .about').textContent(), /Came in/);
+});
+
 test('every card says its id: a task its task number, a deliverable or memory card its card number', async () => {
   const tags = await page.evaluate(() => [
     { coreId: 14, kind: 'task', id: 't14' }, { coreId: 15, kind: 'task', cardKind: 'hold', cardId: 3, id: 't15' },
@@ -104,7 +136,10 @@ test('a question card answers its headline with numbered answers', async () => {
   assert.match(await ask(), /big room on 3 or the quiet one on 5/);
   const answers = page.locator('.answers .ans');
   assert.equal(await answers.count(), 3, 'two answers and Something else');
-  assert.doesNotMatch(await page.locator('#card [data-act="assign"]').first().getAttribute('class'), /primary/, 'the answers lead');
+  assert.match(await answers.first().getAttribute('class'), /primary/, 'the answers lead');
+  /* Picking an answer is the hand-off: handing it over as it is waits under Other ways, its key still works */
+  assert.equal(await page.locator('#card [data-act="assign"]').first().isVisible(), false);
+  assert.equal(await page.locator('#othermenu [data-act="assign"]').count(), 1);
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('room'));
   assert.match(await page.evaluate(() => Store.item('room').instr), /quiet room on 5/);

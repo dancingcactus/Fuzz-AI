@@ -58,9 +58,11 @@
     h.innerHTML =
       '<div class="appbar-left"><a class="brand" href="#/triage" aria-label="Fuzz, go to triage">' + Fuzz.mini('good', { cls: 'brand-av' }) + '<span class="brand-name">Fuzz</span></a>' +
       '<nav class="mainnav" aria-label="Main">' +
-        '<a href="#/triage" data-nav="triage">Triage<span class="navcount" id="navcount" aria-label="waiting"></span></a>' +
-        /* Deep Work: the mode for doing, whenever you have time. Triage only decides. Its dot means the pool has something. */
-        '<a href="#/deepwork" data-nav="deepwork" title="Deep Work: work through the tasks that need you and take real time">Deep Work<span class="navcount" id="dwcount"></span></a>' +
+        /* Each dot is drawn for the eye only; what it means is read out as part of the link's own name */
+        '<a href="#/triage" data-nav="triage">Triage<span class="navcount" id="navcount" aria-hidden="true"></span><span class="sr" id="navcount-sr"></span></a>' +
+        /* Deep Work: the mode for doing, whenever you have time. Triage only decides. Its dot means one you
+           started is waiting part-way, not that the pool has something (it nearly always does). */
+        '<a href="#/deepwork" data-nav="deepwork" title="Deep Work: work through the tasks that need you and take real time">Deep Work<span class="navcount" id="dwcount" aria-hidden="true"></span><span class="sr" id="dwcount-sr"></span></a>' +
         '<a href="#/tasks" data-nav="tasks">Lineup</a>' +
         '<a href="#/artifacts" data-nav="artifacts">Artifacts</a>' +
       '</nav></div>' +
@@ -112,8 +114,12 @@
   function paintUndo() {
     var btn = document.getElementById('undobtn'), pop = document.getElementById('undopop'), cnt = document.getElementById('undocount'); if (!btn) return;
     var list = Say.undoList();
-    var n = list.filter(function (u) { return !u.blocked(); }).length;   /* blocked ones stay listed with the reason, uncounted */
-    btn.disabled = !list.length; cnt.textContent = n ? String(n) : '';
+    /* The badge counts what the list shows, so it never vanishes while there's still something listed; one that
+       can't be undone any more (Fuzz moved the task on) stays listed with the reason, and the name says so */
+    var n = list.filter(function (u) { return !u.blocked(); }).length;
+    btn.disabled = !list.length; cnt.textContent = list.length ? String(list.length) : '';
+    btn.setAttribute('aria-label', !list.length ? 'Undo' : 'Undo: ' + list.length + ' recent action' + (list.length > 1 ? 's' : '') + (n === list.length ? '' : ', ' + n + ' can still be undone'));
+    cnt.setAttribute('aria-hidden', 'true');
     if (!list.length) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); pop.innerHTML = ''; return; }
     /* Each one undoes on its own. One that can't any more stays listed, dimmed, with the reason. */
     pop.innerHTML = '<h2>Recent actions</h2><ul class="undolist">' + list.map(function (u, i) {
@@ -153,11 +159,12 @@
     if (name === 'triage' || name === 'capture') Say.hideDock(); /* Fuzz speaks from the perch there */
     currentName = name; current = ROUTES[name].view;
     document.getElementById('hprog').hidden = name !== 'triage';
-    if (name !== 'deepwork') document.getElementById('dwprog').hidden = true;
+    if (name === 'triage') document.getElementById('dwprog').hidden = true;   /* elsewhere a running session keeps its bar */
     document.body.dataset.view = name;
     /* No floating New task button on capture (you're there) or triage (its actions sit at the bottom on phones) */
     document.getElementById('fab').hidden = name !== 'tasks' && name !== 'artifacts';
     current.mount(main);
+    updateCount();
     document.title = ROUTES[name].title + ' · Fuzz';
     document.querySelectorAll('[data-nav]').forEach(function (a) { if (a.dataset.nav === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     /* Focus the page heading, unless the view already put focus somewhere useful (New task focuses its field, so N then type just works) */
@@ -171,15 +178,24 @@
     if (el.textContent !== glyph) el.textContent = glyph;
     el.classList.toggle('done', !has);
     el.classList.toggle('has', has);
-    el.setAttribute('aria-label', has ? 'Tasks to triage' : 'All triaged');
-    /* Deep Work only gets a dot, and only when its pool has something; nothing when it's empty */
+    setText('navcount-sr', has ? ', cards waiting' : ', all triaged');
+    /* Deep Work's dot only when you started one and left it part-way: something of yours is mid-air.
+       A full pool is normal and says nothing. */
     var dw = document.getElementById('dwcount');
     if (dw) {
-      var n = Store.inState('deepwork').length;
+      var n = Store.inState('deepwork').filter(function (it) { return it.leftOff; }).length;
       dw.classList.toggle('has', n > 0);
-      if (n) dw.setAttribute('aria-label', n + ' in Deep Work'); else dw.removeAttribute('aria-label');
+      setText('dwcount-sr', n ? ', ' + n + ' to pick up where you left off' : '');
+    }
+    /* During a Deep Work session the page is the session: the nav steps out of the way (Esc is Done for now) */
+    var inDw = !!(currentName === 'deepwork' && window.DeepWork && DeepWork.active());
+    if (document.body.classList.contains('dw-session') !== inDw) {
+      document.body.classList.toggle('dw-session', inDw);
+      var nav = document.querySelector('.mainnav');
+      if (nav) { if (inDw) nav.setAttribute('inert', ''); else nav.removeAttribute('inert'); }
     }
   }
+  function setText(id, t) { var e = document.getElementById(id); if (e && e.textContent !== t) e.textContent = t; }
 
   /* Fuzz's background work never interrupts. Anything you need to know arrives as a card in the queue. */
   Store.on(updateCount);
@@ -188,7 +204,7 @@
 
   /* Capture costs nothing: one key, from anywhere that isn't a text field. */
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;   /* a Deep Work session takes N itself */
     var t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || t.tagName === 'SELECT')) return;
     if (document.querySelector('dialog[open]')) return;
     if (Onboard.blocksCapture()) return;   /* on the onboarding's form, N would skip past what Fuzz needs */

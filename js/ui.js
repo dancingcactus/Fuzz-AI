@@ -34,7 +34,8 @@
     /* A deliverable or memory card belongs to no task: it carries the core's card id instead */
     var card = it.coreId == null && it.cardId != null, core = it.coreId != null || card;
     var val = String(card ? it.cardId : core ? it.coreId : it.id);
-    return '<p class="taskid"><span class="taskid-txt">' + (card ? 'Card #' : core ? 'Task #' : 'Local ') + esc(val) + '</span>' +
+    /* A local id ("Local room") is the demo's own key, useful to no one reading the card, so it stays out of view */
+    return '<p class="taskid"' + (core ? '' : ' data-local') + '><span class="taskid-txt">' + (card ? 'Card #' : core ? 'Task #' : 'Local ') + esc(val) + '</span>' +
       '<button type="button" class="taskid-copy" data-copyid="' + esc(val) + '" aria-label="Copy task number" title="Copy">' + COPY_SVG + '</button></p>';
   }
   /* The id's copy button: the number alone goes on the clipboard, and a tick says it went */

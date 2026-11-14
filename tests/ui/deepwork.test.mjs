@@ -112,3 +112,26 @@ test('? opens the key guide on the keys for where you are', async () => {
   await page.click('#dw-keysdlg [data-close]');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'dw-keysbtn');
 });
+
+test('in a session N parks a thought instead of leaving, and the nav steps back until you leave', async () => {
+  await page.locator('#dw-step').click();   /* focus off any box, so keys reach the session */
+  await page.keyboard.press('n');
+  assert.equal(await page.evaluate(() => location.hash), '#/deepwork', 'N stays in the session');
+  assert.equal(await page.locator('#dw-parkform').isVisible(), true);
+  await page.waitForFunction(() => document.body.classList.contains('dw-session'));
+  assert.equal(await page.locator('.mainnav').isVisible(), false);
+  /* Another page keeps the session's bar, and it leads back */
+  await page.evaluate(() => App.navigate('#/tasks'));
+  await page.waitForFunction(() => !document.body.classList.contains('dw-session'));
+  await page.locator('#dwprog.away').waitFor();
+  await page.click('#dwprog');
+  await page.waitForFunction(() => location.hash === '#/deepwork');
+});
+
+test('the Deep Work dot means one is waiting part-way, not that the pool has something', async () => {
+  await page.evaluate(() => { Store.inState('deepwork').forEach(i => { i.leftOff = ''; }); Store.emit({ type: 'work' }); });
+  await page.waitForFunction(() => !document.getElementById('dwcount').classList.contains('has'));
+  await page.evaluate(() => { Store.inState('deepwork')[0].leftOff = 'Drafted the intro'; Store.emit({ type: 'work' }); });
+  await page.waitForFunction(() => document.getElementById('dwcount').classList.contains('has'));
+  assert.match(await page.locator('[data-nav="deepwork"]').evaluate(a => a.textContent), /1 to pick up where you left off/);
+});

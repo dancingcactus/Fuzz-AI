@@ -54,7 +54,8 @@
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
           '<button type="button" class="btn dictate" id="cap-mic" aria-pressed="false" aria-keyshortcuts="Alt+Space"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="mic-l">Dictate</span></button>' +
-          '<span class="hint">Ctrl or Cmd + Enter to capture · Hold ' + Dictate.key + ' to dictate · Esc to go back</span></div>' +
+          /* Fuzz's tip already teaches dictation on the first visit, so the hint doesn't say it twice */
+          '<span class="hint">Ctrl or Cmd + Enter to capture' + (ob && ob.tip && Dictate.supported ? '' : ' · Hold ' + Dictate.key + ' to dictate') + ' · Esc to go back</span></div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
         '<p class="fine">Tasks from email, Slack and meetings arrive in triage on their own, so you only need to capture the ones that start in your head.</p></section></section>';
