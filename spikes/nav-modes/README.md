@@ -67,6 +67,17 @@ so every theme works. The page bodies are the same in all four options; only the
 - **More menu icons:** Person, Grid, Dots, Dots upright, Lines, Fuzz's head (a line-drawn TV with its two antennas),
   Stack, Compass, Tray and Sliders.
 
+## Round 5
+
+- **Fuzz's head is the menu icon** (the default; the others are still in the toolbar).
+- **Something else is a choice like the others.** Picking it asks, in Fuzz's words, "Tell me what you want to work
+  on". Start waits until you've said something, then matches it to a ready task or makes a new one.
+- **The queue's name says it's yours, and the action says where it goes.** "Ready for you" didn't say whether it meant
+  Fuzz or you, or that it goes in your work queue. Now there's a name and a triage-card action, in pairs (**Queue name**
+  in the toolbar): My work / Add to my work, My queue / Add to my queue, My work queue / Add to my work queue, On my plate
+  / Put it on my plate, My list / Add to my list. When you add something, Fuzz says whose it is and what it will do:
+  "Added to your work. It's yours to do, not mine. Before you get to it, I'll pull in … so it's ready when you start."
+
 ## Toolbar
 
 - **Waiting in Triage, Can't wait, Deep Work pool** change the dots and Fuzz's suggestion in D.

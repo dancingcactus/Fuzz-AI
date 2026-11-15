@@ -211,9 +211,10 @@ body .toolbar .for-dw { display: flex; flex-basis: 100%; flex-wrap: wrap; align-
 .flowmap ol, .flowmap ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.55; }
 
 /* ---------- Round 4: typing what you want, calendar invites ---------- */
-.choose li.typed input { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: var(--bw) dashed var(--line); background: var(--field); color: var(--ink); font-size: 15px; }
-.choose li.typed input:focus { outline: none; border-style: solid; border-color: var(--accent); }
-.choose li.typed.on input { border-style: solid; border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.choose li.typed .ask { margin: 8px 0 0 30px; }
+.choose li.typed .ask label { display: block; font-family: var(--font-display); font-weight: 800; font-size: 15px; margin-bottom: 6px; }
+.choose li.typed input { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); font-size: 15px; }
+.choose li.typed input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .choose .hint { margin: 6px 4px 0; font-size: 13.5px; color: var(--muted); }
 .choose .hint .linkbtn { display: inline; width: auto; min-height: 0; padding: 0; margin-left: 4px; border: 0; background: none; color: var(--link); font-weight: 700; }
 .invites { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }

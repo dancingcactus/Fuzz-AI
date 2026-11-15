@@ -7,7 +7,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var S = { opt: 'A', view: 'triage', mode: 'triage', menu: false, lib: 'tasks', nowPicked: null,
-    waiting: 6, urgent: 1, pool: 3, menuBtn: 'you', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list', typed: '', from: null };
+    waiting: 6, urgent: 1, pool: 3, menuBtn: 'fuzz', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list', typed: '', from: null };
   /* the session */
   var D = { phase: 'none', task: 0, budget: 'cal', left: 14, steps: 1, why: null, after: 'keep', other: false, came: 0 };
   function session() { return D.phase === 'focus' || D.phase === 'break' || D.phase === 'paused'; }
@@ -60,7 +60,12 @@
     tray: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v6H3v-6z"/></svg>',
     sliders: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>' };
   /* The queue Triage fills: "Ready for you". Deep Work is now only the session where you do the work. */
-  function QN() { return $('qname').value; }
+  /* "My …" says whose it is; the triage action says where it goes. Fuzz still preps it, and says so when you add it. */
+  var QUEUES = [['My work', 'Add to my work'], ['My queue', 'Add to my queue'], ['My work queue', 'Add to my work queue'], ['On my plate', 'Put it on my plate'], ['My list', 'Add to my list']];
+  function QN() { return QUEUES[+$('qname').value][0]; }
+  function QA() { return QUEUES[+$('qname').value][1]; }
+  /* "in My work", but "on my plate" */
+  function inQ() { return (QN() === 'On my plate' ? 'on ' : 'in ') + QN(); }
   function menuButton() {
     return '<span class="wrapmenu"><button class="iconbtn2" id="menubtn" aria-haspopup="menu" aria-expanded="' + S.menu + '" aria-label="Lineup, Artifacts and Settings" title="Lineup, Artifacts and Settings (L, F)">' + FACE[S.menuBtn] +
       '</button>' + (S.menu ? '<div class="navmenu" role="menu">' + menuItems() + '</div>' : '') + '</span>';
@@ -123,7 +128,7 @@
       : '<article class="card2"><div class="dw-eyebrow">Email · Priya · from yesterday</div><h3>Send Priya the Q3 numbers before the planning review</h3>' +
         '<div class="sugg">Fuzz: I drafted a summary from the finance sheet. It needs your OK on the headcount line.</div>' +
         '<div class="files"><button class="chip" data-go="file">' + I.doc + 'Q3 summary.docx</button></div>' +
-        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn" title="Yours, and it takes real time: get it ready and put it in ' + QN() + '">' + QN() + '</button><button class="btn">I did it</button></div></article>';
+        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn" data-act="queue" title="Yours, and it takes real time. Fuzz gets it ready, and you do it when you start work.">' + QA() + '</button><button class="btn">I did it</button></div></article>';
   }
   function recapLine() {
     if (!S.recap) return '';
@@ -142,9 +147,11 @@
     }
     var n = S.waiting + S.urgent;
     if (!n) {
-      return perch(recapLine() + '<b>All clear.</b> Nothing is waiting on you.' + (S.pool ? '<span class="sub">' + S.pool + ' things are ' + QN() + ', with everything you need.</span>' : '')) +
+      return perch(recapLine() + '<b>All clear.</b> Nothing is waiting on you.' + (S.pool ? '<span class="sub">' + S.pool + ' things are ' + inQ() + ', with everything you need.</span>' : '')) +
         (S.pool ? '<button class="btn primary" data-go="deepwork">Go deep on something</button>' : '');
     }
+    /* after "Add to my work": say whose it is now, and what Fuzz does before you get to it */
+    if (S.flash) { var f = S.flash; S.flash = null; return perch(f) + card(!!S.urgent); }
     return perch(recapLine() + (S.urgent ? 'This one has a time on it, so it’s first.' : 'Next one. Quick decisions, I’ll do the rest.')) + card(!!S.urgent);
   }
 
@@ -152,7 +159,7 @@
   function deepwork() { return ({ setup: setup, focus: focus, break: brk, paused: paused, wrap: wrap }[D.phase] || setup)(); }
   /* Way in: how long, then Fuzz's pick. One task, not a list to choose from (the pool is one tap away). */
   function setup() {
-    if (!S.pool) return perch('<b>Nothing is ' + QN() + ' yet.</b> When Triage finds something that needs you and takes real time, I get it ready and it waits here.');
+    if (!S.pool) return perch('<b>Nothing ' + inQ() + ' yet.</b> When Triage finds something that needs you and takes real time, I get it ready and it waits here.');
     var t = POOL[D.task];
     var times = Object.keys(BUDGET).map(function (k) { var b = BUDGET[k]; return '<button data-budget="' + k + '" class="' + (D.budget === k ? 'on' : '') + '"><b>' + b.l + '</b><small>' + b.s + '</small></button>'; }).join('');
     var other = D.other ? '<ul class="rows" style="margin-bottom:10px">' + POOL.map(function (x, i) {
@@ -203,7 +210,7 @@
       : '<span class="lbl2">What you did</span><ul class="did">' + (done.length ? done.map(function (s) { return '<li>' + s + '</li>'; }).join('') : '<li>Got started, and that counts</li>') + '</ul>' +
         '<label class="lbl2" for="leftoff">Where you left off</label><textarea id="leftoff">Next: ' + next.charAt(0).toLowerCase() + next.slice(1) + '.</textarea>' +
         '<span class="lbl2">Then what?</span><div class="choices">' +
-          [['keep', 'Back to ' + QN()], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button data-after="' + c[0] + '" aria-pressed="' + (D.after === c[0]) + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+          [['keep', QN() === 'On my plate' ? 'Back on my plate' : 'Back in ' + QN().toLowerCase()], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button data-after="' + c[0] + '" aria-pressed="' + (D.after === c[0]) + '">' + c[1] + '</button>'; }).join('') + '</div>' +
         '<div class="acts"><button class="btn primary" data-act="wrapdone">' + (D.why === 'meeting' ? 'Save it and go' : 'Wrap up') + '</button>' + (D.why === 'stop' ? '<button class="btn" data-act="resume">Actually, keep going</button>' : '') + '</div>';
     return perch('<b>' + w[0] + '</b> ' + w[1]) + '<div class="panel2"><h3>' + t.t + '</h3>' + body + '</div>';
   }
@@ -279,21 +286,24 @@
     return -1;
   }
   function short(t) { var w = t.split(' '); return w.length > 5 ? w.slice(0, 5).join(' ') + '…' : t; }
+  /* "Something else" is a choice like the others; picking it asks what, in Fuzz's words */
   function typedRow(c) {
-    var m = S.typed ? match(S.typed) : -1;
-    return '<li class="typed' + (c === 'typed' ? ' on' : '') + '"><label class="sr" for="typed">Something else</label>' +
-      '<input type="text" id="typed" autocomplete="off" placeholder="Something else? Type what you want to work on" value="' + (S.typed || '').replace(/"/g, '&quot;') + '">' +
-      (m >= 0 && c === 'typed' ? '<p class="hint">That sounds like “' + POOL[m].t + '”, and it’s ready. <button class="linkbtn" data-choice="' + m + '">Use that</button></p>'
-        : c === 'typed' ? '<p class="hint">New. I’ll make it a task and pull in anything that goes with it.</p>' : '') + '</li>';
+    var on = c === 'typed', txt = (S.typed || '').trim(), m = txt ? match(txt) : -1;
+    return '<li class="typed"><button data-choice="typed" aria-pressed="' + on + '"><span class="radio"></span><span class="t"><b>Something else</b><small>' +
+        (on && txt ? 'You told me: “' + txt + '”' : 'Not on the list? Tell me') + '</small></span></button>' +
+      (on ? '<div class="ask"><label for="typed">Tell me what you want to work on</label>' +
+        '<input type="text" id="typed" autocomplete="off" placeholder="Like “draft the launch email”" value="' + (S.typed || '').replace(/"/g, '&quot;') + '">' +
+        (m >= 0 ? '<p class="hint">That sounds like “' + POOL[m].t + '”, and it’s ready. <button class="linkbtn" data-choice="' + m + '">Use that</button></p>'
+          : txt ? '<p class="hint">New. I’ll make it a task and pull in anything that goes with it.</p>' : '') + '</div>' : '') + '</li>';
   }
   function startList(c, sug) {
-    var deep = c !== 'triage' && c != null;
-    var label = c === 'triage' ? 'Start Triage' : c === 'typed' ? 'Start: ' + short(S.typed) : deep ? 'Start: ' + short(POOL[c].t) : 'Nothing to start';
+    var typed = c === 'typed', txt = (S.typed || '').trim(), deep = c != null && c !== 'triage' && (!typed || txt);
+    var label = c === 'triage' ? 'Start Triage' : typed ? (txt ? 'Start: ' + short(txt) : 'Tell me what first') : c != null ? 'Start: ' + short(POOL[c].t) : 'Nothing to start';
     return '<div class="panel2 start"><h3>Where do you want to start?</h3><ul class="choose">' +
       '<li class="grp">Keep things moving</li><li>' + triageRow(c, sug) + '</li>' +
-      '<li class="grp">Do my work' + (S.pool ? ' · ' + QN() : '') + '</li>' + taskRows(c, sug) + typedRow(c) + '</ul>' +
-      (deep ? '<h3 class="q2">How long do you have?</h3>' + timeChips(c === 'typed' ? 30 : POOL[c].m) : '') +
-      '<div class="startbtn"><button class="btn primary" data-act="go"' + (c == null ? ' disabled' : '') + '>' + label + '</button></div></div>';
+      '<li class="grp">' + QN() + '</li>' + taskRows(c, sug) + typedRow(c) + '</ul>' +
+      (deep ? '<h3 class="q2">How long do you have?</h3>' + timeChips(typed ? 30 : POOL[c].m) : '') +
+      '<div class="startbtn"><button class="btn primary" data-act="go"' + (c == null || (typed && !txt) ? ' disabled' : '') + '>' + label + '</button></div></div>';
   }
   function startSides(c, sug) {
     var n = triageN(), task = typeof c === 'number' ? c : (typeof sug === 'number' ? sug : 0);
@@ -303,7 +313,7 @@
       (n ? '<ul class="triage-sum">' + titles.map(function (t) { return '<li>' + t + '</li>'; }).join('') + (n > 3 ? '<li class="meta">and ' + (n - 3) + ' more</li>' : '') + '</ul>' +
         '<button class="btn primary" style="width:100%;min-height:48px" data-act="gotriage">Start Triage</button>' : '') + '</section>';
     var right = '<section class="side' + (typeof sug === 'number' ? ' rec' : '') + '">' + (typeof sug === 'number' ? '<span class="tag2">Fuzz suggests</span>' : '') +
-      '<h3>Do my work</h3><p class="meta">' + (S.pool ? 'You’ve got until 2pm.' : 'Nothing is ' + QN() + ' yet.') + '</p>' +
+      '<h3>Do my work</h3><p class="meta">' + (S.pool ? 'You’ve got until 2pm.' : 'Nothing ' + inQ() + ' yet.') + '</p>' +
       (S.pool ? '<div class="q">' + QN() + '</div><ul class="choose">' + taskRows(task, sug) + '</ul>' +
         '<div class="q">How long do you have?</div>' + timeChips(POOL[task].m) +
         '<button class="btn primary" style="width:100%;min-height:48px" data-act="godeep" data-task-start="' + task + '">Start</button>' : '') + '</section>';
@@ -433,7 +443,13 @@
       if (S.opt === 'D') { D.phase = 'none'; S.choice = D.task; S.view = 'now'; S.nowPicked = null; } else { D.phase = 'setup'; showSession(); }
       render(); return;
     }
-    if (ds.choice) { S.choice = ds.choice === 'triage' ? 'triage' : +ds.choice; if (S.choice !== 'triage') D.task = S.choice; render(); return; }
+    if (ds.choice) {
+      S.choice = ds.choice === 'triage' || ds.choice === 'typed' ? ds.choice : +ds.choice;
+      if (typeof S.choice === 'number') D.task = S.choice;
+      render();
+      if (S.choice === 'typed' && $('typed')) $('typed').focus();   /* picking "Something else" goes straight to the question */
+      return;
+    }
     if (ds.pick) {
       if (ds.pick === 'deepwork') { if (D.phase === 'none') D.phase = 'setup'; showSession(); }
       else { S.nowPicked = 'triage'; S.view = 'now'; }
@@ -474,6 +490,7 @@
       }
       else if (a === 'wrapdone') done();
       else if (a === 'nexttask') { D.task = (D.task + 1) % S.pool; start(); }
+      else if (a === 'queue') S.flash = '<b>' + (QN() === 'On my plate' ? 'It’s on your plate.' : 'Added to ' + QN().replace(/^My/, 'your') + '.') + '</b> It’s yours to do, not mine. Before you get to it, I’ll pull in the finance sheet and last quarter’s numbers so it’s ready when you start.';
       render(); return;
     }
     go(ds.go);
@@ -491,11 +508,12 @@
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
   $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
   $('qname').addEventListener('change', function () { $('poollbl').textContent = QN(); render(); });
+  $('poollbl').textContent = QN();
   /* typing keeps focus: re-render, then put the caret back */
   document.addEventListener('input', function (e) {
     if (e.target.id !== 'typed') return;
     var pos = e.target.selectionStart;
-    S.typed = e.target.value; S.choice = S.typed.trim() ? 'typed' : null;
+    S.typed = e.target.value; S.choice = 'typed';
     render();
     var el = $('typed'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
   });
