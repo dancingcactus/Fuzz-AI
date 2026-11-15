@@ -49,6 +49,24 @@ so every theme works. The page bodies are the same in all four options; only the
 - "Go deep on something" (Triage clear) and "Go deep on this" (Lineup) open the same start screen with that task already
   picked. Once you're in Triage, Now or "Pick something else" brings the start screen back.
 
+## Round 4
+
+- **"Where do you want to start?"** is the start screen's question. Under **Do my work** there's a box to type anything
+  else. If what you type sounds like a task that's already ready, Fuzz offers it ("Use that"). If it's new, it becomes a
+  task when you start.
+- **Triage gets things ready; it doesn't move things to "Deep Work".** The queue Triage fills is **Ready for you**
+  (**Queue name** tries Ready to work, Your work and Up next). The triage card's button is now the queue name, and
+  **Deep Work** is only the name of the session.
+- **Deep links, for calendar invites.** Sample invites under the frame (in D) open these:
+  - `#/triage?until=13:30`: straight into Triage, with an end time.
+  - `#/work?until=15:00`: the start screen, set to the calendar block, nothing picked.
+  - `#/work/pricing?until=14:45`: the start screen with that task picked and the time set. One tap: Start.
+  - `#/work?what=Draft%20the%20launch%20email&until=15:30`: something typed when the time was booked.
+
+  A link lands one tap from Start; it doesn't start the session on its own. A link never ends a session that's running.
+- **More menu icons:** Person, Grid, Dots, Dots upright, Lines, Fuzz's head (a line-drawn TV with its two antennas),
+  Stack, Compass, Tray and Sliders.
+
 ## Toolbar
 
 - **Waiting in Triage, Can't wait, Deep Work pool** change the dots and Fuzz's suggestion in D.

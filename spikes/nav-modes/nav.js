@@ -7,7 +7,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var S = { opt: 'A', view: 'triage', mode: 'triage', menu: false, lib: 'tasks', nowPicked: null,
-    waiting: 6, urgent: 1, pool: 3, menuBtn: 'you', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list' };
+    waiting: 6, urgent: 1, pool: 3, menuBtn: 'you', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list', typed: '', from: null };
   /* the session */
   var D = { phase: 'none', task: 0, budget: 'cal', left: 14, steps: 1, why: null, after: 'keep', other: false, came: 0 };
   function session() { return D.phase === 'focus' || D.phase === 'break' || D.phase === 'paused'; }
@@ -50,7 +50,17 @@
   }
   /* The button sits where Settings was, the same small round icon button, no label. Three faces to try. */
   var FACE = { you: I.person, grid: I.grid,
-    dots: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>' };
+    dots: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    vdots: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+    lines: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    /* a tiny line-drawn Fuzz: the TV head with its two antennas of different lengths */
+    fuzz: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="9" width="17" height="12" rx="3"/><path d="M10 9 7 3M14 9l2-4"/><circle cx="9.5" cy="15" r=".9" fill="currentColor"/><circle cx="14.5" cy="15" r=".9" fill="currentColor"/></svg>',
+    stack: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
+    compass: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>',
+    tray: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v6H3v-6z"/></svg>',
+    sliders: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>' };
+  /* The queue Triage fills: "Ready for you". Deep Work is now only the session where you do the work. */
+  function QN() { return $('qname').value; }
   function menuButton() {
     return '<span class="wrapmenu"><button class="iconbtn2" id="menubtn" aria-haspopup="menu" aria-expanded="' + S.menu + '" aria-label="Lineup, Artifacts and Settings" title="Lineup, Artifacts and Settings (L, F)">' + FACE[S.menuBtn] +
       '</button>' + (S.menu ? '<div class="navmenu" role="menu">' + menuItems() + '</div>' : '') + '</span>';
@@ -98,11 +108,12 @@
   /* ---------- Shared pieces ---------- */
   function perch(html) { return '<div class="perch2"><img src="../../assets/fuzz-mark.svg" alt=""><div class="say">' + html + '</div></div>'; }
   var POOL = [
-    { t: 'Write the onboarding plan for the new analyst', m: 50, s: 'You left off at “week two”', step: ['List the systems they need on day one', 'Draft week one: who they meet', 'Draft week two: first real task', 'Send it to Sam for a look'], file: 'Onboarding plan draft.md' },
-    { t: 'Review the pricing model before Tuesday', m: 30, s: 'Fuzz pulled the three versions together', step: ['Read Fuzz’s summary of the three versions', 'Check the enterprise tier numbers', 'Write your three comments'], file: 'Pricing v3.xlsx' },
-    { t: 'Outline the Q4 roadmap talk', m: 45, s: 'Draft outline is ready', step: ['Read the draft outline', 'Pick the three themes', 'Rough the opening'], file: 'Roadmap outline.pptx' }
+    { id: 'onboarding', t: 'Write the onboarding plan for the new analyst', m: 50, s: 'You left off at “week two”', step: ['List the systems they need on day one', 'Draft week one: who they meet', 'Draft week two: first real task', 'Send it to Sam for a look'], file: 'Onboarding plan draft.md' },
+    { id: 'pricing', t: 'Review the pricing model before Tuesday', m: 30, s: 'Fuzz pulled the three versions together', step: ['Read Fuzz’s summary of the three versions', 'Check the enterprise tier numbers', 'Write your three comments'], file: 'Pricing v3.xlsx' },
+    { id: 'roadmap', t: 'Outline the Q4 roadmap talk', m: 45, s: 'Draft outline is ready', step: ['Read the draft outline', 'Pick the three themes', 'Rough the opening'], file: 'Roadmap outline.pptx' }
   ];
-  var BUDGET = { cal: { l: 'Until 2pm', s: '~45 min, then your meeting', m: 45 }, burst: { l: 'A quick burst', s: '25 min', m: 25 }, open: { l: 'Until I stop', s: 'Fuzz still stops you before 2pm', m: 45 } };
+  var CAL0 = { l: 'Until 2pm', s: '~45 min, then your meeting', m: 45 };
+  var BUDGET = { cal: CAL0, burst: { l: 'A quick burst', s: '25 min', m: 25 }, open: { l: 'Until I stop', s: 'Fuzz still stops you before 2pm', m: 45 } };
   function card(urgent, inSession) {
     var h = inSession ? ' data-act="handled"' : '';
     return urgent
@@ -112,7 +123,7 @@
       : '<article class="card2"><div class="dw-eyebrow">Email · Priya · from yesterday</div><h3>Send Priya the Q3 numbers before the planning review</h3>' +
         '<div class="sugg">Fuzz: I drafted a summary from the finance sheet. It needs your OK on the headcount line.</div>' +
         '<div class="files"><button class="chip" data-go="file">' + I.doc + 'Q3 summary.docx</button></div>' +
-        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn">Deep Work</button><button class="btn">I did it</button></div></article>';
+        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn" title="Yours, and it takes real time: get it ready and put it in ' + QN() + '">' + QN() + '</button><button class="btn">I did it</button></div></article>';
   }
   function recapLine() {
     if (!S.recap) return '';
@@ -131,7 +142,7 @@
     }
     var n = S.waiting + S.urgent;
     if (!n) {
-      return perch(recapLine() + '<b>All clear.</b> Nothing is waiting on you.' + (S.pool ? '<span class="sub">' + S.pool + ' tasks are in Deep Work for when you have time.</span>' : '')) +
+      return perch(recapLine() + '<b>All clear.</b> Nothing is waiting on you.' + (S.pool ? '<span class="sub">' + S.pool + ' things are ' + QN() + ', with everything you need.</span>' : '')) +
         (S.pool ? '<button class="btn primary" data-go="deepwork">Go deep on something</button>' : '');
     }
     return perch(recapLine() + (S.urgent ? 'This one has a time on it, so it’s first.' : 'Next one. Quick decisions, I’ll do the rest.')) + card(!!S.urgent);
@@ -141,7 +152,7 @@
   function deepwork() { return ({ setup: setup, focus: focus, break: brk, paused: paused, wrap: wrap }[D.phase] || setup)(); }
   /* Way in: how long, then Fuzz's pick. One task, not a list to choose from (the pool is one tap away). */
   function setup() {
-    if (!S.pool) return perch('<b>Nothing in Deep Work.</b> When something needs you and takes real time, it waits here.');
+    if (!S.pool) return perch('<b>Nothing is ' + QN() + ' yet.</b> When Triage finds something that needs you and takes real time, I get it ready and it waits here.');
     var t = POOL[D.task];
     var times = Object.keys(BUDGET).map(function (k) { var b = BUDGET[k]; return '<button data-budget="' + k + '" class="' + (D.budget === k ? 'on' : '') + '"><b>' + b.l + '</b><small>' + b.s + '</small></button>'; }).join('');
     var other = D.other ? '<ul class="rows" style="margin-bottom:10px">' + POOL.map(function (x, i) {
@@ -192,7 +203,7 @@
       : '<span class="lbl2">What you did</span><ul class="did">' + (done.length ? done.map(function (s) { return '<li>' + s + '</li>'; }).join('') : '<li>Got started, and that counts</li>') + '</ul>' +
         '<label class="lbl2" for="leftoff">Where you left off</label><textarea id="leftoff">Next: ' + next.charAt(0).toLowerCase() + next.slice(1) + '.</textarea>' +
         '<span class="lbl2">Then what?</span><div class="choices">' +
-          [['keep', 'Back in Deep Work'], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button data-after="' + c[0] + '" aria-pressed="' + (D.after === c[0]) + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+          [['keep', 'Back to ' + QN()], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button data-after="' + c[0] + '" aria-pressed="' + (D.after === c[0]) + '">' + c[1] + '</button>'; }).join('') + '</div>' +
         '<div class="acts"><button class="btn primary" data-act="wrapdone">' + (D.why === 'meeting' ? 'Save it and go' : 'Wrap up') + '</button>' + (D.why === 'stop' ? '<button class="btn" data-act="resume">Actually, keep going</button>' : '') + '</div>';
     return perch('<b>' + w[0] + '</b> ' + w[1]) + '<div class="panel2"><h3>' + t.t + '</h3>' + body + '</div>';
   }
@@ -206,7 +217,7 @@
     function row(t, s, st) { return '<li><span class="t">' + t + '<small>' + s + '</small></span><span class="meta">' + st + '</span></li>'; }
     return '<div class="group">To decide</div><ul class="rows">' + row('Send Priya the Q3 numbers', 'Email · yesterday', 'In Triage') + '</ul>' +
       '<div class="group">With Fuzz</div><ul class="rows">' + row('Book the offsite venue', 'Comparing three quotes', 'Working') + row('Reply to Dana about the contract', 'Draft ready', 'Needs your OK') + '</ul>' +
-      '<div class="group">In Deep Work</div><ul class="rows">' + POOL.slice(0, S.pool).map(function (x, i) {
+      '<div class="group">' + QN() + '</div><ul class="rows">' + POOL.slice(0, S.pool).map(function (x, i) {
         return '<li><span class="t">' + x.t + '<small>' + x.s + ' · ~' + x.m + ' min</small></span>' + (session() ? '' : '<button class="go" data-deep="' + i + '">Go deep on this</button>') + '</li>'; }).join('') + '</ul>' +
       '<div class="group">Waiting on others</div><ul class="rows">' + row('Security review sign-off', 'Waiting on Lee · checks back Monday', '3 days') + '</ul>';
   }
@@ -256,19 +267,33 @@
       return '<li><button data-choice="' + i + '" aria-pressed="' + (c === i) + '"><span class="radio"></span><span class="t"><b>' + x.t + fuzzTag(sug === i) + '</b><small>' + x.s + '</small></span><span class="m">~' + x.m + ' min</span></button></li>';
     }).join('');
   }
-  function timeChips(task) {
+  function timeChips(mins) {
     var times = Object.keys(BUDGET).map(function (k) { var b = BUDGET[k]; return '<button data-budget="' + k + '" class="' + (D.budget === k ? 'on' : '') + '"><b>' + b.l + '</b><small>' + b.s + '</small></button>'; }).join('');
-    var fits = POOL[task].m <= BUDGET[D.budget].m ? 'Fits in your time.' : 'Won’t fit in one go. I’ll stop you at a good place.';
+    var fits = mins <= BUDGET[D.budget].m ? 'Fits in your time.' : 'Won’t fit in one go. I’ll stop you at a good place.';
     return '<div class="times">' + times + '</div><p class="meta" style="margin-top:-6px">' + fits + '</p>';
+  }
+  /* Typing what you want to work on: if it sounds like something already Ready for you, offer that one */
+  function match(text) {
+    var words = text.toLowerCase().split(/\W+/).filter(function (w) { return w.length > 3; });
+    for (var i = 0; i < S.pool; i++) { var t = POOL[i].t.toLowerCase(); if (words.some(function (w) { return t.indexOf(w) >= 0; })) return i; }
+    return -1;
+  }
+  function short(t) { var w = t.split(' '); return w.length > 5 ? w.slice(0, 5).join(' ') + '…' : t; }
+  function typedRow(c) {
+    var m = S.typed ? match(S.typed) : -1;
+    return '<li class="typed' + (c === 'typed' ? ' on' : '') + '"><label class="sr" for="typed">Something else</label>' +
+      '<input type="text" id="typed" autocomplete="off" placeholder="Something else? Type what you want to work on" value="' + (S.typed || '').replace(/"/g, '&quot;') + '">' +
+      (m >= 0 && c === 'typed' ? '<p class="hint">That sounds like “' + POOL[m].t + '”, and it’s ready. <button class="linkbtn" data-choice="' + m + '">Use that</button></p>'
+        : c === 'typed' ? '<p class="hint">New. I’ll make it a task and pull in anything that goes with it.</p>' : '') + '</li>';
   }
   function startList(c, sug) {
     var deep = c !== 'triage' && c != null;
-    return '<div class="panel2 start"><h3>What do you want to work on?</h3><ul class="choose">' +
+    var label = c === 'triage' ? 'Start Triage' : c === 'typed' ? 'Start: ' + short(S.typed) : deep ? 'Start: ' + short(POOL[c].t) : 'Nothing to start';
+    return '<div class="panel2 start"><h3>Where do you want to start?</h3><ul class="choose">' +
       '<li class="grp">Keep things moving</li><li>' + triageRow(c, sug) + '</li>' +
-      (S.pool ? '<li class="grp">Do my work</li>' + taskRows(c, sug) : '') + '</ul>' +
-      (deep ? '<h3 class="q2">How long do you have?</h3>' + timeChips(c) : '') +
-      '<div class="startbtn"><button class="btn primary" data-act="go"' + (c == null ? ' disabled' : '') + '>' +
-        (c === 'triage' ? 'Start Triage' : deep ? 'Start: ' + POOL[c].t.split(' ').slice(0, 4).join(' ') + '…' : 'Nothing to start') + '</button></div></div>';
+      '<li class="grp">Do my work' + (S.pool ? ' · ' + QN() : '') + '</li>' + taskRows(c, sug) + typedRow(c) + '</ul>' +
+      (deep ? '<h3 class="q2">How long do you have?</h3>' + timeChips(c === 'typed' ? 30 : POOL[c].m) : '') +
+      '<div class="startbtn"><button class="btn primary" data-act="go"' + (c == null ? ' disabled' : '') + '>' + label + '</button></div></div>';
   }
   function startSides(c, sug) {
     var n = triageN(), task = typeof c === 'number' ? c : (typeof sug === 'number' ? sug : 0);
@@ -278,19 +303,27 @@
       (n ? '<ul class="triage-sum">' + titles.map(function (t) { return '<li>' + t + '</li>'; }).join('') + (n > 3 ? '<li class="meta">and ' + (n - 3) + ' more</li>' : '') + '</ul>' +
         '<button class="btn primary" style="width:100%;min-height:48px" data-act="gotriage">Start Triage</button>' : '') + '</section>';
     var right = '<section class="side' + (typeof sug === 'number' ? ' rec' : '') + '">' + (typeof sug === 'number' ? '<span class="tag2">Fuzz suggests</span>' : '') +
-      '<h3>Do my work</h3><p class="meta">' + (S.pool ? 'You’ve got until 2pm.' : 'Nothing in Deep Work yet.') + '</p>' +
-      (S.pool ? '<div class="q">What do you want to work on?</div><ul class="choose">' + taskRows(task, sug) + '</ul>' +
-        '<div class="q">How long do you have?</div>' + timeChips(task) +
+      '<h3>Do my work</h3><p class="meta">' + (S.pool ? 'You’ve got until 2pm.' : 'Nothing is ' + QN() + ' yet.') + '</p>' +
+      (S.pool ? '<div class="q">' + QN() + '</div><ul class="choose">' + taskRows(task, sug) + '</ul>' +
+        '<div class="q">How long do you have?</div>' + timeChips(POOL[task].m) +
         '<button class="btn primary" style="width:100%;min-height:48px" data-act="godeep" data-task-start="' + task + '">Start</button>' : '') + '</section>';
     return '<div class="sides">' + left + right + '</div>';
   }
   function now() {
     if (session() || D.phase === 'wrap') return deepwork();
+    var cal = S.from;
     if (S.nowPicked === 'triage') {
-      return '<div class="backline"><span>Keeping things moving</span><button class="linkbtn" data-go="now">Pick something else</button></div>' + triage();
+      return '<div class="backline"><span>' + (cal && cal.kind === 'triage' ? 'Triage time, until ' + cal.until + ' · from your calendar' : 'Keeping things moving') + '</span><button class="linkbtn" data-go="now">Pick something else</button></div>' + triage();
     }
     var g = suggestion(), sug = suggested(), c = chosen();
     var say = S.recap ? recapLine() + (D.came ? '<span class="sub">While you were in it: ' + D.came + ' new in Triage, nothing urgent.</span>' : '') + '<span class="sub">' + g.why + '</span>' : g.why;
+    /* arriving from a calendar invite: Fuzz knows what the time is for, and everything is already picked */
+    if (cal && cal.kind === 'work') {
+      say = c === 'typed' ? 'Your calendar has this time for “' + S.typed + '”, until ' + cal.until + '. It’s new, so I’ll set it up as you start.'
+        : typeof c === 'number' ? 'Your calendar has this time for “' + POOL[c].t + '”, until ' + cal.until + '. Everything’s ready.'
+        : 'This is your work time, until ' + cal.until + '. Where do you want to start?';
+      sug = typeof c === 'number' ? c : sug;
+    }
     return perch(say) + (S.startLayout === 'sides' ? startSides(c, sug) : startList(c, sug));
   }
   var BODIES = { triage: triage, deepwork: deepwork, lineup: lineup, artifacts: artifacts, library: library, now: now, file: file };
@@ -306,12 +339,21 @@
     C: ['Lineup and Artifacts merge into one Library.', 'Three tabs instead of four. Library has Tasks and Files inside.',
       ['The smallest change from today, and the easiest to learn', 'Artifacts already belongs to tasks, so one place for both is natural'],
       ['The modes still look like places, so the two-stance idea isn’t in the nav', 'Library risks becoming the junk drawer for every future page']],
-    D: ['One home. Now always asks “What do you want to work on?”', 'No mode toggle: Triage is one of the answers, beside the Deep Work tasks. Fuzz pre-picks one. While a session runs, Now is the session. Try both layouts with Start screen in the toolbar, and use “During a session” to try each way out.',
-      ['One list: Triage and the tasks as one choice, then how long, then Start', 'Two sides: Keep things moving and Do my work side by side, each with its own Start', 'Change what’s waiting and watch Fuzz’s pick move', 'In Triage, Now or “Pick something else” brings the start screen back', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card', 'Walked away: “Welcome back”, with the next step', 'After wrap-up, Now says what you did and suggests what’s next'],
-      ['One extra step every time you open it, unless Fuzz’s pick is trusted enough to skip it', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle', 'Is the wrap-up one screen too many when you’re rushing to a meeting?']]
+    D: ['One home. Now always asks “Where do you want to start?”', 'Triage is about getting things ready for you; what it readies waits in the work queue (try names with Queue name). The start screen lists Triage, what’s ready, and a box to type anything else. Deep Work is only the session now. Calendar invites link straight in (below).',
+      ['Type “pricing” in the box: Fuzz offers the ready task. Type something new: it becomes a task as you start', 'On a triage card, the queue button replaces “Deep Work”: get it ready, put it in the queue', 'Open the sample invites below: Triage opens straight away; a work block opens the start screen with the task and time set', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card'],
+      ['A calendar link lands one tap from Start, not already running. Should it start on its own?', 'A typed task has no prep, so the session starts colder than a ready one', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle']]
   };
+  /* Sample calendar invites, each carrying a deep link */
+  var INVITES = [
+    ['Triage', '1:00 – 1:30pm', '#/triage?until=13:30', 'Opens Triage straight away, with an end time.'],
+    ['Work time', '2:00 – 3:00pm', '#/work?until=15:00', 'Opens the start screen, set to the block. Nothing picked.'],
+    ['Review the pricing model', '2:00 – 2:45pm', '#/work/pricing?until=14:45', 'Opens the start screen with the task picked and the time set. One tap: Start.'],
+    ['Draft the launch email', '3:00 – 3:30pm', '#/work?what=Draft%20the%20launch%20email&until=15:30', 'Something typed when you booked it. It becomes a task when you start.']
+  ];
+  var LINKS = '<div class="flowmap"><h3>Deep links, for calendar invites</h3><p class="meta" style="margin:0 0 10px">When Fuzz books time for you, the invite carries a link. Opening it skips the choice. A link never ends a session that’s running.</p><div class="invites">' +
+    INVITES.map(function (v) { return '<div class="invite"><div class="inv-when">' + v[1] + '</div><b>' + v[0] + '</b><a href="' + v[2] + '">Open in Fuzz</a><code>fuzz.app/' + v[2] + '</code><small>' + v[3] + '</small></div>'; }).join('') + '</div></div>';
   var FLOW = '<div class="flowmap"><h3>Ways in and out of Deep Work</h3><ul>' +
-    '<li><b>In (D):</b> Now’s start screen. “Go deep on something” when Triage is clear and “Go deep on this” in Lineup open the same screen with that task already picked.</li>' +
+    '<li><b>In (D):</b> Now’s start screen: pick a ready task or type one. “Go deep on something” when Triage is clear and “Go deep on this” in Lineup open the same screen with that task already picked. So does a calendar link.</li>' +
     '<li><b>In (A, B, C):</b> the Deep Work page asks how long, shows Fuzz’s one pick with the rest a tap away, then Start or Not now.</li>' +
     '<li><b>Out, on purpose:</b> Stop for now · Finished the task (offers the next one if there’s time)</li>' +
     '<li><b>Out, by the clock:</b> Time’s up · Meeting in 5 (Fuzz stops you 5 min early)</li>' +
@@ -321,7 +363,7 @@
     var n = NOTES[S.opt];
     $('notes').innerHTML = '<div class="lede"><h3>' + S.opt + '. ' + n[0] + '</h3><p>' + n[1] + '</p></div>' +
       '<div><h3>Try</h3><ul>' + n[2].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' +
-      '<div><h3>Watch for</h3><ul>' + n[3].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' + FLOW;
+      '<div><h3>Watch for</h3><ul>' + n[3].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' + (S.opt === 'D' ? LINKS : '') + FLOW;
   }
 
   /* ---------- Render ---------- */
@@ -346,7 +388,7 @@
       /* in D, every way into Deep Work is the start screen with a task already picked */
       if (v === 'deepwork') { if (!session() && D.phase !== 'wrap') { D.phase = 'none'; S.choice = S.pool ? D.task : null; } S.view = 'now'; S.nowPicked = null; render(); return; }
       if (v === 'triage') { S.nowPicked = 'triage'; v = 'now'; }
-      else if (v === 'now') { S.nowPicked = null; S.choice = null; }
+      else if (v === 'now') { S.nowPicked = null; S.choice = null; S.from = null; BUDGET.cal = CAL0; D.budget = 'cal'; }
     } else {
       if (v === 'now') v = S.mode;
       if (v === 'deepwork' && D.phase === 'none') D.phase = 'setup';
@@ -413,6 +455,11 @@
       if (a === 'start') start();
       else if (a === 'go' || a === 'gotriage' || a === 'godeep') {
         var c = a === 'gotriage' ? 'triage' : a === 'godeep' ? +ds.taskStart : chosen();
+        if (c === 'typed') {
+          /* something new: Fuzz makes it a task as you start */
+          POOL[3] = { id: 'new', t: S.typed.trim(), m: 30, s: 'New, just now', step: ['Get set up: open what you need', 'Make a rough first pass', 'Decide the next step'], file: 'Notes.md' };
+          c = 3;
+        }
         if (c === 'triage') { S.nowPicked = 'triage'; S.recap = null; } else { D.task = c; start(); }
       }
       else if (a === 'notnow') { D.phase = 'none'; D.other = false; showHome(); }
@@ -443,11 +490,48 @@
   $('menubtnstyle').addEventListener('change', function () { S.menuBtn = this.value; S.menu = false; render(); });
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
   $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
+  $('qname').addEventListener('change', function () { $('poollbl').textContent = QN(); render(); });
+  /* typing keeps focus: re-render, then put the caret back */
+  document.addEventListener('input', function (e) {
+    if (e.target.id !== 'typed') return;
+    var pos = e.target.selectionStart;
+    S.typed = e.target.value; S.choice = S.typed.trim() ? 'typed' : null;
+    render();
+    var el = $('typed'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+  });
+
+  /* ---------- Deep links, for calendar invites ----------
+     #/triage?until=13:30                 straight into Triage, with an end time
+     #/work?until=15:00                   the start screen, work time, nothing picked
+     #/work/pricing?until=14:45           the start screen with that task picked and the time set: one tap, Start
+     #/work?what=Draft+the+launch+email   something typed when you booked it */
+  function fmtUntil(hm) { var p = hm.split(':'), h = +p[0], m = +(p[1] || 0), ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + (m ? ':' + ('0' + m).slice(-2) : '') + ap; }
+  function applyHash() {
+    var h = location.hash.replace(/^#\/?/, '');
+    if (!h) return;
+    var parts = h.split('?'), path = parts[0].split('/'), q = new URLSearchParams(parts[1] || '');
+    if (path[0] !== 'triage' && path[0] !== 'work') return;
+    history.replaceState(null, '', location.pathname + location.search);   /* so the same link works twice */
+    S.opt = 'D'; S.menu = false; S.recap = null; S.view = 'now';
+    if (session()) { render(); return; }   /* a link never ends a session that's running */
+    D.phase = 'none';
+    var until = q.get('until') || '14:00', p = until.split(':'), mins = Math.max(15, (+p[0]) * 60 + (+(p[1] || 0)) - (13 * 60 + 10));   /* the spike pretends it's 1:10pm */
+    S.from = { kind: path[0], until: fmtUntil(until) };
+    BUDGET.cal = { l: 'Until ' + fmtUntil(until), s: '~' + mins + ' min · your calendar block', m: mins }; D.budget = 'cal';
+    if (path[0] === 'triage') { S.nowPicked = 'triage'; render(); return; }
+    S.nowPicked = null;
+    var i = POOL.findIndex(function (x) { return x.id === path[1]; });
+    if (i >= 0 && i < S.pool) { S.choice = i; D.task = i; }
+    else if (q.get('what')) { S.typed = q.get('what'); S.choice = 'typed'; }
+    else S.choice = null;
+    render();
+  }
+  window.addEventListener('hashchange', applyHash);
 
   /* ---------- Theme ---------- */
   Themes.list.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; $('theme').appendChild(o); });
   $('mode').value = Themes.resolveMode ? Themes.resolveMode('auto') : 'light';
   function theme() { Themes.apply($('theme').value, $('mode').value, 'standard'); }
   $('theme').addEventListener('change', theme); $('mode').addEventListener('change', theme);
-  theme(); render();
+  theme(); render(); applyHash();
 })();
