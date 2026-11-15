@@ -271,9 +271,11 @@ def deep_work(core, task_id, card=None, left_off=None, log=None):
             return events.emit(core, "task.paused", task_id=t["id"], changes=ch,
                                log=("guidance", f"Done for now in Deep Work. Where you left off: {said}") if said
                                else ("status", "Done for now in Deep Work."))
+    # booked time you sat down to (a calendar link opens it on the Guide): the block is spent, so it isn't booked any more
+    sched = dict(schedule_anchor=None, schedule_fire_at=None, remove_tags=("booked",)) if t["state"] == "scheduled" else {}
     return _one(core, "human", "task.assigned", t, "deepwork",
                 log or ("status", "You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it."),
-                card=card, option="deep_work", data={"to": "deepwork"}, question=None)
+                card=card, option="deep_work", data={"to": "deepwork"}, question=None, **sched)
 
 
 def done(core, task_id, card=None, option="done"):

@@ -79,6 +79,17 @@ class Booking(CoreCase):
         self.report(FOCUS)
         self.assertFalse(tools.whoami(self.core, "executor")["calendar"]["read_now"])
 
+    # ---- sitting down to it from the hold's link (#/work/<id> on the Guide)
+    def test_starting_deep_work_on_booked_time_uses_up_the_block(self):
+        self.report(FOCUS)
+        tid = self.sized("Write the Q4 readout", 90)
+        self.assertEqual(self.book_first(tid)["state"], "scheduled")
+        tasks.deep_work(self.core, tid)
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["schedule_anchor"], t["schedule_fire_at"]), ("deepwork", None, None))
+        self.assertNotIn("booked", t.get("variant_tags") or [])
+        self.assertEqual(events.check_replay(self.core), [])
+
     # ---- the hold
     def test_booking_makes_a_hold_draft_through_the_sender(self):
         self.report(FOCUS)

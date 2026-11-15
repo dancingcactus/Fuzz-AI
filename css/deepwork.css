@@ -84,7 +84,7 @@
 .dw-tellrow .btn { min-height: 44px; }
 
 /* The session bar, in the header where Triage keeps its progress (js/app.js #dwprog) */
-.hprog.dwprog { max-width: 480px; }
+.hprog.dwprog { max-width: 480px; overflow: hidden; }   /* in a tight header it gives way, clipped, rather than run under the buttons */
 .dwbar { flex: 1; min-width: 60px; position: relative; height: 14px; border-radius: 4px; overflow: hidden; background: var(--chip); border: var(--bw2, 1px) solid color-mix(in srgb, var(--ink) 22%, transparent); box-sizing: border-box; }
 .dwbar i { position: absolute; top: 0; bottom: 0; }
 .dwbar i.w { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
@@ -93,7 +93,7 @@
 .dwbar i.b.past { background: color-mix(in srgb, var(--ok) 80%, var(--surface)); }
 .dwbar i.w + i.w:not(.past), .dwbar i.b { box-shadow: inset 1px 0 0 var(--surface); }
 .dwbar i.now { width: 2px; margin-left: -1px; background: var(--ink); }
-.dwprog-t { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dwprog-t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dw-breakdial .rim { fill: var(--field); stroke: color-mix(in srgb, var(--ink) 28%, transparent); stroke-width: 2; }
 .dw-breakdial .b { fill: color-mix(in srgb, var(--ok) 70%, var(--surface)); }
 @media (max-width: 760px) { .hprog.dwprog { max-width: none; } }

@@ -74,7 +74,7 @@ textarea { resize: vertical; }
   padding: 8px max(16px, env(safe-area-inset-left)); background: color-mix(in srgb, var(--bg) 90%, transparent);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: var(--bw) solid var(--line);
 }
-.appbar { display: grid; grid-template-columns: auto 1fr auto; }
+.appbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }   /* the middle (a progress bar) gives way first, never overlaps */
 .appbar-left { grid-column: 1; display: flex; align-items: center; gap: 16px; min-width: 0; }
 .appbar-right { grid-column: 3; position: relative; justify-self: end; display: flex; align-items: center; gap: 8px; }
 .undowrap { position: relative; }
@@ -98,6 +98,8 @@ textarea { resize: vertical; }
 .where:hover { background: var(--chip); }
 .where[aria-current="page"] { background: var(--chip); box-shadow: inset 0 0 0 1.5px var(--line); }
 .where[hidden] { display: none; }
+.wherenav .where { max-width: min(100%, 420px); }   /* a long task title is cut with "…", so the session bar and buttons keep their room */
+@media (min-width: 761px) and (max-width: 1100px) { .wherenav .where { max-width: min(100%, 260px); } }
 .where b { font-weight: 700; flex: none; }
 .where-s { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .where-s::before { content: "·"; margin-right: 8px; }

@@ -49,7 +49,11 @@
     navigate: function (hash) { location.hash = hash; },
     /* Leave Settings for whatever you were doing before it */
     leaveSettings: function () { App.navigate(backFrom && backFrom !== '#/settings' ? backFrom : '#/guide'); },
-    refresh: function () { if (currentName === 'triage' && TriageView) TriageView.refresh(); else if (current && ROUTES[currentName]) route(true); },
+    refresh: function () {
+      if (currentName === 'triage' && TriageView) TriageView.refresh();
+      else if (current && ROUTES[currentName] && ROUTES[currentName].place === 'guide' && current.refresh) current.refresh();   /* keeps the pick and a link's time */
+      else if (current && ROUTES[currentName]) route(true);
+    },
     /* Where you are: the route, its id (#/work/<id>) and its query (?until=13:30&what=…) */
     here: function () { return here; },
     paintLabel: function () { paintLabel(); },
@@ -176,6 +180,12 @@
     var ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12;
     return h + (mm ? ':' + ('0' + mm).slice(-2) : '') + ap;
   }
+  /* The same, only while it's still ahead today: a link opened after its block ended shows no end time */
+  function untilAhead(hhmm) {
+    var f = fmtUntil(hhmm); if (!f) return null;
+    var p = hhmm.split(':'), d = new Date(); d.setHours(+p[0], +p[1], 0, 0);
+    return d > Date.now() ? f : null;
+  }
   function triageHas() { return Store.get().queue.length > 0 || Onboard.hasQuestion(); }
   function urgentHas() { return Store.queue().some(function (it) { return !!it.dueAt; }); }
   /* Work you can't see from here. On the Guide the list shows it; in Triage you're clearing it. In a session only
@@ -195,7 +205,7 @@
     var k, sub = '', ring = null, cur = false;
     if (dw && (dw.session || dw.wrap)) { k = 'Deep Work'; sub = dw.sub; ring = dw.ring; cur = onGuide; }
     else if (onGuide) { k = 'Guide'; cur = true; }
-    else if (name === 'triage') { var u = fmtUntil(here.params.until); k = 'Triage'; sub = (u ? 'Until ' + u + ' · ' : '') + BACK; }
+    else if (name === 'triage') { var u = untilAhead(here.params.until); k = 'Triage'; sub = (u ? 'Until ' + u + ' · ' : '') + BACK; }
     else { k = PLACE[name] || ROUTES[name].title; sub = BACK; }
     var sig = waitingSignal(onGuide, dw);
     var html = (ring != null ? '<span class="where-ring" style="--p:' + ring + '" aria-hidden="true"></span>' : '') + '<b>' + esc(k) + '</b>' +

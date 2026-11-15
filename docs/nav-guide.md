@@ -63,7 +63,10 @@ Something else inline, How long, the named Start, ↑ ↓ / 1–9 / Enter), the 
 the task picked, the wrap-up (Back in my work / Hand the rest to Fuzz, "Save it and go" for a meeting) landing on the
 Guide with the recap, the deep links (`#/triage?until=`, `#/work?until=`, `#/work/<taskId>?until=`, `#/work?what=`,
 and old `#tasks/<id>` links opening the task on the Guide), and `booking.link()` writing `#/work/<id>?until=HH:MM`.
-Tests: `tests/ui/nav.test.mjs`.
+A link can start Deep Work on a task in My work, in Triage, or booked: the core now allows `scheduled → deepwork`, and
+`tasks.deep_work()` clears the block and the `booked` tag when you sit down to booked time. A link to a task Fuzz is
+working on (or one waiting on someone) says it isn't yours to start. Tests: `tests/ui/nav.test.mjs`, the calendar link
+against a real core in `tests/ui/live.test.mjs`, and `core/tests/test_booking.py`.
 
 **Not built, waiting on a ruling:** something urgent pausing the clock mid-session, walking away pausing it (and the
 "Deep Work · Paused" label that goes with them), and "Book time to finish" on the wrap-up (it needs Book time's slot

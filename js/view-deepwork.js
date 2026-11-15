@@ -1,5 +1,5 @@
 /* Deep Work: a mode for doing, separate from Triage (spikes/deep-work). Triage only decides; tasks that need
-   you and take real time go to the Deep Work pool (state deepwork), and you work through them here whenever
+   you and take real time go to the Deep Work pool (state deepwork), and you start a session from the Guide whenever
    you have time. Say how long and what for, then one task at a time until you stop. Breaks are planned in
    (25 on, 5 off, 15 after three), and every time interruption takes over the screen.
 
@@ -35,6 +35,9 @@
   function pool() { return Store.inState('deepwork'); }
   var CLOSED = ['done', 'dropped', 'letgo', 'resolved'];
   function isOpen(it) { return !!it && CLOSED.indexOf(it.state) < 0; }
+  /* What a link can start Deep Work on: already in My work, or one the core can move there (in Triage, or booked
+     and scheduled). One Fuzz is working on, or waiting on someone, isn't yours to start. */
+  var STARTABLE = ['deepwork', 'triage', 'scheduled'];
   /* How long it takes: the core's estimate; the demo's minutes; else about half an hour (a live task with no estimate) */
   function est(it) { return Math.max(5, it.effortMins || (it.coreId == null && it.mins) || 30); }
   function task() { return S && S.task ? Store.item(S.task.id) || S.task : null; }
@@ -94,7 +97,7 @@
     var c = pool().filter(function (it) { return !exclude || it.id !== exclude.id; });
     /* the one you came for (a calendar link, Go deep on this) goes first, whatever its open state: a booked task
        is scheduled, or back in Triage, when its block starts */
-    var w = E.want && Store.item(E.want), want = w && isOpen(w) && (!exclude || w.id !== exclude.id) ? [w] : [];
+    var w = E.want && Store.item(E.want), want = w && STARTABLE.indexOf(w.state) > -1 && (!exclude || w.id !== exclude.id) ? [w] : [];
     c = c.filter(function (it) { return want.indexOf(it) < 0; });
     var res = c.filter(function (it) { return it.leftOff; }), rest = c.filter(function (it) { return !it.leftOff; });
     var fit = rest.filter(function (it) { return est(it) <= left; }), big = rest.filter(function (it) { return est(it) > left; });
@@ -324,6 +327,9 @@
       if (it && L.task) return 'Your calendar has this time for “' + it.title + '”, until ' + fmt(E.until) + '. Everything’s ready.';
       return 'This is your work time, until ' + fmt(E.until) + '. Where do you want to start?';
     }
+    /* a link with no time: what it was for, in Fuzz's words */
+    if (L && L.task && pickedTask(p) && p === L.pick) return 'Here’s “' + pickedTask(p).title + '”. Everything’s ready when you are.';
+    if (L && L.what && p === 'typed') return 'Here’s what you wanted to work on. It’s new, so I’ll set it up as you start.';
     if (r) {
       var head = r.finished ? 'You finished “' + r.title + '”.' : 'Nice: ' + dur(Math.max(1, r.mins)) + ' on “' + r.title + '”. I saved where you left off.';
       var came = r.came ? ' While you were in it: ' + r.came + ' new in Triage, ' + (r.urgent ? 'and one has a time on it.' : 'nothing urgent.') : '';
@@ -434,7 +440,8 @@
     }
     if (L.task) {
       var it = Store.item('t' + L.task) || Store.item(L.task);
-      if (it && isOpen(it)) { E.want = it.id; E.pick = it.id; }
+      if (it && STARTABLE.indexOf(it.state) > -1) { E.want = it.id; E.pick = it.id; }
+      else if (it && isOpen(it)) E.gone = 'That one isn’t yours to start right now: ' + (it.now ? it.now.replace(/\.$/, '').replace(/^./, function (c) { return c.toLowerCase(); }) : 'it’s in Lineup') + '. Where do you want to start?';
       else E.gone = it ? (it.state === 'done' ? 'That one’s already done.' : 'That one’s been let go.') + ' Where do you want to start?' : 'I can’t find that task any more. Where do you want to start?';
     } else if (L.what) { E.typed = L.what; E.pick = 'typed'; }
     else if (L.until) E.pick = 'none';
@@ -743,7 +750,7 @@
   }
   function endSession() { clearInterval(timer); timer = 0; closeTake(); S = null; E.asked = false; }
   function toGuide() {
-    if (location.hash === '#/guide') { arrive({ name: 'guide', arg: null, params: {} }); setChoice(E.choice); render(); var h = $('#g-q'); if (h) h.focus({ preventScroll: true }); }
+    if (location.hash === '#/guide') V.arrive({ name: 'guide', arg: null, params: {} });   /* the same hash fires no hashchange */
     else App.navigate('#/guide');
   }
   /* What the header's label says while a session runs (js/app.js paintLabel): Deep Work · the task · the time */
@@ -942,6 +949,13 @@
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); render(); } });
   };
   V.label = label;
+  /* The core restarted (js/live.js): redraw with what's picked kept, never under the Something else field */
+  V.refresh = function () {
+    if (!root) return;
+    if (S) { if (S.view !== 'wrap' && !S.take) render(); return; }
+    if (document.activeElement && document.activeElement.id === 'g-typed') return;
+    lastSig = guideSig(); render();
+  };
   V.unmount = function () {
     if (keyFn) document.removeEventListener('keydown', keyFn, true); keyFn = null;
     if (unsub) unsub(); unsub = null;

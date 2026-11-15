@@ -249,16 +249,35 @@ test('the old #/deepwork opens the Guide with the top of My work picked', async 
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
 });
 
-test('Triage’s Go deep on something and Lineup’s Go deep on this open the Guide with a task picked', async () => {
+test('Lineup’s Go deep on this opens the Guide with that task picked', async () => {
   await open('#/tasks');
   const t = await page.evaluate(() => Store.inState('deepwork')[1]);
-  await page.evaluate((id) => DeepWork.start(id), t.id);
+  await page.getByText(t.title, { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Go deep on this' }).click();
   await page.locator('#g-q').waitFor();
   assert.equal(await checked(), t.id);
   assert.equal(await goText(), 'Start: ' + (t.title.split(' ').length > 5 ? t.title.split(' ').slice(0, 5).join(' ') + '…' : t.title));
 });
 
+test('an old calendar hold’s #tasks/<id> opens that task on the Guide', async () => {
+  await open('#/guide');
+  /* a live task's UI id is 't' + its core id; give a demo task one so the old link can find it */
+  const title = await page.evaluate(() => { const t = Store.inState('deepwork')[2]; t.id = 't42'; t.coreId = 42; return t.title; });
+  await page.evaluate(() => { location.hash = '#tasks/42'; });
+  await page.waitForFunction(() => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 't42'; });
+  assert.match(await page.textContent('.g-row[aria-checked="true"]'), new RegExp(title.slice(0, 12)));
+});
+
+test('a link to a task Fuzz is working on isn’t started from the Guide', async () => {
+  await open('#/guide');
+  const id = await page.evaluate(() => Store.inState('working', 'queued')[0].id);
+  await page.evaluate((id) => { location.hash = '#/work/' + id; }, id);
+  await page.waitForFunction(() => /isn’t yours to start right now/.test(document.getElementById('bubble').textContent));
+  assert.notEqual(await checked(), id);
+});
+
 test('#/triage?until= opens Triage straight away, with the end time on the label', async () => {
+  await morning();
   await open('#/triage?until=13:30');
   await page.locator('#focuscard').waitFor();
   assert.equal((await label()).text, 'Triage · Until 1:30pm · Back to the Guide');

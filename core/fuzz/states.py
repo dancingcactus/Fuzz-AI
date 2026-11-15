@@ -29,7 +29,8 @@ MOVES = {
     # review: a draft you put off comes back for your OK
     # waiting (from scheduled, parked, done, letgo): the thread hands the next move to someone else (the
     # extractor's waiting_on); from done or letgo only with a new ask that reopens it
-    "scheduled": {"triage", "review", "done", "letgo", "merged", "queued", "parked", "waiting"},
+    # deepwork (from scheduled): the calendar link to booked time (#/work/<id>) starts Deep Work on it from the Guide
+    "scheduled": {"triage", "review", "done", "letgo", "merged", "queued", "parked", "waiting", "deepwork"},
     "waiting": {"triage", "done", "letgo", "queued", "review", "parked", "merged"},
     "parked": {"triage", "done", "letgo", "queued", "merged", "waiting"},
     "done": {"triage", "waiting"},
