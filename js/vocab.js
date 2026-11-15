@@ -298,6 +298,7 @@ window.FuzzVocab = {
   "letgo",
   "session",
   "deep_work",
+  "book",
   "schedule",
   "back",
   "reopen",

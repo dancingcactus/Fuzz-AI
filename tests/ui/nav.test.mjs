@@ -261,7 +261,7 @@ test('every way out lands on one wrap-up, then the Guide with a recap', async ()
   await page.locator('#dw-save').waitFor();
   assert.equal((await label()).text, 'My work · Back to the Guide');
   assert.equal(await page.textContent('#dw-save'), 'Wrap upEnter');
-  assert.deepEqual(await page.$$eval('[data-after] b', els => els.map(e => e.textContent)), ['Back in my work', 'Hand the rest to Fuzz']);
+  assert.deepEqual(await page.$$eval('[data-after] b', els => els.map(e => e.textContent)), ['Back in my work', 'Hand the rest to Fuzz', 'Book time to finish']);
   await page.click('#dw-save');
   await page.locator('#g-q').waitFor();
   assert.equal(await page.evaluate(() => location.hash), '#/guide');
@@ -282,6 +282,44 @@ test('Hand the rest to Fuzz, from the wrap-up', async () => {
   await page.click('#dw-save');
   await page.locator('#g-q').waitFor();
   assert.equal(await page.evaluate((t) => Store.inState('deepwork').some(i => i.title === t), title), false);
+});
+
+test('Book time to finish, from the wrap-up: Book time’s slots open in place, what you typed stays, and it’s booked', async () => {
+  await open('#/deepwork');
+  await page.click('#dw-go');
+  await page.locator('#dw-step').waitFor();
+  const title = await page.textContent('.dw-taskline span');
+  await page.keyboard.press('Escape');
+  await page.fill('#dw-crumb', 'Outline done; numbers next');
+  await page.click('[data-after="book"]');
+  await page.locator('#dw-book [data-slot]').first().waitFor();
+  const slots = await page.$$eval('#dw-book [data-slot]', els => els.map(e => e.querySelector('b').textContent));
+  assert.ok(slots.length >= 1);
+  assert.equal(await page.inputValue('#dw-crumb'), 'Outline done; numbers next');   /* picking didn't redraw the wrap-up */
+  assert.equal(await page.getAttribute('#dw-book [data-slot="0"]', 'aria-checked'), 'true');   /* the best time is picked */
+  if (slots.length > 1) await page.click('#dw-book [data-slot="1"]');
+  const pick = slots[slots.length > 1 ? 1 : 0];
+  await page.click('#dw-save');
+  await page.locator('#g-q').waitFor();
+  const it = await page.evaluate((t) => Store.get().items.find(i => i.title === t), title);
+  assert.equal(it.state, 'scheduled');
+  assert.equal(it.booked, pick);
+  assert.match(await page.evaluate(() => document.getElementById('bubble').textContent), /booked to finish/);
+});
+
+test('switching back from Book time to finish closes the slots, and nothing is booked', async () => {
+  await open('#/deepwork');
+  await page.click('#dw-go');
+  await page.locator('#dw-step').waitFor();
+  const title = await page.textContent('.dw-taskline span');
+  await page.keyboard.press('Escape');
+  await page.click('[data-after="book"]');
+  await page.locator('#dw-book [data-slot]').first().waitFor();
+  await page.click('[data-after="keep"]');
+  assert.equal(await page.locator('#dw-book [data-slot]').count(), 0);
+  await page.click('#dw-save');
+  await page.locator('#g-q').waitFor();
+  assert.equal(await page.evaluate((t) => Store.get().items.find(i => i.title === t).state, title), 'deepwork');
 });
 
 test('the old #/deepwork opens the Guide with the top of My work picked', async () => {

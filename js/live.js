@@ -584,7 +584,7 @@
     wrap('joinReply', function (id) { var it = S.item(id); return it && decide(it, 'add_to_reply'); });
     /* Working sessions: Book time, Do it now, Pause, After the others, Just the first step, and two
        answers to "What's in the way?" (lay out the options; draft it for my OK) */
-    wrap('book', function (id, opt) { var it = S.item(id); return it && opt && decide(it, 'book', { anchor: opt.anchor }); });
+    wrap('book', function (id, opt) { var it = S.item(id); return it && opt && decide(it, 'book', { anchor: opt.anchor }, 'book', { anchor: opt.anchor }); });
     wrap('doNow', function (id) { var it = S.item(id); return it && decide(it, 'do_now'); });
     wrap('pause', function (id, note) { var it = S.item(id); return it && decide(it, 'pause', (note || '').trim() || undefined); });
     wrap('afterOthers', function (id) { var it = S.item(id); return it && decide(it, 'after_others'); });
@@ -805,6 +805,8 @@
         .then(function (r) { syncThenRefresh(); return r && r.collected; });
     },
     /* The open tasks one is most likely the same as, for "Same as…" in task detail: [{task_id, title, state, why}] */
+    /* The times Book time offers a task with no card (the wrap-up's Book time to finish); none on an older core */
+    bookOptions: function (coreId) { return api('GET', '/tasks/' + coreId + '/book_options').then(function (r) { return (r && r.options) || []; }, function () { return []; }); },
     sameAsChoices: function (coreId) { return api('GET', '/tasks/' + coreId + '/same_as').then(function (r) { return r.choices || []; }); },
     /* One of those, whole, so its dialog shows the log and sources */
     loadFinished: function (coreId) { return api('GET', '/tasks/' + coreId).then(function (t) { return Store.keepAside(toItem(t, null, null)); }); },

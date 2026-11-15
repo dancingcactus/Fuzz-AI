@@ -148,6 +148,7 @@ class App:
             ("GET", r"/deliverables/(\d+)", self.get_deliverable),
             ("POST", r"/deliverables/(\d+)/(tier|done|drop|rename)", self.deliverable_action),
             ("GET", r"/tasks/(\d+)/part_of", self.part_of_choices),
+            ("GET", r"/tasks/(\d+)/book_options", self.book_options),
             ("POST", r"/tasks/(\d+)/part_of", self.part_of),
             ("GET", r"/tasks/(\d+)/same_as", self.same_as_choices),
             ("POST", r"/tasks/(\d+)/same_as", self.same_as),
@@ -519,6 +520,11 @@ class App:
                 ch.deliverable(did, title=title, done_when=done_when, checked_by=body.get("checked_by") or d["checked_by"])
                 events.emit(core, "deliverable.renamed", changes=ch, data={"deliverable_id": did, "from": d["title"], "to": title})
         return deliverables.view(core, deliverables.get(core, did))
+
+    def book_options(self, core, m, body, q):
+        """The times Book time offers a task that has no card (the wrap-up's "Book time to finish")."""
+        from . import booking, tasks
+        return {"options": booking.options(core, tasks.require(core, int(m.group(1))))}
 
     def part_of_choices(self, core, m, body, q):
         from . import deliverables

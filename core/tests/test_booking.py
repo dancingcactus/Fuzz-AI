@@ -90,6 +90,22 @@ class Booking(CoreCase):
         self.assertNotIn("booked", t.get("variant_tags") or [])
         self.assertEqual(events.check_replay(self.core), [])
 
+    # ---- the wrap-up's "Book time to finish": a task in My work has no card, so the verb and the options route
+    def test_book_time_to_finish_from_my_work(self):
+        from fuzz import actions
+        self.report(FOCUS)
+        tid = self.sized("Write the Q4 readout", 90)
+        tasks.deep_work(self.core, tid)
+        self.assertEqual(self.task(tid)["state"], "deepwork")
+        self.assertFalse([c for c in cards.open_cards(self.core, tid) if c["kind"] == "task"])
+        opts = booking.options(self.core, self.task(tid))
+        out, follow = actions.task_action(self.core, tid, "book", {"anchor": opts[0]["anchor"]})
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["schedule_anchor"]["start"]), ("scheduled", "2026-10-21T10:00:00Z"))
+        self.assertIn("booked", t["variant_tags"])
+        self.assertEqual(follow, [])
+        self.assertEqual(events.check_replay(self.core), [])
+
     # ---- the hold
     def test_booking_makes_a_hold_draft_through_the_sender(self):
         self.report(FOCUS)

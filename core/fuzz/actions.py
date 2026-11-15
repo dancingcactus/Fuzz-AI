@@ -71,6 +71,8 @@ TASK_VERBS = {
     "letgo": (lambda core, tid, body: tasks.let_go(core, tid), ()),
     "session": (lambda core, tid, body: tasks.session(core, tid), ()),
     "deep_work": (lambda core, tid, body: tasks.deep_work(core, tid, left_off=body.get("left_off")), ()),
+    # Book time with no card: the wrap-up's "Book time to finish", from GET /tasks/{id}/book_options
+    "book": (lambda core, tid, body: tasks.book(core, tid, body.get("anchor")), ()),
     "schedule": (lambda core, tid, body: tasks.schedule(core, tid, body.get("anchor"),
                                                         instructions=body.get("instructions"),
                                                         gather=config.gathers(core.config)), ("gather",)),

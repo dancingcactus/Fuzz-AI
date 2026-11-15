@@ -229,7 +229,7 @@ def cmd_answer(a):
 
 
 # what --value means for each action, when it isn't a JSON object of the request body itself
-TASK_VALUE = {"assign": "instructions", "wait": "on", "theirs": "on", "schedule": "anchor",
+TASK_VALUE = {"assign": "instructions", "wait": "on", "theirs": "on", "schedule": "anchor", "book": "anchor",
               "reopen": "where", "deep_work": "left_off", "note": "text"}
 
 

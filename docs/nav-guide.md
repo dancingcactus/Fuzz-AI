@@ -70,8 +70,7 @@ working on (or one waiting on someone) says it isn't yours to start. Tests: `tes
 against a real core in `tests/ui/live.test.mjs`, and `core/tests/test_booking.py`.
 
 **Not built, waiting on a ruling:** something urgent pausing the clock mid-session, walking away pausing it (and the
-"Deep Work · Paused" label that goes with them), and "Book time to finish" on the wrap-up (it needs Book time's slot
-picker, so it isn't one step), and question 1's short "while you were away" in the Guide's line. Triage's arrival
+"Paused" label that goes with them), and question 1's short "while you were away" in the Guide's line. Triage's arrival
 screen still shows on `#/triage` links, but Start Triage from the Guide skips it and the focus question and goes
 straight to the first card, because the Guide already asked where to start (F still sets a focus; user ruling,
 2026-11-15). The other open questions are at their defaults: no single-key shortcuts for the menu places,
@@ -84,6 +83,11 @@ clock stays in the header bar), and clicking it or the logo is a way out, throug
 pages mid-session the label is the page's own, and its way back is the session. The small "Deep Work" title above Fuzz
 is gone (screen readers still get "My work"). "Go deep on this / on something" are **Work on this / Work on something**.
 Where this section and the spec below differ, this wins.
+
+**Book time to finish (built 2026-11-15, user's ask):** the wrap-up's third choice. Picking it opens Book time's slots
+right under it (the best one picked; the core's `GET /tasks/{id}/book_options` for a task in My work, which has no card);
+Wrap up books it with the `book` task verb (`POST /tasks/{id}/book`), with Undo, and the Guide's recap says when.
+No free time before it's due says so, and Back in my work keeps it ready.
 
 The sections below are the spec as decided.
 

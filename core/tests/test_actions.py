@@ -199,6 +199,17 @@ class HttpFollowups(Server):
             self.assertEqual(self.req("POST", f"/tasks/{tid}/back")[0], 200)
             self.assertEqual(self.req("POST", f"/tasks/{tid}/explode")[0], 404)
 
+    def test_book_time_to_finish_over_http(self):
+        tid = tasks.capture(self.core, "Write the Q4 readout")
+        tasks.deep_work(self.core, tid)
+        status, out = self.req("GET", f"/tasks/{tid}/book_options")
+        self.assertEqual(status, 200)
+        self.assertTrue(out["options"] and out["options"][0]["label"])
+        with mock.patch("fuzz.engine.run_now"):
+            status, _ = self.req("POST", f"/tasks/{tid}/book", {"anchor": out["options"][0]["anchor"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(tasks.get(self.core, tid)["state"], "scheduled")
+
 
 class SessionHandoff(Base):
     def test_end_session_handing_it_to_fuzz_starts_the_executor(self):

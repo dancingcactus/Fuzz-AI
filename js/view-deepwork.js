@@ -333,7 +333,7 @@
     if (L && L.task && pickedTask(p) && p === L.pick) return 'Here’s “' + pickedTask(p).title + '”. Everything’s ready when you are.';
     if (L && L.what && p === 'typed') return 'Here’s what you wanted to work on. It’s new, so I’ll set it up as you start.';
     if (r) {
-      var head = r.finished ? 'You finished “' + r.title + '”.' : 'Nice: ' + dur(Math.max(1, r.mins)) + ' on “' + r.title + '”. I saved where you left off.';
+      var head = r.finished ? 'You finished “' + r.title + '”.' : 'Nice: ' + dur(Math.max(1, r.mins)) + ' on “' + r.title + '”. ' + (r.booked ? 'It’s booked to finish ' + r.booked + '.' : 'I saved where you left off.');
       var came = r.came ? ' While you were in it: ' + r.came + ' new in Triage, ' + (r.urgent ? 'and one has a time on it.' : 'nothing urgent.') : '';
       return head + came + ' ' + sug.why;
     }
@@ -731,9 +731,11 @@
     say(fin.length ? 'Good session. I’ll keep your place warm.' : 'That’s okay. Opening it counts. I kept your place.', 'proud');
     var seen = [], rows = S.log.filter(function (e) { if (seen.indexOf(e.task.id) > -1) return false; seen.push(e.task.id); return true; });
     var head = { meeting: 'Your ' + (E.until ? fmt(E.until) : 'meeting') + ' is in 5 minutes', time: 'That’s your time', stop: 'Stopping here' }[S.wrapWhy] || 'Done for now';
-    /* What happens to the task you were on: back in My work (with your place kept), or the rest to Fuzz */
+    /* What happens to the task you were on: back in My work (with your place kept), the rest to Fuzz, or booked
+       time to finish it (Book time's slots, opened right here) */
     var then = open ? '<h2 class="dw-q" id="dw-then-h">Then what?</h2><div class="dw-then" role="radiogroup" aria-labelledby="dw-then-h">' +
-      [['keep', 'Back in my work'], ['fuzz', 'Hand the rest to Fuzz']].map(function (c) { return '<button type="button" role="radio" class="dw-time" data-after="' + c[0] + '" aria-checked="' + (S.after === c[0]) + '"><b>' + c[1] + '</b></button>'; }).join('') + '</div>' : '';
+      [['keep', 'Back in my work'], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button type="button" role="radio" class="dw-time" data-after="' + c[0] + '" aria-checked="' + (S.after === c[0]) + '"><b>' + c[1] + '</b></button>'; }).join('') + '</div>' +
+      '<div id="dw-book"></div>' : '';
     view.innerHTML = '<div class="dw-panel"><h1 class="dw-title" id="dw-wrap-h" tabindex="-1">' + esc(head) + '</h1>' +
       '<p class="dw-lead">' + sessionLine() + '</p>' +
       (rows.length ? '<h2 class="dw-q">This session</h2><ul class="dw-log">' + rows.map(function (e) {
@@ -745,19 +747,32 @@
       then +
       '<div class="dw-row"><button type="button" class="btn primary" id="dw-save">' + (S.wrapWhy === 'meeting' ? 'Save it and go' : 'Wrap up') + '<kbd aria-hidden="true">Enter</kbd></button>' +
       '<button type="button" class="btn" id="dw-backwork">Actually, keep going<kbd aria-hidden="true">Esc</kbd></button></div></div>';
-    view.querySelectorAll('[data-after]').forEach(function (b) { b.onclick = function () { S.after = b.dataset.after; view.querySelectorAll('[data-after]').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); }); }; });
+    view.querySelectorAll('[data-after]').forEach(function (b) { b.onclick = function () {
+      S.after = b.dataset.after; view.querySelectorAll('[data-after]').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); });
+      paintBook(it);
+    }; });
+    paintBook(it);
     $('#dw-save').onclick = function () {
+      var slot = S.after === 'book' && S.bookOpts ? S.bookOpts[S.bookPick] : null;
+      if (open && S.after === 'book' && !slot) {   /* Book time to finish needs a time first */
+        var first = view.querySelector('#dw-book [data-slot]'); if (first) first.focus();
+        say(S.bookOpts && !S.bookOpts.length ? 'No free time before it’s due. Back in my work keeps it ready.' : 'Pick a time first.', 'idle'); return;
+      }
       if (open) {
         var note = $('#dw-crumb').value.trim(); if (note !== (it.leftOff || '')) Store.deepWorkLeftOff(it.id, note);
         if (S.after === 'fuzz') {
           var ch = Store.track([it.id], function () { Store.handToFuzz(it.id); });
           Say.offerUndo('Handed the rest of “' + it.title + '” to Fuzz.', function () { return ch.undo(); }, null, ch.blocked);
         }
+        if (slot) {
+          var cb = Store.track([it.id], function () { Store.book(it.id, slot); });
+          Say.offerUndo('Booked time to finish “' + it.title + '”: ' + slot.label + '.', function () { return cb.undo(); }, null, cb.blocked);
+        }
       }
       /* The Guide says how it went, once: the recap, and what came into Triage meanwhile */
       var main = (it || (rows[rows.length - 1] || {}).task), before = S.triageAt || [];
       var came = Store.queue().filter(function (q) { return before.indexOf(q.id) < 0; });
-      E.recap = main ? { title: main.title, mins: Math.round(S.clock / 60), finished: fin.length > 0 && !open, why: S.wrapWhy, at: E.until ? fmt(E.until) : null,
+      E.recap = main ? { title: main.title, mins: Math.round(S.clock / 60), finished: fin.length > 0 && !open, why: S.wrapWhy, at: E.until ? fmt(E.until) : null, booked: slot ? slot.label : null,
         came: came.length, urgent: came.some(function (q) { return !!q.dueAt; }) } : null;
       var recap = E.recap;
       endSession();
@@ -766,6 +781,29 @@
     };
     $('#dw-backwork').onclick = function () { S.view = S.wrapFrom || 'focus'; render(); if (S.view === 'focus') { stepAnim(); settle(); } say('Back at it. Nothing was lost.', 'happy'); };
     var c = $('#dw-crumb'); if (c) { c.focus(); c.select(); } else { var h = $('#dw-wrap-h'); if (h) h.focus(); }
+  }
+  /* Book time to finish: Book time's slots under the choice, loaded once (the core's for a task with no card, or the
+     demo's). Painted on its own, so what you typed in Where you left off stays. */
+  function paintBook(it) {
+    var el = $('#dw-book'); if (!el) return;
+    if (S.after !== 'book' || !it) { el.innerHTML = ''; return; }
+    if (!S.bookOpts) {
+      el.innerHTML = '<p class="meta">Finding a time…</p>';
+      if (!S.bookLoading) {
+        S.bookLoading = true;
+        var load = window.Live && Live.on() && it.coreId != null ? Live.bookOptions(it.coreId) : Promise.resolve(Store.bookOptions(it));
+        load.then(function (opts) { if (!S) return; S.bookOpts = opts || []; S.bookPick = S.bookOpts.length ? 0 : -1; paintBook(it); });
+      }
+      return;
+    }
+    if (!S.bookOpts.length) { el.innerHTML = '<p class="meta">No free time before it’s due. Back in my work keeps it ready for your next session.</p>'; return; }
+    el.innerHTML = '<h2 class="dw-q" id="dw-book-h">When will you finish it?</h2><div class="dw-then" role="radiogroup" aria-labelledby="dw-book-h">' +
+      S.bookOpts.map(function (o, n) {
+        return '<button type="button" role="radio" class="dw-time" data-slot="' + n + '" aria-checked="' + (n === S.bookPick) + '"><b>' + esc(o.label) + '</b><span>' + esc(o.focus ? 'In a Focus time slot' : o.note || 'Not a focus slot') + '</span></button>';
+      }).join('') + '</div><p class="meta">Fuzz holds the time, and it opens first in Triage when it starts.</p>';
+    el.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () {
+      S.bookPick = +b.dataset.slot; el.querySelectorAll('[data-slot]').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); });
+    }; });
   }
   function endSession() { clearInterval(timer); timer = 0; closeTake(); S = null; E.asked = false; }
   function toGuide() {
