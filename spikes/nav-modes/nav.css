@@ -145,3 +145,35 @@ button.chip:hover { background: var(--chip); }
 }
 @media (max-width: 720px) { .notes { grid-template-columns: 1fr; } }
 html.calm .seg button { transition: none; }
+
+/* ---------- Round 2: the settings menu, D's session flow ---------- */
+.toolbar .for-ad, .toolbar .for-d, .toolbar .for-dw { display: none; }
+body[data-opt="A"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-d { display: inline-flex; }
+body .toolbar .for-dw { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; border-top: var(--bw) solid var(--line); }
+.events span { font-weight: 700; margin-right: 4px; }
+.events button { min-height: 34px; padding: 0 12px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--field); color: var(--ink); font-weight: 600; font-size: 13px; }
+.events button:disabled { opacity: .45; cursor: default; }
+.brand.asmenu { border: 0; background: transparent; padding: 0 10px 0 0; border-radius: 999px; cursor: pointer; }
+.brand.asmenu[aria-expanded="true"] { background: var(--chip); }
+.brand.asmenu .caret { font-size: 12px; color: var(--muted); }
+.navmenu.left { left: 0; right: auto; }
+.wrapmenu { position: relative; display: inline-flex; }
+.person { width: 26px; height: 26px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); display: grid; place-items: center; }
+.say .sub { display: block; color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+.pick { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--field); margin-bottom: 8px; }
+.pick .t { flex: 1; }
+.pick small { display: block; color: var(--muted); font-size: 12.5px; }
+.linkbtn { border: 0; background: none; color: var(--link); font-weight: 600; padding: 6px 0; min-height: 36px; cursor: pointer; }
+.rows li.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.rows li button.go { min-height: 34px; padding: 0 12px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--field); color: var(--ink); font-weight: 600; font-size: 13px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.choices button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--field); color: var(--ink); font-weight: 600; font-size: 14px; }
+.choices button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.did { list-style: none; padding: 0; margin: 4px 0 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; }
+.did li::before { content: "✓"; color: var(--ok); font-weight: 800; margin-right: 8px; }
+.lbl2 { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 6px 0; }
+.panel2 textarea { width: 100%; min-height: 64px; background: var(--field); border: var(--bw) solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; resize: vertical; }
+.breakp { text-align: center; padding: 28px 18px; }
+.breakp .big { margin: 0 auto 12px; }
+.flowmap { grid-column: 1 / -1; }
+.flowmap ol, .flowmap ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.55; }
