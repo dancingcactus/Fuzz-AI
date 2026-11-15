@@ -218,7 +218,7 @@ def sync(core, task_id, where="back"):
                           payload={"at_end": True} if "after_others" in tags else None, where=where)
         return create(core, "task", task_id, reason=t.get("reason"),
                       prompt=PUT_OFF_PROMPT if "put_off" in tags else None,
-                      suggested="book" if booking.is_big(core, t) and not t.get("gaps") and not (
+                      suggested="book" if booking.is_big(core, t) and not (
                           {"review", "check_back", "put_off", "stale", "result", "handed_back"} & set(tags))
                       else review_suggests(core, t) if "review" in tags else "nudge" if "check_back" in tags
                       else "unclear" if "put_off" in tags else "keep" if "stale" in tags else "done" if "result" in tags

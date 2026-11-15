@@ -78,6 +78,23 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
   await page.locator('#way-h').waitFor({ timeout: 20000 });
 });
 
+test('no Find out: a task card has Done, Q does nothing, and What’s in the way? has four choices; 2 lays out the options', async () => {
+  const t = await page.evaluate(() => Store.get().queue.find(id => { const i = Store.item(id); return i && i.kind === 'task' && i.state === 'triage' && !i.doing && !i.result && !Store.isBig(i); }));
+  await show(t);
+  assert.equal(await page.locator('#card [data-act="findout"]').count(), 0);
+  assert.equal((await page.locator('#card [data-act="done"]').textContent()).replace(/D$/, ''), 'Done');
+  assert.doesNotMatch(await page.locator('#card').textContent(), /Find out|I did it/);
+  await page.keyboard.press('q');
+  assert.equal(await page.evaluate(() => Store.shown()), t);
+  await page.evaluate((id) => { Store.item(id).inTheWay = true; App.refresh(); }, t);
+  await page.locator('#way-h').waitFor();
+  const choices = await page.$$eval('.way .when', els => els.map(e => [e.dataset.act, e.getAttribute('aria-keyshortcuts')]));
+  assert.deepEqual(choices, [['way-big', '1'], ['way-decide', '2'], ['way-draft', '3'], ['way-notnow', '4']]);
+  await page.keyboard.press('2');
+  await page.waitForFunction((id) => !Store.inQueue(id), t);
+  assert.equal(await page.evaluate((id) => Store.item(id).now, t), 'Laying out the options');
+});
+
 test('E edits the plan; Esc keeps the change in the plan text', async () => {
   await page.keyboard.press('e');
   assert.equal(await page.locator('#instr').isVisible(), true);

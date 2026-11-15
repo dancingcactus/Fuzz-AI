@@ -39,8 +39,8 @@ are built):
   off by Fuzz against their done-when. See [Deliverables](#deliverables).
 - **Focus**, said per session, with the queue reordered straight away and refined by a quick AI pass.
   See [Focus](#focus).
-- **Working sessions**: Triage as sorting first, then working on purpose; **Find out…** for missing
-  information; a size on every card and four choices for big tasks; **Later** and **Book time** as
+- **Working sessions**: Triage as sorting first, then working on purpose; gaps in a brief shown on the
+  card; a size on every card and four choices for big tasks; **Later** and **Book time** as
   two actions, with booked blocks in your Focus time slots. See [Working sessions](#working-sessions).
 
 ## Summary
@@ -995,7 +995,7 @@ rule for both: decide quickly on the card, never grind on it.
 ### Two phases
 
 1. **Sort.** Quick decisions on new cards. A big task shows its size and gets booked or pushed;
-   missing information becomes a Find out… without stopping you.
+   missing information shows on the card, and you say where to look when you hand it over.
 2. **Work.** The tasks you kept for yourself, then the ones you pushed to the end, each opened on
    purpose with **Do it now**.
 
@@ -1568,7 +1568,7 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
 - **Focus ordering**: time-sensitive stays first, the card in front never changes, a refined result
   with an unknown id is refused, and a slow or failed AI pass leaves the instant order.
 - **Deliverables**: `report_deliverable_done` closes and undoes; it's refused for `checked_by = you`.
-- **Working sessions**: a Find out… answer brings the card back next without changing the card in
+- **Working sessions**: I can't decide's options bring the card back next without changing the card in
   front, and never retitles or finishes the task; a big task leads with the four choices; Later
   counts toward "keeps coming back" and Book time doesn't; during a block its task is first and a
   time-sensitive card second.
@@ -1602,8 +1602,8 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
     a step (no retitling or finishing on a piece); the same-run duplicate check on the rule-made `new`
     path too, not only after the judge; and step 11's leftovers (offer a late ask to a group draft
     still waiting for your OK; covered tasks follow their draft when it's put off).
-13. **Find out…**: the answer, `finding_out` and the gathering run started at once, the card back next
-    when the answer lands, and gaps shown on the card.
+13. **Find out…** (removed 2026-11-15; its mechanism runs I can't decide): the answer, `finding_out` and the
+    gathering run started at once, the card back next when the answer lands, and gaps shown on the card.
 14. **Working sessions**: the size on cards and the four choices for big tasks; Later and Book time as
     two actions (Book time picks a time in Fuzz until step 15); Do it now and the working card; After
     the others; What's in the way?; the check-in on time; recording time on screen.
@@ -1654,7 +1654,7 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
     would let you ask for separate replies before any work is done.
 13. **Tasks that keep cycling.** In use, most handbacks were "Here's what you asked for. Done?"
     answered with a follow-up, so iterative work goes round the queue one turn at a time. Decided:
-    a piece of a task is a step, and Find out… runs at once (see [Working sessions](#working-sessions)).
+    a piece of a task is a step, and I can't decide runs at once (see [Working sessions](#working-sessions)).
     Still open: run every follow-up straight away, offer Work in Claude after two rounds, stop asking
     for a file after one failed read, and offer "Done, and start a new task" when a follow-up changes
     the done-when.

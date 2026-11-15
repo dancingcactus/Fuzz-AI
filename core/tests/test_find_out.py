@@ -64,14 +64,15 @@ class FindOut(CoreCase):
             answers.answer(self.core, c["id"], "find_out", "Which budget?")
         self.assertEqual(self.task(marcus)["state"], "triage")
 
-    def test_gaps_in_the_brief_show_on_the_card_and_assign_leads(self):
-        tid = tasks.capture(self.core, "Test the plugin", gather=True)
-        tools.claim_next_task(self.core)
-        tools.update_brief(self.core, tid, context_md="## Setup", effort_mins=60, steps=4, gaps=["the test accounts"])
-        tools.finish_gathering(self.core, tid)
-        c = self.card_for(tid, "task")
-        self.assertNotEqual(c["suggested"], "find_out")
-        self.assertEqual(cards.view(self.core, c)["task"]["gaps"], ["the test accounts"])
+    def test_gaps_in_the_brief_show_on_the_card_and_change_no_suggestion(self):
+        for title, mins, steps, want in (("Test the plugin", 60, 4, "book"), ("Check the test plan", 15, 2, "assign")):
+            tid = tasks.capture(self.core, title, gather=True)
+            tools.claim_next_task(self.core, tid)
+            tools.update_brief(self.core, tid, context_md="## Setup", effort_mins=mins, steps=steps, gaps=["the test accounts"])
+            tools.finish_gathering(self.core, tid)
+            c = self.card_for(tid, "task")
+            self.assertEqual(c["suggested"], want, title)   # big: Book time leads; small: Hand it to Fuzz
+            self.assertEqual(cards.view(self.core, c)["task"]["gaps"], ["the test accounts"])
 
     def test_if_fuzz_doesnt_get_to_it_the_card_still_comes_back_next(self):
         plan, marcus, _ = self.setup_queue()
