@@ -299,7 +299,7 @@
       '<small class="hint">' + hint + '</small></span></div></li>';
   }
   function startList(c, sug) {
-    var typed = c === 'typed', txt = (S.typed || '').trim(), deep = c != null && c !== 'triage' && (!typed || txt);
+    var typed = c === 'typed', txt = (S.typed || '').trim(), deep = c != null && c !== 'triage';   /* "Something else" asks how long as soon as it's picked, like the others */
     var label = c === 'triage' ? 'Start Triage' : typed ? (txt ? 'Start: ' + short(txt) : 'Tell me what first') : c != null ? 'Start: ' + short(POOL[c].t) : 'Nothing to start';
     return '<div class="panel2 start"><h3>Where do you want to start?</h3><ul class="choose">' +
       '<li class="grp">Keep things moving</li><li>' + triageRow(c, sug) + '</li>' +
