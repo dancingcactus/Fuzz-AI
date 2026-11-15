@@ -29,7 +29,7 @@ before(async () => {
   browser = await chromium.launch();
   page = await browser.newPage();
   page.errors = []; page.on('pageerror', e => page.errors.push(e.message));
-  await page.goto(`${base}/?token=${tok}`);
+  await page.goto(`${base}/?token=${tok}#/triage`);
   await page.waitForFunction(() => window.Live && Live.on() && Store.queue().length >= 4, null, { timeout: 60000 });
 });
 after(async () => { await browser?.close(); core?.kill(); if (home) rmSync(home, { recursive: true, force: true }); });

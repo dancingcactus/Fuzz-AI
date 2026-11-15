@@ -76,7 +76,6 @@ textarea { resize: vertical; }
 }
 .appbar { display: grid; grid-template-columns: auto 1fr auto; }
 .appbar-left { grid-column: 1; display: flex; align-items: center; gap: 16px; min-width: 0; }
-.appbar-left .mainnav { margin-right: 0; }
 .appbar-right { grid-column: 3; position: relative; justify-self: end; display: flex; align-items: center; gap: 8px; }
 .undowrap { position: relative; }
 .undobtn:disabled { opacity: .5; cursor: default; }
@@ -90,13 +89,41 @@ textarea { resize: vertical; }
 .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); min-height: 44px; }
 .brand-av { width: 40px; }
 .brand-name { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -.01em; }
-.mainnav { display: flex; align-items: center; gap: 4px; margin-right: auto; }
-.mainnav a {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--ink);
-  font-weight: 600; font-size: 14.5px; text-decoration: none;
+/* The label next to the wordmark: where you are, and the way back (docs/nav-guide.md). One line, always. */
+.wherenav { display: flex; align-items: center; min-width: 0; }
+.where {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; max-width: 100%; min-width: 0; padding: 0 14px; border-radius: 999px;
+  color: var(--ink); font-size: 14.5px; text-decoration: none; white-space: nowrap; border: var(--bw) solid transparent;
 }
-.mainnav a:hover { background: var(--chip); }
-.mainnav a[aria-current="page"] { background: var(--chip); box-shadow: inset 0 0 0 1.5px var(--line); }
+.where:hover { background: var(--chip); }
+.where[aria-current="page"] { background: var(--chip); box-shadow: inset 0 0 0 1.5px var(--line); }
+.where[hidden] { display: none; }
+.where b { font-weight: 700; flex: none; }
+.where-s { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.where-s::before { content: "·"; margin-right: 8px; }
+/* Something's waiting that you can't see from here: a plain dot, steady, no number. Can't-wait is a bigger one. */
+.where-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.where-dot.urgent { width: 12px; height: 12px; }
+/* A Deep Work session's clock, as a ring */
+.where-ring { flex: none; width: 14px; height: 14px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0); }
+/* The menu with Fuzz's head: Lineup, Artifacts, Settings, Keys and help */
+.menuwrap { position: relative; }
+#menubtn[aria-expanded="true"] { background: var(--chip); }
+.navmenu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 50; width: 300px; max-width: calc(100vw - 24px); padding: 8px;
+  background: var(--surface); border: var(--bw) solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.navmenu[hidden] { display: none; }
+.navmenu [role="menuitem"] {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 52px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--ink); text-align: left; text-decoration: none; font: inherit; cursor: pointer;
+}
+.navmenu [role="menuitem"]:hover, .navmenu [role="menuitem"]:focus-visible { background: var(--chip); }
+.navmenu [role="menuitem"] svg { flex: none; color: var(--muted); }
+.navmenu b { display: block; font-size: 14.5px; font-weight: 700; }
+.navmenu small { display: block; color: var(--muted); font-size: 12.5px; }
+.navmenu kbd { margin-left: auto; }
+.navmenu hr { border: 0; border-top: var(--bw) solid var(--line); margin: 6px 4px; }
 .navcount { min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; text-align: center; line-height: 22px; }
 .navcount:empty:not(.has) { display: none; }
 .navcount.has { min-width: 0; width: 10px; height: 10px; padding: 0; line-height: 0; }
@@ -812,15 +839,15 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 
 /* ---------- Small screens ---------- */
 @media (max-width: 760px) {
-  /* Fuzz and the icon buttons on top, the four tabs on a row of their own, and on Triage or Deep Work the progress bar in a slim row under that */
-  .appbar { padding-top: 6px; padding-bottom: 6px; grid-template-columns: auto auto; justify-content: space-between; gap: 4px 8px; }
+  /* Fuzz and the icon buttons on top, the label on a row of its own, and on Triage or Deep Work the progress bar in a slim row under that */
+  .appbar { padding-top: 6px; padding-bottom: 6px; grid-template-columns: minmax(0, 1fr) auto; justify-content: space-between; gap: 4px 8px; }
   .appbar-left { display: contents; }
   .brand { grid-column: 1; grid-row: 1; }
-  .appbar-left .mainnav { grid-column: 1 / -1; grid-row: 2; margin: 0 -8px; }
-  .mainnav a { white-space: nowrap; }
+  .appbar-left .wherenav { grid-column: 1 / -1; grid-row: 2; margin: 0 -8px; }
+  .wherenav:has(.where[hidden]) { display: none; }
   .brand-name { display: none; }
   .brand-av { width: 34px; }
-  .mainnav a { padding: 0 11px; }
+  .where { padding: 0 11px; min-height: 36px; }
   .appbar-right { grid-column: 2; grid-row: 1; gap: 6px; }
   .hprog { grid-column: 1 / -1; grid-row: 3; max-width: none; }
   .hprog { --pg-segmax: 9999; }
@@ -879,12 +906,8 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .droptxt small { display: none; } /* the drop zone sits above the field: keep it to one short row */
 }
 @media (max-width: 360px) {
-  .mainnav a { padding: 0 9px; }
+  .where { padding: 0 9px; font-size: 13.5px; }
   .appbar-right { gap: 4px; }
-}
-@media (max-width: 340px) {
-  .mainnav { gap: 0; }
-  .mainnav a { padding: 0 6px; gap: 5px; font-size: 13.5px; }
 }
 @media (prefers-reduced-motion: reduce) {
   body, .pg-seg { transition: none; }

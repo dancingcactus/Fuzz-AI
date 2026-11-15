@@ -151,7 +151,7 @@
     var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
     var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Ready', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
     var head = '<div class="deep-head"><p class="meta">Yours to do, and each takes real time. Fuzz gets each one ready.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
-      '<a class="btn primary deep-go" href="#/deepwork">Start Deep Work</a></div>';
+      '<a class="btn primary deep-go" href="#/deepwork">Pick one in the Guide</a></div>';   /* the Guide, with the top of My work picked */
     return sectionHTML('deep', 'My work', rows, '', head);
   }
 
@@ -265,7 +265,7 @@
       if (Live.on()) act('Open in ' + Store.workIn + ' again', 'secondary', function () { Live.openSession(id); }, 'Opening it in ' + Store.workIn + '.');
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'deepwork') {
-      A.push({ label: 'Work on it now', kind: 'primary', nav: true, fn: function () { DeepWork.start(id); } });   /* opens the mode; nothing to undo */
+      if (!DeepWork.active()) A.push({ label: 'Go deep on this', kind: 'primary', nav: true, fn: function () { DeepWork.start(id); } });   /* the Guide with it picked; nothing to undo. Not mid-session: a session isn't changed from here */
       act('Mark done', 'secondary', function () { Store.markDone(id); }, 'Marked done.');
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'scheduled') {

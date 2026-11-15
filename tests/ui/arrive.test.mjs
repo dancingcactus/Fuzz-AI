@@ -24,7 +24,7 @@ beforeEach(async () => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.errors = errors;
-  await page.goto(`http://127.0.0.1:${PORT}/`);
+  await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   await page.locator('#focuscard').waitFor();
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });

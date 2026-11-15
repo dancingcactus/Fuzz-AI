@@ -57,7 +57,22 @@ Commit `21df88e` (on branch `worktree-nav-spike`) already did the wording for th
   data, and in the core's log lines (`core/fuzz/tasks.py`, `core/fuzz/checkins.py`).
 - "Deep Work" stays wherever it means the session ("Done for now in Deep Work", "You started this in Deep Work").
 
-Everything below is still to do.
+**Built since (same branch):** the header (no tabs; the logo opens the Guide; the label with its dot; the menu with
+Fuzz's head and Keys and help), the Guide at `#/guide` and the empty hash (Fuzz's suggestion rules, the one list,
+Something else inline, How long, the named Start, ↑ ↓ / 1–9 / Enter), the ways into Deep Work landing on the Guide with
+the task picked, the wrap-up (Back in my work / Hand the rest to Fuzz, "Save it and go" for a meeting) landing on the
+Guide with the recap, the deep links (`#/triage?until=`, `#/work?until=`, `#/work/<taskId>?until=`, `#/work?what=`,
+and old `#tasks/<id>` links opening the task on the Guide), and `booking.link()` writing `#/work/<id>?until=HH:MM`.
+Tests: `tests/ui/nav.test.mjs`.
+
+**Not built, waiting on a ruling:** something urgent pausing the clock mid-session, walking away pausing it (and the
+"Deep Work · Paused" label that goes with them), and "Book time to finish" on the wrap-up (it needs Book time's slot
+picker, so it isn't one step), and question 1's short "while you were away" in the Guide's line (Triage's arrival
+screen is unchanged). The other open questions are at their defaults: no single-key shortcuts for the menu places,
+links don't start a session by themselves, a typed task starts at once while Fuzz gathers, the core's `mine` and
+`deepwork` states stay separate, and Do it now and booked tasks still work in Triage.
+
+The sections below are the spec as decided.
 
 ## The header
 
