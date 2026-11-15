@@ -147,8 +147,17 @@ button.chip:hover { background: var(--chip); }
 html.calm .seg button { transition: none; }
 
 /* ---------- Round 2: the settings menu, D's session flow ---------- */
-.toolbar .for-ad, .toolbar .for-d, .toolbar .for-dw { display: none; }
-body[data-opt="A"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-d, body[data-opt="E"] .toolbar .for-ad, body[data-opt="E"] .toolbar .for-d { display: inline-flex; }
+.toolbar .for-ad, .toolbar .for-d, .toolbar .for-dw, .toolbar .for-e { display: none; }
+body[data-opt="A"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-ad, body[data-opt="D"] .toolbar .for-d, body[data-opt="E"] .toolbar .for-ad, body[data-opt="E"] .toolbar .for-d, body[data-opt="E"] .toolbar .for-e { display: inline-flex; }
+/* E's "something waiting" light: Fuzz's antenna tip glows (the ball sits at 16.5, 3.2 of the mark's 64 × 56) */
+.brand .mark { position: relative; display: inline-block; width: 36px; height: 36px; flex: none; }
+.brand .mark img { width: 36px; height: 36px; display: block; }
+.brand .antenna { position: absolute; left: 4.5px; top: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 10px 2px color-mix(in srgb, var(--accent) 70%, transparent); animation: antenna 2.4s ease-in-out infinite; }
+.brand .antenna.urgent { animation-duration: 1.2s; }
+@keyframes antenna { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+html.calm .brand .antenna { animation: none; }
+@media (prefers-reduced-motion: reduce) { .brand .antenna { animation: none; } }
 body .toolbar .for-dw { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; border-top: var(--bw) solid var(--line); }
 .events span { font-weight: 700; margin-right: 4px; }
 .events button { min-height: 34px; padding: 0 12px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--field); color: var(--ink); font-weight: 600; font-size: 13px; }

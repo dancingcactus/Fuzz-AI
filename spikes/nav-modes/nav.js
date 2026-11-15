@@ -113,29 +113,41 @@
     /* E: D without the Now tab. The Fuzz logo is the way to the start screen, and where the tab was, a small label
        says what you're doing. The label is also the way back: to your session if one is running, else to the start. */
     E: function () {
-      return '<a class="brand" href="#" data-go="home" title="Where do you want to start?"><img src="../../assets/fuzz-mark.svg" alt=""><span>Fuzz</span></a>' +
-        '<div class="navrow">' + ctxLabel() + '</div>' + right('', true);
+      var w = waiting(), sig = $('signal').value, lit = w && sig !== 'dot';
+      var said = w === 'urgent' ? ', something can’t wait' : w ? ', things are waiting' : '';
+      return '<a class="brand" href="#" data-go="home" aria-label="Fuzz: ' + PLACE() + said + '" title="' + PLACE() + ': where do you want to start?">' +
+        '<span class="mark"><img src="../../assets/fuzz-mark.svg" alt="">' + (lit ? '<span class="antenna' + (w === 'urgent' ? ' urgent' : '') + '" aria-hidden="true"></span>' : '') + '</span><span>Fuzz</span></a>' +
+        '<div class="navrow">' + ctxLabel(w && sig !== 'antenna') + '</div>' + right('', true);
     }
   };
+  /* The start screen's name, in the label spot when you're on it */
+  function PLACE() { return $('placename').value; }
+  /* Is there something to work on that you can't see from here? On the start screen you can (the list shows it), and in
+     Triage you're already clearing it. In a session, only what can't wait counts, so it doesn't pull you out of focus. */
+  function waiting() {
+    if (session()) return S.urgent && !(D.phase === 'paused' && D.why === 'urgent') ? 'urgent' : null;
+    if (D.phase === 'wrap' || S.view === 'now') return null;
+    return S.waiting + S.urgent || S.pool ? 'waiting' : null;
+  }
   /* What you're doing, in a few words: nothing on the start screen (it says so itself) */
-  function ctxLabel() {
-    var t = POOL[D.task], k = null, s = '', act = 'data-go="now"', dot = '';
+  function ctxLabel(showDot) {
+    var t = POOL[D.task], k = null, s = '', act = 'data-go="now"';
+    var dot = showDot ? '<span class="dot only" aria-label="' + (session() ? 'something can’t wait' : 'things are waiting') + '"></span>' : '';
     if (session()) {
       act = 'data-act="resume"';
       k = 'Deep Work';
       s = D.phase === 'break' ? 'On a break' : D.phase === 'paused' ? 'Paused' : short(t.t) + ' · ' + D.left + ' min';
-      if (S.urgent && D.phase !== 'paused') dot = '<span class="dot only" aria-label="something can’t wait"></span>';
       /* in a session, the label is the way back to it; while you're looking at the session it's the current page */
       if (S.view === 'now' && !(D.phase === 'paused' && D.why === 'urgent')) act = 'data-act="resume" aria-current="page"';
     } else if (D.phase === 'wrap') { k = 'Deep Work'; s = 'Wrapping up'; act = 'aria-current="page"'; }
     else if (S.view === 'now' && S.nowPicked === 'triage') { k = 'Triage'; s = S.from && S.from.kind === 'triage' ? 'Until ' + S.from.until : 'Switch'; }
-    else if (S.view === 'lineup') { k = 'Lineup'; s = 'Back to start'; }
-    else if (S.view === 'artifacts') { k = 'Artifacts'; s = 'Back to start'; }
+    else if (S.view === 'lineup') { k = 'Lineup'; s = 'Back to ' + PLACE(); }
+    else if (S.view === 'artifacts') { k = 'Artifacts'; s = 'Back to ' + PLACE(); }
     else if (S.view === 'file') { k = 'A file'; s = 'Back'; act = 'data-go="home"'; }
-    if (!k) return '';
+    else { k = PLACE(); act = 'data-go="now" aria-current="page"'; }   /* the start screen has a name too */
     var p = session() && D.phase === 'focus' ? Math.round((25 - D.left) / 25 * 100) : null;
     return '<button class="doing" ' + act + '>' + (p != null ? '<span class="ring" style="--p:' + p + '"></span>' : '') + '<b>' + k + '</b>' + dot +
-      '<span class="doing-s">' + s + '</span></button>';
+      (s ? '<span class="doing-s">' + s + '</span>' : '') + '</button>';
   }
   function hasHome() { return S.opt === 'D' || S.opt === 'E'; }
 
@@ -246,7 +258,7 @@
 
   /* ---------- The places ---------- */
   function placeHead(title, sub) {
-    var back = (S.opt === 'A' || S.opt === 'E' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← Back to ' + (S.opt === 'E' ? 'start' : hasHome() ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work') + '</button>' : '';
+    var back = (S.opt === 'A' || S.opt === 'E' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← Back to ' + (S.opt === 'E' ? PLACE() : hasHome() ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work') + '</button>' : '';
     return '<div class="pagehead"><div><h2>' + title + '</h2><p class="meta">' + sub + '</p></div>' + back + '</div>';
   }
   function lineupRows() {
@@ -543,6 +555,8 @@
   $('menubtnstyle').addEventListener('change', function () { S.menuBtn = this.value; S.menu = false; render(); });
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
   $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
+  $('placename').addEventListener('change', render);
+  $('signal').addEventListener('change', render);
   /* typing keeps focus: re-render, then put the caret back */
   document.addEventListener('input', function (e) {
     if (e.target.id !== 'typed') return;
