@@ -81,11 +81,13 @@ so every theme works. The page bodies are the same in all four options; only the
 ## Round 6: the "it's mine" button
 
 The triage card's other buttons speak in your voice ("Hand it to Fuzz", "I did it", "Not mine", "Park it"), so the
-button that keeps a task for you should too. **"It's mine" button** in the toolbar tries I'll do it, I'll take it,
-Mine, Save it for me, and Add to my work, independent of the queue's name. Whatever the button says, Fuzz's reply
-covers what a short label can't: "Got it, it's yours. It's in your work. It won't come back to Triage. Before you sit
-down to it, I'll pull in … so it's ready." That last part is what separates it from **Later**, which brings the card
-back to Triage to decide again.
+button that keeps a task for you should too. We tried I'll do it, I'll take it, Mine, Save it for me and Add to my
+work, and five queue names (My work, My queue, My work queue, On my plate, My list).
+
+**Decided:** the button is **I'll do it** and the queue is **My work**. The spike now uses only these, and the app
+does too. Fuzz's reply covers what a short label can't: "Got it, it's yours. It's in your work. It won't come back to
+Triage. Before you sit down to it, I'll pull in … so it's ready." "It won't come back to Triage" is what separates it
+from **Later**, which brings the card back to Triage to decide again.
 
 ## Toolbar
 

@@ -59,21 +59,12 @@
     compass: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>',
     tray: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v6H3v-6z"/></svg>',
     sliders: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>' };
-  /* The queue Triage fills: "Ready for you". Deep Work is now only the session where you do the work. */
-  /* "My …" says whose it is; the triage action says where it goes. Fuzz still preps it, and says so when you add it. */
-  var QUEUES = [['My work', 'Add to my work'], ['My queue', 'Add to my queue'], ['My work queue', 'Add to my work queue'], ['On my plate', 'Put it on my plate'], ['My list', 'Add to my list']];
-  function QN() { return QUEUES[+$('qname').value][0]; }
-  /* The card's "it's mine" button, in your voice like its neighbours (Hand it to Fuzz, I did it, Not mine).
-     Each has a hint under it on hover and the same reply from Fuzz: whose it is, where it waits, what Fuzz does next. */
-  var MINE = {
-    do: ['I’ll do it', 'It’s yours, it takes real time, and Fuzz gets it ready for when you sit down to work'],
-    take: ['I’ll take it', 'The other side of Hand it to Fuzz: you take it, Fuzz gets it ready'],
-    mine: ['Mine', 'The other side of Not mine'],
-    save: ['Save it for me', 'Fuzz holds it and gets it ready until you start work'],
-    add: [null, 'Says where it goes, not who decided']
-  };
-  function QA() { var k = $('mineact').value; return k === 'add' ? QUEUES[+$('qname').value][1] : MINE[k][0]; }
-  function QAhint() { return MINE[$('mineact').value][1]; }
+  /* Decided (2026-11-14, and in the app): Deep Work is only the session. The queue Triage fills is My work, and the
+     triage card's "it's mine" button is I'll do it, in your voice like Hand it to Fuzz, I did it and Not mine.
+     Fuzz's reply says the rest: it's yours, where it waits, that it won't come back to Triage, and that Fuzz gets it ready. */
+  function QN() { return 'My work'; }
+  function QA() { return 'I’ll do it'; }
+  function QAhint() { return 'Yours, and it takes real time. It waits in My work, and Fuzz gets it ready for when you sit down to it.'; }
   function yourQ() { return QN() === 'On my plate' ? 'on your plate' : 'in ' + QN().replace(/^My/, 'your'); }
   /* "in My work", but "on my plate" */
   function inQ() { return (QN() === 'On my plate' ? 'on ' : 'in ') + QN(); }
@@ -362,8 +353,8 @@
     C: ['Lineup and Artifacts merge into one Library.', 'Three tabs instead of four. Library has Tasks and Files inside.',
       ['The smallest change from today, and the easiest to learn', 'Artifacts already belongs to tasks, so one place for both is natural'],
       ['The modes still look like places, so the two-stance idea isn’t in the nav', 'Library risks becoming the junk drawer for every future page']],
-    D: ['One home. Now always asks “Where do you want to start?”', 'Triage is about getting things ready for you; what it readies waits in the work queue (try names with Queue name). The start screen lists Triage, what’s ready, and a box to type anything else. Deep Work is only the session now. Calendar invites link straight in (below).',
-      ['Type “pricing” in the box: Fuzz offers the ready task. Type something new: it becomes a task as you start', 'On a triage card, the queue button replaces “Deep Work”: get it ready, put it in the queue', 'Open the sample invites below: Triage opens straight away; a work block opens the start screen with the task and time set', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card'],
+    D: ['One home. Now always asks “Where do you want to start?”', 'Triage gets things ready for you. Say “I’ll do it” on a card and it waits in My work, with Fuzz getting it ready. The start screen lists Triage, My work, and Something else. Deep Work is only the session. Calendar invites link straight in (below).',
+      ['Type “pricing” in the box: Fuzz offers the ready task. Type something new: it becomes a task as you start', 'On a triage card, “I’ll do it” keeps it for you: Fuzz says it’s in your work and won’t come back to Triage', 'Open the sample invites below: Triage opens straight away; a work block opens the start screen with the task and time set', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card'],
       ['A calendar link lands one tap from Start, not already running. Should it start on its own?', 'A typed task has no prep, so the session starts colder than a ready one', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle']]
   };
   /* Sample calendar invites, each carrying a deep link */
@@ -521,9 +512,6 @@
   $('menubtnstyle').addEventListener('change', function () { S.menuBtn = this.value; S.menu = false; render(); });
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
   $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
-  $('qname').addEventListener('change', function () { $('poollbl').textContent = QN(); render(); });
-  $('mineact').addEventListener('change', render);
-  $('poollbl').textContent = QN();
   /* typing keeps focus: re-render, then put the caret back */
   document.addEventListener('input', function (e) {
     if (e.target.id !== 'typed') return;
