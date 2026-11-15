@@ -34,7 +34,7 @@
   function deepDot() { return S.pool ? '<span class="dot only" aria-label="something in the pool"></span>' : ''; }
   function sessionChip() {
     if (!session()) return '';
-    var onIt = S.opt === 'D' ? (S.view === 'now' && !(D.phase === 'paused' && D.why === 'urgent')) : S.view === 'deepwork';
+    var onIt = hasHome() ? (S.view === 'now' && !(D.phase === 'paused' && D.why === 'urgent')) : S.view === 'deepwork';
     if (onIt) return '';
     var p = Math.round((25 - D.left) / 25 * 100);
     var txt = D.phase === 'paused' ? 'Paused<span class="long">&nbsp;· back to it</span>' : D.phase === 'break' ? 'On a break' : D.left + ' min<span class="long">&nbsp;left · back to it</span>';
@@ -83,7 +83,7 @@
   function toggle(cls, attr) {
     attr = attr || 'go';
     var away = S.view !== 'triage' && S.view !== 'deepwork' && S.view !== 'now';
-    var m = S.opt === 'D' ? S.nowPicked : S.mode;
+    var m = hasHome() ? S.nowPicked : S.mode;
     return '<div class="seg' + (away ? ' away' : '') + (cls ? ' ' + cls : '') + '" role="group" aria-label="Mode">' +
       '<button data-' + attr + '="triage" aria-pressed="' + (m === 'triage') + '">Triage' + triageDot() + '</button>' +
       '<button data-' + attr + '="deepwork" aria-pressed="' + (m === 'deepwork') + '">Deep Work' + deepDot() + '</button></div>';
@@ -109,8 +109,35 @@
       var tabs = S.dPlaces === 'tabs';
       return brand(!tabs) + '<div class="navrow links"><button data-go="now"' + (S.view === 'now' ? ' aria-current="page"' : '') + '>Now' + (lit ? '<span class="dot only"></span>' : '') + '</button>' +
         (tabs ? '<span class="sep" aria-hidden="true"></span>' + link('lineup', 'Lineup') + link('artifacts', 'Artifacts') : '') + '</div>' + right(sessionChip(), !tabs);
+    },
+    /* E: D without the Now tab. The Fuzz logo is the way to the start screen, and where the tab was, a small label
+       says what you're doing. The label is also the way back: to your session if one is running, else to the start. */
+    E: function () {
+      return '<a class="brand" href="#" data-go="home" title="Where do you want to start?"><img src="../../assets/fuzz-mark.svg" alt=""><span>Fuzz</span></a>' +
+        '<div class="navrow">' + ctxLabel() + '</div>' + right('', true);
     }
   };
+  /* What you're doing, in a few words: nothing on the start screen (it says so itself) */
+  function ctxLabel() {
+    var t = POOL[D.task], k = null, s = '', act = 'data-go="now"', dot = '';
+    if (session()) {
+      act = 'data-act="resume"';
+      k = 'Deep Work';
+      s = D.phase === 'break' ? 'On a break' : D.phase === 'paused' ? 'Paused' : short(t.t) + ' · ' + D.left + ' min';
+      if (S.urgent && D.phase !== 'paused') dot = '<span class="dot only" aria-label="something can’t wait"></span>';
+      /* in a session, the label is the way back to it; while you're looking at the session it's the current page */
+      if (S.view === 'now' && !(D.phase === 'paused' && D.why === 'urgent')) act = 'data-act="resume" aria-current="page"';
+    } else if (D.phase === 'wrap') { k = 'Deep Work'; s = 'Wrapping up'; act = 'aria-current="page"'; }
+    else if (S.view === 'now' && S.nowPicked === 'triage') { k = 'Triage'; s = S.from && S.from.kind === 'triage' ? 'Until ' + S.from.until : 'Switch'; }
+    else if (S.view === 'lineup') { k = 'Lineup'; s = 'Back to start'; }
+    else if (S.view === 'artifacts') { k = 'Artifacts'; s = 'Back to start'; }
+    else if (S.view === 'file') { k = 'A file'; s = 'Back'; act = 'data-go="home"'; }
+    if (!k) return '';
+    var p = session() && D.phase === 'focus' ? Math.round((25 - D.left) / 25 * 100) : null;
+    return '<button class="doing" ' + act + '>' + (p != null ? '<span class="ring" style="--p:' + p + '"></span>' : '') + '<b>' + k + '</b>' + dot +
+      '<span class="doing-s">' + s + '</span></button>';
+  }
+  function hasHome() { return S.opt === 'D' || S.opt === 'E'; }
 
   /* ---------- Shared pieces ---------- */
   function perch(html) { return '<div class="perch2"><img src="../../assets/fuzz-mark.svg" alt=""><div class="say">' + html + '</div></div>'; }
@@ -219,7 +246,7 @@
 
   /* ---------- The places ---------- */
   function placeHead(title, sub) {
-    var back = (S.opt === 'A' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← Back to ' + (S.opt === 'D' ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work') + '</button>' : '';
+    var back = (S.opt === 'A' || S.opt === 'E' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← Back to ' + (S.opt === 'E' ? 'start' : hasHome() ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work') + '</button>' : '';
     return '<div class="pagehead"><div><h2>' + title + '</h2><p class="meta">' + sub + '</p></div>' + back + '</div>';
   }
   function lineupRows() {
@@ -327,6 +354,7 @@
     if (session() || D.phase === 'wrap') return deepwork();
     var cal = S.from;
     if (S.nowPicked === 'triage') {
+      if (S.opt === 'E') return triage();   /* E's label in the bar already says Triage, and is the way back */
       return '<div class="backline"><span>' + (cal && cal.kind === 'triage' ? 'Triage time, until ' + cal.until + ' · from your calendar' : 'Keeping things moving') + '</span><button class="linkbtn" data-go="now">Pick something else</button></div>' + triage();
     }
     var g = suggestion(), sug = suggested(), c = chosen();
@@ -355,7 +383,10 @@
       ['The modes still look like places, so the two-stance idea isn’t in the nav', 'Library risks becoming the junk drawer for every future page']],
     D: ['One home. Now always asks “Where do you want to start?”', 'Triage gets things ready for you. Say “I’ll do it” on a card and it waits in My work, with Fuzz getting it ready. The start screen lists Triage, My work, and Something else. Deep Work is only the session. Calendar invites link straight in (below).',
       ['Type “pricing” in the box: Fuzz offers the ready task. Type something new: it becomes a task as you start', 'On a triage card, “I’ll do it” keeps it for you: Fuzz says it’s in your work and won’t come back to Triage', 'Open the sample invites below: Triage opens straight away; a work block opens the start screen with the task and time set', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card'],
-      ['A calendar link lands one tap from Start, not already running. Should it start on its own?', 'A typed task has no prep, so the session starts colder than a ready one', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle']]
+      ['A calendar link lands one tap from Start, not already running. Should it start on its own?', 'A typed task has no prep, so the session starts colder than a ready one', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle']],
+    E: ['D without the Now tab. The Fuzz logo opens the start screen.', 'With one item, the nav doesn’t need a tab. The logo takes you to “Where do you want to start?”, and where the tab was, a small label says what you’re doing. The label is also the way back. Everything else is D: same start screen, same session, same deep links.',
+      ['Start Triage: the label reads “Triage · Switch”, and clicking it brings the start screen back', 'Start a task: the label reads “Deep Work · Write the onboarding plan… · 14 min”, with the clock ring', 'Open Lineup from the menu during a session: the label takes you back to the session', 'Something urgent: the label reads “Deep Work · Paused”'],
+      ['Nothing in the bar says “start here” on the start screen itself; the logo has to carry it', 'People who don’t think to click a logo need another way back (the label, the triage line’s Pick something else)', 'On a phone, the label has to stay short']]
   };
   /* Sample calendar invites, each carrying a deep link */
   var INVITES = [
@@ -377,7 +408,7 @@
     var n = NOTES[S.opt];
     $('notes').innerHTML = '<div class="lede"><h3>' + S.opt + '. ' + n[0] + '</h3><p>' + n[1] + '</p></div>' +
       '<div><h3>Try</h3><ul>' + n[2].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' +
-      '<div><h3>Watch for</h3><ul>' + n[3].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' + (S.opt === 'D' ? LINKS : '') + FLOW;
+      '<div><h3>Watch for</h3><ul>' + n[3].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>' + (hasHome() ? LINKS : '') + FLOW;
   }
 
   /* ---------- Render ---------- */
@@ -385,7 +416,7 @@
     if (S.opt === 'B' && S.view === 'lineup') S.mode = 'triage';
     if (S.opt === 'B' && S.view === 'artifacts') S.mode = 'deepwork';
     document.body.dataset.opt = S.opt;
-    $('opts').innerHTML = ['A', 'B', 'C', 'D'].map(function (o) { return '<button role="radio" data-opt="' + o + '" aria-checked="' + (S.opt === o) + '">' + o + '</button>'; }).join('');
+    $('opts').innerHTML = ['A', 'B', 'C', 'D', 'E'].map(function (o) { return '<button role="radio" data-opt="' + o + '" aria-checked="' + (S.opt === o) + '">' + o + '</button>'; }).join('');
     $('bar').innerHTML = BARS[S.opt]();
     $('body').innerHTML = BODIES[S.view]();
     $('session').checked = session();
@@ -393,12 +424,12 @@
     notes();
   }
   /* Where the session shows: Now in D, the Deep Work page elsewhere */
-  function showSession() { if (S.opt === 'D') { S.view = 'now'; S.nowPicked = null; } else { S.mode = 'deepwork'; S.view = 'deepwork'; } }
-  function showHome() { if (S.opt === 'D') { S.view = 'now'; S.nowPicked = null; } else { S.mode = 'triage'; S.view = 'triage'; } }
+  function showSession() { if (hasHome()) { S.view = 'now'; S.nowPicked = null; } else { S.mode = 'deepwork'; S.view = 'deepwork'; } }
+  function showHome() { if (hasHome()) { S.view = 'now'; S.nowPicked = null; } else { S.mode = 'triage'; S.view = 'triage'; } }
   function go(v) {
     S.menu = false;
-    if (v === 'home') v = S.opt === 'D' ? 'now' : S.mode;
-    if (S.opt === 'D') {
+    if (v === 'home') v = hasHome() ? 'now' : S.mode;
+    if (hasHome()) {
       /* in D, every way into Deep Work is the start screen with a task already picked */
       if (v === 'deepwork') { if (!session() && D.phase !== 'wrap') { D.phase = 'none'; S.choice = S.pool ? D.task : null; } S.view = 'now'; S.nowPicked = null; render(); return; }
       if (v === 'triage') { S.nowPicked = 'triage'; v = 'now'; }
@@ -430,7 +461,7 @@
     if (ds.opt) {
       S.opt = ds.opt; S.menu = false; S.nowPicked = null;
       var inFlow = D.phase !== 'none';
-      if (S.opt === 'D') S.view = 'now';
+      if (hasHome()) S.view = 'now';
       else if (S.view === 'now') S.view = inFlow ? 'deepwork' : 'triage';
       if (S.opt !== 'C' && S.view === 'library') S.view = S.lib === 'tasks' ? 'lineup' : 'artifacts';
       if (S.opt === 'C' && (S.view === 'lineup' || S.view === 'artifacts')) { S.lib = S.view === 'lineup' ? 'tasks' : 'files'; S.view = 'library'; }
@@ -444,7 +475,7 @@
     if (ds.after) { D.after = ds.after; render(); return; }
     if (ds.deep) {
       D.task = +ds.deep; S.menu = false;
-      if (S.opt === 'D') { D.phase = 'none'; S.choice = D.task; S.view = 'now'; S.nowPicked = null; } else { D.phase = 'setup'; showSession(); }
+      if (hasHome()) { D.phase = 'none'; S.choice = D.task; S.view = 'now'; S.nowPicked = null; } else { D.phase = 'setup'; showSession(); }
       render(); return;
     }
     if (ds.choice) {
@@ -466,7 +497,7 @@
         if (ds.ev === 'brk') D.phase = 'break';
         if (ds.ev === 'urgent') { D.phase = 'paused'; D.why = 'urgent'; S.urgent = 1; $('urgent').value = '1'; }
         if (ds.ev === 'away') { D.phase = 'paused'; D.why = 'away'; }
-        if (S.opt === 'D') showSession(); else if (ds.ev === 'urgent') { S.mode = 'triage'; S.view = 'triage'; } else showSession();
+        if (hasHome()) showSession(); else if (ds.ev === 'urgent') { S.mode = 'triage'; S.view = 'triage'; } else showSession();
       }
       render(); return;
     }
@@ -533,7 +564,7 @@
     var parts = h.split('?'), path = parts[0].split('/'), q = new URLSearchParams(parts[1] || '');
     if (path[0] !== 'triage' && path[0] !== 'work') return;
     history.replaceState(null, '', location.pathname + location.search);   /* so the same link works twice */
-    S.opt = 'D'; S.menu = false; S.recap = null; S.view = 'now';
+    if (!hasHome()) S.opt = 'D'; S.menu = false; S.recap = null; S.view = 'now';
     if (session()) { render(); return; }   /* a link never ends a session that's running */
     D.phase = 'none';
     var until = q.get('until') || '14:00', p = until.split(':'), mins = Math.max(15, (+p[0]) * 60 + (+(p[1] || 0)) - (13 * 60 + 10));   /* the spike pretends it's 1:10pm */

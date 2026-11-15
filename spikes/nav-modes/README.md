@@ -89,6 +89,19 @@ does too. Fuzz's reply covers what a short label can't: "Got it, it's yours. It'
 Triage. Before you sit down to it, I'll pull in … so it's ready." "It won't come back to Triage" is what separates it
 from **Later**, which brings the card back to Triage to decide again.
 
+## Option E: D without the Now tab
+
+"Now" read oddly once it was the only item in the nav. E drops the tab:
+
+- **The Fuzz logo opens the start screen** ("Where do you want to start?").
+- **Where the tab was, a small label says what you're doing:** nothing on the start screen, **Triage · Switch**,
+  **Deep Work · Write the onboarding plan… · 14 min** (with the clock ring), **Deep Work · Paused**, **Deep Work ·
+  Wrapping up**, or **Lineup · Back to start**.
+- **The label is the way back.** During a session it returns to the session from anywhere. Otherwise it returns to the
+  start screen. It replaces D's session chip and the "Pick something else" line in Triage.
+- Everything else is D's: the start screen, the session, and the deep links (a link keeps you in D or E, whichever
+  you're looking at).
+
 ## Toolbar
 
 - **Waiting in Triage, Can't wait, Deep Work pool** change the dots and Fuzz's suggestion in D.
