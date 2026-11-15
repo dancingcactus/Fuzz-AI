@@ -184,7 +184,7 @@
   function keyRows(list) { return '<dl class="keylist">' + list.map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + k[1] + '</dd></div>'; }).join('') + '</dl>'; }
   function keysHTML() {
     var g = [
-      ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'I did it'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'Deep Work (yours, and it takes real time: it waits for a session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
+      ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'I did it'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['Q', 'Find out… (Fuzz looks something up; the card comes back next)'], ['G', 'I’ll do it (yours, and it takes real time: it waits in My work, ready for a Deep Work session)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
       ['On a draft', [['E', 'Ask Fuzz to change it'], ['S', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
       ['Choices on screen', [['1 – 9', 'Every choice on screen: an answer, a time (End of the list and Exact time too) or a mood'], ['E', 'Tell Fuzz: into the card’s box'], ['K', 'It still matters: on a card that comes back (quiet, parked, keeps coming back)'], ['S', 'Later, or Check again later: the same row on every card that comes back'], ['L', 'Let it go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
       ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New task (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
@@ -315,9 +315,10 @@
     });
   }
   var FIND_WHAT = 'Fuzz looks one thing up. The task stays yours and comes back next.';
-  /* Deep Work: yours, and it takes real time. Triage only decides; the doing waits for a session you start. */
-  var DEEP_WHAT = 'Yours, and it takes real time. It waits in Deep Work for a session when you have the time.';
-  var DEEP_ITEM = menuItem('deepwork', 'G', 'Deep Work', DEEP_WHAT);
+  /* I'll do it: yours, and it takes real time. Triage only decides; it waits in My work, and Fuzz gets it ready for a
+     Deep Work session (the session is Deep Work; the queue is My work). */
+  var DEEP_WHAT = 'Yours, and it takes real time. It waits in My work, and Fuzz gets it ready for when you sit down to it.';
+  var DEEP_ITEM = menuItem('deepwork', 'G', 'I’ll do it', DEEP_WHAT);
   function actionsHTML(it) {
     if (scheduling) {
       /* Three likely times first, then End of the list and an exact time. The rest wait behind More times,
@@ -370,7 +371,7 @@
       return '<div class="sched-panel way"><h3 id="way-h" tabindex="-1">What’s in the way?</h3><p class="meta">No wrong answer. Pick the closest.</p>' +
         '<div class="when-grid">' +
         '<button type="button" class="when" data-act="way-find" aria-keyshortcuts="1"><span>I need to know something' + kbd(1) + '</span><small>Fuzz finds out, and the card comes back next</small></button>' +
-        '<button type="button" class="when" data-act="way-big" aria-keyshortcuts="2"><span>This is a big one' + kbd(2) + '</span><small>Do it now, book time, Deep Work, after the others, or just the first step</small></button>' +
+        '<button type="button" class="when" data-act="way-big" aria-keyshortcuts="2"><span>This is a big one' + kbd(2) + '</span><small>Do it now, book time, I’ll do it, after the others, or just the first step</small></button>' +
         '<button type="button" class="when" data-act="way-decide" aria-keyshortcuts="3"><span>I can’t decide' + kbd(3) + '</span><small>Fuzz lays out the options with one it suggests</small></button>' +
         '<button type="button" class="when" data-act="way-draft" aria-keyshortcuts="4"><span>I don’t want to write it' + kbd(4) + '</span><small>Fuzz drafts it for your OK</small></button>' +
         '<button type="button" class="when" data-act="way-notnow" aria-keyshortcuts="5"><span>Not now' + kbd(5) + '</span><small>After the others, no penalty</small></button>' +
@@ -397,7 +398,7 @@
     var bigRow = big ? '<div class="lead-choice big-choice"><p class="meta">' + esc((it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. How do you want to take it?') + '</p><div class="lead-btns">' +
       '<button type="button" class="btn' + (it.suggested === 'do_now' ? ' primary' : '') + '" data-act="donow">Do it now</button>' +
       '<button type="button" class="btn' + (it.suggested !== 'do_now' ? ' primary' : '') + '" data-act="book" aria-keyshortcuts="B">Book time' + kbd('B') + '</button>' +
-      '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">Deep Work' + kbd('G') + '</button>' +
+      '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">I’ll do it' + kbd('G') + '</button>' +
       '<button type="button" class="btn" data-act="afterothers">After the others</button>' +
       '<button type="button" class="btn" data-act="firststep">Just the first step</button></div></div>' : '';
     var joinRow = join ? '<div class="lead-choice"><p class="meta">' + esc(it.joinReason || 'A reply to this thread is waiting for your OK.') + '</p>' +
@@ -1059,7 +1060,7 @@
     if (ciAnswer && !ciDemo) r = Store.checkin(ciAnswer, ciFollow);
     ciAnswer = null; ciFollow = null; ciLevel = null; ciMode = null;
     if (ciDemo) { ciDemo = false; return; }
-    if (r && r.held) offer(r.deep === r.held ? 'The big ones wait in Deep Work.' : r.deep ? 'The rest can wait until tomorrow; the big ones in Deep Work.' : 'The rest can wait until tomorrow morning.', r.change);
+    if (r && r.held) offer(r.deep === r.held ? 'The big ones wait in My work.' : r.deep ? 'The rest can wait until tomorrow; the big ones in My work.' : 'The rest can wait until tomorrow morning.', r.change);
     /* Your answer sets the next stretch; Skip keeps the last one (or a middling one if there wasn't one).
        Counted after the rest has moved out, so it doesn't use up the boxes. */
     ciSize = level ? CI_STRETCH[level] : ciCount ? ciSize : CI_STRETCH_SKIP;
@@ -1360,7 +1361,7 @@
       /* Clearing Triage is its own win. If there's deep work waiting, one quiet offer, never a doorway you have to take. */
       var deep = Store.inState('deepwork').length;
       h += '<h2>All clear</h2>' + recap + (deep
-        ? '<p class="meta">Nothing is waiting on you. ' + (deep === 1 ? 'One task is' : deep + ' tasks are') + ' in Deep Work for when you have time.</p><a class="btn primary linklike" href="#/deepwork">Go deep on something</a> <a class="btn linklike" href="#/capture">New task</a>'
+        ? '<p class="meta">Nothing is waiting on you. ' + (deep === 1 ? 'One task is' : deep + ' tasks are') + ' in My work, ready for when you have time.</p><a class="btn primary linklike" href="#/deepwork">Go deep on something</a> <a class="btn linklike" href="#/capture">New task</a>'
         : '<p class="meta">Fuzz is on standby. Capture something new to put it to work.</p><a class="btn primary linklike" href="#/capture">New task</a>');
     }
     if (s.later) h += '<p class="later">' + s.later + ' scheduled for later</p>';
@@ -2201,7 +2202,7 @@
       else if (a === 'way-draft') moment(function () { wayOpen = false; return quickClear('Fuzz is drafting', 'Fuzz drafts it. It comes to you for your OK before anything is sent.', function (i) { Store.draftIt(i.id); }, 'Leave it with me. I’ll draft it for your OK.'); });
       else if (a === 'way-dismiss') { wayOpen = false; renderCardKeep(); Fuzz.setMood('idle'); }
       else if (a === 'findout') startFind();
-      else if (a === 'deepwork') moment(function () { var dw = cur(); if (dw) dw.doing = false; return quickClear('Put in Deep Work:', '“' + cur().title + '” is in Deep Work. It waits there for a session with time to do it.', function (i) { Store.deepWork(i.id); }, 'Good call. That one needs real time. It’s in Deep Work.'); });
+      else if (a === 'deepwork') moment(function () { var dw = cur(); if (dw) dw.doing = false; return quickClear('You’ll do it:', '“' + cur().title + '” is in My work. It won’t come back to Triage, and Fuzz gets it ready for when you start.', function (i) { Store.deepWork(i.id); }, 'Got it, it’s yours. It’s in your work, and I’ll have it ready when you sit down to it.'); });
       else if (a === 'wait-cancel') { askingWho = false; renderCardKeep(); Fuzz.setMood('idle'); var mb2 = $('.more-btn'); if (mb2) mb2.focus(); }
       else if (a === 'gotit') { var gi = cur(); sendNote(gi); Store.gotIt(gi.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Nice. What should happen to it now?', { type: false }); }
       else if (a === 'nudge') moment(function () { return quickClear('Nudging ' + (cur().waitingOn || 'them') + ' about', 'Fuzz is drafting a nudge. It comes to you for your OK before anything is sent.', function (i) { Store.nudgeThem(i.id); }, 'On it. I’ll draft something friendly.'); });

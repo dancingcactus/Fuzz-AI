@@ -109,8 +109,8 @@
       var hay = (it.title + ' ' + (it.nextStep || '')).toLowerCase();
       return { t: it, score: words.filter(function (w) { return new RegExp('\\b' + w).test(hay); }).length };
     }).filter(function (x) { return x.score >= need; }).sort(function (a, b) { return b.score - a.score; })
-      .map(function (x) { return { t: x.t, why: x.t.leftOff ? 'Picks up where you left off' : 'In Deep Work' }; });
-    return hits.concat([{ free: q, why: 'A new task, in Deep Work now' }]);
+      .map(function (x) { return { t: x.t, why: x.t.leftOff ? 'Picks up where you left off' : 'In My work' }; });
+    return hits.concat([{ free: q, why: 'A new task, started now' }]);
   }
   function current() { var c = candidates(E.query); return c.length ? c[((E.alt % c.length) + c.length) % c.length] : null; }
   function boxHTML() {
@@ -121,7 +121,7 @@
       '<div class="dw-match" id="dw-match" aria-live="polite">' + matchHTML() + '</div>';
   }
   function matchHTML() {
-    var c = candidates(E.query), it = current(); if (!it) return '<p class="dw-msub">Nothing is in Deep Work yet. Type anything to start on it, or put tasks here from Triage (G).</p>';
+    var c = candidates(E.query), it = current(); if (!it) return '<p class="dw-msub">Nothing is in My work yet. Type anything to start on it, or say “I’ll do it” to a task in Triage (G).</p>';
     var i = ((E.alt % c.length) + c.length) % c.length;
     var more = c.length > 1 ? '<span class="dw-cycle">↓ another · ' + (i + 1) + ' of ' + c.length + '</span>' : '';
     if (it.free) return '<button type="button" class="dw-mrow" id="dw-mrow"><span class="dw-mt">“' + esc(it.free) + '”</span>' + UI.pill('New', 'accent') + '</button><div class="dw-msub">' + esc(it.why) + more + '</div>';
@@ -150,7 +150,7 @@
   /* Only from this page's perch: a break that ends while you're on Triage mustn't talk through its Fuzz */
   function say(text, mood) { if (!root) return; Fuzz.say(text, { type: false }); if (mood) Fuzz.setMood(mood); }
   function settle(ms) { clearTimeout(settleT); settleT = setTimeout(function () { if (root && S && S.view === 'focus' && !S.sheet && !S.take) Fuzz.setMood('idle'); }, ms || 1500); }
-  function paintPool() { var p = $('.dw-pool'), n = pool().length + ' in Deep Work'; if (p && p.textContent !== n) p.textContent = n; }
+  function paintPool() { var p = $('.dw-pool'), n = pool().length + ' in My work'; if (p && p.textContent !== n) p.textContent = n; }
   function $(s) { return root ? root.querySelector(s) : null; }
 
   /* ---------- Views ---------- */
@@ -400,7 +400,7 @@
     b.offer = n;
     var head = {
       finished: '<div class="dw-beat"><div class="dw-check" aria-hidden="true">✓</div><h1 class="dw-title" tabindex="-1">Done: ' + esc(t.title) + '</h1><p class="meta">It moves to Finished. Undo is in the header if it isn’t really done.</p></div>',
-      switched: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Switched away from “' + esc(t.title) + '”</h1><p class="meta">Your place is kept. It waits in Deep Work.</p></div>',
+      switched: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Switched away from “' + esc(t.title) + '”</h1><p class="meta">Your place is kept. It waits in My work.</p></div>',
       handed: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Fuzz has “' + esc(t.title) + '”</h1><p class="meta">Find it in Lineup, under With Fuzz.</p></div>',
       sentback: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">“' + esc(t.title) + '” is back in Triage</h1><p class="meta">It’s first there, to decide again.</p></div>'
     }[b.kind];
@@ -683,7 +683,7 @@
   V.mount = function (container) {
     root = container;
     root.innerHTML = '<section class="dw" aria-labelledby="dw-mode"><div class="dw-top"><span class="dw-mode" id="dw-mode">Deep Work</span>' +
-      '<a class="dw-pool" href="#/tasks">' + pool().length + ' in Deep Work</a></div>' +
+      '<a class="dw-pool" href="#/tasks">' + pool().length + ' in My work</a></div>' +
       '<div class="stage dw-stage" id="stage"><div class="fx" id="fx"></div>' +
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div id="dw-view"></div></div>' + footHTML() + '</section>';

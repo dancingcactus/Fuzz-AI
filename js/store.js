@@ -236,8 +236,8 @@
       S.log(it, 'status', 'You took this one yourself. Fuzz keeps the sources ready.');
     },
     done: function (id) { var it = S.item(id); S.leave(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
-    /* Deep Work: yours, and it takes real time. It leaves Triage for the pool and waits for a session. */
-    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'Waiting for a Deep Work session'; S.log(it, 'status', 'You put this in Deep Work. It waits there for a session with time to do it.'); },
+    /* I'll do it: yours, and it takes real time. It leaves Triage for My work and waits for a Deep Work session. */
+    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'In My work, ready when you start'; S.log(it, 'status', 'You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it.'); },
     /* Done for now in a session: where you left off goes in its notes, and it moves to the back of the pool */
     deepWorkLeftOff: function (id, note) {
       var it = S.item(id); if (!it) return; note = (note || '').trim();

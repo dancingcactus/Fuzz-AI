@@ -177,7 +177,7 @@
     if (dw) {
       var n = Store.inState('deepwork').length;
       dw.classList.toggle('has', n > 0);
-      if (n) dw.setAttribute('aria-label', n + ' in Deep Work'); else dw.removeAttribute('aria-label');
+      if (n) dw.setAttribute('aria-label', n + ' in My work'); else dw.removeAttribute('aria-label');
     }
   }
 

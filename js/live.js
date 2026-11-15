@@ -295,7 +295,7 @@
     else if (state === 'review') f.now = 'Draft ready to review';
     else if (state === 'sending') f.now = 'Sending' + (f.sendTo ? ' to ' + f.sendTo.to : '');
     else if (state === 'session') f.now = t.next_step ? 'Next: ' + t.next_step : 'Open in ' + Store.workIn;
-    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'Waiting for a Deep Work session';
+    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'In My work, ready when you start';
     else if (state === 'done') f.now = 'Done';
     else if (state === 'letgo') f.now = f.theirs ? 'Someone else’s' : 'Let go';
     else f.now = '';
