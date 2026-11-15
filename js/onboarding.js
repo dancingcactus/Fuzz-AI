@@ -332,9 +332,9 @@
   /* Ring the header's New task button (the floating one on a phone) and hang the pointer under it */
   var placeTimer = 0, spotOn = null;
   function pointerHTML(label) { return '<div class="onb-pointer" id="onb-pointer" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span>' + esc(label) + '</span></div>'; }
-  /* What the pointer is on: New task (the header's, or the floating one on a phone), or the Triage tab */
+  /* What the pointer is on: New task (the header's, or the floating one on a phone), or the label (where you are, in Triage) */
   function newTaskButton() {
-    var cands = spotOn === 'triage' ? [document.querySelector('.mainnav [data-nav="triage"]')] : [document.querySelector('.nav-cta'), document.getElementById('fab')];
+    var cands = spotOn === 'triage' ? [document.getElementById('where')] : [document.querySelector('.nav-cta'), document.getElementById('fab')];
     return cands.filter(function (b) { if (!b || b.hidden) return false; var r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; })[0] || null;
   }
   function spotlight(on) {

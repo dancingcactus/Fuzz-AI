@@ -101,7 +101,7 @@ Where the build settled something the design left open, or differs from it:
 - **Waiting:** `waiting_on` means *you* are waiting on *them*, so it isn't used. Waiting is a signal with
   `"nudge": true` on the task (someone chasing it) or a late ask that can join a reply already drafted.
   The signal schema now accepts `nudge`, which the extract skill already asked for.
-- **Fuzz returned:** a handback, a result or a Find out answer, a draft or nudge to approve, or a
+- **Fuzz returned:** a handback, a result or the options for I can't decide, a draft or nudge to approve, or a
   permission request.
 - **Warm-up:** the quickest two in today's set (Quick or Low energy when tired, Quick when overloaded).
   "Due within the hour" is deadline level 3 (within an hour, or past its time).

@@ -106,7 +106,7 @@ def _task_brief(core, t):
             # Fuzz missed this: find the message the ask came from and report_missed; nothing else
             "missed": ({"ask": t["ask"], "tries": _missed_tries(core, t["id"])}
                        if "missed" in (t.get("variant_tags") or []) else None),
-            # Find out…: answer this one question into the brief, as a step; the task stays theirs
+            # One question (I can't decide: lay out the options): answer it into the brief, as a step; the task stays theirs
             "finding_out": t.get("find_out") if "finding_out" in (t.get("variant_tags") or []) else None,
             # Just the first step: write the checklist (step 1 about two minutes), then finish_gathering
             "first_step": tasks.FIRST_STEP if "first_step" in (t.get("variant_tags") or []) else None,
@@ -260,7 +260,7 @@ def update_brief(core, task_id, context_md=None, question=None, effort_mins=None
                  title=None, ask=None, summary=None, steps=None, gaps=None):
     updated = []
     if (title is not None or ask is not None) and {"finding_out", "first_step"} & set(tasks.require(core, task_id).get("variant_tags") or []):
-        raise FuzzError(f"Task {task_id} is a Find out…: the person asked one question about it. Answer it in the "
+        raise FuzzError(f"Task {task_id} has one question for you: the person asked you to look into it, and it stays theirs. Answer it in the "
                         "brief (context_md, summary) as a step; the title and ask stay as they are.", "title", 409)
     if title is not None or ask is not None:
         with _lease(core, task_id):   # its own command, so Undo reverses the rename and nothing else

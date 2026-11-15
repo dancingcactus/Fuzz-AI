@@ -63,8 +63,8 @@ def record(core, answer, follow_up=None):
         for t in held:
             _hold(core, t)
         for t in deep:
-            tasks.deep_work(core, t["id"], log=("status", "A check-in put this in Deep Work: it waits there for a "
-                                                          "session with time and energy for it."))
+            tasks.deep_work(core, t["id"], log=("status", "A check-in put this in My work: it waits there for a Deep "
+                                                          "Work session with time and energy for it."))
     return {"moment": moment, "energy": answer, "held": len(held), "deep_work": len(deep)}
 
 

@@ -196,7 +196,6 @@ window.FuzzVocab = {
   "done",
   "draft_it",
   "drop",
-  "find_out",
   "first_step",
   "got_it",
   "keep",
@@ -224,7 +223,6 @@ window.FuzzVocab = {
   "wait",
   "someone_else",
   "drop",
-  "find_out",
   "book",
   "do_now",
   "after_others",
@@ -252,11 +250,9 @@ window.FuzzVocab = {
    "assign",
    "deep_work",
    "session",
-   "book",
-   "find_out"
+   "book"
   ],
   "in_the_way": [
-   "find_out",
    "do_now",
    "deep_work",
    "book",
@@ -302,9 +298,9 @@ window.FuzzVocab = {
   "letgo",
   "session",
   "deep_work",
+  "book",
   "schedule",
   "back",
-  "find_out",
   "reopen",
   "note"
  ],

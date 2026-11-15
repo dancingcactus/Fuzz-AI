@@ -29,7 +29,7 @@ before(async () => {
   browser = await chromium.launch();
   page = await browser.newPage();
   page.errors = []; page.on('pageerror', e => page.errors.push(e.message));
-  await page.goto(`${base}/?token=${tok}`);
+  await page.goto(`${base}/?token=${tok}#/triage`);
   await page.waitForFunction(() => window.Live && Live.on() && Store.queue().length >= 4, null, { timeout: 60000 });
 });
 after(async () => { await browser?.close(); core?.kill(); if (home) rmSync(home, { recursive: true, force: true }); });
@@ -65,4 +65,26 @@ test('a tired check-in holds the rest in the core, and a few more brings a stret
   assert.equal(cards.energy, 'okay');
   assert.equal(cards.cards.length, 4, 'one okay stretch back');
   assert.deepEqual(page.errors, []);
+});
+
+test('a calendar link opens the Guide on the task, and Start moves it into My work in the core', { skip: !HAVE_UV && 'needs uv' }, async () => {
+  const made = await api('POST', '/tasks', { text: 'Draft the launch email' });
+  const tid = made.task_id;
+  assert.ok(tid, 'the core made the task');
+  const p = await browser.newPage();
+  const errors = []; p.on('pageerror', e => errors.push(e.message));
+  /* opened cold, as from the invite: the first sync lands before the Guide looks the task up */
+  await p.goto(`${base}/?token=${tok}#/work/${tid}`);
+  await p.waitForFunction((id) => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 't' + id; }, tid, { timeout: 30000 });
+  assert.equal(await p.locator('#dw-step').count(), 0, 'one tap from Start, not started');
+  await p.click('#dw-go');
+  await p.locator('#dw-step').waitFor();
+  let state;
+  for (let i = 0; i < 50 && state !== 'deepwork'; i++) {
+    state = (await api('GET', '/tasks/' + tid)).state;
+    if (state !== 'deepwork') await new Promise(r => setTimeout(r, 200));
+  }
+  assert.equal(state, 'deepwork');
+  assert.deepEqual(errors, []);
+  await p.close();
 });

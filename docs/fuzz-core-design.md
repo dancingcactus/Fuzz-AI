@@ -39,8 +39,8 @@ are built):
   off by Fuzz against their done-when. See [Deliverables](#deliverables).
 - **Focus**, said per session, with the queue reordered straight away and refined by a quick AI pass.
   See [Focus](#focus).
-- **Working sessions**: Triage as sorting first, then working on purpose; **Find out…** for missing
-  information; a size on every card and four choices for big tasks; **Later** and **Book time** as
+- **Working sessions**: Triage as sorting first, then working on purpose; gaps in a brief shown on the
+  card; a size on every card and four choices for big tasks; **Later** and **Book time** as
   two actions, with booked blocks in your Focus time slots. See [Working sessions](#working-sessions).
 
 ## Summary
@@ -995,7 +995,7 @@ rule for both: decide quickly on the card, never grind on it.
 ### Two phases
 
 1. **Sort.** Quick decisions on new cards. A big task shows its size and gets booked or pushed;
-   missing information becomes a Find out… without stopping you.
+   missing information shows on the card, and you say where to look when you hand it over.
 2. **Work.** The tasks you kept for yourself, then the ones you pushed to the end, each opened on
    purpose with **Do it now**.
 
@@ -1007,7 +1007,14 @@ yours (tag `doing`). The ways out are Done · Pause (back to the list, with "whe
 · Hand to Fuzz · Work in Claude. In work mode the check-in runs on time, not on cleared cards (today
 it waits for two more cleared cards, so it never comes while you're stuck).
 
-### Find out…
+### Find out… (removed)
+
+> **Removed 2026-11-15.** Find out… was too hard to tell apart from Assign, so it is gone from the card,
+> the keys (Q), "What's in the way?", the API (`POST /tasks/{id}/find_out`) and the CLI. Gaps in a brief
+> still show on the card ("Fuzz couldn't find …"); you say where to look when you hand it over, and
+> Assign is the suggested answer. Its mechanism (one question, the task stays yours, the card back next,
+> the run at once) is what **I can't decide** runs on, with `tasks.DECIDE` as the question. The section
+> below is the design as it was.
 
 Missing information used to mean assigning the task to Fuzz with an instruction. That hands the task
 over, and Fuzz may take the question as the whole task: one task was renamed to the lookup asked
@@ -1058,7 +1065,6 @@ asks "What's in the way?" once. Esc dismisses it, and Calm mode keeps it quiet.
 
 | Answer | What happens |
 | --- | --- |
-| I need to know something | Opens Find out… |
 | This is a big one | The four choices above |
 | Something else → Can't decide | Fuzz lays out the options with a suggested default |
 | Something else → I don't want to write it | Fuzz drafts it for your OK |
@@ -1097,7 +1103,7 @@ slot". Two shorter tasks can share a slot, and the core knows its own holds, so 
 double-books.
 
 **The hold** is a separate event inside the slot; Fuzz never edits your events. Its title is the
-task's title, and its body is a link to the task in Fuzz (`#tasks/<id>`) and the done-when. It's an
+task's title, and its body is a link to the task in Fuzz (`#/work/<id>?until=HH:MM`: the Guide with the task picked and the time set to the block end; old `#tasks/<id>` links still open) and the done-when. It's an
 outside action, so it's a draft (kind `calendar_hold`) through the approval gate, made by the sender
 with the calendar tools in `send.tools`. Always allow is offered for your own calendar. Without a
 calendar tool, Fuzz shows the slot for you to add, and the task is still booked in Fuzz. The task is
@@ -1562,7 +1568,7 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
 - **Focus ordering**: time-sensitive stays first, the card in front never changes, a refined result
   with an unknown id is refused, and a slow or failed AI pass leaves the instant order.
 - **Deliverables**: `report_deliverable_done` closes and undoes; it's refused for `checked_by = you`.
-- **Working sessions**: a Find out… answer brings the card back next without changing the card in
+- **Working sessions**: I can't decide's options bring the card back next without changing the card in
   front, and never retitles or finishes the task; a big task leads with the four choices; Later
   counts toward "keeps coming back" and Book time doesn't; during a block its task is first and a
   time-sensitive card second.
@@ -1596,8 +1602,8 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
     a step (no retitling or finishing on a piece); the same-run duplicate check on the rule-made `new`
     path too, not only after the judge; and step 11's leftovers (offer a late ask to a group draft
     still waiting for your OK; covered tasks follow their draft when it's put off).
-13. **Find out…**: the answer, `finding_out` and the gathering run started at once, the card back next
-    when the answer lands, and gaps shown on the card.
+13. **Find out…** (removed 2026-11-15; its mechanism runs I can't decide): the answer, `finding_out` and the
+    gathering run started at once, the card back next when the answer lands, and gaps shown on the card.
 14. **Working sessions**: the size on cards and the four choices for big tasks; Later and Book time as
     two actions (Book time picks a time in Fuzz until step 15); Do it now and the working card; After
     the others; What's in the way?; the check-in on time; recording time on screen.
@@ -1648,7 +1654,7 @@ found by `doctor`. Judge it on spreadsheet questions and real Office files; deci
     would let you ask for separate replies before any work is done.
 13. **Tasks that keep cycling.** In use, most handbacks were "Here's what you asked for. Done?"
     answered with a follow-up, so iterative work goes round the queue one turn at a time. Decided:
-    a piece of a task is a step, and Find out… runs at once (see [Working sessions](#working-sessions)).
+    a piece of a task is a step, and I can't decide runs at once (see [Working sessions](#working-sessions)).
     Still open: run every follow-up straight away, offer Work in Claude after two rounds, stop asking
     for a file after one failed read, and offer "Done, and start a new task" when a follow-up changes
     the done-when.

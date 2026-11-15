@@ -141,7 +141,7 @@
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
       e.preventDefault();
       /* Escape stops listening first, keeping what was heard */
-      if (Dictate.active()) Dictate.stop(); else App.navigate(ob && ob.back && Onboard.active() ? ob.back : '#/triage');
+      if (Dictate.active()) Dictate.stop(); else App.navigate(ob && ob.back && Onboard.active() ? ob.back : '#/guide');   /* back to the Guide, like the label says */
     };
     document.addEventListener('keydown', escKey);
     ta.focus();

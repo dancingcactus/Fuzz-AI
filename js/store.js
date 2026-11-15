@@ -236,14 +236,14 @@
       S.log(it, 'status', 'You took this one yourself. Fuzz keeps the sources ready.');
     },
     done: function (id) { var it = S.item(id); S.leave(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
-    /* Deep Work: yours, and it takes real time. It leaves Triage for the pool and waits for a session. */
-    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'Waiting for a Deep Work session'; S.log(it, 'status', 'You put this in Deep Work. It waits there for a session with time to do it.'); },
+    /* I'll do it: yours, and it takes real time. It leaves Triage for My work and waits for a Deep Work session. */
+    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'In My work, ready when you start'; S.log(it, 'status', 'You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it.'); },
     /* Done for now in a session: where you left off goes in its notes, and it moves to the back of the pool */
     deepWorkLeftOff: function (id, note) {
       var it = S.item(id); if (!it) return; note = (note || '').trim();
       if (note) { it.leftOff = note; it.now = 'Left off: ' + note; }
       state.items = state.items.filter(function (i) { return i !== it; }).concat([it]);
-      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in Deep Work. Where you left off: ' + note : 'Done for now in Deep Work.');
+      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in My work. Where you left off: ' + note : 'Done for now in My work.');
     },
     session: function (id) { var it = S.item(id); S.leave(id); it.state = 'session'; it.now = 'Open in ' + S.workIn; S.log(it, 'status', 'You opened this in a working session with ' + S.workIn + '. Fuzz keeps the sources ready.'); },
     /* opt is one of S.scheduleOptions(it), or an exact time: the core's Schedule options, as the API sends them */
@@ -423,24 +423,23 @@
     keepGoing: function (id) { var it = S.item(id); if (!it) return; it.blockEnd = false; S.log(it, 'status', 'You kept going.'); S.pick(id); },
     /* A hold on your calendar for booked time: approve, always allow, or skip (still booked in Fuzz) */
     answerHold: function (id, opt) { var it = S.item(id); if (!it) return; S.leave(id); it.cardKind = null; S.log(it, 'status', opt === 'skip' ? 'No change to your calendar.' : 'You approved the calendar hold.'); },
-    decideFor: function (id) { return S.findOut(id, 'What are my options here? Lay them out with the one you’d suggest.'); },
-    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
-    /* Find out…: Fuzz looks it up; the task stays yours and its card comes back right after the one in front.
-       Live mode does it in the core; the demo pretends, a few seconds later. */
-    findOut: function (id, q) {
+    /* I can't decide: Fuzz lays out the options; the task stays yours and its card comes back right after the one
+       in front. Live mode does it in the core; the demo pretends, a few seconds later. */
+    decideFor: function (id) {
       var it = S.item(id); if (!it) return;
-      S.leave(id); it.state = 'queued'; it.gathering = true; it.now = 'Finding out: ' + q;
-      S.log(it, 'guidance', 'You asked Fuzz to find out: ' + q);
+      S.leave(id); it.state = 'queued'; it.gathering = true; it.now = 'Laying out the options';
+      S.log(it, 'guidance', 'You asked Fuzz to lay out the options.');
       if (S.live) return;
       setTimeout(function () {
         if (it.state !== 'queued' || !it.gathering) return;
         it.state = 'triage'; it.gathering = false; it.foundOut = true; it.now = '';
-        it.aiHeading = 'You asked: ' + q; it.aiNote = 'In this demo Fuzz doesn’t really look. With your engine set up, the answer lands here.';
-        S.log(it, 'status', 'Fuzz found out what you asked. It’s back for you.');
+        it.aiHeading = 'Your options'; it.aiNote = 'In this demo Fuzz doesn’t really look. With your engine set up, the options land here, with the one Fuzz suggests.';
+        S.log(it, 'status', 'Fuzz laid out the options. It’s back for you.');
         if (!S.inQueue(id)) { state.queue.splice(Math.min(1, state.queue.length), 0, id); state.totalEver++; }
         emit({ type: 'review' });
       }, 4000);
     },
+    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
     /* A late ask joins the thread's reply that's waiting for your OK: Fuzz rewrites the reply to cover it */
     joinReply: function (id) {
       var it = S.item(id); if (!it) return;
@@ -584,11 +583,11 @@
     captureDeep: function (text) {
       var id = 'deep' + (++captureN);
       var it = {
-        id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'In Deep Work now', mins: 30, energy: 'normal', order: ++state.maxOrder,
-        incoming: 'You asked for this one by name in Deep Work.', aiNote: 'You started this in Deep Work, so Fuzz hasn’t had time to gather anything for it yet.',
+        id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'You’re working on it now', mins: 30, energy: 'normal', order: ++state.maxOrder,
+        incoming: 'You asked for this one by name in My work.', aiNote: 'You started this in My work, so Fuzz hasn’t had time to gather anything for it yet.',
         log: [], sources: [], context: [], conversation: [], people: [], code: []
       };
-      S.log(it, 'status', 'You started this in Deep Work.');
+      S.log(it, 'status', 'You started this in My work.');
       state.items.push(it);
       emit({ type: 'capture', item: it });
       return it;

@@ -262,9 +262,8 @@
       joinReply: !!(c && (c.options || []).indexOf('add_to_reply') > -1), joinReason: c && c.options && c.options.indexOf('add_to_reply') > -1 ? c.reason : '',
       /* its size, "≈ 1½ h · 6 steps", and whether it's big (the core's call) */
       effortMins: t.effort_mins || null, stepCount: t.step_count || null, gaps: t.gaps || [],
-      /* Find out…: the answer is in, at the top of the card; or the brief has gaps, so it's suggested */
-      foundOut: tags.indexOf('found_out') > -1 && state === 'triage', findOutQ: t.find_out || '',
-      suggestFindOut: !!(c && c.suggested === 'find_out'),
+      /* I can't decide: Fuzz's options are in, at the top of the card (the core calls it found_out) */
+      foundOut: tags.indexOf('found_out') > -1 && state === 'triage',
       /* working sessions: the size and whether it's big, Book time's options, the working card, "What's in the way?" */
       size: c && c.size || null, sizeLabel: c && c.size ? c.size.label : '', suggested: c ? c.suggested : null,
       bookOptions: c && c.book_options ? c.book_options : null,
@@ -280,8 +279,10 @@
       /* Deep Work: the next step and where you left off last time, for picking it up */
       nextStep: t.next_step || '', leftOff: leftOffOf(t.notes)
     };
-    if (f.foundOut) f.aiHeading = 'You asked: ' + (t.find_out || 'what you needed');
-    if (tags.indexOf('finding_out') > -1) f.now = 'Finding out: ' + (t.find_out || '');
+    /* the core's DECIDE question starts "What are my options"; an older one (Find out…, gone) is shown as asked */
+    var decided = /^What are my options/.test(t.find_out || '');
+    if (f.foundOut) f.aiHeading = decided ? 'Your options' : 'You asked: ' + (t.find_out || 'what you needed');
+    if (tags.indexOf('finding_out') > -1) f.now = decided ? 'Laying out the options' : 'Looking into: ' + (t.find_out || '');
     /* Waiting on someone while Fuzz works out when to check back: it's already with them, not with Fuzz */
     if (tags.indexOf('plan_wait') > -1) { f.state = 'waiting'; f.gathering = false; f.nextCheck = 'Fuzz is picking a time'; }
     /* Time-sensitive tasks get the rush treatment; others with a date get the due bar */
@@ -295,7 +296,7 @@
     else if (state === 'review') f.now = 'Draft ready to review';
     else if (state === 'sending') f.now = 'Sending' + (f.sendTo ? ' to ' + f.sendTo.to : '');
     else if (state === 'session') f.now = t.next_step ? 'Next: ' + t.next_step : 'Open in ' + Store.workIn;
-    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'Waiting for a Deep Work session';
+    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'In My work, ready when you start';
     else if (state === 'done') f.now = 'Done';
     else if (state === 'letgo') f.now = f.theirs ? 'Someone else’s' : 'Let go';
     else f.now = '';
@@ -581,11 +582,9 @@
     wrap('wrapUp', function (id) { return groupCall(S.group(id), 'wrap'); });
     /* A late ask joins the thread's reply waiting for your OK: Fuzz rewrites it to cover this too */
     wrap('joinReply', function (id) { var it = S.item(id); return it && decide(it, 'add_to_reply'); });
-    /* Find out…: Fuzz looks it up now (the core starts the run); the card comes back right after the front one */
-    wrap('findOut', function (id, q) { var it = S.item(id); return it && decide(it, 'find_out', q, 'find_out', { question: q }); });
     /* Working sessions: Book time, Do it now, Pause, After the others, Just the first step, and two
        answers to "What's in the way?" (lay out the options; draft it for my OK) */
-    wrap('book', function (id, opt) { var it = S.item(id); return it && opt && decide(it, 'book', { anchor: opt.anchor }); });
+    wrap('book', function (id, opt) { var it = S.item(id); return it && opt && decide(it, 'book', { anchor: opt.anchor }, 'book', { anchor: opt.anchor }); });
     wrap('doNow', function (id) { var it = S.item(id); return it && decide(it, 'do_now'); });
     wrap('pause', function (id, note) { var it = S.item(id); return it && decide(it, 'pause', (note || '').trim() || undefined); });
     wrap('afterOthers', function (id) { var it = S.item(id); return it && decide(it, 'after_others'); });
@@ -806,6 +805,8 @@
         .then(function (r) { syncThenRefresh(); return r && r.collected; });
     },
     /* The open tasks one is most likely the same as, for "Same as…" in task detail: [{task_id, title, state, why}] */
+    /* The times Book time offers a task with no card (the wrap-up's Book time to finish); none on an older core */
+    bookOptions: function (coreId) { return api('GET', '/tasks/' + coreId + '/book_options').then(function (r) { return (r && r.options) || []; }, function () { return []; }); },
     sameAsChoices: function (coreId) { return api('GET', '/tasks/' + coreId + '/same_as').then(function (r) { return r.choices || []; }); },
     /* One of those, whole, so its dialog shows the log and sources */
     loadFinished: function (coreId) { return api('GET', '/tasks/' + coreId).then(function (t) { return Store.keepAside(toItem(t, null, null)); }); },

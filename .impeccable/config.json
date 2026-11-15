@@ -35,6 +35,15 @@
           "spikes/**/*.html"
         ],
         "createdAt": "2026-11-12T22:42:52.053Z"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "css/app.css"
+        ],
+        "createdAt": "2026-11-15T16:18:45.500Z",
+        "reason": "Claude triage 2026-11-15: L580 is a neutral grey blockquote rule (.md blockquote), L935 an inset gutter mark on a highlighted code line (.code-row.hl); standard typography/code-viewer conventions, not accent-striped cards"
       }
     ]
   }

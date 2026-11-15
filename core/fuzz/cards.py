@@ -73,11 +73,11 @@ def kind_spec(name):
 # A task card's answers depend on why it's in front of you. schedule is Later (bring it back then); book is
 # Book time (hold the time). do_now, after_others and first_step are a big task's choices with book; decide
 # and draft_it answer "What's in the way?"
-TASK_OPTIONS = ["assign", "deep_work", "session", "schedule", "done", "park", "wait", "someone_else", "drop", "find_out",
+TASK_OPTIONS = ["assign", "deep_work", "session", "schedule", "done", "park", "wait", "someone_else", "drop",
                 "book", "do_now", "after_others", "first_step", "decide", "draft_it"]
 BIG_LEAD = ["do_now", "book", "after_others", "first_step"]   # a big task's card leads with these
-DOING_OPTIONS = ["done", "pause", "assign", "deep_work", "session", "book", "find_out"]   # the working card's ways out
-WAY_OPTIONS = ["find_out", "do_now", "deep_work", "book", "first_step", "decide", "draft_it", "after_others", "drop"]
+DOING_OPTIONS = ["done", "pause", "assign", "deep_work", "session", "book"]   # the working card's ways out
+WAY_OPTIONS = ["do_now", "deep_work", "book", "first_step", "decide", "draft_it", "after_others", "drop"]
 REVIEW_OPTIONS = ["keep_parked", "now", "schedule", "drop"]   # a parked task back to ask "Still want this?"
 CHECK_BACK_OPTIONS = ["got_it", "nudge", "keep_waiting", "drop"]   # a waiting task back to ask "Did they get back to you?"
 # a task you've scheduled again and again, back to ask what's in the way: unclear (Fuzz works out the
@@ -141,7 +141,7 @@ def create(core, kind, task_id=None, other_id=None, prompt=None, reason=None, su
     cid = core.new_id("cards")
     ch = events.Changes()
     payload = dict(payload or {})
-    if where == "next":   # right after the card in front (a Find out… answer that just landed)
+    if where == "next":   # right after the card in front (Fuzz's options for "I can't decide", just landed)
         front = queue(core)
         payload.update(next=True, after=front[0][0]["id"] if front else None)
     spec = kind_spec(kind)
@@ -162,7 +162,7 @@ def sync(core, task_id, where="back"):
     """Make sure a task has the card its state calls for. Call at the end of any command that moves a task.
 
     where: "front" puts a new card at the head of the queue (you pulled it back, a reply came in); "next"
-    right after the card in front (a Find out… answer)."""
+    right after the card in front (the options for "I can't decide")."""
     from . import tasks
     t = tasks.get(core, task_id)
     if t is None:
@@ -210,7 +210,7 @@ def sync(core, task_id, where="back"):
                           else "You’re on this one.", where="front" if where == "back" else where)
         if "in_the_way" in tags:
             from .tasks import WAY_PROMPT
-            return create(core, "task", task_id, reason=t.get("reason"), prompt=WAY_PROMPT, suggested="find_out",
+            return create(core, "task", task_id, reason=t.get("reason"), prompt=WAY_PROMPT, suggested="decide",
                           payload={"at_end": True}, where=where)
         if "ask_book" in tags or "after_others" in tags:
             return create(core, "task", task_id, reason=t.get("reason"),
@@ -218,12 +218,10 @@ def sync(core, task_id, where="back"):
                           payload={"at_end": True} if "after_others" in tags else None, where=where)
         return create(core, "task", task_id, reason=t.get("reason"),
                       prompt=PUT_OFF_PROMPT if "put_off" in tags else None,
-                      suggested="book" if booking.is_big(core, t) and not t.get("gaps") and not (
+                      suggested="book" if booking.is_big(core, t) and not (
                           {"review", "check_back", "put_off", "stale", "result", "handed_back"} & set(tags))
                       else review_suggests(core, t) if "review" in tags else "nudge" if "check_back" in tags
                       else "unclear" if "put_off" in tags else "keep" if "stale" in tags else "done" if "result" in tags
-                      # the brief has gaps: finding out comes first
-                      else "find_out" if t.get("gaps") and "found_out" not in tags
                       else ("quick" if t.get("quick_answers") else "assign"),
                       where="back" if "handed_back" in tags else where)
     if t["state"] == "review" and not any(c["kind"] in ("draft", "nudge") for c in open_):
@@ -363,7 +361,7 @@ def queue(core, front=None):
             k = (doing, at_end, urgent, infocus, back, fits, 0, 0, c["order_key"] or 0)
         keyed.append((k, c, t))
     out = [(c, t) for _, c, t in sorted(_back_to_back(core, keyed), key=lambda x: x[0])]
-    # A Find out… answer that landed comes next, right after the card in front, which never changes under you
+    # The options for "I can't decide", once they land, come next, right after the card in front, which never changes under you
     # (and once that card is answered, it's the one in front)
     nxt = [x for x in out if (x[0].get("payload") or {}).get("next")]
     if nxt:

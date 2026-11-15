@@ -84,7 +84,7 @@
 .dw-tellrow .btn { min-height: 44px; }
 
 /* The session bar, in the header where Triage keeps its progress (js/app.js #dwprog) */
-.hprog.dwprog { max-width: 480px; }
+.hprog.dwprog { max-width: 480px; overflow: hidden; }   /* in a tight header it gives way, clipped, rather than run under the buttons */
 .dwbar { flex: 1; min-width: 60px; position: relative; height: 14px; border-radius: 4px; overflow: hidden; background: var(--chip); border: var(--bw2, 1px) solid color-mix(in srgb, var(--ink) 22%, transparent); box-sizing: border-box; }
 .dwbar i { position: absolute; top: 0; bottom: 0; }
 .dwbar i.w { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
@@ -93,7 +93,7 @@
 .dwbar i.b.past { background: color-mix(in srgb, var(--ok) 80%, var(--surface)); }
 .dwbar i.w + i.w:not(.past), .dwbar i.b { box-shadow: inset 1px 0 0 var(--surface); }
 .dwbar i.now { width: 2px; margin-left: -1px; background: var(--ink); }
-.dwprog-t { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dwprog-t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dw-breakdial .rim { fill: var(--field); stroke: color-mix(in srgb, var(--ink) 28%, transparent); stroke-width: 2; }
 .dw-breakdial .b { fill: color-mix(in srgb, var(--ok) 70%, var(--surface)); }
 @media (max-width: 760px) { .hprog.dwprog { max-width: none; } }
@@ -130,3 +130,36 @@ body.dw-taken { overflow: hidden; }
 @media (max-width: 560px) { .dw-step { font-size: 23px; } .dw-panel { padding: 16px; } .dw .btn kbd { display: none; } }
 @media (prefers-reduced-motion: reduce) { .dw-take, .dw-check, .dw-step.enter, .dw-sheet { animation: none; } }
 html.calm .dw-take, html.calm .dw-check, html.calm .dw-step.enter, html.calm .dw-sheet { animation: none; }
+
+/* ---------- The Guide (js/view-deepwork.js vGuide): one question over one list ----------
+   Triage, then My work, then Something else; you pick exactly one. Fuzz's pick is tagged, and How long appears
+   only once a task or Something else is picked. */
+.view--guide { max-width: 820px; }
+.dw-guide .dw-top { display: none; }   /* the header's label already says Guide */
+.g-q { margin: 0 0 10px; font-size: 22px; }
+.g-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.g-grp { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 12px 0 2px; }
+.g-grp:first-child { margin-top: 0; }
+.g-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; border-radius: 14px;
+  border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left;
+}
+.g-row:hover { background: var(--chip); }
+.g-row:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+.g-row[aria-checked="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.g-row[aria-disabled="true"] { cursor: default; opacity: .6; }
+.g-row[aria-disabled="true"]:hover { background: var(--surface); }
+.g-radio { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); }
+.g-row[aria-checked="true"] .g-radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+.g-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.g-t b { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+.g-t small { color: var(--muted); font-size: 13px; }
+.g-m { flex: none; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.g-tag { display: inline-block; margin-left: 8px; vertical-align: 1px; font-size: 11px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 999px; padding: 1px 8px; }
+.g-field { width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--field, var(--surface)); color: var(--ink); font: inherit; font-weight: 700; font-size: 15px; }
+.g-more { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 700; }
+.g-hint .linkbtn { font-size: inherit; min-height: 0; padding: 0; vertical-align: baseline; }
+.g-panel .dw-row { margin-top: 16px; }
+.dw-then { display: flex; flex-wrap: wrap; gap: 10px; }
+.dw-then .dw-time[aria-checked="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+@media (max-width: 560px) { .g-row { padding: 10px 12px; gap: 10px; } .g-q { font-size: 20px; } }

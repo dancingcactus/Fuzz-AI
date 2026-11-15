@@ -288,14 +288,21 @@ def can_hold(core):
 CALENDAR_WORDS = ("calendar", "gcal", "event")   # how calendar tools are named (Google Calendar, Outlook, …)
 
 
-def link(core, t):
-    return f"{(_bcfg(core).get('ui_url') or 'http://127.0.0.1:8765/').rstrip('/')}/#tasks/{t['id']}"
+def link(core, t, anchor=None):
+    """The link a calendar hold carries: the Guide, with this task picked and the time set to the block's end
+    (#/work/<id>?until=HH:MM, local time), so opening the invite is one tap from Start. The UI still opens
+    the old #tasks/<id> links already in calendars."""
+    base = (_bcfg(core).get('ui_url') or 'http://127.0.0.1:8765/').rstrip('/')
+    a = anchor or t.get("schedule_anchor") or {}
+    end = parse_iso(a["end"]) if isinstance(a, dict) and a.get("end") else None
+    until = f"?until={end.astimezone(timeres.local_tz(core)).strftime('%H:%M')}" if end else ""
+    return f"{base}/#/work/{t['id']}{until}"
 
 
-def hold_body(core, t):
+def hold_body(core, t, anchor=None):
     """A hold's body: the link to the task in Fuzz and its done-when. Its title is the task's title."""
     done_when = t.get("done_when") or t.get("ask") or t["title"]
-    return f"{link(core, t)}\nDone when: {done_when}"
+    return f"{link(core, t, anchor)}\nDone when: {done_when}"
 
 
 def ask_hold(core, t, anchor, kind="calendar_hold", why=None):
@@ -312,7 +319,7 @@ def ask_hold(core, t, anchor, kind="calendar_hold", why=None):
     for d in core.all("SELECT id FROM drafts WHERE task_id=? AND user_id=? AND status='pending' AND kind=?",
                       (t["id"], core.user_id, kind)):
         ch.draft(d["id"], status="withdrawn")
-    ch.draft(did, task_id=t["id"], kind=kind, target="Your calendar", body=hold_body(core, t),
+    ch.draft(did, task_id=t["id"], kind=kind, target="Your calendar", body=hold_body(core, t, anchor),
              status="approved" if auto else "pending", created_at=core.now_iso(), final=1, meta=meta,
              **({"approved_by": "grant", "approved_at": core.now_iso()} if auto else {}))
     events.emit(core, "task.draft_ready", task_id=t["id"], changes=ch, data={"draft_id": did, "kind": kind, "auto": auto})

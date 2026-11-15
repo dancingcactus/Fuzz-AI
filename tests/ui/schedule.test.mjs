@@ -24,7 +24,7 @@ beforeEach(async () => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.errors = errors;
-  await page.goto(`http://127.0.0.1:${PORT}/`);
+  await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   /* The session-focus question comes first; Esc skips it to the first card */
   await page.locator('#focuscard').waitFor();
   await page.keyboard.press('Escape');

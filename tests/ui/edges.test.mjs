@@ -25,7 +25,7 @@ beforeEach(async () => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.errors = errors;
-  await page.goto(`http://127.0.0.1:${PORT}/`);
+  await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   await page.locator('#focuscard').waitFor();
   await page.keyboard.press('Escape');
   await page.locator('#card [data-act]').first().waitFor();
@@ -75,7 +75,7 @@ test('⌘ Enter on a check-back keeps the note instead of handing it over', asyn
   assert.ok((await said('vendor')).includes('You said: She is out until Monday'));
 });
 
-test('a note goes with I did it', async () => {
+test('a note goes with Done', async () => {
   await show('room');
   await page.keyboard.press('e');
   await page.keyboard.type('Booked it myself on 3');

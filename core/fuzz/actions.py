@@ -47,7 +47,7 @@ def answer_card(core, card_id, option, value=None):
         follow.append({"kind": "gather"})
     if out.get("collected") or option == "add_to_reply":   # Fuzz can start on the ones you handed it
         follow.append({"kind": "group_run"})
-    if option == "find_out":   # at once, not at the next scheduled run: the card comes back as soon as it lands
+    if option == "decide":   # at once, not at the next scheduled run: the card comes back as soon as the options land
         follow.append({"kind": "find_out", "task_id": card["task_id"]})
     return out, follow
 
@@ -71,11 +71,12 @@ TASK_VERBS = {
     "letgo": (lambda core, tid, body: tasks.let_go(core, tid), ()),
     "session": (lambda core, tid, body: tasks.session(core, tid), ()),
     "deep_work": (lambda core, tid, body: tasks.deep_work(core, tid, left_off=body.get("left_off")), ()),
+    # Book time with no card: the wrap-up's "Book time to finish", from GET /tasks/{id}/book_options
+    "book": (lambda core, tid, body: tasks.book(core, tid, body.get("anchor")), ()),
     "schedule": (lambda core, tid, body: tasks.schedule(core, tid, body.get("anchor"),
                                                         instructions=body.get("instructions"),
                                                         gather=config.gathers(core.config)), ("gather",)),
     "back": (lambda core, tid, body: tasks.to_back(core, tid), ()),
-    "find_out": (lambda core, tid, body: tasks.find_out(core, tid, body.get("question")), ("find_out",)),
     "reopen": (_reopen, ()),
     # Tell Fuzz: a note sent just before your choice on the card, so it goes along with it
     "note": (lambda core, tid, body: tasks.tell(core, tid, body.get("text")), ()),

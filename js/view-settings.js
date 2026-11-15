@@ -1,4 +1,4 @@
-/* Settings (#/settings, the gear in the header): what Fuzz knows and may do, how he looks, one section
+/* Settings (#/settings, in the menu with Fuzz's head): what Fuzz knows and may do, how he looks, one section
    each, saved on its own. Replaces the old four-step guided setup and the header's quick settings.
 
    About you        your other names, emails and Slack IDs (PUT /me)

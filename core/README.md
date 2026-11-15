@@ -312,12 +312,15 @@ you said on each other card, and `save_draft(covers=[…])` makes one reply that
 of them and closes them all when it's sent. A handback on a group claim asks once; the others wait,
 `held`, for your answer. Undo of the last answer takes the collection back too.
 
-### Find out… and working sessions
+### Working sessions
 
-**Find out…** (`find_out {question}` on a task card, or `POST /tasks/{id}/find_out`) sends the task to
-Fuzz tagged `finding_out`, gathered like a capture, and starts a run at once. Fuzz can't retitle it or
-finish it (`result`); when it calls `finish_gathering` the card comes back next, right after the card
-that was in front, tagged `found_out`. A brief's `gaps` make Find out… the suggested answer.
+**I can't decide** (`decide` on a "What's in the way?" card) sends the task to Fuzz tagged `finding_out`
+with `tasks.DECIDE` as its question, gathered like a capture, and starts a run at once. Fuzz can't
+retitle it or finish it (`result`); when it calls `finish_gathering` the card comes back next, right
+after the card that was in front, tagged `found_out`, with the options at the top. (Find out…, a
+`find_out {question}` answer and verb of its own, was removed on 2026-11-15: it was too close to
+Assign. The `find_out` column, the tags and the `task.find_out` event keep the name. A brief's `gaps`
+show on the card; Assign is the suggested answer.)
 
 Every brief from Fuzz carries `effort_mins` and `steps` (`step_count`), and cards show the size
 ("≈ 1½ h · 6 steps"). A task is big at `work.big_minutes` (45) or `work.big_steps` (5); its card has
@@ -325,10 +328,10 @@ Every brief from Fuzz carries `effort_mins` and `steps` (`step_count`), and card
 toward "keeps coming back". **Book time** is `book {anchor: {type: block, start, end}}` from the card's
 `book_options`: the task is `scheduled` (tag `booked`), never double-booked, and comes back first in the
 list as the working card (tags `doing`, `block`) without counting. `do_now` opens the working card
-(`done`, `pause {notes}`, `assign`, `session`, `book`, `find_out`); `after_others` sends it to the end
+(`done`, `pause {notes}`, `assign`, `session`, `book`); `after_others` sends it to the end
 with no penalty, and back at your desk it asks to book time; `first_step` has Fuzz write the checklist
 and brings it back next as the working card. A task card sent to the end twice asks "What's in the way?"
-(`find_out`, `do_now`, `book`, `first_step`, `decide`, `draft_it`, `after_others`, `drop`). The UI posts
+(`do_now`, `book`, `first_step`, `decide`, `draft_it`, `after_others`, `drop`). The UI posts
 each card's time on screen to `POST /screen` (not an event).
 
 ### Booking time
@@ -338,7 +341,7 @@ with its own connector and passes `{slots, holds}` as `suggest_schedule`'s `cale
 tool of its own, to keep the executor at fifteen tools). Book time then ranks: inside a Focus time slot
 (`booking.slot_titles`) before the due date and long enough; inside one where only part fits ("Block 1
 of 2"); then other free time ("Not a focus slot"), around Fuzz's own blocks. Booking makes a
-`calendar_hold` draft (title: the task's title; body: its `#tasks/<id>` link and done-when) with a
+`calendar_hold` draft (title: the task's title; body: its `#/work/<id>?until=HH:MM` link (the Guide, with the task picked and the time set to the block end) and done-when) with a
 `hold` card (Approve, Always allow, Skip) when the sender has a calendar tool in `send.tools`; otherwise
 it's booked in Fuzz only. The sender gets `hold {title, start, end, event_id?}` and marks it sent with
 the event id. `booking.prep_minutes` (30) before the block Fuzz writes the checklist; at the start the

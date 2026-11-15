@@ -79,6 +79,33 @@ class Booking(CoreCase):
         self.report(FOCUS)
         self.assertFalse(tools.whoami(self.core, "executor")["calendar"]["read_now"])
 
+    # ---- sitting down to it from the hold's link (#/work/<id> on the Guide)
+    def test_starting_deep_work_on_booked_time_uses_up_the_block(self):
+        self.report(FOCUS)
+        tid = self.sized("Write the Q4 readout", 90)
+        self.assertEqual(self.book_first(tid)["state"], "scheduled")
+        tasks.deep_work(self.core, tid)
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["schedule_anchor"], t["schedule_fire_at"]), ("deepwork", None, None))
+        self.assertNotIn("booked", t.get("variant_tags") or [])
+        self.assertEqual(events.check_replay(self.core), [])
+
+    # ---- the wrap-up's "Book time to finish": a task in My work has no card, so the verb and the options route
+    def test_book_time_to_finish_from_my_work(self):
+        from fuzz import actions
+        self.report(FOCUS)
+        tid = self.sized("Write the Q4 readout", 90)
+        tasks.deep_work(self.core, tid)
+        self.assertEqual(self.task(tid)["state"], "deepwork")
+        self.assertFalse([c for c in cards.open_cards(self.core, tid) if c["kind"] == "task"])
+        opts = booking.options(self.core, self.task(tid))
+        out, follow = actions.task_action(self.core, tid, "book", {"anchor": opts[0]["anchor"]})
+        t = self.task(tid)
+        self.assertEqual((t["state"], t["schedule_anchor"]["start"]), ("scheduled", "2026-10-21T10:00:00Z"))
+        self.assertIn("booked", t["variant_tags"])
+        self.assertEqual(follow, [])
+        self.assertEqual(events.check_replay(self.core), [])
+
     # ---- the hold
     def test_booking_makes_a_hold_draft_through_the_sender(self):
         self.report(FOCUS)
@@ -87,7 +114,9 @@ class Booking(CoreCase):
         self.assertEqual((t["state"], t["schedule_anchor"]["type"]), ("scheduled", "block"))
         d = self.core.one("SELECT * FROM drafts WHERE task_id=? AND kind='calendar_hold'", (tid,))
         self.assertEqual((d["status"], d["meta"]["title"]), ("pending", "Write the Q4 readout"))
-        self.assertIn(f"#tasks/{tid}", d["body"])
+        self.assertIn(f"#/work/{tid}?until=", d["body"])   # the Guide, task picked, time set to the block's end
+        end = booking.parse_iso(d["meta"]["end"]).astimezone(booking.timeres.local_tz(self.core)).strftime("%H:%M")
+        self.assertIn(f"?until={end}", d["body"])
         self.assertIn("Done when:", d["body"])
         c = next(c for c in cards.open_cards(self.core, tid) if c["kind"] == "hold")
         self.assertEqual(cards.options(c, t), ["approve", "always_allow", "skip"])

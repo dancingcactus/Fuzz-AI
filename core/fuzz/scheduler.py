@@ -179,7 +179,7 @@ def finish_gathering(core, task_id, actor="fuzz:executor", log=None, result=Fals
 
 
 def _found_out(core, t, actor, log=None):
-    """The answer to your Find out… is in the brief: the card comes back next, right after the one in front.
+    """Fuzz's options for "I can't decide" are in the brief: the card comes back next, right after the one in front.
     Just the first step: the checklist is in, and the task comes back next as the working card, on step 1."""
     first = "first_step" in (t.get("variant_tags") or [])
     with core.tx(actor):
@@ -190,7 +190,8 @@ def _found_out(core, t, actor, log=None):
         events.emit(core, "task.gathered", task_id=t["id"], changes=ch,
                     data={"first_step": True} if first else {"found_out": t.get("find_out")},
                     log=("status", log or ("The checklist is in. Step 1 is yours now." if first else
-                                           f"Fuzz found out: {t.get('find_out') or 'what you asked'}. It's back for you.")))
+                                           "Fuzz laid out the options. It's back for you." if t.get("find_out") == tasks.DECIDE
+                                           else f"Fuzz looked into it: {t.get('find_out') or 'what you asked'}. It's back for you.")))
         cards.sync(core, t["id"], "next")
     return t["id"]
 
@@ -534,7 +535,7 @@ def tick(core):
             if (t.get("reviewed_at") or "") >= late:
                 continue
             log = "Fuzz didn't get to look before asking, so it came back as it was."
-        elif {"finding_out", "first_step"} & set(t.get("variant_tags") or []):   # a Find out… or a first step: its clock starts when you asked
+        elif {"finding_out", "first_step"} & set(t.get("variant_tags") or []):   # "I can't decide" or a first step: its clock starts when you asked
             if (t.get("state_changed_at") or "") >= late:
                 continue
             log = "Fuzz didn't get to find that out in time, so it came back as it was."
