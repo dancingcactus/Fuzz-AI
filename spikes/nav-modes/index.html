@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nav Modes Spike</title>
+<link rel="icon" type="image/svg+xml" href="../../assets/fuzz-favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../css/app.css">
+<link rel="stylesheet" href="../../css/fuzz.css">
+<link rel="stylesheet" href="nav.css">
+</head>
+<body>
+<main class="spike">
+  <header class="top">
+    <h1>Nav: modes and places</h1>
+    <p>Triage keeps things moving. Deep Work does the work. Lineup and Artifacts are places you look things up. Four ways to say that in the nav. The page bodies are the same in all four; only the way you get around changes.</p>
+  </header>
+
+  <div class="toolbar" role="group" aria-label="Spike controls">
+    <div class="opts" role="radiogroup" aria-label="Option" id="opts"></div>
+    <label>Waiting in Triage <select id="waiting"><option value="0">0</option><option value="2">2</option><option value="6" selected>6</option></select></label>
+    <label>Can't wait <select id="urgent"><option value="0">none</option><option value="1" selected>1</option></select></label>
+    <label>Deep Work pool <select id="pool"><option value="0">empty</option><option value="3" selected>3</option></select></label>
+    <label><input type="checkbox" id="session"> In a Deep Work session</label>
+    <label>Width <select id="width"><option value="desk">Desktop</option><option value="phone">Phone</option></select></label>
+    <label>Theme <select id="theme"></select></label>
+    <label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="frame" id="frame">
+      <header class="bar" id="bar"></header>
+      <div class="body" id="body"></div>
+    </div>
+  </div>
+
+  <section class="notes" id="notes" aria-live="polite"></section>
+</main>
+<script src="../../js/themes.js"></script>
+<script src="nav.js"></script>
+</body>
+</html>
