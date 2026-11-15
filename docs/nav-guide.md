@@ -5,6 +5,38 @@ root and go to `/spikes/nav-modes/`; it opens on option **E**, the one we chose)
 building it into the app. It covers what we decided, how it should behave, where it fits in the code, what we tried and
 dropped, and what's still open.
 
+> **Base your work on branch `worktree-nav-spike`** (or on main once it's merged). This doc, the spike and the wording
+> commit `21df88e` are only there. On main, the triage card still says "Deep Work" and this file doesn't exist.
+>
+> **Where the spike and this doc differ, this doc wins.** The spike still has toolbar choices and notes from earlier
+> rounds.
+
+## Decided, and carried over
+
+**Decided in the conversation** (build these as written):
+- The Guide is the one starting place, and the app opens on it.
+- There are no nav tabs. The Fuzz logo opens the Guide, and a label next to the wordmark says where you are and is the
+  way back.
+- The start screen is called **Guide**, and the way back is "Back to the Guide". In Triage the label reads
+  "Triage · Back to the Guide", not "Switch".
+- "Where do you want to start?" asks one question over a single list: Triage, then My work, then Something else.
+- Something else edits inline: the row's title becomes a "Tell me what you want to work on" field, and picking it
+  reveals "How long do you have?" like the other rows.
+- The waiting signal is **a dot on the label**, with no numbers.
+- Lineup, Artifacts and Settings live in a small round menu button on the right, with **Fuzz's head** as the icon.
+- **I'll do it** is the triage action, **My work** is the queue, and **Deep Work** is only the session (already built,
+  `21df88e`).
+- Calendar invites deep-link into Triage time and work time.
+
+**Carried from the spike without a ruling** (sensible defaults; check with the person before treating them as fixed):
+- Fuzz's suggestion rules on the Guide, including the threshold of 5 waiting.
+- Exactly when the dot shows (the rules under "The header").
+- The menu having **Keys and help** as a fourth item.
+- The Triage row being disabled when Triage is clear.
+- In a session, something urgent pausing the clock and showing only that card, and walking away pausing the clock.
+- The wrap-up's three "then what" choices, and "Save it and go" for a meeting.
+- A calendar link landing one tap from Start, not starting the session by itself.
+
 ## The model in one paragraph
 
 **Triage** keeps things moving: one card at a time, quick decisions, and Fuzz does the rest. When a task is yours and
@@ -49,7 +81,13 @@ Everything below is still to do.
 | Lineup, Artifacts | **Lineup** · Back to the Guide (same for Artifacts) |
 
   The task title is cut to about five words with "…". The label must stay one line, and on a phone it sits on its own
-  row under the logo and buttons (see the spike at Width: Phone).
+  row under the logo and buttons (see the spike at Width: Phone). The pages the spike didn't cover follow the same
+  pattern:
+  - **New task:** "New task · Back to the Guide"
+  - **Settings:** "Settings · Back to the Guide"
+  - **Welcome** (onboarding): no label, as today's onboarding has no nav
+  - **The old `#/deepwork` route:** goes to the session while one runs, otherwise to the Guide with the top of My work
+    picked
 
 - **The "something's waiting" dot sits on the label.** No numbers anywhere in the nav. The dot shows only when there's
   work you can't see from where you are:
@@ -127,7 +165,7 @@ away:
 - A calendar link (below).
 
 **Inside a session**, everything that's already built stays: focus, steps, between tasks, breaks (25 on, 5 off, 15
-after three), takeovers. Two behaviours change:
+after three), takeovers. Two behaviours change (from the spike, not ruled on; confirm before building):
 
 - **Something urgent pauses the clock** and shows only that card, with "Your session is paused. The clock waits while
   you deal with this." and Back to it. Dealing with the card returns you to the session. Check the existing takeover
@@ -164,11 +202,20 @@ as 24-hour HH:MM.
 | `#/work?what=Draft%20the%20launch%20email&until=15:30` | Something else, filled in. It becomes a task when you start |
 
 - A link lands **one tap from Start**; it does not start the session by itself.
-- The router splits on `/` and takes the first segment (`js/app.js` `route()`), so add a `work` route that renders the
-  Guide with these parameters. Parse the query from the hash.
-- **Where links come from:** Fuzz's calendar holds already carry a link to the task (`core/fuzz/booking.py` `link()`,
-  today `#tasks/<id>`, used by `hold_body()`). Make holds for tasks in My work carry `#/work/<id>?until=<block end>`.
-  Keep `#tasks/<id>` working for old invites.
+- **Strip the query before the route lookup.** The router takes `location.hash.replace(/^#\/?/, '').split('/')[0]`
+  (`js/app.js` `route()`), so today `work?until=15:00` isn't a route name and silently falls back to Triage. Add a
+  `work` route that renders the Guide, and read `until` and `what` from the hash's query.
+- **`<taskId>` is the core's id** (what `booking.link()` writes). The UI's ids are `'t' + coreId` (`js/live.js`).
+- **A linked task can be in any state, not only My work.** Book time moves a task to `scheduled` with the `booked` tag
+  and brings it back first in Triage, in work mode, when its block starts (`core/fuzz/tasks.py` `book()`). So a work
+  link usually points at a booked or triage task. The Guide should show the linked task picked, as a row under My work,
+  whatever its open state, and Start begins Deep Work on it. If it's done or let go by then, Fuzz says so ("That one's
+  already done.") and the Guide opens with nothing picked.
+- **Where links come from today:** only Book time's calendar holds. `hold_body()` puts `booking.link()` in the hold;
+  today that's `#tasks/<id>`, which the router reads as "tasks" and opens Lineup, not the task. Change `link()` to
+  `#/work/<id>?until=<block end, HH:MM>`, and keep `#tasks/…` working for invites already out there.
+- **Nothing makes the other links yet.** No feature creates `#/triage?until=…` or plain `#/work?until=…` invites; see
+  the open questions.
 
 ## The words, in one place
 
@@ -230,6 +277,12 @@ Defaults are marked. Ask before going a different way.
    gathers in the background, as Deep Work does today.*
 5. **Merge the core's `mine` and `deepwork` states?** In this model both mean "yours, waiting for you". *Default: not
    now; it's a core change of its own.*
+6. **Who makes Triage-time and work-time invites?** Only Book time (for one task) writes calendar holds today. Should
+   Fuzz offer "Book triage time" and "Book work time" (from the Guide, or as a daily rhythm in Settings), or will the
+   person paste the links into their own invites? *Default: document the link formats now; build the booking later.*
+7. **Do it now, the working card, and Book time.** Triage isn't only deciding: "Do it now" opens a working card in
+   Triage with Pause, and a booked task comes back first in Triage when its block starts. Should doing things move to
+   Deep Work sessions, so Triage only decides? *Default: leave these as they are for now.*
 
 ## Building and testing it
 

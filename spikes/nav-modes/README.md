@@ -89,25 +89,29 @@ does too. Fuzz's reply covers what a short label can't: "Got it, it's yours. It'
 Triage. Before you sit down to it, I'll pull in … so it's ready." "It won't come back to Triage" is what separates it
 from **Later**, which brings the card back to Triage to decide again.
 
-## Option E: D without the Now tab
+## Option E: D without the Now tab (chosen)
+
+**E is the design we chose.** The hand-off for building it is `docs/nav-guide.md`, and where this README and that doc
+differ, the doc wins. The settled choices are the start screen named **Guide** ("Back to the Guide") and the waiting
+signal as **a dot on the label**. The spike opens on E with both.
 
 "Now" read oddly once it was the only item in the nav. E drops the tab:
 
 - **The Fuzz logo opens the start screen** ("Where do you want to start?").
-- **Where the tab was, a small label says what you're doing:** nothing on the start screen, **Triage · Switch**,
-  **Deep Work · Write the onboarding plan… · 14 min** (with the clock ring), **Deep Work · Paused**, **Deep Work ·
-  Wrapping up**, or **Lineup · Back to start**.
+- **Where the tab was, a small label says what you're doing:** **Guide** on the start screen, **Triage · Back to the
+  Guide**, **Deep Work · Write the onboarding plan… · 14 min** (with the clock ring), **Deep Work · Paused**, **Deep
+  Work · Wrapping up**, or **Lineup · Back to the Guide**.
 - **The label is the way back.** During a session it returns to the session from anywhere. Otherwise it returns to the
   start screen. It replaces D's session chip and the "Pick something else" line in Triage.
 - Everything else is D's: the start screen, the session, and the deep links (a link keeps you in D or E, whichever
   you're looking at).
-- **The start screen has a name** in the label spot. "Start" read like a button, so it's a place: **Home** by default
-  (**Start place name** tries Today, Desk, Your day, Base camp and Overview). Each name has its own way back, which
-  the other labels use: "Triage · Back home", "Lineup · Back home", or "Back to Today", "Back to your desk", and so on.
+- **The start screen has a name** in the label spot. "Start" read like a button, so it's a place: **Guide**, from
+  Fuzz's broadcast theme (a TV guide is where you see what's on and pick). **Start place name** still lists the others
+  we tried (Studio, Control room, Channel 1, Home, Today, Desk, Your day, Base camp, Overview), each with its own way back.
 - **Something waiting** shows when there's work you can't see from where you are. On the start screen the list
   already shows it, and in Triage you're clearing it, so there's no signal there. In a session, only something that
-  can't wait counts. **Something waiting** in the toolbar tries **Fuzz's antenna lights up** (a steady light on the
-  antenna tip of the logo, bigger when something can't wait; no pulse, so it never nags), **a dot on the label**, or both.
+  can't wait counts. It's **a dot on the label**. **Something waiting** in the toolbar still has the alternative we
+  tried, Fuzz's antenna lighting up, which was on-brand but too subtle in Terracotta.
 
 ## Toolbar
 
