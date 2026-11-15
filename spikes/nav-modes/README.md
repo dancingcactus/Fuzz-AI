@@ -36,6 +36,19 @@ so every theme works. The page bodies are the same in all four options; only the
     Then Now recaps the session, and its suggestion depends on how the session ended.
   - Use the **During a session** buttons in the toolbar to trigger each event.
 
+## Round 3
+
+- **The menu is a small round icon button on the right**, where Settings was and in the same style, with no label.
+  **Menu button** tries three icons: Person, Grid and Dots. The Fuzz-logo version is gone.
+- **D has no mode toggle.** A switch on the page read as toggling the current task. Clicking **Now** always opens the
+  start screen, which asks **"What do you want to work on?"** Triage is one of the answers, next to the Deep Work tasks,
+  and Fuzz pre-picks one. **Start screen** in the toolbar switches between two layouts:
+  - **One list:** Triage, then the tasks, as one choice. Picking a task adds "How long do you have?". One Start button.
+  - **Two sides:** Keep things moving (a preview of what's waiting, Start Triage) beside Do my work (which task, how
+    long, Start). Fuzz's suggested side is outlined.
+- "Go deep on something" (Triage clear) and "Go deep on this" (Lineup) open the same start screen with that task already
+  picked. Once you're in Triage, Now or "Pick something else" brings the start screen back.
+
 ## Toolbar
 
 - **Waiting in Triage, Can't wait, Deep Work pool** change the dots and Fuzz's suggestion in D.

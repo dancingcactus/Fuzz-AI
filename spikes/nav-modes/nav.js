@@ -7,7 +7,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var S = { opt: 'A', view: 'triage', mode: 'triage', menu: false, lib: 'tasks', nowPicked: null,
-    waiting: 6, urgent: 1, pool: 3, menuBtn: 'you', dPlaces: 'menu', recap: null };
+    waiting: 6, urgent: 1, pool: 3, menuBtn: 'you', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list' };
   /* the session */
   var D = { phase: 'none', task: 0, budget: 'cal', left: 14, steps: 1, why: null, after: 'keep', other: false, came: 0 };
   function session() { return D.phase === 'focus' || D.phase === 'break' || D.phase === 'paused'; }
@@ -48,21 +48,14 @@
       '<hr><button role="menuitem">' + I.gear + '<span><b>Settings</b><small>Themes, connections, how Fuzz works</small></span></button>' +
       '<button role="menuitem">' + I.keys + '<span><b>Keys and help</b></span><span class="k">?</span></button>';
   }
-  var MENU_LABEL = { you: 'You', grid: 'Everything', fuzz: 'Fuzz' };
-  /* The button: a person ("you": your stuff and your settings), a grid ("everything"), or the Fuzz logo itself */
+  /* The button sits where Settings was, the same small round icon button, no label. Three faces to try. */
+  var FACE = { you: I.person, grid: I.grid,
+    dots: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>' };
   function menuButton() {
-    if (S.menuBtn === 'fuzz') return '';
-    var face = S.menuBtn === 'you' ? '<span class="person">' + I.person + '</span>' : I.grid;
-    return '<span class="wrapmenu"><button class="iconbtn2" id="menubtn" aria-haspopup="menu" aria-expanded="' + S.menu + '" title="Lineup, Artifacts and Settings (L, F)">' + face +
-      '<span class="lbl">' + MENU_LABEL[S.menuBtn] + '</span></button>' + (S.menu ? '<div class="navmenu" role="menu">' + menuItems() + '</div>' : '') + '</span>';
+    return '<span class="wrapmenu"><button class="iconbtn2" id="menubtn" aria-haspopup="menu" aria-expanded="' + S.menu + '" aria-label="Lineup, Artifacts and Settings" title="Lineup, Artifacts and Settings (L, F)">' + FACE[S.menuBtn] +
+      '</button>' + (S.menu ? '<div class="navmenu" role="menu">' + menuItems() + '</div>' : '') + '</span>';
   }
-  function brand(asMenu) {
-    if (asMenu && S.menuBtn === 'fuzz') {
-      return '<span class="wrapmenu"><button class="brand asmenu" id="menubtn" aria-haspopup="menu" aria-expanded="' + S.menu + '" title="Lineup, Artifacts and Settings (L, F)"><img src="../../assets/fuzz-mark.svg" alt=""><span>Fuzz</span><span class="caret" aria-hidden="true">▾</span></button>' +
-        (S.menu ? '<div class="navmenu left" role="menu">' + menuItems() + '</div>' : '') + '</span>';
-    }
-    return '<a class="brand" href="#" data-go="home"><img src="../../assets/fuzz-mark.svg" alt=""><span>Fuzz</span></a>';
-  }
+  function brand() { return '<a class="brand" href="#" data-go="home"><img src="../../assets/fuzz-mark.svg" alt=""><span>Fuzz</span></a>'; }
   function right(extra, withMenu) {
     return '<div class="right">' + (extra || '') +
       '<button class="iconbtn2 cta" title="New task (N)">' + I.plus + '<span class="lbl">New task</span></button>' +
@@ -82,7 +75,7 @@
   /* ---------- The four bars ---------- */
   var BARS = {
     /* A: the modes are a switch; the places live in the menu that used to be Settings */
-    A: function () { return brand(true) + '<div class="navrow">' + toggle() + '</div>' + right(sessionChip(), true); },
+    A: function () { return brand() + '<div class="navrow">' + toggle() + '</div>' + right(sessionChip(), true); },
     /* B: each mode brings its own place: Lineup beside Triage, Artifacts beside Deep Work */
     B: function () {
       var place = S.mode === 'triage' ? link('lineup', 'Lineup') : link('artifacts', 'Artifacts');
@@ -245,19 +238,60 @@
     if (S.pool) return { mode: 'deepwork', why: 'You’ve got until 2pm and nothing urgent. Good time to go deep.' };
     return { mode: 'triage', why: 'Nothing big waiting. A quick look at Triage and you’re clear.' };
   }
-  function pickOpt(g, m, title, sub) {
-    return '<button data-pick="' + m + '"' + (g.mode === m ? ' class="rec"' : '') + '>' + (g.mode === m ? '<span class="tag2">Fuzz suggests</span>' : '') + '<b>' + title + '</b><small>' + sub + '</small></button>';
+  /* The start screen: clicking Now always asks "What do you want to work on?". Triage is one of the answers,
+     beside the Deep Work tasks, so there's no mode to toggle: you pick a thing to do, and Start. */
+  var TRIAGE_TITLES = ['Send Priya the Q3 numbers', 'Approve the venue deposit', 'Reply to Dana about the contract', 'Is “Project Wren” the same as “Wren rollout”?', 'Lunch with Ana: Tuesday or Thursday?', 'Sign the expense report'];
+  function triageN() { return S.waiting + S.urgent; }
+  function triageMins() { return Math.max(3, Math.round(triageN() * 1.5)); }
+  function suggested() { var g = suggestion(); return g.mode === 'triage' || !S.pool ? (triageN() ? 'triage' : (S.pool ? 0 : null)) : 0; }
+  function chosen() { return S.choice != null ? S.choice : suggested(); }
+  function fuzzTag(on) { return on ? '<span class="tag2 inline">Fuzz suggests</span>' : ''; }
+  function triageRow(c, sug) {
+    var n = triageN();
+    return '<button data-choice="triage" aria-pressed="' + (c === 'triage') + '"' + (n ? '' : ' disabled') + '><span class="radio"></span><span class="t"><b>Triage' + fuzzTag(sug === 'triage') + '</b><small>' +
+      (n ? (S.urgent ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="m">' + (n ? '~' + triageMins() + ' min' : 'Clear') + '</span></button>';
+  }
+  function taskRows(c, sug) {
+    return POOL.slice(0, S.pool).map(function (x, i) {
+      return '<li><button data-choice="' + i + '" aria-pressed="' + (c === i) + '"><span class="radio"></span><span class="t"><b>' + x.t + fuzzTag(sug === i) + '</b><small>' + x.s + '</small></span><span class="m">~' + x.m + ' min</span></button></li>';
+    }).join('');
+  }
+  function timeChips(task) {
+    var times = Object.keys(BUDGET).map(function (k) { var b = BUDGET[k]; return '<button data-budget="' + k + '" class="' + (D.budget === k ? 'on' : '') + '"><b>' + b.l + '</b><small>' + b.s + '</small></button>'; }).join('');
+    var fits = POOL[task].m <= BUDGET[D.budget].m ? 'Fits in your time.' : 'Won’t fit in one go. I’ll stop you at a good place.';
+    return '<div class="times">' + times + '</div><p class="meta" style="margin-top:-6px">' + fits + '</p>';
+  }
+  function startList(c, sug) {
+    var deep = c !== 'triage' && c != null;
+    return '<div class="panel2 start"><h3>What do you want to work on?</h3><ul class="choose">' +
+      '<li class="grp">Keep things moving</li><li>' + triageRow(c, sug) + '</li>' +
+      (S.pool ? '<li class="grp">Do my work</li>' + taskRows(c, sug) : '') + '</ul>' +
+      (deep ? '<h3 class="q2">How long do you have?</h3>' + timeChips(c) : '') +
+      '<div class="startbtn"><button class="btn primary" data-act="go"' + (c == null ? ' disabled' : '') + '>' +
+        (c === 'triage' ? 'Start Triage' : deep ? 'Start: ' + POOL[c].t.split(' ').slice(0, 4).join(' ') + '…' : 'Nothing to start') + '</button></div></div>';
+  }
+  function startSides(c, sug) {
+    var n = triageN(), task = typeof c === 'number' ? c : (typeof sug === 'number' ? sug : 0);
+    var titles = (S.urgent ? ['Can we push the vendor call to Thursday?'] : []).concat(TRIAGE_TITLES).slice(0, Math.min(3, n));
+    var left = '<section class="side' + (sug === 'triage' ? ' rec' : '') + '">' + fuzzTag(sug === 'triage').replace(' inline', '') +
+      '<h3>Keep things moving</h3><p class="meta">' + (n ? n + ' waiting · about ' + triageMins() + ' min. Quick decisions; I do the rest.' : 'Nothing is waiting on you.') + '</p>' +
+      (n ? '<ul class="triage-sum">' + titles.map(function (t) { return '<li>' + t + '</li>'; }).join('') + (n > 3 ? '<li class="meta">and ' + (n - 3) + ' more</li>' : '') + '</ul>' +
+        '<button class="btn primary" style="width:100%;min-height:48px" data-act="gotriage">Start Triage</button>' : '') + '</section>';
+    var right = '<section class="side' + (typeof sug === 'number' ? ' rec' : '') + '">' + (typeof sug === 'number' ? '<span class="tag2">Fuzz suggests</span>' : '') +
+      '<h3>Do my work</h3><p class="meta">' + (S.pool ? 'You’ve got until 2pm.' : 'Nothing in Deep Work yet.') + '</p>' +
+      (S.pool ? '<div class="q">What do you want to work on?</div><ul class="choose">' + taskRows(task, sug) + '</ul>' +
+        '<div class="q">How long do you have?</div>' + timeChips(task) +
+        '<button class="btn primary" style="width:100%;min-height:48px" data-act="godeep" data-task-start="' + task + '">Start</button>' : '') + '</section>';
+    return '<div class="sides">' + left + right + '</div>';
   }
   function now() {
-    if (session() || D.phase === 'wrap' || D.phase === 'setup') return deepwork();
-    var g = suggestion();
-    if (S.nowPicked !== 'triage') {
-      var say = S.recap ? recapLine() + (D.came ? '<span class="sub">While you were in it: ' + D.came + ' new in Triage, nothing urgent.</span>' : '') + '<span class="sub">' + g.why + '</span>' : g.why;
-      return perch(say) + '<div class="now-pick">' +
-        pickOpt(g, 'triage', 'Keep things moving', (S.waiting + S.urgent) ? 'Things are waiting in Triage' : 'Triage is clear') +
-        pickOpt(g, 'deepwork', 'Do my work', S.pool ? S.pool + ' tasks in Deep Work' : 'Nothing in the pool yet') + '</div>';
+    if (session() || D.phase === 'wrap') return deepwork();
+    if (S.nowPicked === 'triage') {
+      return '<div class="backline"><span>Keeping things moving</span><button class="linkbtn" data-go="now">Pick something else</button></div>' + triage();
     }
-    return '<div class="pagehead">' + toggle('small', 'pick') + '<button class="linkbtn" data-go="now">' + (g.mode === 'triage' ? 'Fuzz’s pick' : 'Your pick') + ' · back to Now</button></div>' + triage();
+    var g = suggestion(), sug = suggested(), c = chosen();
+    var say = S.recap ? recapLine() + (D.came ? '<span class="sub">While you were in it: ' + D.came + ' new in Triage, nothing urgent.</span>' : '') + '<span class="sub">' + g.why + '</span>' : g.why;
+    return perch(say) + (S.startLayout === 'sides' ? startSides(c, sug) : startList(c, sug));
   }
   var BODIES = { triage: triage, deepwork: deepwork, lineup: lineup, artifacts: artifacts, library: library, now: now, file: file };
 
@@ -272,13 +306,13 @@
     C: ['Lineup and Artifacts merge into one Library.', 'Three tabs instead of four. Library has Tasks and Files inside.',
       ['The smallest change from today, and the easiest to learn', 'Artifacts already belongs to tasks, so one place for both is natural'],
       ['The modes still look like places, so the two-stance idea isn’t in the nav', 'Library risks becoming the junk drawer for every future page']],
-    D: ['One home. Fuzz suggests the mode, and a session has a real way in and out.', 'Now is the only tab. It suggests Keep things moving or Do my work, and while a session runs, Now is the session. Lineup and Artifacts are under the menu button (or tabs, in the toolbar). Use “During a session” to try each way out.',
-      ['Do my work → how long → Fuzz’s pick → Start', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card', 'Walked away: “Welcome back”, with the next step', 'After wrap-up, Now says what you did and suggests what’s next'],
+    D: ['One home. Now always asks “What do you want to work on?”', 'No mode toggle: Triage is one of the answers, beside the Deep Work tasks. Fuzz pre-picks one. While a session runs, Now is the session. Try both layouts with Start screen in the toolbar, and use “During a session” to try each way out.',
+      ['One list: Triage and the tasks as one choice, then how long, then Start', 'Two sides: Keep things moving and Do my work side by side, each with its own Start', 'Change what’s waiting and watch Fuzz’s pick move', 'In Triage, Now or “Pick something else” brings the start screen back', 'Stop for now, Time’s up and Meeting in 5 all land on one wrap-up', 'Something urgent pauses the clock and shows only that card', 'Walked away: “Welcome back”, with the next step', 'After wrap-up, Now says what you did and suggests what’s next'],
       ['One extra step every time you open it, unless Fuzz’s pick is trusted enough to skip it', 'If Fuzz guesses wrong often, it’s more annoying than a plain toggle', 'Is the wrap-up one screen too many when you’re rushing to a meeting?']]
   };
   var FLOW = '<div class="flowmap"><h3>Ways in and out of Deep Work</h3><ul>' +
-    '<li><b>In:</b> Now’s “Do my work” (Fuzz suggests it when you’re free and nothing’s urgent) · “Go deep on something” when Triage is clear · “Go deep on this” on a task in Lineup</li>' +
-    '<li><b>Every way in</b> lands on one screen: how long (Until 2pm first), then Fuzz’s one pick, with the rest a tap away. Start, or Not now.</li>' +
+    '<li><b>In (D):</b> Now’s start screen. “Go deep on something” when Triage is clear and “Go deep on this” in Lineup open the same screen with that task already picked.</li>' +
+    '<li><b>In (A, B, C):</b> the Deep Work page asks how long, shows Fuzz’s one pick with the rest a tap away, then Start or Not now.</li>' +
     '<li><b>Out, on purpose:</b> Stop for now · Finished the task (offers the next one if there’s time)</li>' +
     '<li><b>Out, by the clock:</b> Time’s up · Meeting in 5 (Fuzz stops you 5 min early)</li>' +
     '<li><b>Paused, not out:</b> Something urgent (clock waits, one card, Back to it) · Walked away (Welcome back, or Stop here) · Break (Back to it, or Stop here)</li>' +
@@ -309,9 +343,10 @@
     S.menu = false;
     if (v === 'home') v = S.opt === 'D' ? 'now' : S.mode;
     if (S.opt === 'D') {
-      if (v === 'deepwork') { if (D.phase === 'none') D.phase = 'setup'; showSession(); render(); return; }
+      /* in D, every way into Deep Work is the start screen with a task already picked */
+      if (v === 'deepwork') { if (!session() && D.phase !== 'wrap') { D.phase = 'none'; S.choice = S.pool ? D.task : null; } S.view = 'now'; S.nowPicked = null; render(); return; }
       if (v === 'triage') { S.nowPicked = 'triage'; v = 'now'; }
-      else if (v === 'now') S.nowPicked = null;
+      else if (v === 'now') { S.nowPicked = null; S.choice = null; }
     } else {
       if (v === 'now') v = S.mode;
       if (v === 'deepwork' && D.phase === 'none') D.phase = 'setup';
@@ -332,7 +367,7 @@
 
   /* ---------- Events ---------- */
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-opt],[data-go],[data-lib],[data-pick],[data-act],[data-budget],[data-task],[data-after],[data-deep],[data-ev],#menubtn');
+    var t = e.target.closest('[data-opt],[data-go],[data-lib],[data-pick],[data-act],[data-budget],[data-task],[data-after],[data-deep],[data-choice],[data-ev],#menubtn');
     if (!t) { if (S.menu && !e.target.closest('.navmenu')) { S.menu = false; render(); } return; }
     e.preventDefault();
     var ds = t.dataset;
@@ -351,7 +386,12 @@
     if (ds.budget) { D.budget = ds.budget; render(); return; }
     if (ds.task) { D.task = +ds.task; D.other = false; render(); return; }
     if (ds.after) { D.after = ds.after; render(); return; }
-    if (ds.deep) { D.task = +ds.deep; D.phase = 'setup'; S.menu = false; showSession(); render(); return; }
+    if (ds.deep) {
+      D.task = +ds.deep; S.menu = false;
+      if (S.opt === 'D') { D.phase = 'none'; S.choice = D.task; S.view = 'now'; S.nowPicked = null; } else { D.phase = 'setup'; showSession(); }
+      render(); return;
+    }
+    if (ds.choice) { S.choice = ds.choice === 'triage' ? 'triage' : +ds.choice; if (S.choice !== 'triage') D.task = S.choice; render(); return; }
     if (ds.pick) {
       if (ds.pick === 'deepwork') { if (D.phase === 'none') D.phase = 'setup'; showSession(); }
       else { S.nowPicked = 'triage'; S.view = 'now'; }
@@ -371,6 +411,10 @@
     if (ds.act) {
       var a = ds.act;
       if (a === 'start') start();
+      else if (a === 'go' || a === 'gotriage' || a === 'godeep') {
+        var c = a === 'gotriage' ? 'triage' : a === 'godeep' ? +ds.taskStart : chosen();
+        if (c === 'triage') { S.nowPicked = 'triage'; S.recap = null; } else { D.task = c; start(); }
+      }
       else if (a === 'notnow') { D.phase = 'none'; D.other = false; showHome(); }
       else if (a === 'other') D.other = !D.other;
       else if (a === 'step') { D.steps = Math.min(D.steps + 1, POOL[D.task].step.length - 1); D.left = Math.max(2, D.left - 4); }
@@ -398,6 +442,7 @@
   $('width').addEventListener('change', function () { $('stage').classList.toggle('phone', this.value === 'phone'); });
   $('menubtnstyle').addEventListener('change', function () { S.menuBtn = this.value; S.menu = false; render(); });
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
+  $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
 
   /* ---------- Theme ---------- */
   Themes.list.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; $('theme').appendChild(o); });
