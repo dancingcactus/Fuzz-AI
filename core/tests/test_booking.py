@@ -87,7 +87,9 @@ class Booking(CoreCase):
         self.assertEqual((t["state"], t["schedule_anchor"]["type"]), ("scheduled", "block"))
         d = self.core.one("SELECT * FROM drafts WHERE task_id=? AND kind='calendar_hold'", (tid,))
         self.assertEqual((d["status"], d["meta"]["title"]), ("pending", "Write the Q4 readout"))
-        self.assertIn(f"#tasks/{tid}", d["body"])
+        self.assertIn(f"#/work/{tid}?until=", d["body"])   # the Guide, task picked, time set to the block's end
+        end = booking.parse_iso(d["meta"]["end"]).astimezone(booking.timeres.local_tz(self.core)).strftime("%H:%M")
+        self.assertIn(f"?until={end}", d["body"])
         self.assertIn("Done when:", d["body"])
         c = next(c for c in cards.open_cards(self.core, tid) if c["kind"] == "hold")
         self.assertEqual(cards.options(c, t), ["approve", "always_allow", "skip"])

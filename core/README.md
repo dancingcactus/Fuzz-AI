@@ -338,7 +338,7 @@ with its own connector and passes `{slots, holds}` as `suggest_schedule`'s `cale
 tool of its own, to keep the executor at fifteen tools). Book time then ranks: inside a Focus time slot
 (`booking.slot_titles`) before the due date and long enough; inside one where only part fits ("Block 1
 of 2"); then other free time ("Not a focus slot"), around Fuzz's own blocks. Booking makes a
-`calendar_hold` draft (title: the task's title; body: its `#tasks/<id>` link and done-when) with a
+`calendar_hold` draft (title: the task's title; body: its `#/work/<id>?until=HH:MM` link (the Guide, with the task picked and the time set to the block end) and done-when) with a
 `hold` card (Approve, Always allow, Skip) when the sender has a calendar tool in `send.tools`; otherwise
 it's booked in Fuzz only. The sender gets `hold {title, start, end, event_id?}` and marks it sent with
 the event id. `booking.prep_minutes` (30) before the block Fuzz writes the checklist; at the start the

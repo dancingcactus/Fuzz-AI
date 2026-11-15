@@ -1097,7 +1097,7 @@ slot". Two shorter tasks can share a slot, and the core knows its own holds, so 
 double-books.
 
 **The hold** is a separate event inside the slot; Fuzz never edits your events. Its title is the
-task's title, and its body is a link to the task in Fuzz (`#tasks/<id>`) and the done-when. It's an
+task's title, and its body is a link to the task in Fuzz (`#/work/<id>?until=HH:MM`: the Guide with the task picked and the time set to the block end; old `#tasks/<id>` links still open) and the done-when. It's an
 outside action, so it's a draft (kind `calendar_hold`) through the approval gate, made by the sender
 with the calendar tools in `send.tools`. Always allow is offered for your own calendar. Without a
 calendar tool, Fuzz shows the slot for you to add, and the task is still booked in Fuzz. The task is
