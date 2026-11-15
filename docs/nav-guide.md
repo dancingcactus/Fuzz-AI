@@ -58,8 +58,9 @@ Commit `21df88e` (on branch `worktree-nav-spike`) already did the wording for th
 - "Deep Work" stays wherever it means the session ("Done for now in Deep Work", "You started this in Deep Work").
 
 **Built since (same branch):** the header (no tabs; the logo opens the Guide; the label with its dot; the menu with
-Fuzz's head and Keys and help), the Guide at `#/guide` and the empty hash (Fuzz's suggestion rules, the one list,
-Something else inline, How long, the named Start, ↑ ↓ / 1–9 / Enter), the ways into Deep Work landing on the Guide with
+Fuzz's head and Keys and help), the Guide at `#/guide` and the empty hash (Fuzz's suggestion rules, the one list
+(three rows, Triage and the top two of My work, then Something else, with the rest behind "More from My work";
+user ruling, 2026-11-15), Something else inline, How long, the named Start, ↑ ↓ / 1–9 / Enter), the ways into Deep Work landing on the Guide with
 the task picked, the wrap-up (Back in my work / Hand the rest to Fuzz, "Save it and go" for a meeting) landing on the
 Guide with the recap, the deep links (`#/triage?until=`, `#/work?until=`, `#/work/<taskId>?until=`, `#/work?what=`,
 and old `#tasks/<id>` links opening the task on the Guide), and `booking.link()` writing `#/work/<id>?until=HH:MM`.

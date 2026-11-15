@@ -157,6 +157,7 @@ html.calm .dw-take, html.calm .dw-check, html.calm .dw-step.enter, html.calm .dw
 .g-m { flex: none; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .g-tag { display: inline-block; margin-left: 8px; vertical-align: 1px; font-size: 11px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 999px; padding: 1px 8px; }
 .g-field { width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 10px; border: var(--bw) solid var(--line); background: var(--field, var(--surface)); color: var(--ink); font: inherit; font-weight: 700; font-size: 15px; }
+.g-more { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 700; }
 .g-hint .linkbtn { font-size: inherit; min-height: 0; padding: 0; vertical-align: baseline; }
 .g-panel .dw-row { margin-top: 16px; }
 .dw-then { display: flex; flex-wrap: wrap; gap: 10px; }

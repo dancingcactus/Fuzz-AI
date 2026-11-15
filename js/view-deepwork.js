@@ -28,7 +28,7 @@
   var E = fresh();     /* the Guide: where to start, how long */
   /* pick: what's picked on the Guide ('triage', a task id, 'typed', or null for Fuzz's suggestion); typed: Something
      else's text; link: what a calendar link set (docs/nav-guide.md); recap: how the last session went, said once */
-  function fresh() { return { choice: null, budget: 50, query: '', alt: 0, want: null, hideClock: false, until: null, asked: false, pick: null, typed: '', link: null, linkUntil: false, gone: null, recap: null, next: null }; }
+  function fresh() { return { choice: null, budget: 50, query: '', alt: 0, want: null, hideClock: false, until: null, asked: false, pick: null, typed: '', link: null, linkUntil: false, gone: null, recap: null, next: null, more: false }; }
   function inSession() { return !!S && (S.view === 'focus' || S.view === 'between'); }
 
   /* The pool, in Fuzz's order: where you left off first, then what fits the time, then the rest */
@@ -267,7 +267,9 @@
 
   /* ---------- The Guide: the one starting place (docs/nav-guide.md) ----------
      Fuzz's line on top suggests where to start; then one question, "Where do you want to start?", over one list:
-     Triage, everything in My work, and Something else. Picking a task or Something else asks how long. */
+     Triage, the top of My work, and Something else, with the rest of My work behind a button. Picking a task or
+     Something else asks how long. */
+  var GUIDE_ROWS = 3;   /* rows before Something else, Triage included */
   function triageN() { return Store.get().queue.length + (Onboard.hasQuestion() && !Store.get().queue.length ? 1 : 0); }
   function triageUrgent() { return Store.queue().some(function (it) { return !!it.dueAt; }); }
   function triageMins() { return Math.max(2, Math.round(triageN() * 1.5)); }
@@ -347,7 +349,16 @@
     var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sug.pick === 'triage') + '</b><small>' +
       (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="g-m">' + (n ? '~' + triageMins() + ' min' : 'Clear') + '</span>',
       n ? '' : ' aria-disabled="true"');
-    var taskRows = tasks.map(function (it) {
+    /* The top of My work, so the list stays short; what's picked always shows (a link or Go deep on this can pick
+       one further down), in place of the last one */
+    var shown = tasks;
+    if (!E.more && tasks.length > GUIDE_ROWS - 1) {
+      shown = tasks.slice(0, GUIDE_ROWS - 1);
+      var byId = function (id) { return function (it) { return it.id === id; }; };
+      if (p && !shown.some(byId(p))) { var further = tasks.filter(byId(p))[0]; if (further) shown[shown.length - 1] = further; }
+    }
+    var hidden = tasks.length - shown.length;
+    var taskRows = shown.map(function (it) {
       var sub = it.leftOff ? 'Where you left off: ' + it.leftOff : it.state !== 'deepwork' ? (it.state === 'scheduled' ? 'Booked for this time' : 'Ready when you are') : it.aiNote ? 'Fuzz got it ready' : it.nextStep ? 'Next: ' + it.nextStep : 'Fuzz gets it ready as you start';
       return radio(it.id, p === it.id, '<span class="g-t"><b>' + esc(it.title) + tag(sug.pick === it.id) + '</b><small>' + esc(sub) + '</small></span><span class="g-m">~' + dur(est(it)) + '</span>');
     }).join('');
@@ -362,6 +373,7 @@
       '<ul class="g-list" role="radiogroup" aria-labelledby="g-q">' +
         '<li class="g-grp" role="presentation">Keep things moving</li>' + triageRow +
         '<li class="g-grp" role="presentation">My work</li>' + taskRows + typedRow + '</ul>' +
+      (hidden ? '<button type="button" class="linkbtn g-more" id="g-more" aria-expanded="false">More from My work (' + hidden + ')</button>' : '') +
       (deep ? '<h2 class="dw-q">How long do you have?</h2><div class="dw-times" role="group" aria-label="How long do you have">' + chips().map(function (c) {
         return '<button type="button" class="dw-time" data-v="' + c.v + '" aria-pressed="' + (c.v === E.choice) + '"><b>' + esc(c.l) + '</b><span>' + esc(c.sub) + '</span></button>';
       }).join('') + '</div><p class="dw-planline" id="g-fit">' + esc(fitLine(p)) + '</p>' : '') +
@@ -411,6 +423,13 @@
     view.querySelectorAll('.dw-time[data-v]').forEach(function (b) { b.onclick = function () { setChoice(b.dataset.v === 'cal' ? 'cal' : +b.dataset.v); render(); var t = view.querySelector('.dw-time[aria-pressed="true"]'); if (t) t.focus(); }; });
     var hide = $('#dw-hide'); if (hide) hide.onchange = function () { E.hideClock = this.checked; };
     $('#dw-go').onclick = go;
+    var more = $('#g-more');
+    if (more) more.onclick = function () {
+      var seen = [].map.call(view.querySelectorAll('.g-row'), function (r) { return r.dataset.pick; });
+      E.more = true; render();
+      var nx = rows().filter(function (r) { return seen.indexOf(r.dataset.pick) < 0; })[0];
+      if (nx) { nx.tabIndex = 0; nx.focus(); }
+    };
   }
   /* Start what's picked: Triage, a task (moved into My work first, if a link brought one from elsewhere), or what
      you typed (a new task, started now; Fuzz gathers in the background) */
@@ -427,7 +446,7 @@
   function arrive(info) {
     info = info || { name: 'guide', arg: null, params: {} };
     var next = E.next; E.next = null;
-    E.pick = null; E.want = null; E.link = null; E.gone = null; E.asked = false;
+    E.pick = null; E.want = null; E.link = null; E.gone = null; E.asked = false; E.more = false;
     if (E.linkUntil) { E.linkUntil = false; E.until = null; E.choice = null; }
     if (next) { E.want = next; E.pick = next; }
     if (info.name === 'deepwork') { var top = guideTasks()[0]; if (top) E.pick = top.id; }

@@ -63,7 +63,10 @@ test('one list: Triage, then My work, then Something else; one is picked and tag
   const pool = await page.evaluate(() => Store.inState('deepwork').map(i => i.id));
   assert.equal(picks[0], 'triage');
   assert.equal(picks[picks.length - 1], 'typed');
-  assert.deepEqual(picks.slice(1, -1).sort(), pool.slice().sort());
+  /* three rows before Something else (Triage and the top two of My work); the rest wait behind More */
+  assert.equal(picks.length, 4);
+  assert.equal(picks.slice(1, -1).filter(id => pool.includes(id)).length, 2);
+  assert.equal(await page.textContent('#g-more'), `More from My work (${pool.length - 2})`);
   assert.equal(await page.locator('.g-row[aria-checked="true"]').count(), 1);
   /* the demo has something with a time on it, so Fuzz suggests Triage */
   assert.equal(await checked(), 'triage');
@@ -91,6 +94,31 @@ test('picking a task asks how long and names it on Start; Start Triage opens Tri
   await page.click('#where');
   await page.locator('#g-q').waitFor();
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
+});
+
+test('More from My work shows the rest and focuses the first new row; a task picked from further down always shows', async () => {
+  await open('#/guide');
+  const store = await page.evaluate(() => Store.inState('deepwork').map(i => i.id));
+  const before = await page.$$eval('.g-row', els => els.map(e => e.dataset.pick));
+  await page.click('#g-more');
+  const pool = (await page.$$eval('.g-row', els => els.map(e => e.dataset.pick))).slice(1, -1);   /* Fuzz's order */
+  assert.deepEqual(pool.slice().sort(), store.slice().sort());
+  assert.deepEqual(pool.slice(0, 2), before.slice(1, -1));
+  assert.equal(await page.locator('#g-more').count(), 0);
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.pick), pool[2]);
+  await page.click(`.g-row[data-pick="${pool[pool.length - 1]}"]`);
+  assert.equal(await checked(), pool[pool.length - 1]);
+  /* back on the Guide with that one picked (as Go deep on this does): the short list, with it on it */
+  const last = pool[pool.length - 1];
+  await page.evaluate(() => { location.hash = '#/tasks'; });
+  await page.waitForFunction(() => document.body.dataset.view === 'tasks');
+  await page.evaluate((id) => DeepWork.start(id), last);
+  await page.locator('#g-q').waitFor();
+  const short = await page.$$eval('.g-row', els => els.map(e => e.dataset.pick));
+  assert.equal(short.length, 4);
+  assert.ok(short.includes(last));
+  assert.equal(await checked(), last);
+  assert.equal(await page.textContent('#g-more'), `More from My work (${pool.length - 2})`);
 });
 
 test('arrow keys move through the list, a number picks a row, and Enter starts', async () => {
