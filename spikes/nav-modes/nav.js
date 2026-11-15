@@ -6,7 +6,7 @@
      none → setup → focus ⇄ break, focus → paused (urgent / walked away) → focus, any of them → wrap → none */
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var S = { opt: 'A', view: 'triage', mode: 'triage', menu: false, lib: 'tasks', nowPicked: null,
+  var S = { opt: 'E', view: 'now', mode: 'triage',   /* opens on E, the design we chose */ menu: false, lib: 'tasks', nowPicked: null,
     waiting: 6, urgent: 1, pool: 3, menuBtn: 'fuzz', dPlaces: 'menu', recap: null, choice: null, startLayout: 'list', typed: '', from: null };
   /* the session */
   var D = { phase: 'none', task: 0, budget: 'cal', left: 14, steps: 1, why: null, after: 'keep', other: false, came: 0 };
