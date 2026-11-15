@@ -78,6 +78,15 @@ so every theme works. The page bodies are the same in all four options; only the
   / Put it on my plate, My list / Add to my list. When you add something, Fuzz says whose it is and what it will do:
   "Added to your work. It's yours to do, not mine. Before you get to it, I'll pull in … so it's ready when you start."
 
+## Round 6: the "it's mine" button
+
+The triage card's other buttons speak in your voice ("Hand it to Fuzz", "I did it", "Not mine", "Park it"), so the
+button that keeps a task for you should too. **"It's mine" button** in the toolbar tries I'll do it, I'll take it,
+Mine, Save it for me, and Add to my work, independent of the queue's name. Whatever the button says, Fuzz's reply
+covers what a short label can't: "Got it, it's yours. It's in your work. It won't come back to Triage. Before you sit
+down to it, I'll pull in … so it's ready." That last part is what separates it from **Later**, which brings the card
+back to Triage to decide again.
+
 ## Toolbar
 
 - **Waiting in Triage, Can't wait, Deep Work pool** change the dots and Fuzz's suggestion in D.

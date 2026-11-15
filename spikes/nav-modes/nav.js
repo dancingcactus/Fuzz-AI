@@ -63,7 +63,18 @@
   /* "My …" says whose it is; the triage action says where it goes. Fuzz still preps it, and says so when you add it. */
   var QUEUES = [['My work', 'Add to my work'], ['My queue', 'Add to my queue'], ['My work queue', 'Add to my work queue'], ['On my plate', 'Put it on my plate'], ['My list', 'Add to my list']];
   function QN() { return QUEUES[+$('qname').value][0]; }
-  function QA() { return QUEUES[+$('qname').value][1]; }
+  /* The card's "it's mine" button, in your voice like its neighbours (Hand it to Fuzz, I did it, Not mine).
+     Each has a hint under it on hover and the same reply from Fuzz: whose it is, where it waits, what Fuzz does next. */
+  var MINE = {
+    do: ['I’ll do it', 'It’s yours, it takes real time, and Fuzz gets it ready for when you sit down to work'],
+    take: ['I’ll take it', 'The other side of Hand it to Fuzz: you take it, Fuzz gets it ready'],
+    mine: ['Mine', 'The other side of Not mine'],
+    save: ['Save it for me', 'Fuzz holds it and gets it ready until you start work'],
+    add: [null, 'Says where it goes, not who decided']
+  };
+  function QA() { var k = $('mineact').value; return k === 'add' ? QUEUES[+$('qname').value][1] : MINE[k][0]; }
+  function QAhint() { return MINE[$('mineact').value][1]; }
+  function yourQ() { return QN() === 'On my plate' ? 'on your plate' : 'in ' + QN().replace(/^My/, 'your'); }
   /* "in My work", but "on my plate" */
   function inQ() { return (QN() === 'On my plate' ? 'on ' : 'in ') + QN(); }
   function menuButton() {
@@ -128,7 +139,7 @@
       : '<article class="card2"><div class="dw-eyebrow">Email · Priya · from yesterday</div><h3>Send Priya the Q3 numbers before the planning review</h3>' +
         '<div class="sugg">Fuzz: I drafted a summary from the finance sheet. It needs your OK on the headcount line.</div>' +
         '<div class="files"><button class="chip" data-go="file">' + I.doc + 'Q3 summary.docx</button></div>' +
-        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn" data-act="queue" title="Yours, and it takes real time. Fuzz gets it ready, and you do it when you start work.">' + QA() + '</button><button class="btn">I did it</button></div></article>';
+        '<div class="acts"><button class="btn primary">Hand it to Fuzz</button><button class="btn">Later</button><button class="btn" data-act="queue" title="' + QAhint() + '">' + QA() + '</button><button class="btn">I did it</button></div></article>';
   }
   function recapLine() {
     if (!S.recap) return '';
@@ -342,8 +353,8 @@
 
   /* ---------- Notes ---------- */
   var NOTES = {
-    A: ['A switch for the modes. Everything else is under one button.', 'The settings button becomes the menu for Lineup, Artifacts and Settings. Try its three faces in the toolbar: You, the Fuzz logo, or Everything.',
-      ['The bar is down to one decision: which mode you’re in', '“You” reads as “your stuff and your settings”, the common pattern', 'The Fuzz logo as the menu frees a button, but logos usually mean “home”', 'Mid-session, the Triage dot only lights for what can’t wait'],
+    A: ['A switch for the modes. Everything else is under one button.', 'The settings button becomes the menu for Lineup, Artifacts and Settings: a small round button with Fuzz’s head (other icons in the toolbar).',
+      ['The bar is down to one decision: which mode you’re in', 'Fuzz’s head says “Fuzz’s stuff”: the places and the settings', 'Mid-session, the Triage dot only lights for what can’t wait'],
       ['Lineup is one click deeper. It’s where you answer “where did that go?”', 'Settings and Lineup in one menu mixes “configure” with “look things up”']],
     B: ['Each mode brings its own place.', 'Lineup sits beside Triage (keeping things moving), Artifacts beside Deep Work (the files you open while working).',
       ['The least clutter: everything on screen serves the mode you’re in', 'Switching modes changes the whole context, which reinforces the two stances'],
@@ -492,7 +503,8 @@
       }
       else if (a === 'wrapdone') done();
       else if (a === 'nexttask') { D.task = (D.task + 1) % S.pool; start(); }
-      else if (a === 'queue') S.flash = '<b>' + (QN() === 'On my plate' ? 'It’s on your plate.' : 'Added to ' + QN().replace(/^My/, 'your') + '.') + '</b> It’s yours to do, not mine. Before you get to it, I’ll pull in the finance sheet and last quarter’s numbers so it’s ready when you start.';
+      /* the reply does the explaining the button can't: it's decided (not Later), where it waits, what Fuzz does meanwhile */
+      else if (a === 'queue') S.flash = '<b>Got it, it’s yours. It’s ' + yourQ() + '.</b> It won’t come back to Triage. Before you sit down to it, I’ll pull in the finance sheet and last quarter’s numbers so it’s ready.';
       render(); return;
     }
     go(ds.go);
@@ -510,6 +522,7 @@
   $('dplaces').addEventListener('change', function () { S.dPlaces = this.value; S.menu = false; render(); });
   $('startlayout').addEventListener('change', function () { S.startLayout = this.value; render(); });
   $('qname').addEventListener('change', function () { $('poollbl').textContent = QN(); render(); });
+  $('mineact').addEventListener('change', render);
   $('poollbl').textContent = QN();
   /* typing keeps focus: re-render, then put the caret back */
   document.addEventListener('input', function (e) {
