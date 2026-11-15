@@ -350,7 +350,7 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .split .done-btn svg { color: var(--ok); }
 .split .more-btn { flex: none; width: 44px; padding: 0; border-radius: 0 12px 12px 0; border-left-width: 1px; }
 .split .split-main { flex: 1; min-width: 0; border-radius: 12px 0 0 12px; border-right-width: 1px; }
-/* A task card's four: Assign (Find out… behind it) across the whole row under the instructions,
+/* A task card's four: Assign (I'll do it behind it) across the whole row under the instructions,
    then Work in Claude, Later (Book time behind it) and Done share the row below. */
 .actions:not(.working-actions):has(> .split-assign) { grid-template-columns: repeat(3, 1fr); }
 .actions:not(.working-actions) > .split-assign { grid-column: 1 / -1; }
@@ -987,7 +987,7 @@ html[data-contrast="high"] .dbar { box-shadow: inset 0 0 0 1px var(--line); }
 html.calm .gdots li { transition: none; }
 .gband[hidden], .gtray[hidden] { display: none; }
 
-/* What Fuzz couldn't find, on the card: Find out… asks for it */
+/* What Fuzz couldn't find, on the card: you say where to look when you hand it over */
 .gaps { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: var(--chip); font-size: 14px; line-height: 1.45; }
 
 /* A choice that leads the card's actions (join a waiting reply; a big task's four choices) */

@@ -66,9 +66,9 @@ class AnswerCard(Base):
         out, follow = actions.answer_card(self.core, card["id"], "wait", "Priya")
         self.assertEqual(follow, [{"kind": "gather"}])
 
-    def test_find_out_asks_for_a_run_on_that_task(self):
+    def test_i_cant_decide_asks_for_a_run_on_that_task(self):
         tid, card = self.triage_task()
-        out, follow = actions.answer_card(self.core, card["id"], "find_out", "Which budget?")
+        out, follow = actions.answer_card(self.core, card["id"], "decide")
         self.assertEqual(follow, [{"kind": "find_out", "task_id": tid}])
 
     def test_done_starts_nothing(self):
@@ -83,11 +83,11 @@ class TaskAction(Base):
             actions.task_action(self.core, tid, "explode")
         self.assertEqual(e.exception.field, "action")
 
-    def test_find_out_asks_for_a_run_on_that_task(self):
+    def test_find_out_is_no_longer_a_verb(self):
         tid, _ = self.triage_task()
-        out, follow = actions.task_action(self.core, tid, "find_out", {"question": "Which budget?"})
-        self.assertEqual(out["task_id"], tid)
-        self.assertEqual(follow, [{"kind": "find_out", "task_id": tid}])
+        with self.assertRaises(FuzzError) as e:
+            actions.task_action(self.core, tid, "find_out", {"question": "Which budget?"})
+        self.assertEqual(e.exception.field, "action")
 
     def test_a_note_goes_in_the_notes_and_the_log(self):
         tid, _ = self.triage_task()
@@ -151,10 +151,9 @@ class CliParity(Base):
         self.assertEqual(self.core.config["read"]["tools"]["claude-code"], ["mcp__claude_ai_Gmail__search"])
         self.assertEqual(tasks.get(self.core, tid)["state"], "done")
 
-    def test_fuzz_task_find_out_starts_the_executor_on_it(self):
-        tid, _ = self.triage_task()
-        out = self.cli("task", str(tid), "find_out", "--value", "Which budget?")
-        self.assertEqual(out["task_id"], tid)
+    def test_fuzz_answer_decide_starts_the_executor_on_it(self):
+        tid, card = self.triage_task()
+        self.cli("answer", str(card["id"]), "decide")
         self.run_now.assert_called_once()
         self.assertEqual(self.run_now.call_args.args[1:], ("executor", tid))
 
@@ -186,11 +185,11 @@ class HttpFollowups(Server):
         cfg["engine"] = {"client": "claude-code", "model": None}
         self.core.save_config(cfg)
 
-    def test_find_out_on_a_card_starts_the_executor_on_that_task(self):
+    def test_i_cant_decide_on_a_card_starts_the_executor_on_that_task(self):
         tid = tasks.capture(self.core, "Send Priya the budget")
         card = self.card_for(tid, "task")
         with mock.patch("fuzz.engine.run_now") as run:
-            status, _ = self.req("POST", f"/cards/{card['id']}/answer", {"option": "find_out", "value": "Which budget?"})
+            status, _ = self.req("POST", f"/cards/{card['id']}/answer", {"option": "decide"})
         self.assertEqual(status, 200)
         self.assertEqual(run.call_args.args[1:], ("executor", tid))
 

@@ -230,21 +230,22 @@ def assign(core, task_id, instructions=None, card=None, option="assign", value=N
     return t["id"]
 
 
-def find_out(core, task_id, question, card=None, actor="human"):
-    """Find out…: you need to know something before you can decide. The task goes to Fuzz with your
-    question (tag finding_out, gathered like a capture) but stays yours: Fuzz answers into the brief as a
-    step, never retitles or finishes it, and the card comes back next, right after the one in front."""
+def find_out(core, task_id, question, card=None, actor="human", option="decide"):
+    """One question for Fuzz, the task staying yours: what "I can't decide" does (DECIDE). The task goes to Fuzz
+    with the question (tag finding_out, gathered like a capture): Fuzz answers into the brief as a step, never
+    retitles or finishes it, and the card comes back next, right after the one in front. (Find out… was its own
+    card answer until 2026-11-15; the column, the tags and the event keep the name.)"""
     t = require(core, task_id)
     q = (question if isinstance(question, str) else (question or {}).get("question") or "").strip()
     if not q:
-        raise FuzzError("What do you need to know? A question, like “What did Marcus say about the setup?”", "value")
+        raise FuzzError("What should Fuzz look into? A question, like “What are my options here?”", "value")
     with core.tx(actor):
         ch = events.Changes()
         move(core, ch, t, "queued", card=card, add_tags=("gather", "finding_out"), attempts=0, question=None,
-             find_out=q[:300], notes=((t.get("notes") or "") + f"\nYou asked Fuzz to find out: {q}").strip())
-        _answered(core, ch, card, "find_out", q)
+             find_out=q[:300], notes=((t.get("notes") or "") + f"\nYou asked Fuzz: {q}").strip())
+        _answered(core, ch, card, option, q)
         eid = events.emit(core, "task.find_out", task_id=t["id"], changes=ch, data={"question": q},
-                          log=("guidance", f"You asked Fuzz to find out: {q}"))
+                          log=("guidance", f"You asked Fuzz: {q}"))
     return eid
 
 
@@ -557,7 +558,7 @@ def to_back(core, task_id):
         for c in open_:
             ch.card(c["id"], postponed=c["postponed"] + 1, order_key=cards.next_order(core),
                     payload=dict({k: v for k, v in (c.get("payload") or {}).items() if k != "next"}, at_end=True),
-                    **({"prompt": WAY_PROMPT, "suggested": "find_out"} if stuck and c["kind"] == "task" else {}))
+                    **({"prompt": WAY_PROMPT, "suggested": "decide"} if stuck and c["kind"] == "task" else {}))
         events.emit(core, "card.postponed", task_id=t["id"], changes=ch, data={"kind": open_[0]["kind"], "to": "back"},
                     log=("status", "You moved this to the end of the list."))
         from . import groups   # working through its group: the rest of it goes on without this one
@@ -627,7 +628,7 @@ def update_brief(core, task_id, context_md=None, question=None, effort_mins=None
                  summary=None, actor="fuzz:executor", steps=None, gaps=None):
     """steps: how many steps the work takes. With effort_mins it's the task's size on its card, and a brief
     from Fuzz always comes with both (see "Size, and big tasks"). gaps: what Fuzz couldn't find, in a
-    few words each ("the test accounts"); the card offers Find out… first while there are any."""
+    few words each ("the test accounts"); the card shows them, so you can tell Fuzz where to look."""
     t = require(core, task_id)
     f = {}
     if steps is not None:

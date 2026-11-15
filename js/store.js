@@ -423,24 +423,23 @@
     keepGoing: function (id) { var it = S.item(id); if (!it) return; it.blockEnd = false; S.log(it, 'status', 'You kept going.'); S.pick(id); },
     /* A hold on your calendar for booked time: approve, always allow, or skip (still booked in Fuzz) */
     answerHold: function (id, opt) { var it = S.item(id); if (!it) return; S.leave(id); it.cardKind = null; S.log(it, 'status', opt === 'skip' ? 'No change to your calendar.' : 'You approved the calendar hold.'); },
-    decideFor: function (id) { return S.findOut(id, 'What are my options here? Lay them out with the one you’d suggest.'); },
-    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
-    /* Find out…: Fuzz looks it up; the task stays yours and its card comes back right after the one in front.
-       Live mode does it in the core; the demo pretends, a few seconds later. */
-    findOut: function (id, q) {
+    /* I can't decide: Fuzz lays out the options; the task stays yours and its card comes back right after the one
+       in front. Live mode does it in the core; the demo pretends, a few seconds later. */
+    decideFor: function (id) {
       var it = S.item(id); if (!it) return;
-      S.leave(id); it.state = 'queued'; it.gathering = true; it.now = 'Finding out: ' + q;
-      S.log(it, 'guidance', 'You asked Fuzz to find out: ' + q);
+      S.leave(id); it.state = 'queued'; it.gathering = true; it.now = 'Laying out the options';
+      S.log(it, 'guidance', 'You asked Fuzz to lay out the options.');
       if (S.live) return;
       setTimeout(function () {
         if (it.state !== 'queued' || !it.gathering) return;
         it.state = 'triage'; it.gathering = false; it.foundOut = true; it.now = '';
-        it.aiHeading = 'You asked: ' + q; it.aiNote = 'In this demo Fuzz doesn’t really look. With your engine set up, the answer lands here.';
-        S.log(it, 'status', 'Fuzz found out what you asked. It’s back for you.');
+        it.aiHeading = 'Your options'; it.aiNote = 'In this demo Fuzz doesn’t really look. With your engine set up, the options land here, with the one Fuzz suggests.';
+        S.log(it, 'status', 'Fuzz laid out the options. It’s back for you.');
         if (!S.inQueue(id)) { state.queue.splice(Math.min(1, state.queue.length), 0, id); state.totalEver++; }
         emit({ type: 'review' });
       }, 4000);
     },
+    draftIt: function (id) { var it = S.item(id); if (!it) return; S.leave(id); it.state = 'queued'; S.log(it, 'guidance', 'You said: draft it for my OK.'); },
     /* A late ask joins the thread's reply that's waiting for your OK: Fuzz rewrites the reply to cover it */
     joinReply: function (id) {
       var it = S.item(id); if (!it) return;

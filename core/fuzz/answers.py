@@ -65,8 +65,6 @@ def _nudge(core, card, t, value, hold):
 TASK_ANSWERS = {
     # a late ask joins the thread's reply waiting for your OK
     "add_to_reply": lambda core, card, t, value, hold: drafts.add_to_reply(core, card, t),
-    # you need to know something first: Fuzz looks, the task stays yours
-    "find_out": lambda core, card, t, value, hold: tasks.find_out(core, t["id"], value, card=card),
     # working sessions: a big task's four choices, the working card's Pause, and "What's in the way?"
     "book": lambda core, card, t, value, hold: tasks.book(core, t["id"], _field(value, "anchor"), card=card),
     "do_now": lambda core, card, t, value, hold: tasks.do_now(core, t["id"], card=card),

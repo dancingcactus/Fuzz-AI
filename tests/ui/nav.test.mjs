@@ -78,7 +78,7 @@ test('one list: Triage, then My work, then Something else; one is picked and tag
 
 test('picking a task asks how long and names it on Start; Start Triage opens Triage, and the label leads back', async () => {
   await open('#/guide');
-  const id = await page.evaluate(() => Store.inState('deepwork')[0].id);
+  const id = await page.$$eval('.g-row', els => els[1].dataset.pick);   /* the first task on the short list */
   await page.click(`.g-row[data-pick="${id}"]`);
   assert.equal(await checked(), id);
   assert.equal(await page.locator('.dw-times').count(), 1);
@@ -213,7 +213,7 @@ test('Keys and help opens the page’s own key guide, or the short list', async 
 
 test('in a session the label is the session, leads back to it from anywhere, and only something that can’t wait lights the dot', async () => {
   await open('#/guide');
-  const t = await page.evaluate(() => Store.inState('deepwork')[0]);
+  const t = await page.evaluate(() => Store.item(document.querySelectorAll('.g-row')[1].dataset.pick));
   await page.click(`.g-row[data-pick="${t.id}"]`);
   await page.click('#dw-go');
   await page.locator('#dw-step').waitFor();
@@ -324,7 +324,7 @@ test('#/work?until= opens the Guide with the time set to the block and nothing p
   assert.equal(await checked(), null);
   assert.match(await bubble(), /^This is your work time, until .+\. Where do you want to start\?$/);
   assert.equal(await page.locator('#dw-go').isDisabled(), true);
-  const id = await page.evaluate(() => Store.inState('deepwork')[0].id);
+  const id = await page.$$eval('.g-row', els => els[1].dataset.pick);
   await page.click(`.g-row[data-pick="${id}"]`);
   const chip = await page.textContent('.dw-time[aria-pressed="true"]');
   assert.match(chip, /^Until .+~.+ · your calendar block$/);

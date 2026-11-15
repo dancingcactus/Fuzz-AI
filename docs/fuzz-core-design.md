@@ -1007,7 +1007,14 @@ yours (tag `doing`). The ways out are Done · Pause (back to the list, with "whe
 · Hand to Fuzz · Work in Claude. In work mode the check-in runs on time, not on cleared cards (today
 it waits for two more cleared cards, so it never comes while you're stuck).
 
-### Find out…
+### Find out… (removed)
+
+> **Removed 2026-11-15.** Find out… was too hard to tell apart from Assign, so it is gone from the card,
+> the keys (Q), "What's in the way?", the API (`POST /tasks/{id}/find_out`) and the CLI. Gaps in a brief
+> still show on the card ("Fuzz couldn't find …"); you say where to look when you hand it over, and
+> Assign is the suggested answer. Its mechanism (one question, the task stays yours, the card back next,
+> the run at once) is what **I can't decide** runs on, with `tasks.DECIDE` as the question. The section
+> below is the design as it was.
 
 Missing information used to mean assigning the task to Fuzz with an instruction. That hands the task
 over, and Fuzz may take the question as the whole task: one task was renamed to the lookup asked
@@ -1058,7 +1065,6 @@ asks "What's in the way?" once. Esc dismisses it, and Calm mode keeps it quiet.
 
 | Answer | What happens |
 | --- | --- |
-| I need to know something | Opens Find out… |
 | This is a big one | The four choices above |
 | Something else → Can't decide | Fuzz lays out the options with a suggested default |
 | Something else → I don't want to write it | Fuzz drafts it for your OK |
