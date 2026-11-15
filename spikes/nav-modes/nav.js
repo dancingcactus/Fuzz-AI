@@ -122,7 +122,9 @@
   };
   /* The start screen's name, in the label spot when you're on it */
   /* A place, not a call to action ("Start" read like a button). Each has its own way of saying "back to it". */
-  var PLACES = { home: ['Home', 'Back home'], today: ['Today', 'Back to Today'], desk: ['Desk', 'Back to your desk'],
+  /* Broadcast names fit Fuzz (a TV-headed robot) and Lineup: the Guide is where you see what's on and pick */
+  var PLACES = { guide: ['Guide', 'Back to the Guide'], studio: ['Studio', 'Back to the Studio'], control: ['Control room', 'Back to the control room'],
+    ch1: ['Channel 1', 'Back to Channel 1'], home: ['Home', 'Back home'], today: ['Today', 'Back to Today'], desk: ['Desk', 'Back to your desk'],
     day: ['Your day', 'Back to your day'], base: ['Base camp', 'Back to base camp'], overview: ['Overview', 'Back to Overview'] };
   function PLACE() { return PLACES[$('placename').value][0]; }
   function BACK() { return PLACES[$('placename').value][1]; }
