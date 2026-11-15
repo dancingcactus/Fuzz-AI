@@ -108,7 +108,7 @@ test('More from My work shows the rest and focuses the first new row; a task pic
   assert.equal(await page.evaluate(() => document.activeElement.dataset.pick), pool[2]);
   await page.click(`.g-row[data-pick="${pool[pool.length - 1]}"]`);
   assert.equal(await checked(), pool[pool.length - 1]);
-  /* back on the Guide with that one picked (as Go deep on this does): the short list, with it on it */
+  /* back on the Guide with that one picked (as Work on this does): the short list, with it on it */
   const last = pool[pool.length - 1];
   await page.evaluate(() => { location.hash = '#/tasks'; });
   await page.waitForFunction(() => document.body.dataset.view === 'tasks');
@@ -211,34 +211,45 @@ test('Keys and help opens the page’s own key guide, or the short list', async 
   assert.equal(await page.evaluate(() => document.getElementById('appkeys').open), true);
 });
 
-test('in a session the label is the session, leads back to it from anywhere, and only something that can’t wait lights the dot', async () => {
+test('in a session the label is My work · Back to the Guide like any page; it leads out through the wrap-up, and only something that can’t wait lights the dot', async () => {
   await open('#/guide');
   const t = await page.evaluate(() => Store.item(document.querySelectorAll('.g-row')[1].dataset.pick));
   await page.click(`.g-row[data-pick="${t.id}"]`);
   await page.click('#dw-go');
   await page.locator('#dw-step').waitFor();
-  assert.equal(await page.title(), 'Deep Work · Fuzz');
+  assert.equal(await page.title(), 'My work · Fuzz');
   let l = await label();
-  assert.match(l.text, /^Deep Work · .+ · \d+ min( in)?$/);
-  assert.equal(l.current, 'page');
-  assert.equal(await page.locator('#where .where-ring').count(), 1);
+  assert.equal(l.text, 'My work · Back to the Guide');
+  assert.equal(l.current, null);
+  assert.equal(await page.locator('#where .where-ring').count(), 0);
+  assert.equal(await page.evaluate(() => document.getElementById('dw-mode').getBoundingClientRect().width <= 1), true);   /* no title above Fuzz (screen readers still get it): the label says where you are */
   /* the demo has a card with a time on it, so the dot shows, as "can't wait" */
   assert.equal(l.dot, 'something can’t wait');
   await page.evaluate(() => Store.queue().forEach(i => { i.dueAt = null; }));
   await page.evaluate(() => App.paintLabel());
   assert.equal((await label()).dot, null);   /* ordinary waiting work doesn't pull you out of focus */
 
+  /* from another page, the label is that page's; back to the Guide is back to the session */
   await page.click('#menubtn');
   await page.click('#navmenu [data-menu="tasks"]');
   await page.waitForFunction(() => document.body.dataset.view === 'tasks');
   l = await label();
-  assert.match(l.text, /^Deep Work · /);
-  assert.equal(l.current, null);
-  /* Go deep on this isn't offered mid-session */
-  assert.equal(await page.locator('text=Go deep on this').count(), 0);
+  assert.equal(l.text, 'Lineup · Back to the Guide');
+  /* Work on this isn't offered mid-session */
+  assert.equal(await page.locator('text=Work on this').count(), 0);
   await page.click('#where');
   await page.locator('#dw-step').waitFor();
   assert.equal(await page.textContent('.dw-taskline span'), t.title);
+
+  /* on the session, the label is a way out: the wrap-up, where Actually, keep going goes back */
+  await page.click('#where');
+  await page.locator('#dw-save').waitFor();
+  assert.equal((await label()).text, 'My work · Back to the Guide');
+  await page.click('#dw-backwork');
+  await page.locator('#dw-step').waitFor();
+  /* and so is the logo */
+  await page.click('.brand');
+  await page.locator('#dw-save').waitFor();
 });
 
 test('every way out lands on one wrap-up, then the Guide with a recap', async () => {
@@ -248,7 +259,7 @@ test('every way out lands on one wrap-up, then the Guide with a recap', async ()
   const title = await page.textContent('.dw-taskline span');
   await page.keyboard.press('Escape');
   await page.locator('#dw-save').waitFor();
-  assert.equal((await label()).text, 'Deep Work · Wrapping up');
+  assert.equal((await label()).text, 'My work · Back to the Guide');
   assert.equal(await page.textContent('#dw-save'), 'Wrap upEnter');
   assert.deepEqual(await page.$$eval('[data-after] b', els => els.map(e => e.textContent)), ['Back in my work', 'Hand the rest to Fuzz']);
   await page.click('#dw-save');
@@ -280,11 +291,11 @@ test('the old #/deepwork opens the Guide with the top of My work picked', async 
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
 });
 
-test('Lineup’s Go deep on this opens the Guide with that task picked', async () => {
+test('Lineup’s Work on this opens the Guide with that task picked', async () => {
   await open('#/tasks');
   const t = await page.evaluate(() => Store.inState('deepwork')[1]);
   await page.getByText(t.title, { exact: true }).first().click();
-  await page.getByRole('button', { name: 'Go deep on this' }).click();
+  await page.getByRole('button', { name: 'Work on this' }).click();
   await page.locator('#g-q').waitFor();
   assert.equal(await checked(), t.id);
   assert.equal(await goText(), 'Start: ' + (t.title.split(' ').length > 5 ? t.title.split(' ').slice(0, 5).join(' ') + '…' : t.title));

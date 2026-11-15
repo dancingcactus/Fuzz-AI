@@ -95,7 +95,7 @@
   function ready(exclude) {
     var left = S && inSession() ? leftMin() : (E.budget > 0 ? E.budget : Infinity);
     var c = pool().filter(function (it) { return !exclude || it.id !== exclude.id; });
-    /* the one you came for (a calendar link, Go deep on this) goes first, whatever its open state: a booked task
+    /* the one you came for (a calendar link, Work on this) goes first, whatever its open state: a booked task
        is scheduled, or back in Triage, when its block starts */
     var w = E.want && Store.item(E.want), want = w && STARTABLE.indexOf(w.state) > -1 && (!exclude || w.id !== exclude.id) ? [w] : [];
     c = c.filter(function (it) { return want.indexOf(it) < 0; });
@@ -170,7 +170,7 @@
     var v = S ? S.view : 'entry';
     root.querySelector('.dw').classList.toggle('dw-focus', v === 'focus');
     root.querySelector('.dw').classList.toggle('dw-guide', v === 'entry');
-    $('#dw-mode').textContent = { entry: 'Guide', focus: 'Deep Work', between: 'Deep Work', wrap: 'Deep Work › wrapping up' }[v];
+    $('#dw-mode').textContent = { entry: 'Guide', focus: 'My work', between: 'My work', wrap: 'My work: wrapping up' }[v];
     ({ entry: vGuide, focus: vFocus, between: vBetween, wrap: vWrap })[v]();
     if (window.App && App.paintLabel) App.paintLabel();
     paintFoot(v === 'focus');
@@ -253,7 +253,7 @@
       var note = $('#dw-telltext').value.trim(); $('#dw-telltext').value = '';
       closeForm('dw-tellform', 'dw-tellbtn', true); S.sheet = null;
       var ch = Store.track([it.id], function () { if (note) Store.tell(it.id, note); Store.handToFuzz(it.id); });
-      Say.offerUndo('Handed “' + it.title + '” to Fuzz from Deep Work.', function () { return ch.undo(); }, null, ch.blocked);
+      Say.offerUndo('Handed “' + it.title + '” to Fuzz from My work.', function () { return ch.undo(); }, null, ch.blocked);
       toBetween('handed');
     };
     $('#dw-noteit').onclick = function () {
@@ -284,8 +284,8 @@
     if (r && r.why === 'meeting') return { pick: triage, why: 'Go, your ' + (r.at || 'meeting') + ' is starting. Triage will be here when you’re back.' };
     if (r && r.why === 'time') return { pick: triage, why: 'Good stretch. Take a break, then a quick look at Triage.' };
     if (urgent) return { pick: 'triage', why: 'Something has a time on it. Let’s clear Triage first. It’s quick.' };
-    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Ten minutes of Triage first, then you’ll have room to go deep.' };
-    if (top) return { pick: top, why: (meetingIn() != null ? 'You’ve got until ' + fmt(E.until) + ' and nothing urgent.' : 'Nothing urgent.') + ' Good time to go deep.' };
+    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Ten minutes of Triage first, then you’ll have room to get into your work.' };
+    if (top) return { pick: top, why: (meetingIn() != null ? 'You’ve got until ' + fmt(E.until) + ' and nothing urgent.' : 'Nothing urgent.') + ' Good time to get into your work.' };
     if (n) return { pick: 'triage', why: 'Nothing big waiting. A quick look at Triage and you’re clear.' };
     return { pick: deep, why: 'Nothing is waiting on you. What do you want to work on? Tell me and I’ll make it a task.' };
   }
@@ -349,7 +349,7 @@
     var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sug.pick === 'triage') + '</b><small>' +
       (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="g-m">' + (n ? '~' + triageMins() + ' min' : 'Clear') + '</span>',
       n ? '' : ' aria-disabled="true"');
-    /* The top of My work, so the list stays short; what's picked always shows (a link or Go deep on this can pick
+    /* The top of My work, so the list stays short; what's picked always shows (a link or Work on this can pick
        one further down), in place of the last one */
     var shown = tasks;
     if (!E.more && tasks.length > GUIDE_ROWS - 1) {
@@ -441,7 +441,7 @@
     if (it.state !== 'deepwork') { Store.deepWork(it.id); it = Store.item(it.id) || it; }
     startSession(it);
   }
-  /* Take in where you came from: the plain Guide, the old #/deepwork (the top of My work picked), Go deep on this,
+  /* Take in where you came from: the plain Guide, the old #/deepwork (the top of My work picked), Work on this,
      or a calendar link (#/work[/<taskId>]?until=HH:MM&what=…) */
   function arrive(info) {
     info = info || { name: 'guide', arg: null, params: {} };
@@ -532,7 +532,7 @@
     if (S.sheet || S.take) return;
     var it = task(); if (!it) return;
     var ch = Store.track([it.id], function () { Store.markDone(it.id); });
-    Say.offerUndo('Finished “' + it.title + '” in Deep Work.', function () { return ch.undo(); }, null, ch.blocked);
+    Say.offerUndo('Finished “' + it.title + '” in My work.', function () { return ch.undo(); }, null, ch.blocked);
     S.entry.finished = true;
     toBetween('finished');
   }
@@ -564,13 +564,13 @@
     if (k === 3) {
       S.sheet = null;
       var ch = Store.track([it.id], function () { Store.handToFuzz(it.id); });
-      Say.offerUndo('Handed “' + it.title + '” to Fuzz from Deep Work.', function () { return ch.undo(); }, null, ch.blocked);
+      Say.offerUndo('Handed “' + it.title + '” to Fuzz from My work.', function () { return ch.undo(); }, null, ch.blocked);
       return toBetween('handed');
     }
     if (k === 4) {
       S.sheet = null;
       var cb = Store.track([it.id], function () { Store.bringBack(it.id, 'front'); });
-      Say.offerUndo('Sent “' + it.title + '” back to Triage from Deep Work.', function () { return cb.undo(); }, null, cb.blocked);
+      Say.offerUndo('Sent “' + it.title + '” back to Triage from My work.', function () { return cb.undo(); }, null, cb.blocked);
       return toBetween('sentback');
     }
   }
@@ -637,7 +637,7 @@
     var fin = S.log.filter(function (e) { return e.finished; }).length, bits = [];
     if (fin) bits.push(fin + (fin === 1 ? ' task' : ' tasks') + ' finished');   /* no zeros: say what did happen */
     if (S.breaksTaken) bits.push(S.breaksTaken + (S.breaksTaken === 1 ? ' break' : ' breaks') + ' taken');
-    var mins = Math.round(S.clock / 60); if (mins >= 5) bits.unshift(dur(mins) + ' in Deep Work');
+    var mins = Math.round(S.clock / 60); if (mins >= 5) bits.unshift(dur(mins) + ' of work');
     return bits.length ? bits.join(', ').replace(/^./, function (c) { return c.toUpperCase(); }) + '.' : 'You showed up and opened it. That counts.';
   }
   function renderTake() {
@@ -671,7 +671,7 @@
       o = opt(1, 'I’m good, keep going', '') + opt(3, 'Take a break', '5 minutes', 'primary') + opt(4, 'Done for now', '');
     }
     el.className = 'dw-take' + (k.kind === 'break' ? ' dw-take--break' : '') + (k.armed ? '' : ' arming');
-    el.innerHTML = '<div class="dw-take-in" role="alertdialog" aria-modal="true" aria-label="Deep Work">' + h + '<div class="dw-opts">' + o + '</div>' +
+    el.innerHTML = '<div class="dw-take-in" role="alertdialog" aria-modal="true" aria-label="My work">' + h + '<div class="dw-opts">' + o + '</div>' +
       '<p class="dw-guard">' + (k.armed ? '' : 'One moment, so a stray keystroke doesn’t pick for you…') + '</p></div>';
     el.hidden = false; document.body.classList.add('dw-taken');
     el.querySelectorAll('[data-k]').forEach(function (b) { b.disabled = !k.armed; b.onclick = function () { takeOpt(+b.dataset.k); }; });
@@ -780,7 +780,7 @@
     if (S.take && S.take.kind === 'break') sub = 'On a break';
     else {
       var mins = isFinite(left) ? Math.max(1, Math.ceil(left)) + ' min' : Math.max(1, Math.round(S.clock / 60)) + ' min in';
-      sub = (S.view === 'between' ? 'Between tasks' : it ? short(it.title) : 'Deep Work') + ' · ' + mins;
+      sub = (S.view === 'between' ? 'Between tasks' : it ? short(it.title) : 'My work') + ' · ' + mins;
     }
     var ring = isFinite(S.budgetEnd) && S.budgetEnd > 0 ? Math.min(100, Math.round(S.clock / S.budgetEnd * 100)) : Math.min(100, Math.round(S.workSince / WORK * 100));
     return { session: true, sub: sub, ring: ring };
@@ -826,7 +826,7 @@
     /* Redraw only when it changes, so the bar doesn't flicker */
     var bar = barEl('dwbar'), te = barEl('dwprog-t');
     if (bar.dataset.h !== h) { bar.dataset.h = h; bar.innerHTML = h; }
-    if (te.textContent !== txt) { te.textContent = txt; wrap.title = 'This Deep Work session: ' + txt; }
+    if (te.textContent !== txt) { te.textContent = txt; wrap.title = 'This session: ' + txt; }
   }
   function breakText(sec) { return sec > 90 ? 'About ' + Math.round(sec / 60) + ' minutes' : sec > 40 ? 'About a minute' : 'Less than a minute'; }
   function wedge(f, r, cls) {
@@ -923,7 +923,7 @@
   var lastSig = '';
   V.mount = function (container, info) {
     root = container;
-    root.innerHTML = '<section class="dw" aria-labelledby="dw-mode"><div class="dw-top"><span class="dw-mode" id="dw-mode">Deep Work</span>' +
+    root.innerHTML = '<section class="dw" aria-labelledby="dw-mode"><div class="dw-top"><span class="dw-mode sr" id="dw-mode">My work</span>' +
       '<a class="dw-pool" href="#/tasks">' + pool().length + ' in My work</a></div>' +
       '<div class="stage dw-stage" id="stage"><div class="fx" id="fx"></div>' +
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
@@ -968,6 +968,8 @@
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); render(); } });
   };
   V.label = label;
+  /* The header's label (and the logo) on the session: a way out like Done for now, through the wrap-up */
+  V.leave = function () { if (inSession()) { doneForNow('stop'); return true; } return !!S; };
   /* The core restarted (js/live.js): redraw with what's picked kept, never under the Something else field */
   V.refresh = function () {
     if (!root) return;
@@ -983,7 +985,7 @@
     Fuzz.unmount(); root = null; view = null; E.ended = null;
     var bar = document.getElementById('dwprog'); if (bar) bar.hidden = true;
   };
-  /* From Lineup's Go deep on this: the Guide, with this task picked, one tap from Start. Never mid-session. */
+  /* From Lineup's Work on this: the Guide, with this task picked, one tap from Start. Never mid-session. */
   V.start = function (id) {
     if (inSession()) return App.navigate('#/guide');
     E.next = id; E.query = ''; E.alt = 0;

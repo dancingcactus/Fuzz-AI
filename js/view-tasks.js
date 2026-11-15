@@ -265,7 +265,7 @@
       if (Live.on()) act('Open in ' + Store.workIn + ' again', 'secondary', function () { Live.openSession(id); }, 'Opening it in ' + Store.workIn + '.');
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'deepwork') {
-      if (!DeepWork.active()) A.push({ label: 'Go deep on this', kind: 'primary', nav: true, fn: function () { DeepWork.start(id); } });   /* the Guide with it picked; nothing to undo. Not mid-session: a session isn't changed from here */
+      if (!DeepWork.active()) A.push({ label: 'Work on this', kind: 'primary', nav: true, fn: function () { DeepWork.start(id); } });   /* the Guide with it picked; nothing to undo. Not mid-session: a session isn't changed from here */
       act('Mark done', 'secondary', function () { Store.markDone(id); }, 'Marked done.');
       act('Pull back into triage', 'secondary', function () { Store.bringBack(id, 'front'); }, 'Pulled back into triage.');
     } else if (it.state === 'scheduled') {

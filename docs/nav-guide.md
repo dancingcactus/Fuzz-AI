@@ -78,6 +78,13 @@ straight to the first card, because the Guide already asked where to start (F st
 links don't start a session by themselves, a typed task starts at once while Fuzz gathers, the core's `mine` and
 `deepwork` states stay separate, and Do it now and booked tasks still work in Triage.
 
+**Changed since (user rulings, 2026-11-15):** no "Deep Work" in the app's words. The session and the queue are both
+**My work**: in a session the header label reads "My work · Back to the Guide" like any page (no clock ring; the session
+clock stays in the header bar), and clicking it or the logo is a way out, through the wrap-up to the Guide. From other
+pages mid-session the label is the page's own, and its way back is the session. The small "Deep Work" title above Fuzz
+is gone (screen readers still get "My work"). "Go deep on this / on something" are **Work on this / Work on something**.
+Where this section and the spec below differ, this wins.
+
 The sections below are the spec as decided.
 
 ## The header

@@ -102,10 +102,17 @@
           '<button type="button" role="menuitem" data-menu="keys">' + ICON.keys + '<span><b>Keys and help</b></span><kbd aria-hidden="true">?</kbd></button>' +
         '</div></div></div>' +
       '<dialog class="dlg keys-dlg" id="appkeys" aria-labelledby="appkeys-h"><div class="dlg-in"><div class="dlg-top"><h2 id="appkeys-h">Keys and help</h2><button type="button" class="iconbtn" data-close aria-label="Close">' + XSVG + '</button></div>' +
-        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New task</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and Deep Work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
+        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New task</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and My work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
         '<section><h3>Getting around</h3><p class="meta">The Fuzz logo opens the Guide, where you pick where to start. The label next to it says where you are; click it to go back. Lineup, Artifacts and Settings are in the menu with Fuzz’s head.</p></section></div></dialog>';
     document.getElementById('undobtn').addEventListener('click', function () { toggleMenu(false); toggleUndo(); });
     document.getElementById('menubtn').addEventListener('click', function () { toggleUndo(false); toggleMenu(); });
+    /* The label and the logo go back to the Guide. On a running session that's a way out: the wrap-up, then the Guide. */
+    ['where', 'brand'].forEach(function (id) {
+      var el = id === 'brand' ? document.querySelector('.brand') : document.getElementById(id);
+      if (el) el.addEventListener('click', function (e) {
+        if (currentName && ROUTES[currentName].place === 'guide' && window.DeepWork && DeepWork.leave && DeepWork.leave()) e.preventDefault();
+      });
+    });
     var menu = document.getElementById('navmenu');
     menu.addEventListener('click', function (e) {
       var it = e.target.closest('[data-menu]'); if (!it) return;
@@ -203,7 +210,10 @@
     if (a.hidden) return;
     var dw = window.DeepWork && DeepWork.label ? DeepWork.label() : null;
     var k, sub = '', ring = null, cur = false;
-    if (dw && (dw.session || dw.wrap)) { k = 'Deep Work'; sub = dw.sub; ring = dw.ring; cur = onGuide; }
+    /* A session is a place like any other: "My work · Back to the Guide". Clicking it is a way out of the session
+       (the wrap-up, then the Guide); the session's clock stays in the header bar. From other pages mid-session the
+       label is theirs, and the Guide they lead back to is the session. */
+    if (onGuide && dw && (dw.session || dw.wrap)) { k = 'My work'; sub = BACK; }
     else if (onGuide) { k = 'Guide'; cur = true; }
     else if (name === 'triage') { var u = untilAhead(here.params.until); k = 'Triage'; sub = (u ? 'Until ' + u + ' · ' : '') + BACK; }
     else { k = PLACE[name] || ROUTES[name].title; sub = BACK; }
@@ -213,9 +223,9 @@
       (sub ? '<span class="where-s">' + esc(sub) + '</span>' : '');
     if (a.dataset.h !== html) { a.dataset.h = html; a.innerHTML = html; }
     if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
-    var title = dw && dw.session ? 'Back to your Deep Work session' : cur ? 'The Guide: where do you want to start?' : BACK;
+    var title = cur ? 'The Guide: where do you want to start?' : BACK;
     if (a.title !== title) a.title = title;
-    if (onGuide) { var dt = titleFor(name); if (document.title !== dt) document.title = dt; }   /* Guide, or Deep Work while a session runs */
+    if (onGuide) { var dt = titleFor(name); if (document.title !== dt) document.title = dt; }   /* Guide, or My work while a session runs */
   }
   function toggleUndo(force) {
     var pop = document.getElementById('undopop'), btn = document.getElementById('undobtn');
@@ -277,7 +287,7 @@
   }
   function titleFor(name) {
     var dw = DeepWork.label && DeepWork.label();
-    return (ROUTES[name].place === 'guide' && dw && (dw.session || dw.wrap) ? 'Deep Work' : ROUTES[name].title) + ' · Fuzz';
+    return (ROUTES[name].place === 'guide' && dw && (dw.session || dw.wrap) ? 'My work' : ROUTES[name].title) + ' · Fuzz';
   }
   function route(force) {
     var info = parse(location.hash), name = info.name, key = location.hash;

@@ -243,7 +243,7 @@
       var it = S.item(id); if (!it) return; note = (note || '').trim();
       if (note) { it.leftOff = note; it.now = 'Left off: ' + note; }
       state.items = state.items.filter(function (i) { return i !== it; }).concat([it]);
-      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in Deep Work. Where you left off: ' + note : 'Done for now in Deep Work.');
+      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in My work. Where you left off: ' + note : 'Done for now in My work.');
     },
     session: function (id) { var it = S.item(id); S.leave(id); it.state = 'session'; it.now = 'Open in ' + S.workIn; S.log(it, 'status', 'You opened this in a working session with ' + S.workIn + '. Fuzz keeps the sources ready.'); },
     /* opt is one of S.scheduleOptions(it), or an exact time: the core's Schedule options, as the API sends them */
@@ -583,11 +583,11 @@
     captureDeep: function (text) {
       var id = 'deep' + (++captureN);
       var it = {
-        id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'In Deep Work now', mins: 30, energy: 'normal', order: ++state.maxOrder,
-        incoming: 'You asked for this one by name in Deep Work.', aiNote: 'You started this in Deep Work, so Fuzz hasn’t had time to gather anything for it yet.',
+        id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'You’re working on it now', mins: 30, energy: 'normal', order: ++state.maxOrder,
+        incoming: 'You asked for this one by name in My work.', aiNote: 'You started this in My work, so Fuzz hasn’t had time to gather anything for it yet.',
         log: [], sources: [], context: [], conversation: [], people: [], code: []
       };
-      S.log(it, 'status', 'You started this in Deep Work.');
+      S.log(it, 'status', 'You started this in My work.');
       state.items.push(it);
       emit({ type: 'capture', item: it });
       return it;

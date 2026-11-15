@@ -177,7 +177,7 @@ def capture(core, text, docs=None, actor="human", due=None, gather=False, upload
                 **({"notes": NOTE_MISSED} if missed else {}),
                 title_history=[], steps_used=0, attempts=0, deadline_level=0)
         events.emit(core, "task.captured", task_id=tid, changes=ch, data={"docs": docs, **({"missed": True} if missed else {})},
-                    log=("status", NOTE_MISSED if missed else "You started this in Deep Work." if deep_work
+                    log=("status", NOTE_MISSED if missed else "You started this in My work." if deep_work
                          else "You captured this task." if actor == "human" else "Fuzz captured this task."))
         for d in docs:   # each upload fills its row (files.attach)
             core.q("INSERT INTO sources (user_id, task_id, role, title) VALUES (?,?,?,?)",
@@ -270,8 +270,8 @@ def deep_work(core, task_id, card=None, left_off=None, log=None):
             ch = events.Changes()
             ch.task(t["id"], order_key=next_order(core), **f)
             return events.emit(core, "task.paused", task_id=t["id"], changes=ch,
-                               log=("guidance", f"Done for now in Deep Work. Where you left off: {said}") if said
-                               else ("status", "Done for now in Deep Work."))
+                               log=("guidance", f"Done for now in My work. Where you left off: {said}") if said
+                               else ("status", "Done for now in My work."))
     # booked time you sat down to (a calendar link opens it on the Guide): the block is spent, so it isn't booked any more
     sched = dict(schedule_anchor=None, schedule_fire_at=None, remove_tags=("booked",)) if t["state"] == "scheduled" else {}
     return _one(core, "human", "task.assigned", t, "deepwork",
