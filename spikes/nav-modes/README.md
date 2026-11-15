@@ -71,7 +71,7 @@ so every theme works. The page bodies are the same in all four options; only the
 
 - **Fuzz's head is the menu icon** (the default; the others are still in the toolbar).
 - **Something else is a choice like the others.** Picking it asks, in Fuzz's words, "Tell me what you want to work
-  on". Start waits until you've said something, then matches it to a ready task or makes a new one.
+  on", right in the row: the title itself becomes the field. Start waits until you've said something, then matches it to a ready task or makes a new one.
 - **The queue's name says it's yours, and the action says where it goes.** "Ready for you" didn't say whether it meant
   Fuzz or you, or that it goes in your work queue. Now there's a name and a triage-card action, in pairs (**Queue name**
   in the toolbar): My work / Add to my work, My queue / Add to my queue, My work queue / Add to my work queue, On my plate

@@ -289,12 +289,14 @@
   /* "Something else" is a choice like the others; picking it asks what, in Fuzz's words */
   function typedRow(c) {
     var on = c === 'typed', txt = (S.typed || '').trim(), m = txt ? match(txt) : -1;
-    return '<li class="typed"><button data-choice="typed" aria-pressed="' + on + '"><span class="radio"></span><span class="t"><b>Something else</b><small>' +
-        (on && txt ? 'You told me: “' + txt + '”' : 'Not on the list? Tell me') + '</small></span></button>' +
-      (on ? '<div class="ask"><label for="typed">Tell me what you want to work on</label>' +
-        '<input type="text" id="typed" autocomplete="off" placeholder="Like “draft the launch email”" value="' + (S.typed || '').replace(/"/g, '&quot;') + '">' +
-        (m >= 0 ? '<p class="hint">That sounds like “' + POOL[m].t + '”, and it’s ready. <button class="linkbtn" data-choice="' + m + '">Use that</button></p>'
-          : txt ? '<p class="hint">New. I’ll make it a task and pull in anything that goes with it.</p>' : '') + '</div>' : '') + '</li>';
+    if (!on) return '<li class="typed"><button data-choice="typed" aria-pressed="false"><span class="radio"></span><span class="t"><b>' + (txt || 'Something else') + '</b><small>' +
+      (txt ? 'Something else, in your words' : 'Not on the list? Tell me') + '</small></span></button></li>';
+    /* picked: the title itself becomes the field, so you type right where "Something else" was */
+    var hint = m >= 0 ? 'That sounds like “' + POOL[m].t + '”, and it’s ready. <button class="linkbtn" data-choice="' + m + '">Use that</button>'
+      : txt ? 'New. I’ll make it a task and pull in anything that goes with it.' : 'Not on the list? Tell me';
+    return '<li class="typed"><div class="row on"><span class="radio"></span><span class="t">' +
+      '<input type="text" id="typed" autocomplete="off" aria-label="Tell me what you want to work on" placeholder="Tell me what you want to work on" value="' + (S.typed || '').replace(/"/g, '&quot;') + '">' +
+      '<small class="hint">' + hint + '</small></span></div></li>';
   }
   function startList(c, sug) {
     var typed = c === 'typed', txt = (S.typed || '').trim(), deep = c != null && c !== 'triage' && (!typed || txt);
