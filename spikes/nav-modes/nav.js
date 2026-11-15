@@ -121,7 +121,11 @@
     }
   };
   /* The start screen's name, in the label spot when you're on it */
-  function PLACE() { return $('placename').value; }
+  /* A place, not a call to action ("Start" read like a button). Each has its own way of saying "back to it". */
+  var PLACES = { home: ['Home', 'Back home'], today: ['Today', 'Back to Today'], desk: ['Desk', 'Back to your desk'],
+    day: ['Your day', 'Back to your day'], base: ['Base camp', 'Back to base camp'], overview: ['Overview', 'Back to Overview'] };
+  function PLACE() { return PLACES[$('placename').value][0]; }
+  function BACK() { return PLACES[$('placename').value][1]; }
   /* Is there something to work on that you can't see from here? On the start screen you can (the list shows it), and in
      Triage you're already clearing it. In a session, only what can't wait counts, so it doesn't pull you out of focus. */
   function waiting() {
@@ -140,9 +144,9 @@
       /* in a session, the label is the way back to it; while you're looking at the session it's the current page */
       if (S.view === 'now' && !(D.phase === 'paused' && D.why === 'urgent')) act = 'data-act="resume" aria-current="page"';
     } else if (D.phase === 'wrap') { k = 'Deep Work'; s = 'Wrapping up'; act = 'aria-current="page"'; }
-    else if (S.view === 'now' && S.nowPicked === 'triage') { k = 'Triage'; s = S.from && S.from.kind === 'triage' ? 'Until ' + S.from.until : 'Switch'; }
-    else if (S.view === 'lineup') { k = 'Lineup'; s = 'Back to ' + PLACE(); }
-    else if (S.view === 'artifacts') { k = 'Artifacts'; s = 'Back to ' + PLACE(); }
+    else if (S.view === 'now' && S.nowPicked === 'triage') { k = 'Triage'; s = (S.from && S.from.kind === 'triage' ? 'Until ' + S.from.until + ' · ' : '') + BACK(); }
+    else if (S.view === 'lineup') { k = 'Lineup'; s = BACK(); }
+    else if (S.view === 'artifacts') { k = 'Artifacts'; s = BACK(); }
     else if (S.view === 'file') { k = 'A file'; s = 'Back'; act = 'data-go="home"'; }
     else { k = PLACE(); act = 'data-go="now" aria-current="page"'; }   /* the start screen has a name too */
     var p = session() && D.phase === 'focus' ? Math.round((25 - D.left) / 25 * 100) : null;
@@ -258,7 +262,7 @@
 
   /* ---------- The places ---------- */
   function placeHead(title, sub) {
-    var back = (S.opt === 'A' || S.opt === 'E' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← Back to ' + (S.opt === 'E' ? PLACE() : hasHome() ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work') + '</button>' : '';
+    var back = (S.opt === 'A' || S.opt === 'E' || (S.opt === 'D' && S.dPlaces === 'menu')) ? '<button class="back" data-go="home">← ' + (S.opt === 'E' ? BACK() : 'Back to ' + (hasHome() ? 'Now' : S.mode === 'triage' ? 'Triage' : 'Deep Work')) + '</button>' : '';
     return '<div class="pagehead"><div><h2>' + title + '</h2><p class="meta">' + sub + '</p></div>' + back + '</div>';
   }
   function lineupRows() {

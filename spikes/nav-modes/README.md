@@ -101,8 +101,9 @@ from **Later**, which brings the card back to Triage to decide again.
   start screen. It replaces D's session chip and the "Pick something else" line in Triage.
 - Everything else is D's: the start screen, the session, and the deep links (a link keeps you in D or E, whichever
   you're looking at).
-- **The start screen has a name** in the label spot: **Start** by default (**Start place name** tries Home, Today and
-  Desk). Lineup's label reads "Lineup · Back to Start".
+- **The start screen has a name** in the label spot. "Start" read like a button, so it's a place: **Home** by default
+  (**Start place name** tries Today, Desk, Your day, Base camp and Overview). Each name has its own way back, which
+  the other labels use: "Triage · Back home", "Lineup · Back home", or "Back to Today", "Back to your desk", and so on.
 - **Something waiting** shows when there's work you can't see from where you are. On the start screen the list
   already shows it, and in Triage you're clearing it, so there's no signal there. In a session, only something that
   can't wait counts. **Something waiting** in the toolbar tries **Fuzz's antenna lights up** (a steady light on the
