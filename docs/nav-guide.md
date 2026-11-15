@@ -70,8 +70,10 @@ against a real core in `tests/ui/live.test.mjs`, and `core/tests/test_booking.py
 
 **Not built, waiting on a ruling:** something urgent pausing the clock mid-session, walking away pausing it (and the
 "Deep Work · Paused" label that goes with them), and "Book time to finish" on the wrap-up (it needs Book time's slot
-picker, so it isn't one step), and question 1's short "while you were away" in the Guide's line (Triage's arrival
-screen is unchanged). The other open questions are at their defaults: no single-key shortcuts for the menu places,
+picker, so it isn't one step), and question 1's short "while you were away" in the Guide's line. Triage's arrival
+screen still shows on `#/triage` links, but Start Triage from the Guide skips it and the focus question and goes
+straight to the first card, because the Guide already asked where to start (F still sets a focus; user ruling,
+2026-11-15). The other open questions are at their defaults: no single-key shortcuts for the menu places,
 links don't start a session by themselves, a typed task starts at once while Fuzz gathers, the core's `mine` and
 `deepwork` states stay separate, and Do it now and booked tasks still work in Triage.
 

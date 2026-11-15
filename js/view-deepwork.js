@@ -416,7 +416,7 @@
      you typed (a new task, started now; Fuzz gathers in the background) */
   function go() {
     var p = picked();
-    if (p === 'triage') { E.pick = null; return App.navigate('#/triage'); }
+    if (p === 'triage') { E.pick = null; if (window.TriageView && TriageView.fromGuide) TriageView.fromGuide(); return App.navigate('#/triage'); }
     if (p === 'typed') { var t = E.typed.trim(); if (!t) { var f = $('#g-typed'); if (f) f.focus(); return; } E.typed = ''; return startSession(Store.captureDeep(t)); }
     var it = pickedTask(p); if (!it) return;
     if (it.state !== 'deepwork') { Store.deepWork(it.id); it = Store.item(it.id) || it; }

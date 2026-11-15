@@ -111,6 +111,9 @@
     Fuzz.unmount(); root = null;
   };
   V.hardReset = function () { arrived = false; foMode = 'ask'; foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
+  /* The Guide already asked where to start: Triage opens on the first card, with no arrival screen or focus
+     question (F still asks) */
+  V.fromGuide = function () { arrived = true; foAsked = true; foMode = 'ask'; };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();

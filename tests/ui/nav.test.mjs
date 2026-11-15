@@ -83,8 +83,10 @@ test('picking a task asks how long and names it on Start; Start Triage opens Tri
   assert.match(await goText(), /^Start: /);
   await page.click('.g-row[data-pick="triage"]');
   await page.click('#dw-go');
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card').waitFor();
   assert.equal(await page.evaluate(() => location.hash), '#/triage');
+  /* the Guide already asked where to start: straight to the first card, no arrival screen or focus question */
+  assert.equal(await page.locator('#focuscard').isHidden(), true);
   assert.deepEqual(await label(), { text: 'Triage · Back to the Guide', dot: null, current: null });
   await page.click('#where');
   await page.locator('#g-q').waitFor();
@@ -101,7 +103,8 @@ test('arrow keys move through the list, a number picks a row, and Enter starts',
   await page.keyboard.press('1');
   assert.equal(await checked(), 'triage');
   await page.keyboard.press('Enter');
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card').waitFor();
+  assert.equal(await page.locator('#focuscard').isHidden(), true);
 });
 
 test('Something else edits inline: new text, a match with Use that, the text stays, empty can’t start', async () => {
