@@ -293,11 +293,20 @@ def _judge(core, rows, now):
     return out
 
 
+def same_source(a, b):
+    """Two reads of one source: the directory's record of them, or one person saying it twice in the same
+    place. The source changing its mind (or its wording) is an update, not two sources disagreeing, so the
+    newer read wins (order_key ranks it first) and nobody is asked."""
+    if a["source_kind"] != b["source_kind"]:
+        return False
+    return a["source_kind"] == "directory" or bool(a.get("said_by") and a.get("said_by") == b.get("said_by"))
+
+
 def _real_conflict(a, b):
     """Both equally trusted (authoritative or reported, not stale), neither confirmed, and their sources close
-    in time: nothing says which is right, so ask instead of picking. Not prose (PROSE), and not the same claim
-    worded twice (same_claim)."""
-    if a["attr"] in PROSE or same_claim(a["value"], b["value"]):
+    in time: nothing says which is right, so ask instead of picking. Not prose (PROSE), not the same claim
+    worded twice (same_claim), and not one source updating itself (same_source)."""
+    if a["attr"] in PROSE or same_claim(a["value"], b["value"]) or same_source(a, b):
         return False
     ta, tb = a["trust"], b["trust"]
     if ta["level"] != tb["level"] or ta["level"] not in ("authoritative", "reported"):
