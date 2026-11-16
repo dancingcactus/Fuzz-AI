@@ -44,11 +44,21 @@ def norm(v):
 
 
 _ASIDE = re.compile(r"\s*(\([^()]*\)|<[^<>]*>|[\w.+-]+@[\w-]+(\.[\w-]+)+)\s*")
+# Title abbreviations a directory or a signature writes either way. Only ones that can mean one thing: not
+# PM (product, project or program) or Eng (engineer or engineering), where expanding would hide a real
+# disagreement.
+_ABBREV = {"mgr": "manager", "sr": "senior", "snr": "senior", "jr": "junior", "dir": "director",
+           "vp": "vice president", "svp": "senior vice president", "evp": "executive vice president",
+           "avp": "assistant vice president", "assoc": "associate", "asst": "assistant", "mgmt": "management",
+           "dept": "department"}
+_ABBREV_RE = re.compile(r"\b(" + "|".join(_ABBREV) + r")\b\.?")
 
 
 def _gist(v):
-    """The value without asides: "Russell Lewis (rulewis@adobe.com)" is Russell Lewis."""
-    return norm(_ASIDE.sub(" ", v or "")).strip(" ,;:-")
+    """The value without asides and with title abbreviations spelled out: "Russell Lewis (rulewis@adobe.com)"
+    is Russell Lewis, and "Sr. Mgr, Product Mgmt" is senior manager, product management."""
+    g = norm(_ASIDE.sub(" ", v or "")).replace(" & ", " and ")
+    return _ABBREV_RE.sub(lambda m: _ABBREV[m.group(1)], g).strip(" ,;:-")
 
 
 def same_claim(a, b):

@@ -180,6 +180,23 @@ class Facts(MemoryCase):
         self.assertFalse(facts.same_claim("Payments PM", "Payments PMM"), "a longer word is a different claim")
         self.assertFalse(facts.same_claim("Payments PM", "Platform PM"))
 
+    def test_a_title_abbreviated_is_the_same_claim(self):
+        t = self.person("James Torio", "torio@acme.example")
+        facts.add(self.core, t, "role", "Mgr, Product Management", source_kind="directory",
+                  source_ts="2026-11-11T18:23:28Z")
+        facts.add(self.core, t, "role", "Manager, Product Management", source_kind="directory",
+                  source_ts="2026-11-13T23:17:27Z")
+        self.assertEqual(facts.disputes(self.core, t), [])
+        self.assertEqual(facts.winners(self.core, t)["role"], "Manager, Product Management", "the newer one wins")
+        for a, b in (("Senior Product Manager", "Sr. Product Manager"), ("Director, Product Management",
+                     "Dir, Product Management"), ("VP Marketing", "Vice President Marketing"),
+                     ("Sr Mgr, Product Mgmt & Design", "Senior Manager, Product Management and Design")):
+            self.assertTrue(facts.same_claim(a, b), (a, b))
+        self.assertFalse(facts.same_claim("Manager, Product Management", "Director, Product Management"))
+        self.assertFalse(facts.same_claim("Sr. Product Manager", "Product Manager"), "a different level")
+        self.assertFalse(facts.same_claim("Product Manager", "Program Manager"))
+        self.assertFalse(facts.same_claim("Directory Admin", "Dir Admin"), "only whole words are spelled out")
+
     def test_prose_is_never_asked_about(self):
         org = facts.resolve_about(self.core, {"type": "org", "name": "Verizon"})
         facts.add(self.core, org, "what_it_is", "Customer using Adobe Analytics, not CJA, for the tracking.",
