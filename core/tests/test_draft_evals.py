@@ -43,6 +43,17 @@ class History(Base):
         self.assertIsNone(h["sent"])
         self.assertIn("promise Friday", h["note"])
 
+    def test_a_prep_note_is_not_a_sent_message(self):
+        tid = tasks.capture(self.core, "Prep the offsite update")
+        tasks.assign(self.core, tid)
+        scheduler.claim_next(self.core, tid)
+        tools.update_brief(self.core, tid, due="2026-10-25")
+        drafts.save_draft(self.core, tid, "note", None, "Venue: TBD. Budget: TBD.", final=False)
+        card = self.card_for(tid, "draft")
+        answers.answer(self.core, card["id"], "edit", "Can you look the venue up first?")
+        answers.answer(self.core, card["id"], "approve")
+        self.assertEqual(draft_evals.history(self.core), [])
+
     def test_how_much_changed_and_its_form(self):
         self.assertEqual(draft_evals.changed(SENT, SENT), 0.0)
         self.assertGreater(draft_evals.changed(WROTE, SENT), 0.5)

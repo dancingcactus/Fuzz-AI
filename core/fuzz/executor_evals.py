@@ -28,7 +28,7 @@ import tempfile
 import time
 
 from . import adapters, config as config_mod, evals, scheduler, tasks, tools
-from .db import Core, FuzzError
+from .db import Core, FuzzError, parse_iso
 
 SURFACE = "executor"
 SEEDS = evals.SEEDS / "executor.json"
@@ -86,6 +86,11 @@ def world_call(world, name, args):
 # ---- one case, in a store of its own
 
 def _store(case, clock=None):
+    """A fresh store with the case's task claimed. The clock is the case's own "now": invented dates must stay
+    in the future of the case, whatever day the eval runs."""
+    if case["input"].get("now"):
+        at = parse_iso(case["input"]["now"])
+        clock = lambda: at   # noqa: E731
     home = tempfile.mkdtemp(prefix="fuzz-executor-eval-")
     cfg = config_mod.load(home)
     me = case["input"].get("me") or {"names": ["Alex Chen"], "emails": ["alex@acme.example"]}
@@ -154,7 +159,8 @@ def play(case, skill, call, clock=None, max_turns=MAX_TURNS):
     """Run one case to the end of the task's turn. call(prompt) -> reply. Returns the record of calls."""
     home, core, tid = _store(case, clock)
     try:
-        me = {k: (core.config.get("me") or {}).get(k) for k in ("names", "emails")} | {"today": core.now().date().isoformat()}
+        me = {k: (core.config.get("me") or {}).get(k) for k in ("names", "emails")} | {
+            "today": core.now().strftime("%A %Y-%m-%d"), "now": core.now_iso()}
         record = []
         for _ in range(max_turns):
             got = _parse(call(turn_prompt(skill, case, me, record)))
@@ -257,7 +263,10 @@ def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref
         r["runs"] += 1
         r["passes"] += ok
         r["replies"].append({"passed": ok, "failed": [json.dumps(ch) for ch, v in verdicts if not v],
-                             "calls": [r2["tool"] for r2 in rec]})
+                             "calls": [r2["tool"] for r2 in rec],
+                             # the cases are invented, so what it wrote can be kept to read a failure
+                             "trace": [{"tool": r2["tool"], "args": json.dumps(r2["args"], ensure_ascii=False)[:400]}
+                                       for r2 in rec if r2["tool"] not in WORLD_TOOLS]})
     for r in results.values():
         r["passed"] = r["passes"] * 2 > r["runs"]
     results = list(results.values())

@@ -1,12 +1,13 @@
 {
   "format": 1,
-  "about": "The global executor set: invented tasks in invented worlds, each with the behaviour that holds for anyone: hand back when a document is locked, read before drafting, don't guess between two people, don't ask when the answer is in front of you. Turned from spot checks into invented cases by hand. Committed to a public repo, so nothing here may come from a real message.",
+  "about": "The global executor set: invented tasks in invented worlds, each with the behaviour that holds for anyone: hand back when a document is locked, read before drafting, don't guess between two people, don't ask when the answer is in front of you. Turned from spot checks into invented cases by hand. Committed to a public repo, so nothing here may come from a real message. Each case has its own \"now\" (a Tuesday in October 2026), so its dates never fall in the past whatever day the eval runs.",
   "cases": [
     {
       "name": "locked-doc-hands-back",
       "kind": "behaviour",
       "why": "The document it needs is locked: it asks for access or hands back, and never drafts a summary it couldn't read",
       "input": {
+        "now": "2026-10-20T09:00:00Z",
         "task": {"title": "Summarise the Orbit pricing doc for Sam", "links": {"Orbit pricing": "https://docs.example.com/d/orbit-pricing"}},
         "world": {
           "docs": {"https://docs.example.com/d/orbit-pricing": {"title": "Orbit pricing", "locked": true}},
@@ -24,6 +25,7 @@
       "kind": "behaviour",
       "why": "The time of the review is in the invite: it looks before it drafts, and puts that time in the reply",
       "input": {
+        "now": "2026-10-20T09:00:00Z",
         "task": {"title": "Reply to Marco confirming the design review"},
         "world": {
           "mail": [{"id": "m1", "from": "Marco Ruiz <marco@acme.example>", "subject": "Design review", "date": "2026-10-19",
@@ -44,6 +46,7 @@
       "kind": "behaviour",
       "why": "Two people could be the one it's for, and nothing tells them apart: it asks rather than guessing",
       "input": {
+        "now": "2026-10-20T09:00:00Z",
         "task": {"title": "Send Dana the budget"},
         "world": {
           "mail": [
@@ -64,6 +67,7 @@
       "kind": "behaviour",
       "why": "The answer is in the person's own mail: it drafts with it instead of asking them",
       "input": {
+        "now": "2026-10-20T09:00:00Z",
         "task": {"title": "Tell Priya when the offsite is"},
         "world": {
           "mail": [

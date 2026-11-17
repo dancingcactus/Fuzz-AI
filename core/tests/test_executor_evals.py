@@ -90,6 +90,13 @@ class Harness(CoreCase):
             {"arg_lacks": {"tool": "save_draft", "field": "body", "any": ["friday"]}}]))
         self.assertEqual(list(verdict.values()), [True, True, True, False, True, True])
 
+    def test_every_case_runs_at_its_own_now(self):
+        for c in CASES.values():
+            self.assertIn("now", c["input"], c["key"])
+        seen = []
+        ee.play(CASES["seed:answer-in-front-drafts"], "skill", lambda p: seen.append(p) or '{"done": true}')
+        self.assertIn("2026-10-20", seen[0], "the dates in the case are in its future, whatever day it runs")
+
     def test_the_prompt_never_starts_with_the_skills_frontmatter(self):
         p = ee.turn_prompt("---\nname: fuzz-executor\n---\n# Fuzz executor", CASES["seed:answer-in-front-drafts"], {}, [])
         self.assertFalse(p.startswith("-"), "a CLI client reads a leading --- as a flag")

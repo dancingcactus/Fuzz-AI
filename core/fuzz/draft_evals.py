@@ -50,7 +50,9 @@ def history(core, since=None):
     edited, note}. wrote is the body Fuzz saved; sent is what you approved (None when sent back)."""
     out = []
     rows = core.all("SELECT d.*, t.title FROM drafts d JOIN tasks t ON t.id=d.task_id WHERE d.user_id=? "
+                    # a prep note is filed, never sent, and an "edit" of one is often an instruction to Fuzz
                     "AND d.status IN ('approved', 'sent', 'sent_back') AND d.kind NOT LIKE 'calendar%' "
+                    "AND d.kind != 'note' "
                     + ("AND d.created_at>=? " if since else "") + "ORDER BY d.id",
                     (core.user_id, since) if since else (core.user_id,))
     for d in rows:
