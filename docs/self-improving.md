@@ -40,6 +40,9 @@ The "What I've learned" section groups lessons by kind and knows nothing about a
 
 ## Evals
 
+What's built is below. The plan for growing it, with a global set in the repo and a personal set per
+person, versioning, drafts, missed asks and executor spot checks, is in `docs/evals.md`.
+
 ### Cases
 
 `eval_cases`: `id`, `surface`, `kind` (`keep` | `skip`), `input` (the message as the extractor saw it:
