@@ -143,6 +143,13 @@ with a fixed clock.
    - The loser is shown as superseded. That's worked out when read: its row stays `live`.
    - When the top two are at the same level (both Authoritative or both Reported, neither stale or
      confirmed) and their sources are within 30 days of each other, it's a **real conflict**. Both stay live, both show as **Disputed**, and a `fact_conflict` card asks which is right.
+   - Not a conflict: prose attributes; the same claim worded twice (asides dropped, title abbreviations like
+     Mgr or Sr. spelled out, one extending the other); one source updating itself (two directory reads, or
+     one named person saying it twice in the same place), where the newer read wins.
+   - Before the card, the extractor judges whether the two values say the same thing (`get_fact_pairs`,
+     `judge_fact_pairs`; kept in `fact_judgments`, by value pair). Same: never asked. Different: asked at
+     once. No word within `memory.judge_wait_hours` (24): asked anyway. A conflict waiting for that word
+     keeps its place under the daily cap.
 5. **Rule 4: inferred facts never drive an action on their own.** The rule is keyed on `how = inferred`,
    not on the trust level. An uncorrected guess that exposure has raised to Reported still counts as
    inferred until you confirm or edit it. Enforced in the core, not in a prompt:

@@ -98,18 +98,22 @@ def raise_cards(core, actor="system"):
     return made
 
 
+JUDGE_WAIT_HOURS = 24   # how long a disagreement waits for the extractor's word before you're asked anyway
+
+
 def _conflicts(core):
+    """A disagreement is asked once the extractor judged it a real one, or once it has waited JUDGE_WAIT_HOURS
+    for that judgment (the extractor isn't running, or hasn't reached it): two values that only look different
+    ("Head of Product", "Product Lead") never reach you. One that's waiting keeps its place in line (its build
+    gives None, so nothing is raised) so that what the run raised before judging doesn't take its day's slot."""
     out = []
-    seen = set()
-    for r in core.all("SELECT DISTINCT entity_id FROM facts WHERE user_id=? AND status='live'", (core.user_id,)):
-        eid = facts.follow(core, r["entity_id"])
-        if eid in seen:
-            continue
-        seen.add(eid)
-        for a, b in facts.disputes(core, eid):
-            lo, hi = sorted((a["id"], b["id"]))
-            key = f"facts:{lo}:{hi}"
-            out.append(("fact_conflict", key, lambda a=a, b=b, eid=eid: _conflict_args(core, eid, a, b)))
+    wait = timedelta(hours=float((core.config.get("memory") or {}).get("judge_wait_hours", JUDGE_WAIT_HOURS)))
+    now = core.now()
+    for eid, a, b in facts.all_disputes(core, now):
+        held = (facts.judgment(core, a, b) is None
+                and now - max(parse_iso(f["captured_at"]) for f in (a, b)) < wait)
+        out.append(("fact_conflict", facts.pair_id(a, b),
+                    (lambda: None) if held else (lambda a=a, b=b, eid=eid: _conflict_args(core, eid, a, b))))
     return out
 
 

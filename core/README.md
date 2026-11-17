@@ -130,7 +130,9 @@ All three are thin layers over the same library, so they can't drift apart.
 
 **Memory** ([`docs/memory-layers.md`](../docs/memory-layers.md)):
 - The extractor also has `get_lookups`, `submit_facts` and `submit_knowledge`, and signals carry
-  `facts`, `terms`, `decisions` and `meeting`.
+  `facts`, `terms`, `decisions` and `meeting`. Two facts that look different wait for its word
+  (`get_fact_pairs`, `judge_fact_pairs`) before the person is asked which is right, or
+  `memory.judge_wait_hours` (24) if it never gives one.
 - The executor can look things up with `who_is`, `what_is`, `why` and `search_memory`. Its lookups don't count as
   showing you a fact.
 - `fuzz mcp --role recall` (`who_is`, `what_is`, `why`, `search_memory`, `correct`) is

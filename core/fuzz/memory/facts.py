@@ -44,11 +44,21 @@ def norm(v):
 
 
 _ASIDE = re.compile(r"\s*(\([^()]*\)|<[^<>]*>|[\w.+-]+@[\w-]+(\.[\w-]+)+)\s*")
+# Title abbreviations a directory or a signature writes either way. Only ones that can mean one thing: not
+# PM (product, project or program) or Eng (engineer or engineering), where expanding would hide a real
+# disagreement.
+_ABBREV = {"mgr": "manager", "sr": "senior", "snr": "senior", "jr": "junior", "dir": "director",
+           "vp": "vice president", "svp": "senior vice president", "evp": "executive vice president",
+           "avp": "assistant vice president", "assoc": "associate", "asst": "assistant", "mgmt": "management",
+           "dept": "department"}
+_ABBREV_RE = re.compile(r"\b(" + "|".join(_ABBREV) + r")\b\.?")
 
 
 def _gist(v):
-    """The value without asides: "Russell Lewis (rulewis@adobe.com)" is Russell Lewis."""
-    return norm(_ASIDE.sub(" ", v or "")).strip(" ,;:-")
+    """The value without asides and with title abbreviations spelled out: "Russell Lewis (rulewis@adobe.com)"
+    is Russell Lewis, and "Sr. Mgr, Product Mgmt" is senior manager, product management."""
+    g = norm(_ASIDE.sub(" ", v or "")).replace(" & ", " and ")
+    return _ABBREV_RE.sub(lambda m: _ABBREV[m.group(1)], g).strip(" ,;:-")
 
 
 def same_claim(a, b):
@@ -257,6 +267,7 @@ def _judge(core, rows, now):
     """Each fact with its trust, then per attribute: which value wins, which are superseded, and whether the
     top two disagree badly enough to ask (disputed)."""
     seen = views(core, [f["id"] for f in rows])
+    judged = judgments(core)
     for f in rows:
         f["trust"] = trust_mod.trust(f, now, seen.get(f["id"], ()), trust_mod.half_life(core, f["attr"]))
     out = []
@@ -272,22 +283,123 @@ def _judge(core, rows, now):
             vals.sort(key=lambda f: trust_mod.order_key(f, f["trust"]))
             ranked.append(vals)
         ranked.sort(key=lambda vals: trust_mod.order_key(vals[0], vals[0]["trust"]))
-        disputed = attr in SINGLE and len(ranked) > 1 and _real_conflict(ranked[0][0], ranked[1][0])
+        rival = _rival(ranked, judged) if attr in SINGLE else None
+        pair = {ranked[0][0]["id"], rival["id"]} if rival else set()
         for i, vals in enumerate(ranked):
-            best = vals[0]
+            # A group stands for its value by its best fact, or by the one the winner is disputed with.
+            best = next((f for f in vals if f["id"] in pair), vals[0])
             state = "winner" if i == 0 or attr not in SINGLE else "superseded"
-            best = dict(best, state=state, disputed=disputed and i < 2,
+            best = dict(best, state=state, disputed=best["id"] in pair,
                         sources=[_source(f) for f in vals], corroborated=len(vals))
             out.append(best)
     out.sort(key=lambda f: (f["attr"], f["state"] != "winner", trust_mod.order_key(f, f["trust"])))
     return out
 
 
+def _rival(ranked, judged):
+    """The fact the winner disagrees with badly enough to ask about, if any. Values that turn out to be the
+    winner said again (worded twice, or judged the same) are passed over, and so is the winner's own source's
+    older read, so a real disagreement further down, or from another source of the same value, still surfaces."""
+    top = ranked[0][0]
+    for vals in ranked[1:]:
+        if same_claim(top["value"], vals[0]["value"]) or judged.get(pair_key(top, vals[0])) == 1:
+            continue
+        b = next((f for f in vals if not same_source(top, f)), None)
+        if b is None:
+            continue
+        return b if _real_conflict(top, b) else None
+    return None
+
+
+# ---------------------------------------------------------------- the extractor's word on two values
+
+# Values that are names: "same" for one person's pair says nothing about another's, so it's kept per entity.
+# The rest (a title, a team) mean the same wherever they're said.
+PER_ENTITY = {"manager", "owner", "contacts"}
+
+
+def pair_key(a, b):
+    x, y = sorted((_gist(a["value"]), _gist(b["value"])))
+    scope = a["attr"] + (f"#{min(a['entity_id'], b['entity_id'])}" if a["attr"] in PER_ENTITY else "")
+    return (scope, x, y)
+
+
+def judgments(core):
+    """{(attr, a, b): 1 same | 0 different} for every pair the extractor has judged."""
+    return {(r["attr"], r["a"], r["b"]): r["same"]
+            for r in core.all("SELECT attr, a, b, same FROM fact_judgments WHERE user_id=?", (core.user_id,))}
+
+
+def judgment(core, a, b):
+    """1 the same claim, 0 a real disagreement, None not judged yet."""
+    attr, x, y = pair_key(a, b)
+    r = core.one("SELECT same FROM fact_judgments WHERE user_id=? AND attr=? AND a=? AND b=?",
+                 (core.user_id, attr, x, y))
+    return r["same"] if r else None
+
+
+def all_disputes(core, now=None):
+    """[(entity_id, a, b)] across everything Fuzz knows."""
+    out, seen = [], set()
+    for r in core.all("SELECT DISTINCT entity_id FROM facts WHERE user_id=? AND status='live'", (core.user_id,)):
+        eid = follow(core, r["entity_id"])
+        if eid in seen:
+            continue
+        seen.add(eid)
+        out += [(eid, a, b) for a, b in disputes(core, eid, now)]
+    return out
+
+
+def pair_id(a, b):
+    lo, hi = sorted((a["id"], b["id"]))
+    return f"facts:{lo}:{hi}"
+
+
+def unjudged(core):
+    """The disagreements waiting for the extractor's word before you're asked about them."""
+    out = []
+    for eid, a, b in all_disputes(core):
+        if judgment(core, a, b) is None:
+            out.append({"pair": pair_id(a, b), "about": entities.display_name(core.conn, entity(core, eid)),
+                        "attr": a["attr"], "values": [a["value"], b["value"]]})
+    return out
+
+
+def record_judgments(core, items):
+    """Store the extractor's verdicts: [{pair: "facts:12:34", same: bool, reason?}]. Returns counts."""
+    out = {"same": 0, "different": 0, "skipped": 0}
+    for i, it in enumerate(items):
+        if not isinstance(it, dict) or not isinstance(it.get("same"), bool):
+            raise FuzzError(f"items[{i}] is {{pair, same: true|false, reason?}}", f"items[{i}].same")
+        m = re.fullmatch(r"facts:(\d+):(\d+)", str(it.get("pair") or ""))
+        if not m:
+            raise FuzzError(f"items[{i}].pair is as get_fact_pairs gave it, like facts:12:34", f"items[{i}].pair")
+        a, b = (core.one("SELECT * FROM facts WHERE id=? AND user_id=?", (int(x), core.user_id)) for x in m.groups())
+        if not a or not b or a["attr"] != b["attr"]:
+            out["skipped"] += 1
+            continue
+        attr, x, y = pair_key(a, b)
+        core.q("INSERT OR REPLACE INTO fact_judgments (user_id, attr, a, b, same, reason, judged_at) "
+               "VALUES (?,?,?,?,?,?,?)", (core.user_id, attr, x, y, int(it["same"]),
+                                          (it.get("reason") or "")[:VALUE_MAX] or None, core.now_iso()))
+        out["same" if it["same"] else "different"] += 1
+    return out
+
+
+def same_source(a, b):
+    """Two reads of one source: the directory's record of them, or one person saying it twice in the same
+    place. The source changing its mind (or its wording) is an update, not two sources disagreeing, so the
+    newer read wins (order_key ranks it first) and nobody is asked."""
+    if a["source_kind"] != b["source_kind"]:
+        return False
+    return a["source_kind"] == "directory" or bool(a.get("said_by") and a.get("said_by") == b.get("said_by"))
+
+
 def _real_conflict(a, b):
     """Both equally trusted (authoritative or reported, not stale), neither confirmed, and their sources close
-    in time: nothing says which is right, so ask instead of picking. Not prose (PROSE), and not the same claim
-    worded twice (same_claim)."""
-    if a["attr"] in PROSE or same_claim(a["value"], b["value"]):
+    in time: nothing says which is right, so ask instead of picking. Not prose (PROSE), not the same claim
+    worded twice (same_claim), and not one source updating itself (same_source)."""
+    if a["attr"] in PROSE or same_claim(a["value"], b["value"]) or same_source(a, b):
         return False
     ta, tb = a["trust"], b["trust"]
     if ta["level"] != tb["level"] or ta["level"] not in ("authoritative", "reported"):

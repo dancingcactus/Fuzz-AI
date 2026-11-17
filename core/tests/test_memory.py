@@ -42,6 +42,11 @@ class MemoryCase(CoreCase):
     def memory_cards(self, kind=None):
         return [c for c in self.open_cards() if c["kind"] in mcards.KINDS and (kind is None or c["kind"] == kind)]
 
+    def judge(self, same):
+        """The extractor's word on every pair waiting for it, through its tool (which raises cards)."""
+        pairs = tools.get_fact_pairs(self.core)["pairs"]
+        return tools.judge_fact_pairs(self.core, [{"pair": p["pair"], "same": same} for p in pairs])
+
     def set_memory(self, **kw):
         cfg = config.load(self.home)
         cfg.setdefault("memory", {}).update(kw)
@@ -139,7 +144,7 @@ class Facts(MemoryCase):
         self.assertEqual(facts.disputes(self.core, m), [], "months apart: the newer one simply wins")
         close, _ = facts.add(self.core, m, "role", "Payments lead", source_kind="slack", source_ts="2026-10-15T09:00:00Z")
         self.assertEqual(len(facts.disputes(self.core, m)), 1)
-        mcards.raise_cards(self.core)
+        self.judge(same=False)
         [card] = self.memory_cards("fact_conflict")
         self.assertEqual({f["id"] for f in card["payload"]["facts"]}, {new, close})
         before = self.last_event_id()
@@ -159,7 +164,7 @@ class Facts(MemoryCase):
         m = self.person("Marcus Lee", "marcus@acme.example")
         facts.add(self.core, m, "role", "Payments PM", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
         facts.add(self.core, m, "role", "Platform PM", source_kind="slack", source_ts="2026-10-18T09:00:00Z")
-        mcards.raise_cards(self.core)
+        self.judge(same=False)
         [card] = self.memory_cards("fact_conflict")
         answers.answer(self.core, card["id"], "neither", "Head of Product")
         self.assertEqual(facts.winners(self.core, m)["role"], "Head of Product")
@@ -180,6 +185,135 @@ class Facts(MemoryCase):
         self.assertFalse(facts.same_claim("Payments PM", "Payments PMM"), "a longer word is a different claim")
         self.assertFalse(facts.same_claim("Payments PM", "Platform PM"))
 
+    def test_a_title_abbreviated_is_the_same_claim(self):
+        t = self.person("James Torio", "torio@acme.example")
+        facts.add(self.core, t, "role", "Mgr, Product Management", source_kind="directory",
+                  source_ts="2026-11-11T18:23:28Z")
+        facts.add(self.core, t, "role", "Manager, Product Management", source_kind="directory",
+                  source_ts="2026-11-13T23:17:27Z")
+        self.assertEqual(facts.disputes(self.core, t), [])
+        self.assertEqual(facts.winners(self.core, t)["role"], "Manager, Product Management", "the newer one wins")
+        for a, b in (("Senior Product Manager", "Sr. Product Manager"), ("Director, Product Management",
+                     "Dir, Product Management"), ("VP Marketing", "Vice President Marketing"),
+                     ("Sr Mgr, Product Mgmt & Design", "Senior Manager, Product Management and Design")):
+            self.assertTrue(facts.same_claim(a, b), (a, b))
+        self.assertFalse(facts.same_claim("Manager, Product Management", "Director, Product Management"))
+        self.assertFalse(facts.same_claim("Sr. Product Manager", "Product Manager"), "a different level")
+        self.assertFalse(facts.same_claim("Product Manager", "Program Manager"))
+        self.assertFalse(facts.same_claim("Directory Admin", "Dir Admin"), "only whole words are spelled out")
+
+    def test_a_disagreement_waits_for_the_extractors_word(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Head of Product", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Product Lead", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        mcards.raise_cards(self.core)
+        self.assertEqual(self.memory_cards("fact_conflict"), [], "held for the extractor")
+        [p] = tools.get_fact_pairs(self.core)["pairs"]
+        self.assertEqual((p["about"], p["attr"], sorted(p["values"])), ("Marcus Lee", "role", ["Head of Product", "Product Lead"]))
+        self.assertEqual(self.judge(same=True), {"same": 1, "different": 0, "skipped": 0})
+        self.assertEqual((facts.disputes(self.core, m), self.memory_cards("fact_conflict")), ([], []))
+        self.assertEqual(tools.get_fact_pairs(self.core)["pairs"], [])
+        self.assertEqual(facts.winners(self.core, m)["role"], "Head of Product", "the newer one wins")
+        # The verdict is about the two values, so it holds for anyone else they're said about.
+        k = self.person("Kai Moss", "kai@acme.example")
+        facts.add(self.core, k, "role", "Head of Product.", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, k, "role", "product lead", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.assertEqual(facts.disputes(self.core, k), [])
+
+    def test_a_real_disagreement_is_asked_at_once_or_after_the_wait(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Payments PM", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Platform PM", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.assertEqual(self.judge(same=False), {"same": 0, "different": 1, "skipped": 0})
+        self.assertEqual(len(self.memory_cards("fact_conflict")), 1, "judged different: asked straight away")
+        k = self.person("Kai Moss", "kai@acme.example")
+        facts.add(self.core, k, "team", "Target", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, k, "team", "Analytics", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.clock.advance(hours=23)
+        mcards.raise_cards(self.core)
+        self.assertEqual(len(self.memory_cards("fact_conflict")), 1)
+        self.clock.advance(hours=2)
+        mcards.raise_cards(self.core)
+        self.assertEqual(len(self.memory_cards("fact_conflict")), 2, "no word in a day: asked anyway")
+
+    def test_judged_the_same_withdraws_an_open_card(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Head of Product", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Product Lead", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.clock.advance(days=2)
+        mcards.raise_cards(self.core)
+        [card] = self.memory_cards("fact_conflict")
+        self.judge(same=True)
+        self.assertEqual(cards.get(self.core, card["id"])["status"], "withdrawn")
+        with self.assertRaises(FuzzError):
+            tools.judge_fact_pairs(self.core, [{"pair": "12:34", "same": True}])
+
+    def test_a_third_value_still_disagrees_after_the_second_is_the_same(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Manager, Product Management", source_kind="directory",
+                  source_ts="2026-11-13T09:00:00Z")
+        facts.add(self.core, m, "role", "Mgr, Product Management", source_kind="directory",
+                  source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, m, "role", "Director, Product Management", said_by=m, source_kind="email",
+                  source_ts="2026-11-10T09:00:00Z")
+        [(a, b)] = facts.disputes(self.core, m)
+        self.assertEqual({a["value"], b["value"]}, {"Manager, Product Management", "Director, Product Management"})
+
+    def test_another_source_of_an_older_value_is_still_asked(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Manager, Product Management", source_kind="directory",
+                  source_ts="2026-11-12T09:00:00Z")
+        facts.add(self.core, m, "role", "Director, Product Management", source_kind="directory",
+                  source_ts="2026-11-11T09:00:00Z")
+        own, _ = facts.add(self.core, m, "role", "Director, Product Management", said_by=m, source_kind="email",
+                           source_ref="email:m-1", source_ts="2026-11-10T09:00:00Z")
+        [(a, b)] = facts.disputes(self.core, m)
+        self.assertEqual({a["value"], b["value"]}, {"Manager, Product Management", "Director, Product Management"})
+        self.assertIn(own, {a["id"], b["id"]}, "the card shows what they said, not the directory's older read")
+
+    def test_a_third_value_after_two_judged_the_same(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Head of Product", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Product Lead", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.judge(same=True)
+        facts.add(self.core, m, "role", "Payments PM", source_kind="meeting", source_ts="2026-10-17T09:00:00Z")
+        [(a, b)] = facts.disputes(self.core, m)
+        self.assertEqual({a["value"], b["value"]}, {"Head of Product", "Payments PM"})
+
+    def test_names_judged_the_same_for_one_person_only(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        k = self.person("Kai Moss", "kai@acme.example")
+        for who in (m, k):
+            facts.add(self.core, who, "manager", "Pat", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+            facts.add(self.core, who, "manager", "Patricia Lee", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        [p, q] = tools.get_fact_pairs(self.core)["pairs"]
+        tools.judge_fact_pairs(self.core, [{"pair": p["pair"], "same": True}])
+        self.assertEqual([x["about"] for x in tools.get_fact_pairs(self.core)["pairs"]], [q["about"]],
+                         "a Pat for one person isn't every Pat")
+
+    def test_a_source_updating_itself_is_not_asked(self):
+        t = self.person("James Torio", "torio@acme.example")
+        facts.add(self.core, t, "role", "Product Manager", source_kind="directory",
+                  link="https://jira.example/ViewProfile?name=torio", source_ts="2026-11-11T18:23:28Z")
+        facts.add(self.core, t, "role", "Group Product Manager", source_kind="directory",
+                  source_ts="2026-11-13T23:17:27Z")
+        self.assertEqual(facts.disputes(self.core, t), [])
+        self.assertEqual(facts.winners(self.core, t)["role"], "Group Product Manager", "the newer read wins")
+        boss = self.person("Russell Lewis", "rulewis@acme.example")
+        other = self.person("Amy Fazan", "amy@acme.example")
+        j = self.person("Jacob Tedders", "jacob@acme.example")
+        facts.add(self.core, j, "team", "Target", said_by=boss, source_kind="slack", source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, j, "team", "Analytics", said_by=boss, source_kind="slack", source_ts="2026-11-12T09:00:00Z")
+        self.assertEqual(facts.disputes(self.core, j), [], "one person saying it again, differently")
+        k = self.person("Kai Moss", "kai@acme.example")
+        facts.add(self.core, k, "team", "Target", said_by=boss, source_kind="slack", source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, k, "team", "Analytics", said_by=other, source_kind="slack", source_ts="2026-11-12T09:00:00Z")
+        self.assertEqual(len(facts.disputes(self.core, k)), 1, "two people disagreeing is still asked")
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "team", "Target", source_kind="slack", source_ts="2026-11-11T09:00:00Z")
+        facts.add(self.core, m, "team", "Analytics", source_kind="slack", source_ts="2026-11-12T09:00:00Z")
+        self.assertEqual(len(facts.disputes(self.core, m)), 1, "two unnamed messages aren't one source")
+
     def test_prose_is_never_asked_about(self):
         org = facts.resolve_about(self.core, {"type": "org", "name": "Verizon"})
         facts.add(self.core, org, "what_it_is", "Customer using Adobe Analytics, not CJA, for the tracking.",
@@ -193,7 +327,7 @@ class Facts(MemoryCase):
         m = self.person("Marcus Lee", "marcus@acme.example")
         a, _ = facts.add(self.core, m, "role", "Payments PM", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
         facts.add(self.core, m, "role", "Platform PM", source_kind="slack", source_ts="2026-10-18T09:00:00Z")
-        mcards.raise_cards(self.core)
+        self.judge(same=False)
         [card] = self.memory_cards("fact_conflict")
         self.assertIn("Marcus Lee's role", card["reason"])
         facts.reject(self.core, a)
