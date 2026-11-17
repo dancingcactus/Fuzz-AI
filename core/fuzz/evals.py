@@ -1,18 +1,26 @@
 """Evals: the golden set every change to a skill or a lesson is scored on (docs/self-improving.md).
 
 A case is a message as the extractor saw it and what should come of it: a `keep` case holds an ask for the
-person, a `skip` case doesn't. Seed cases are invented and ship with the code, so the harness works before
-any correction exists; real cases come from Not a task and from missed tasks, and only `active` ones count.
+person, a `skip` case doesn't. Two sets (docs/evals.md):
+  - global: invented cases committed in eval_seeds/, read from the repo on every run and never copied into
+    the store, so anyone can run them and an edited seed counts at once.
+  - personal: real cases from your corrections (Not a task, missed tasks, spot checks), in the store only,
+    expiring after KEEP_DAYS. Only `active` ones count.
+Every case has a fingerprint (its input and expected result): two runs are compared only on the cases whose
+fingerprints they share, as fixed, broke, unchanged or flaky.
 
 A run scores only extraction's judgment (step 4 of the fuzz-extract skill): the rules are read from the
 live SKILL.md and lessons go in through learning.render, the same text a real run gets. Each case runs a
 few times and is reported on its own: with a handful of cases a percentage is noise. The gate is "no case
-that passed last time fails now".
+that passed in the baseline broke now"; a case whose repeats split is flaky, reported apart, never a break.
 """
 
+import hashlib
 import json
+import math
 import re
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
@@ -31,20 +39,29 @@ KEEP_DAYS = 90           # a real case's snapshot expires after this
 FETCH_ALONE_AFTER = timedelta(days=1)   # a case waiting this long starts an executor run on its own, once a day
 MAX_OFFERS = 3           # runs asked for a message's text before its case is given up
 MESSAGE_FIELDS = ("source", "ts", "link", "title", "from", "people", "channel")
+FORMATS = {1}            # the global case file shapes this harness reads
+SETS = ("all", "global", "personal")
+
+
+def fingerprint(input, expected):
+    """A case's identity for comparing runs: a re-fetched message or a changed label is a new case."""
+    body = json.dumps({"input": input, "expected": expected}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
 
 
 # ---- cases
 
 def add_case(core, surface, kind, msg, expected, origin, status="active", expires_at=None, note=None,
-             signal_key=None, quote=None):
+             signal_key=None, quote=None, scope="personal"):
     if kind not in ("keep", "skip"):
         raise FuzzError("kind must be keep or skip", "kind")
     now = core.now_iso()
     core.q("INSERT INTO eval_cases (user_id, surface, kind, input, expected, origin, signal_key, quote, status, "
-           "created_at, fetched_at, expires_at, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+           "created_at, fetched_at, expires_at, note, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
            "ON CONFLICT (user_id, origin) DO NOTHING",
            (core.user_id, surface, kind, json.dumps(msg), json.dumps(expected), origin, signal_key,
-            (quote or "").strip()[:300] or None, status, now, now if status == "active" else None, expires_at, note))
+            (quote or "").strip()[:300] or None, status, now, now if status == "active" else None, expires_at, note,
+            scope))
     return core.one("SELECT id FROM eval_cases WHERE user_id=? AND origin=?", (core.user_id, origin))["id"]
 
 
@@ -83,7 +100,27 @@ def sweep(core):
                     (now, MAX_OFFERS, core.user_id, now, MAX_OFFERS))
     for c in gone:
         _close(core, c, c["why"])
+    # seeds used to be copied into the store; they're read from the repo now, so a stored copy would go stale
+    core.q("UPDATE eval_cases SET status='retired', scope='global', note='Read from the repo now.' "
+           "WHERE user_id=? AND origin LIKE 'seed:%' AND status!='retired'", (core.user_id,))
+    strip_old_runs(core)
     return len(gone)
+
+
+def strip_old_runs(core):
+    """A run's replies on personal cases go after KEEP_DAYS, as the cases' text does: for extraction they're
+    short asks, for drafts they'd be whole emails. Pass counts and fingerprints stay, so history still reads."""
+    cutoff = iso(core.now() - timedelta(days=KEEP_DAYS))
+    n = 0
+    for r in core.all("SELECT id, results FROM eval_runs WHERE user_id=? AND ts<=? AND stripped=0",
+                      (core.user_id, cutoff)):
+        results = json.loads(r["results"]) if isinstance(r["results"], str) else r["results"]
+        for x in results:
+            if x.get("scope", "personal") == "personal":
+                x.pop("replies", None)
+        core.q("UPDATE eval_runs SET results=?, stripped=1 WHERE id=?", (json.dumps(results), r["id"]))
+        n += 1
+    return n
 
 
 # ---- cases from your corrections
@@ -209,25 +246,87 @@ def _decode(r):
     return r
 
 
-def cases(core, surface, status="active"):
-    rows = core.all("SELECT * FROM eval_cases WHERE user_id=? AND surface=? AND status=? "
+def cases(core, surface, status="active", scope="personal"):
+    """The stored cases: personal ones, or (scope "global") invented copies waiting for your yes."""
+    rows = core.all("SELECT * FROM eval_cases WHERE user_id=? AND surface=? AND status=? AND scope=? "
+                    "AND origin NOT LIKE 'seed:%' "
                     "AND (status!='active' OR expires_at IS NULL OR expires_at > ?) ORDER BY id",
-                    (core.user_id, surface, status, core.now_iso()))
-    return [_decode(r) for r in rows]
+                    (core.user_id, surface, status, scope, core.now_iso()))
+    out = []
+    for r in rows:
+        r = _decode(r)
+        r["key"], r["fp"] = f"case:{r['id']}", fingerprint(r["input"], r["expected"])
+        out.append(r)
+    return out
+
+
+def global_file(surface):
+    return SEEDS / f"{surface}.json"
+
+
+def global_cases(surface="extract", path=None):
+    """The invented cases committed in the repo, read fresh on every run. Each has its own invented identity."""
+    p = Path(path) if path else global_file(surface)
+    if not p.exists():
+        return []
+    data = json.loads(p.read_text())
+    if data.get("format", 1) not in FORMATS:
+        raise FuzzError(f"{p.name} is format {data.get('format')}; this harness reads {sorted(FORMATS)}", "format")
+    return [{"id": None, "key": f"seed:{c['name']}", "origin": f"seed:{c['name']}", "scope": "global",
+             "kind": c["kind"], "input": c["input"], "expected": c["expected"], "note": c.get("why"),
+             "status": "active", "fp": fingerprint(c["input"], c["expected"])} for c in data["cases"]]
 
 
 def seed(core, surface="extract"):
-    """Load the invented cases that ship with the code. Safe to run again: each seed is added once."""
-    data = json.loads((SEEDS / f"{surface}.json").read_text())
-    return [add_case(core, surface, c["kind"], c["input"], c["expected"], f"seed:{c['name']}", note=c.get("why"))
-            for c in data["cases"]]
+    """The global cases are read from the repo on every run now: nothing is copied into the store, and an
+    older store's copies are retired. Kept for the command's sake; returns their names."""
+    sweep(core)
+    return [c["origin"] for c in global_cases(surface)]
+
+
+def all_cases(core, surface, sets="all"):
+    if sets not in SETS:
+        raise FuzzError(f"set is one of {', '.join(SETS)}", "set")
+    out = global_cases(surface) if sets in ("all", "global") else []
+    return out + (cases(core, surface) if sets in ("all", "personal") else [])
+
+
+def commit():
+    """The repo commit the global set was read at, with +dirty when the seed files differ from it."""
+    try:
+        head = subprocess.run(["git", "-C", str(SEEDS), "rev-parse", "--short", "HEAD"], capture_output=True,
+                              text=True, timeout=10).stdout.strip()
+        dirty = subprocess.run(["git", "-C", str(SEEDS), "status", "--porcelain", "--", "."], capture_output=True,
+                               text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return (head + ("+dirty" if dirty else "")) or None
 
 
 # ---- the prompt
 
-def skill_text(surface, installed=False, adapter=None):
-    """The SKILL.md a run reads, and which copy it was. Installed skills are copies; say which was scored."""
+def _version_of(text):
+    if not text.startswith("---"):
+        return None
+    for line in text.split("---", 2)[1].splitlines():
+        if line.strip().startswith("prompt_version:"):
+            return line.split(":", 1)[1].strip().strip("\"'")
+    return None
+
+
+def skill_text(surface, installed=False, adapter=None, ref=None):
+    """The SKILL.md a run reads, and which copy it was. Installed skills are copies; say which was scored.
+    ref: the skill as it was at that git commit or branch, to score an old version head to head."""
     name = SURFACES[surface]
+    if ref:
+        try:
+            r = subprocess.run(["git", "-C", str(adapters.SKILLS_SRC), "show", f"{ref}:./{name}/SKILL.md"],
+                               capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            raise FuzzError(f"couldn't read the skill at {ref}: {e}", "ref")
+        if r.returncode != 0:
+            raise FuzzError(f"no {name} skill at {ref}: {r.stderr.strip()[:200]}", "ref")
+        return r.stdout, _version_of(r.stdout), f"git:{ref}"
     if installed:
         if adapter is None:
             raise FuzzError("scoring the installed skill needs a client", "client")
@@ -296,39 +395,8 @@ def judge(out, expected):
 
 # ---- a run
 
-def run(core, surface="extract", lessons=None, repeats=3, installed=False, client=None, model=None, runner=None,
-        workers=4, against=None, trying=None):
-    """Score every active case `repeats` times, gate it and record the run. The gate compares with `against`
-    (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
-    must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
-    only before and after the model calls."""
-    client, model = role_engine(core.config, "extractor", client, model)
-    adapter = adapters.get(client) if client in adapters.ADAPTERS else None
-    if runner is None and adapter is None:
-        raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
-    text, version, copy = skill_text(surface, installed, adapter)
-    rules = judgment_rules(text)
-    me = core.config.get("me") or {}
-    sweep(core)
-    todo = cases(core, surface)
-    if not todo:
-        raise FuzzError(f"no active {surface} cases: run `fuzz eval seed` first", "cases")
-    if lessons is None:   # what a real run reads now, plus the one lesson you're trying, as if you'd said yes
-        lessons = learning.lessons_for(core, surface)
-        if trying is not None:
-            t = learning.get(core, trying)
-            if not t or t["surface"] != surface:
-                raise FuzzError(f"no {surface} lesson {trying}", "lesson")
-            lessons = [x for x in lessons if x["id"] != trying] + [
-                {k: t[k] for k in ("id", "kind", "case_id", "example", "rule")}]
-
-    jobs = []
-    for c in todo:
-        msg = c["input"]
-        used = learning.leave_out(lessons, c["id"])   # every lesson a real run gets, but this case's own
-        p = prompt(rules, msg.get("me") or me, {k: v for k, v in msg.items() if k != "me"}, used)
-        jobs += [(c, p)] * repeats
-
+def _call_model(core, adapter, model, runner, workers, prompts):
+    """Each prompt through the client's plain call (or runner, in tests), in parallel. Never touches the store."""
     def call(p):
         if runner is not None:
             return runner(None, p)
@@ -339,31 +407,96 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
             return f"(failed: {e})"
 
     with ThreadPoolExecutor(max_workers=1 if runner else workers) as pool:
-        outs = list(pool.map(call, [p for _, p in jobs]))
+        return list(pool.map(call, prompts))
 
+
+def _engine(core, client, model, runner):
+    client, model = role_engine(core.config, "extractor", client, model)
+    adapter = adapters.get(client) if client in adapters.ADAPTERS else None
+    if runner is None and adapter is None:
+        raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
+    return client, model, adapter
+
+
+def score(core, todo, rules, lessons, repeats=3, adapter=None, model=None, runner=None, workers=4):
+    """Run each case `repeats` times with these rules and lessons: one result per case, keyed and
+    fingerprinted. Every lesson a real run gets reaches every message, but a case's own (leave-one-out)."""
+    me = core.config.get("me") or {}
+    jobs = []
+    for c in todo:
+        msg = c["input"]
+        used = learning.leave_out(lessons, c["id"]) if c.get("id") else list(lessons or [])
+        p = prompt(rules, msg.get("me") or me, {k: v for k, v in msg.items() if k != "me"}, used)
+        jobs += [(c, p)] * repeats
+    outs = _call_model(core, adapter, model, runner, workers, [p for _, p in jobs])
     results = {}
     for (c, _), out in zip(jobs, outs):
-        r = results.setdefault(c["id"], {"case_id": c["id"], "origin": c["origin"], "kind": c["kind"],
-                                         "passes": 0, "runs": 0, "replies": []})
+        r = results.setdefault(c["key"], {"key": c["key"], "case_id": c.get("id"), "origin": c["origin"],
+                                          "scope": c.get("scope", "personal"), "kind": c["kind"], "fp": c["fp"],
+                                          "passes": 0, "runs": 0, "replies": []})
         j = judge(out, c["expected"])
         r["runs"] += 1
         r["passes"] += j["passed"]
         r["replies"].append(j)
     for r in results.values():
         r["passed"] = r["passes"] * 2 > r["runs"]   # a majority of the repeats
+    return list(results.values())
+
+
+def run(core, surface="extract", lessons=None, repeats=3, installed=False, client=None, model=None, runner=None,
+        workers=4, against=None, trying=None, sets="all", ref=None):
+    """Score every active case `repeats` times, gate it and record the run. The gate compares with `against`
+    (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
+    must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
+    only before and after the model calls. ref scores the skill as it was at that git commit or branch."""
+    client, model, adapter = _engine(core, client, model, runner)
+    text, version, copy = skill_text(surface, installed, adapter, ref=ref)
+    rules = judgment_rules(text)
+    sweep(core)
+    todo = all_cases(core, surface, sets)
+    if not todo:
+        raise FuzzError(f"no active {surface} cases in the {sets} set", "cases")
+    if lessons is None:   # what a real run reads now, plus the one lesson you're trying, as if you'd said yes
+        lessons = learning.lessons_for(core, surface)
+        if trying is not None:
+            t = learning.get(core, trying)
+            if not t or t["surface"] != surface:
+                raise FuzzError(f"no {surface} lesson {trying}", "lesson")
+            lessons = [x for x in lessons if x["id"] != trying] + [
+                {k: t[k] for k in ("id", "kind", "case_id", "example", "rule")}]
+
+    started = time.monotonic()
+    results = score(core, todo, rules, lessons, repeats, adapter, model, runner, workers)
+    seconds = round(time.monotonic() - started, 1)
 
     base = get_run(core, against) if against else baseline(core, surface)
     if against and not base:
         raise FuzzError(f"no eval run {against}", "against")
-    reg = regressions(base, {"results": list(results.values())})
+    reg = regressions(base, {"results": results})
     cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds) "
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                  (core.user_id, core.now_iso(), surface, version, copy, client if runner is None else "stub",
-                  model, repeats, json.dumps(lessons or []), json.dumps(list(results.values())),
-                  base["id"] if base else None, 0 if reg else 1))
+                  model, repeats, json.dumps(lessons or []), json.dumps(results),
+                  base["id"] if base else None, 0 if reg else 1, sets, commit(), seconds))
     if trying is not None:   # only the lesson tried takes the result: the others ran before it without failing
         learning.scored(core, [trying], cur.lastrowid, not reg)
     return get_run(core, cur.lastrowid)
+
+
+def head_to_head(core, surface="extract", base=None, new=None, repeats=3, client=None, model=None, runner=None,
+                 workers=4, sets="all"):
+    """Is B better than A? Both run fresh on today's cases, A first, then B gated against A. base and new are
+    {ref?, installed?, lessons?, model?}; an empty one is the repo's skill with the active lessons. A stored run
+    from weeks ago scored a different set; this doesn't."""
+    base, new = dict(base or {}), dict(new or {})
+    a = run(core, surface, lessons=base.get("lessons"), repeats=repeats, installed=base.get("installed", False),
+            client=client, model=base.get("model") or model, runner=base.get("runner") or runner, workers=workers,
+            sets=sets, ref=base.get("ref"))
+    b = run(core, surface, lessons=new.get("lessons"), repeats=repeats, installed=new.get("installed", False),
+            client=client, model=new.get("model") or model, runner=new.get("runner") or runner, workers=workers,
+            against=a["id"], sets=sets, ref=new.get("ref"))
+    return a, b
 
 
 def get_run(core, run_id):
@@ -382,25 +515,85 @@ def baseline(core, surface):
     return get_run(core, r["id"]) if r else None
 
 
+# ---- comparing two runs
+
+def _key(r):
+    """A result's case: runs before keys existed named seeds by origin and real cases by id."""
+    if r.get("key"):
+        return r["key"]
+    return r["origin"] if str(r.get("origin", "")).startswith("seed:") else f"case:{r.get('case_id')}"
+
+
+def _split(r):
+    return 0 < r["passes"] < r["runs"]
+
+
+def compare(before, after):
+    """Per case, on the cases both runs scored with the same fingerprint: fixed (failed, passes now), broke,
+    unchanged, or flaky (its result changed and either side's repeats split: 2/3 to 1/3 is noise, not a
+    break). new: cases only `after` scored, or whose fingerprint changed (relabelled, re-fetched)."""
+    out = {k: [] for k in ("fixed", "broke", "flaky", "unchanged", "new")}
+    if not after:
+        return out
+    was = {_key(r): r for r in (before or {}).get("results", [])}
+    for r in after["results"]:
+        b = was.get(_key(r))
+        if b is None or (b.get("fp") and r.get("fp") and b["fp"] != r["fp"]):
+            out["new"].append(r)
+        elif bool(b["passed"]) == bool(r["passed"]):
+            out["unchanged"].append(r)
+        elif _split(b) or _split(r):
+            out["flaky"].append(r)
+        else:
+            out["fixed" if r["passed"] else "broke"].append(r)
+    return out
+
+
 def regressions(before, after):
-    """Cases that passed in `before` and fail in `after`. A case new since `before` can't regress."""
+    """Cases that passed in `before` and broke in `after`. A case new since `before` can't regress, and a
+    flaky one is reported apart."""
     if not before or not after:
         return []
-    was = {r["case_id"]: r["passed"] for r in before["results"]}
-    return [r for r in after["results"] if was.get(r["case_id"]) and not r["passed"]]
+    return compare(before, after)["broke"]
+
+
+def sign_test(fixed, broke):
+    """Two-sided sign test on fixed against broke: how likely a split this lopsided is if the change did
+    nothing. With a handful of cases it's rarely small; it's there for when someone wants a number."""
+    n = fixed + broke
+    if not n:
+        return None
+    k = min(fixed, broke)
+    p = 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n
+    return round(min(p, 1.0), 3)
+
+
+def _counts(rows, scope=None):
+    rows = [r for r in rows if scope is None or r.get("scope", "personal") == scope]
+    return f"{sum(bool(r['passed']) for r in rows)} of {len(rows)}"
 
 
 def summary(core, run):
-    """What `fuzz eval run` prints: per case, then any regressions against the run it was gated on."""
+    """What `fuzz eval run` prints: per case, each set apart, then what changed against the run it was gated
+    on: fixed, broke, flaky, unchanged and new."""
     before = get_run(core, run["against"]) if run.get("against") else None
-    rows = [{"case": r["origin"], "kind": r["kind"], "passed": f"{r['passes']}/{r['runs']}",
-             **({"said": [x.get("candidates", x.get("error")) for x in r["replies"] if not x["passed"]][:1]}
+    rows = [{"case": r["origin"], "set": r.get("scope", "personal"), "kind": r["kind"],
+             "passed": f"{r['passes']}/{r['runs']}",
+             **({"said": [x.get("candidates", x.get("error")) for x in r.get("replies", []) if not x["passed"]][:1]}
                 if not r["passed"] else {})}
             for r in run["results"]]
-    reg = regressions(before, run)
-    return {"run": run["id"], "skill": f"{run['skill_version']} ({run['skill_copy']})", "client": run["client"],
-            "model": run["model"], "lessons": len(run["lessons"]),
-            "passing": f"{sum(r['passed'] for r in run['results'])} of {len(run['results'])} cases",
-            "cases": rows,
-            "against": before["id"] if before else None, "gate": "pass" if run["gate_ok"] else "fail",
-            "regressions": [r["origin"] for r in reg]}
+    cmp = compare(before, run)
+    out = {"run": run["id"], "skill": f"{run['skill_version']} ({run['skill_copy']})", "client": run["client"],
+           "model": run["model"], "lessons": len(run["lessons"]), "set": run.get("sets") or "all",
+           "global_commit": run.get("seeds_commit"), "seconds": run.get("seconds"),
+           "passing": {"global": _counts(run["results"], "global"), "personal": _counts(run["results"], "personal")},
+           "cases": rows,
+           "against": before["id"] if before else None, "gate": "pass" if run["gate_ok"] else "fail",
+           "regressions": [r["origin"] for r in cmp["broke"]]}
+    if before:
+        out["changed"] = {k: len(v) for k, v in cmp.items()}
+        out.update({k: [r["origin"] for r in cmp[k]] for k in ("fixed", "broke", "flaky") if cmp[k]})
+        p = sign_test(len(cmp["fixed"]), len(cmp["broke"]))
+        if p is not None:
+            out["sign_test_p"] = p
+    return out

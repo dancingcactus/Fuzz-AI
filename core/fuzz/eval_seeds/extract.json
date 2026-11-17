@@ -1,5 +1,6 @@
 {
-  "about": "Invented messages for Alex Chen at an invented company. Each case says whether the message holds an ask for Alex. They exist so the eval harness works before any real correction does; real cases from Not a task and missed tasks join them.",
+  "format": 1,
+  "about": "The global extraction set: invented messages for Alex Chen at an invented company. Each case says whether the message holds an ask for Alex. Committed to a public repo, so nothing here may come from a real message: real cases stay in each person's own store, and reach this file only as invented copies (fuzz eval copy).",
   "cases": [
     {
       "name": "dm-direct-ask",

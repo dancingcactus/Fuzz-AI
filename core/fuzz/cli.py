@@ -340,22 +340,37 @@ def cmd_eval(a):
     from . import evals
     core = _core(a)
     if a.op == "seed":
-        return _print({"cases": evals.seed(core, a.surface)})
+        return _print({"global_cases": evals.seed(core, a.surface),
+                       "note": "Global cases are read from the repo on every run; nothing was copied."})
     if a.op == "cases":
-        return _print([{"id": c["id"], "kind": c["kind"], "origin": c["origin"], "status": c["status"],
-                        "note": c["note"]} for c in evals.cases(core, a.surface, a.status)])
+        rows = (evals.all_cases(core, a.surface, a.set) if a.status == "active"
+                else evals.cases(core, a.surface, a.status))
+        return _print([{"id": c["id"], "set": c.get("scope", "personal"), "kind": c["kind"], "origin": c["origin"],
+                        "status": c["status"], "fingerprint": c.get("fp"), "note": c["note"]} for c in rows])
     if a.op == "show":
         run = evals.get_run(core, a.run) if a.run else None
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
-    lessons = None   # the active lessons, as a real run reads them
-    if a.lessons:
-        with open(a.lessons) as f:
-            lessons = json.load(f)
-    run = evals.run(core, a.surface, lessons=lessons, repeats=a.repeats, installed=a.installed,
-                    client=a.client, model=a.model, against=a.against, trying=a.trying)
-    _print(evals.summary(core, run))
+
+    def lessons_from(path):   # None: the active lessons, as a real run reads them
+        if not path:
+            return None
+        with open(path) as f:
+            return json.load(f)
+    if a.op == "compare":
+        base = {"ref": a.base_ref, "installed": a.base_installed, "lessons": lessons_from(a.base_lessons),
+                "model": a.base_model}
+        new = {"lessons": lessons_from(a.lessons), "installed": a.installed}
+        if not (a.base_ref or a.base_installed or a.base_lessons or a.base_model):
+            base["ref"] = "HEAD"   # the committed skill against the working tree's
+        old, run = evals.head_to_head(core, a.surface, base, new, repeats=a.repeats, client=a.client,
+                                      model=a.model, sets=a.set)
+        _print(dict(evals.summary(core, run), base_run=old["id"]))
+    else:
+        run = evals.run(core, a.surface, lessons=lessons_from(a.lessons), repeats=a.repeats, installed=a.installed,
+                        client=a.client, model=a.model, against=a.against, trying=a.trying, sets=a.set)
+        _print(evals.summary(core, run))
     if not run["gate_ok"]:
         sys.exit(1)
 
@@ -675,9 +690,15 @@ def parser():
     s.add_argument("id", nargs="?", type=int)
     s.set_defaults(fn=cmd_learn)
 
-    s = sub.add_parser("eval", help="evals: load the seed cases, list cases, score them, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "show"])
+    s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show"])
     s.add_argument("--surface", default="extract", choices=["extract"])
+    s.add_argument("--set", default="all", choices=["all", "global", "personal"],
+                   help="global: the invented cases in the repo; personal: yours, from your corrections")
+    s.add_argument("--base-ref", help="compare: score the skill as it was at this git ref as the base (default HEAD)")
+    s.add_argument("--base-installed", action="store_true", help="compare: the installed skill is the base")
+    s.add_argument("--base-lessons", help="compare: a JSON file of lessons for the base (default: the active ones)")
+    s.add_argument("--base-model", help="compare: a different model for the base")
     s.add_argument("--status", default="active", choices=["active", "pending", "retired"], help="cases: which ones")
     s.add_argument("--repeats", type=int, default=3, help="run: how many times each case runs")
     s.add_argument("--lessons", help="run: a JSON file of lessons to score with (default: the active ones)")

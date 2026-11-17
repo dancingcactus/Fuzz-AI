@@ -45,9 +45,9 @@ class Harness(CoreCase):
     def by_origin(self, run):
         return {r["origin"]: r for r in run["results"]}
 
-    def test_seeding_twice_adds_each_case_once(self):
+    def test_every_global_case_is_scored(self):
         evals.seed(self.core)
-        got = evals.cases(self.core, "extract")
+        got = evals.all_cases(self.core, "extract")
         self.assertEqual(len(got), len(SEEDS))
         self.assertEqual({c["kind"] for c in got}, {"keep", "skip"})
 
@@ -122,15 +122,124 @@ class Harness(CoreCase):
         self.assertTrue(all(taught["rule"] in p for p in others))
 
     def test_retired_pending_and_expired_cases_are_not_scored(self):
-        evals.retire(self.core, "seed:thank-you")
+        retired = evals.add_case(self.core, "extract", "skip", {"text": "gone"}, {"has_my_ask": False}, "feedback:3")
+        evals.retire(self.core, "feedback:3")
         evals.add_case(self.core, "extract", "skip", {"text": "pending"}, {"has_my_ask": False}, "feedback:1",
                        status="pending")
         evals.add_case(self.core, "extract", "skip", {"text": "old"}, {"has_my_ask": False}, "feedback:2",
                        expires_at="2026-10-01T00:00:00Z")
         run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
-        origins = set(self.by_origin(run))
-        self.assertEqual(len(origins), len(SEEDS) - 1)
-        self.assertNotIn("seed:thank-you", origins)
+        self.assertEqual(set(self.by_origin(run)), {f"seed:{c['name']}" for c in SEEDS})
+        self.assertNotIn(retired, [r["case_id"] for r in run["results"]])
+
+    # ---- the global set, read from the repo; fingerprints; comparing runs (docs/evals.md)
+
+    def test_the_global_set_is_read_from_the_repo_not_copied(self):
+        self.assertEqual(evals.cases(self.core, "extract"), [], "nothing global is stored")
+        self.assertEqual(self.core.one("SELECT COUNT(*) n FROM eval_cases")["n"], 0)
+        run = evals.run(self.core, lessons=[], repeats=1, runner=Stub(), sets="global")
+        self.assertEqual({r["scope"] for r in run["results"]}, {"global"})
+        self.assertEqual(run["sets"], "global")
+
+    def test_an_edited_seed_reaches_an_existing_store(self):
+        import os
+        import shutil
+        from unittest import mock
+        path = os.path.join(self.home, "extract.json")
+        shutil.copy(evals.global_file("extract"), path)
+        before = {c["key"]: c["fp"] for c in evals.global_cases(path=path)}
+        data = json.loads(open(path).read())
+        data["cases"][0]["expected"]["has_my_ask"] = not data["cases"][0]["expected"]["has_my_ask"]
+        open(path, "w").write(json.dumps(data))
+        after = {c["key"]: c["fp"] for c in evals.global_cases(path=path)}
+        changed = [k for k in before if before[k] != after[k]]
+        self.assertEqual(changed, [f"seed:{data['cases'][0]['name']}"], "a relabelled case is a new fingerprint")
+        with mock.patch.object(evals, "global_file", lambda surface: evals.Path(path)):
+            self.assertEqual(len(evals.all_cases(self.core, "extract")), len(SEEDS))
+
+    def test_an_older_stores_copied_seeds_are_retired(self):
+        evals.add_case(self.core, "extract", "keep", SEEDS[0]["input"], SEEDS[0]["expected"], "seed:old-copy")
+        evals.seed(self.core)
+        row = self.core.one("SELECT status, scope FROM eval_cases WHERE origin='seed:old-copy'")
+        self.assertEqual((row["status"], row["scope"]), ("retired", "global"))
+
+    def test_a_file_in_an_unknown_format_fails_loudly(self):
+        import os
+        path = os.path.join(self.home, "future.json")
+        open(path, "w").write(json.dumps({"format": 99, "cases": []}))
+        with self.assertRaises(FuzzError):
+            evals.global_cases(path=path)
+
+    def test_each_set_is_reported_apart(self):
+        evals.add_case(self.core, "extract", "skip", {"text": "Thanks all!"}, {"has_my_ask": False}, "feedback:5")
+        SEEDS.append({"input": {"text": "Thanks all!"}, "expected": {"has_my_ask": False}})
+        self.addCleanup(SEEDS.pop)
+        s = evals.summary(self.core, evals.run(self.core, lessons=[], repeats=1, runner=Stub()))
+        self.assertEqual(s["passing"], {"global": f"{len(SEEDS) - 1} of {len(SEEDS) - 1}", "personal": "1 of 1"})
+        self.assertEqual(evals.summary(self.core, evals.run(self.core, lessons=[], repeats=1, runner=Stub(),
+                                                            sets="personal"))["passing"]["global"], "0 of 0")
+
+    def test_runs_are_compared_only_on_fingerprints_they_share(self):
+        cid = evals.add_case(self.core, "extract", "keep", {"text": "Can you send it?"}, {"has_my_ask": True},
+                             "feedback:6")
+        SEEDS.append({"input": {"text": "Can you send it?"}, "expected": {"has_my_ask": True}})
+        self.addCleanup(SEEDS.pop)
+        before = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        # relabelled: the old result no longer says anything about it
+        self.core.q("UPDATE eval_cases SET expected=? WHERE id=?", (json.dumps({"has_my_ask": False}), cid))
+        SEEDS[-1]["expected"] = {"has_my_ask": False}
+        after = evals.run(self.core, lessons=[], repeats=1, runner=lambda a, p: json.dumps({"candidates": [{"ask": "x"}]}))
+        cmp = evals.compare(before, after)
+        self.assertIn(f"case:{cid}", [r["key"] for r in cmp["new"]])
+        self.assertNotIn(f"case:{cid}", [r["key"] for r in cmp["broke"]])
+
+    def test_a_comparison_counts_fixed_broke_flaky_and_unchanged(self):
+        def res(key, passes, runs=3):
+            return {"key": key, "origin": key, "fp": "x", "passes": passes, "runs": runs, "passed": passes * 2 > runs}
+        before = {"results": [res("a", 0), res("b", 3), res("c", 2), res("d", 3)]}
+        after = {"results": [res("a", 3), res("b", 0), res("c", 1), res("d", 3), res("e", 3)]}
+        got = {k: [r["key"] for r in v] for k, v in evals.compare(before, after).items()}
+        self.assertEqual(got, {"fixed": ["a"], "broke": ["b"], "flaky": ["c"], "unchanged": ["d"], "new": ["e"]})
+        self.assertEqual([r["key"] for r in evals.regressions(before, after)], ["b"], "flaky is never a break")
+
+    def test_the_sign_test(self):
+        self.assertIsNone(evals.sign_test(0, 0))
+        self.assertEqual(evals.sign_test(1, 1), 1.0)
+        self.assertLess(evals.sign_test(8, 0), 0.01)
+
+    def test_head_to_head_runs_both_versions_fresh_and_counts_what_changed(self):
+        a, b = evals.head_to_head(self.core, base={"lessons": [BAD]}, new={"lessons": []}, repeats=1, runner=Stub())
+        self.assertEqual(b["against"], a["id"])
+        s = evals.summary(self.core, b)
+        self.assertEqual((s["fixed"], s["gate"]), (["seed:dm-direct-ask"], "pass"))
+        self.assertEqual(s["changed"]["unchanged"], len(SEEDS) - 1)
+        a, b = evals.head_to_head(self.core, base={"lessons": []}, new={"lessons": [BAD]}, repeats=1, runner=Stub())
+        self.assertEqual((evals.summary(self.core, b)["broke"], b["gate_ok"]), (["seed:dm-direct-ask"], 0))
+
+    def test_a_run_records_what_it_read_and_how_long_it_took(self):
+        run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.assertIsNotNone(run["seconds"])
+        self.assertTrue(all(len(r["fp"]) == 16 for r in run["results"]))
+
+    def test_the_skill_at_a_git_ref_can_be_scored(self):
+        text, version, copy = evals.skill_text("extract", ref="HEAD")
+        self.assertEqual(copy, "git:HEAD")
+        self.assertTrue(version.startswith("extract-"))
+        with self.assertRaises(FuzzError):
+            evals.skill_text("extract", ref="no-such-ref-anywhere")
+
+    def test_replies_on_personal_cases_expire_with_them(self):
+        evals.add_case(self.core, "extract", "skip", {"text": "Thanks all!"}, {"has_my_ask": False}, "feedback:8")
+        SEEDS.append({"input": {"text": "Thanks all!"}, "expected": {"has_my_ask": False}})
+        self.addCleanup(SEEDS.pop)
+        run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.clock.advance(days=evals.KEEP_DAYS + 1)
+        evals.sweep(self.core)
+        kept = evals.get_run(self.core, run["id"])
+        by = {r["scope"]: r for r in kept["results"]}
+        self.assertNotIn("replies", by["personal"])
+        self.assertIn("replies", by["global"], "invented cases hold nothing private")
+        self.assertEqual(by["personal"]["passes"], 1)
 
     def test_a_reply_without_json_is_a_fail_with_its_reason(self):
         run = evals.run(self.core, lessons=[], repeats=1, runner=lambda argv, p: "I couldn't decide.")
