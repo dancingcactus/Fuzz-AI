@@ -10,13 +10,14 @@ import mimetypes
 import os
 import re
 import secrets
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import actions, cards, config, drafts, engine, events, followups, groups, matching, people, scheduler, sessions, states, tasks
+from . import __version__, actions, cards, config, drafts, engine, events, followups, groups, matching, people, scheduler, sessions, states, tasks
 from .db import Core, FuzzError
 
 UI_ROOT = Path(__file__).resolve().parents[2]  # the repo root: index.html, js/, css/, assets/
@@ -26,6 +27,18 @@ STATIC_PAGES = ("index.html", "artifact.html")
 ACTIVE_TYPES = {"text/html", "application/xhtml+xml", "image/svg+xml", "text/xml", "application/xml"}
 SSE_HEARTBEAT = 15
 TICK_SECONDS = 60
+
+
+def git_info(root=UI_ROOT):
+    """The commit the repo is on, its branch and whether it has edits; {} when it isn't a git checkout."""
+    def git(*args):
+        return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=2,
+                              check=True).stdout.strip()
+    try:
+        return {"commit": git("rev-parse", "--short=10", "HEAD"), "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
+                "dirty": bool(git("status", "--porcelain", "--untracked-files=no"))}
+    except (OSError, subprocess.SubprocessError):
+        return {}
 
 
 def tokens_path(home):
@@ -98,6 +111,8 @@ class App:
         self.discovering = {}   # (user, client) -> {"state": running | error, "error"}
         self.refining = {}      # (user, focus phrase) -> True while its AI pass runs
         self.boot = f"{os.getpid()}-{int(time.time() * 1000)}"
+        self.started = time.time()
+        self.boot_git = git_info()   # the Python this server runs; the page's JS is read from the tree on each load
         self._mu = threading.Lock()
         self.changed = threading.Condition()
 
@@ -811,6 +826,10 @@ def make_handler(app):
             if method == "GET" and path == "/health":
                 # boot changes when the server restarts, so a page can tell an install restarted it
                 return self._send(200, {"ok": True, "boot": app.boot})
+            if method == "GET" and path == "/version":
+                # for the feedback button: the server can lag the tree (Python needs a restart, JS doesn't)
+                return self._send(200, {"version": __version__, "boot": app.boot, "started": int(app.started),
+                                        "server": app.boot_git, "tree": git_info()})
             if method == "GET" and path == "/events/stream":
                 return self._stream(q)
             for m, rx, h in routes:

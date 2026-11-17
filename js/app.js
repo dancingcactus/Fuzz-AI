@@ -75,6 +75,8 @@
     list: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>',
     file: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>',
     gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
+    /* a speech bubble with a pencil line: tell yourself what to fix */
+    note: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/><path d="M12 8v4M12 15.5h.01"/></svg>',
     keys: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>'
   };
   var XSVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -92,6 +94,8 @@
         '<div class="undowrap"><button type="button" class="themebtn undobtn" id="undobtn" aria-expanded="false" aria-controls="undopop" aria-haspopup="dialog" disabled>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Undo</span><span class="navcount" id="undocount"></span></button>' +
         '<div class="themepop undopop" id="undopop" role="dialog" aria-label="Recent actions" hidden></div></div>' +
+        /* Feedback: a new GitHub issue with this page's details filled in (js/feedback.js) */
+        '<button type="button" class="themebtn iconbtn fbbtn" id="fbbtn" aria-label="Report a problem or idea (opens GitHub)" title="Report a problem or idea: opens a GitHub issue with this page’s details">' + ICON.note + '</button>' +
         /* The menu: the same small round button Settings used to be, with Fuzz's head on it */
         '<div class="menuwrap"><button type="button" class="themebtn iconbtn" id="menubtn" aria-haspopup="menu" aria-expanded="false" aria-controls="navmenu" aria-label="Lineup, Artifacts and Settings" title="Lineup, Artifacts and Settings">' + ICON.fuzz + '</button>' +
         '<div class="navmenu" id="navmenu" role="menu" aria-label="Lineup, Artifacts and Settings" hidden>' +
@@ -105,6 +109,7 @@
         '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New task</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and My work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
         '<section><h3>Getting around</h3><p class="meta">The Fuzz logo opens the Guide, where you pick where to start. The label next to it says where you are; click it to go back. Lineup, Artifacts and Settings are in the menu with Fuzz’s head.</p></section></div></dialog>';
     document.getElementById('undobtn').addEventListener('click', function () { toggleMenu(false); toggleUndo(); });
+    if (window.Feedback) Feedback.bind(document.getElementById('fbbtn'));
     document.getElementById('menubtn').addEventListener('click', function () { toggleUndo(false); toggleMenu(); });
     /* The label and the logo go back to the Guide. On a running session that's a way out: the wrap-up, then the Guide. */
     ['where', 'brand'].forEach(function (id) {
