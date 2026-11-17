@@ -9,6 +9,7 @@ import urllib.request
 
 from helpers import CoreCase
 
+import fuzz
 from fuzz import http_api, mcp_server, tasks, tools
 
 
@@ -42,6 +43,15 @@ class Api(Server):
         status, health = self.req("GET", "/health", token=False)
         self.assertEqual((status, health["ok"]), (200, True))
         self.assertTrue(health["boot"])   # changes when the server restarts
+
+    def test_version_needs_no_token(self):
+        status, v = self.req("GET", "/version", token=False)
+        self.assertEqual(status, 200)
+        self.assertEqual(v["version"], fuzz.__version__)
+        self.assertTrue(v["boot"] and v["started"])
+        for side in ("server", "tree"):   # a git checkout here; {} anywhere else
+            if v[side]:
+                self.assertEqual(set(v[side]), {"commit", "branch", "dirty"})
 
     def test_serves_the_ui(self):
         status, body = self.req("GET", "/", token=False, raw=True)

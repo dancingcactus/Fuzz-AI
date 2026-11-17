@@ -88,3 +88,31 @@ test('a calendar link opens the Guide on the task, and Start moves it into My wo
   assert.deepEqual(errors, []);
   await p.close();
 });
+
+test('the feedback button opens a GitHub issue with the page’s details, and no query values', { skip: !HAVE_UV && 'needs uv' }, async () => {
+  await page.evaluate(() => App.navigate('#/work?until=15:00&what=Secret%20task%20title'));
+  /* a failed load with a token in its URL, and a logged header: neither may reach a public issue */
+  await page.evaluate(() => new Promise(res => {
+    const img = new Image(); img.onerror = res; img.src = '/files/999?token=sekrit123'; document.body.appendChild(img);
+    console.error('[fuzz live]', new Error('call failed: Bearer sekrit456'), { title: 'Secret card data' });
+  }));
+  let opened;
+  const asked = new Promise(res => { opened = res; });
+  await page.context().route('https://github.com/**', r => { opened(r.request().url()); r.abort(); });
+  await page.locator('#fbbtn').hover();
+  await page.waitForFunction(() => /server `/.test(decodeURIComponent(Feedback.url())), null, { timeout: 5000 });
+  const [popup] = await Promise.all([page.context().waitForEvent('page'), page.locator('#fbbtn').click()]);
+  const url = new URL(await asked);
+  await popup.close();
+  await page.context().unroute('https://github.com/**');
+  assert.equal(url.origin + url.pathname, 'https://github.com/dancingcactus/Fuzz-AI/issues/new');
+  const body = url.searchParams.get('body');
+  assert.match(url.searchParams.get('title'), /^\[(Guide|My work)\] $/);
+  assert.match(body, /\*\*View:\*\* .*`#\/work\?until&what`/);
+  assert.match(body, /\*\*Fuzz:\*\* 0\.\d+\.\d+ · tree /);
+  assert.match(body, /\*\*Data:\*\* Live · \d+ in triage/);
+  assert.doesNotMatch(body, /Secret task title|15:00|sekrit|Secret card data/);
+  assert.match(body, /failed to load .*\/files\/999\?…/);
+  assert.match(body, /console: \[fuzz live\] call failed: Bearer …/);
+  await page.evaluate(() => App.navigate('#/'));
+});
