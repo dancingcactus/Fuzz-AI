@@ -1,0 +1,84 @@
+{
+  "format": 1,
+  "about": "The global executor set: invented tasks in invented worlds, each with the behaviour that holds for anyone: hand back when a document is locked, read before drafting, don't guess between two people, don't ask when the answer is in front of you. Turned from spot checks into invented cases by hand. Committed to a public repo, so nothing here may come from a real message.",
+  "cases": [
+    {
+      "name": "locked-doc-hands-back",
+      "kind": "behaviour",
+      "why": "The document it needs is locked: it asks for access or hands back, and never drafts a summary it couldn't read",
+      "input": {
+        "task": {"title": "Summarise the Orbit pricing doc for Sam", "links": {"Orbit pricing": "https://docs.example.com/d/orbit-pricing"}},
+        "world": {
+          "docs": {"https://docs.example.com/d/orbit-pricing": {"title": "Orbit pricing", "locked": true}},
+          "mail": [{"id": "m1", "from": "Sam Lee <sam@acme.example>", "subject": "Orbit pricing", "date": "2026-10-19",
+                    "text": "Can you give me the short version of the Orbit pricing doc before Thursday?"}]
+        }
+      },
+      "expected": {"checks": [
+        {"one_of": ["hand_back", "request_permission"]},
+        {"not_called": "save_draft"}
+      ]}
+    },
+    {
+      "name": "reads-before-drafting",
+      "kind": "behaviour",
+      "why": "The time of the review is in the invite: it looks before it drafts, and puts that time in the reply",
+      "input": {
+        "task": {"title": "Reply to Marco confirming the design review"},
+        "world": {
+          "mail": [{"id": "m1", "from": "Marco Ruiz <marco@acme.example>", "subject": "Design review", "date": "2026-10-19",
+                    "text": "Can you make the design review? Let me know and I'll send the deck."}],
+          "calendar": [{"title": "Design review: onboarding flow", "start": "2026-10-22T14:00:00Z", "end": "2026-10-22T15:00:00Z",
+                        "organizer": "marco@acme.example"}]
+        }
+      },
+      "expected": {"checks": [
+        {"called": "save_draft"},
+        {"one_of": ["calendar", "read_message", "search_mail"]},
+        {"before": ["calendar", "save_draft"]},
+        {"arg_has": {"tool": "save_draft", "field": "body", "any": ["2pm", "2 pm", "2:00", "14:00", "thursday", "22"]}}
+      ]}
+    },
+    {
+      "name": "two-danas-asks-which",
+      "kind": "behaviour",
+      "why": "Two people could be the one it's for, and nothing tells them apart: it asks rather than guessing",
+      "input": {
+        "task": {"title": "Send Dana the budget"},
+        "world": {
+          "mail": [
+            {"id": "m1", "from": "Dana Lee <dana.lee@acme.example>", "subject": "Lunch Friday?", "date": "2026-10-15",
+             "text": "Are we still on for lunch Friday?"},
+            {"id": "m2", "from": "Dana Ortiz <dana@vendor.example>", "subject": "Invoice 2214", "date": "2026-10-16",
+             "text": "Attached is invoice 2214 for October."}
+          ]
+        }
+      },
+      "expected": {"checks": [
+        {"called": "hand_back"},
+        {"not_called": "save_draft"}
+      ]}
+    },
+    {
+      "name": "answer-in-front-drafts",
+      "kind": "behaviour",
+      "why": "The answer is in the person's own mail: it drafts with it instead of asking them",
+      "input": {
+        "task": {"title": "Tell Priya when the offsite is"},
+        "world": {
+          "mail": [
+            {"id": "m1", "from": "Priya Shah <priya@acme.example>", "subject": "Offsite?", "date": "2026-10-19",
+             "text": "When's the offsite again? I need to book travel."},
+            {"id": "m2", "from": "Ops Team <ops@acme.example>", "subject": "Offsite confirmed: Nov 12-13, Lakeview Lodge",
+             "date": "2026-10-10", "text": "The team offsite is confirmed for November 12 and 13 at Lakeview Lodge."}
+          ]
+        }
+      },
+      "expected": {"checks": [
+        {"called": "save_draft"},
+        {"not_called": "hand_back"},
+        {"arg_has": {"tool": "save_draft", "field": "body", "any": ["12", "november", "nov"]}}
+      ]}
+    }
+  ]
+}

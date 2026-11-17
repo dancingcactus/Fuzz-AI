@@ -352,6 +352,14 @@ def cmd_eval(a):
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
+    if a.op == "executor":   # invented tasks in invented worlds: does it gather, ask and hand back as it should?
+        from . import executor_evals
+        run = executor_evals.run(core, repeats=a.repeats or 2, client=a.client, model=a.model, against=a.against,
+                                 ref=a.base_ref)
+        _print(evals.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op == "drafts":   # how close drafts are to what you sent
         from . import draft_evals
         if a.history:   # the drafts Fuzz already wrote; the model only judges
@@ -729,7 +737,7 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "drafts",
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "drafts", "executor",
                                   "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
