@@ -159,6 +159,10 @@ class Lessons(CoreCase):
             with self.assertRaises(FuzzError):
                 fn(self.core, x["id"])   # retired: its label was taken back
 
-    def test_the_learner_registry_finds_the_examples_learner(self):
+    def test_the_learner_registry_finds_every_learner(self):
         from fuzz.learning.learners import LEARNERS
-        self.assertEqual([(x.name, x.surface, x.prefix) for x in LEARNERS], [("examples", "extract", "case:")])
+        got = [(x.name, x.surface, x.prefix) for x in LEARNERS]
+        self.assertIn(("examples", "extract", "case:"), got)
+        self.assertIn(("thresholds", "dupes", "dupes:"), got)
+        prefixes = [x.prefix for x in LEARNERS]
+        self.assertEqual(len(prefixes), len(set(prefixes)), "each learner owns its own keys")

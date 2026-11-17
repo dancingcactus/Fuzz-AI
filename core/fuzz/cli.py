@@ -352,6 +352,13 @@ def cmd_eval(a):
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
+    if a.op == "dupes":   # the duplicate matcher's replay: no model, labelled pairs, a threshold sweep
+        from .matching import replay
+        run = replay.run(core, sets=a.set, against=a.against)
+        _print(replay.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op == "spots":   # what you said on "How did Fuzz do on this?": labels for invented executor cases
         from . import spotcheck
         return _print(spotcheck.run_labels(core))
@@ -694,7 +701,7 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots"])
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes"])
     s.add_argument("--surface", default="extract", choices=["extract"])
     s.add_argument("--set", default="all", choices=["all", "global", "personal"],
                    help="global: the invented cases in the repo; personal: yours, from your corrections")

@@ -519,7 +519,8 @@ CREATE TABLE IF NOT EXISTS eval_runs (
   sets TEXT,                       -- all | global | personal: which cases it scored
   seeds_commit TEXT,               -- the repo commit the global cases were read at (+dirty)
   seconds REAL,                    -- how long the model calls took, so "better" can't hide "slower"
-  stripped INTEGER NOT NULL DEFAULT 0   -- its replies on personal cases are gone (past KEEP_DAYS)
+  stripped INTEGER NOT NULL DEFAULT 0,  -- its replies on personal cases are gone (past KEEP_DAYS)
+  meta TEXT                        -- what else a surface keeps (the matcher's threshold sweep) (JSON)
 );
 """
 
@@ -574,7 +575,8 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                              ("quote", "TEXT"), ("withdrawn", "INTEGER NOT NULL DEFAULT 0"),
                              ("scope", "TEXT NOT NULL DEFAULT 'personal'")],
               "eval_runs": [("against", "INTEGER"), ("gate_ok", "INTEGER NOT NULL DEFAULT 1"), ("sets", "TEXT"),
-                            ("seeds_commit", "TEXT"), ("seconds", "REAL"), ("stripped", "INTEGER NOT NULL DEFAULT 0")]}
+                            ("seeds_commit", "TEXT"), ("seconds", "REAL"), ("stripped", "INTEGER NOT NULL DEFAULT 0"),
+                            ("meta", "TEXT")]}
 
 
 def _migrate(conn):

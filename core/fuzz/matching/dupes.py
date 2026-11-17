@@ -86,6 +86,56 @@ def _not_to_ask(core, task_id):
     return out
 
 
+def family(ctx):
+    return matcher._family(ctx.embedder.model) if ctx.embedder else "hash"
+
+
+def tuned(core, fam):
+    """Thresholds you said yes to: a matcher lesson (learning/learners/thresholds.py), newest first wins."""
+    out = {}
+    for r in core.all("SELECT example FROM lessons WHERE user_id=? AND surface='dupes' AND status='active' "
+                      "ORDER BY id", (core.user_id,)):
+        ex = json.loads(r["example"]) if isinstance(r["example"], str) else (r["example"] or {})
+        if ex.get("family") == fam and ex.get("param") in ("dup_sem", "people_sem", "words_same"):
+            out[ex["param"]] = float(ex["value"])
+    return out
+
+
+def thresholds_default(fam):
+    return {"dup_sem": DUP_SEM[fam], "people_sem": PEOPLE_SEM[fam], "words_same": WORDS_SAME}
+
+
+def thresholds(core, fam):
+    """The thresholds in force: the code's, with any tuned one on top."""
+    return dict(thresholds_default(fam), **tuned(core, fam))
+
+
+def features(ctx, cand, others):
+    """What decides whether two asks are the same, per task: {tid: {link, entity, semantic, words, people_only,
+    names}}. The replay eval (matching/replay.py) scores labelled pairs on exactly these."""
+    shared = _shared(ctx.core, cand_idents(ctx, cand), others)
+    escore, names = matcher.stage2_entities(ctx, cand, others)
+    sem = matcher.stage3_semantic(ctx, cand, list(others)) or {}
+    mine = _words(cand["ask"])
+    out = {}
+    for tid in others:
+        out[tid] = {"link": shared.get(tid) or [], "entity": escore.get(tid, 0), "semantic": sem.get(tid, 0),
+                    # the same words: works with no embedder (Ollama down), where meaning can't be measured
+                    "words": max(_overlap(mine, _words(others[tid]["title"])), _overlap(mine, _words(others[tid]["ask"]))),
+                    # the same people alone never make two asks the same: they need to mean nearly the same too
+                    "people_only": all(n.startswith("person:") for n in names.get(tid, [])),
+                    "names": names.get(tid, [])}
+    return out
+
+
+def is_close(f, fam, th):
+    """Close enough to ask about: a shared ticket or document, very close in meaning, the same words, or the
+    same people or things and close in meaning."""
+    return (bool(f["link"]) or f["semantic"] >= th["dup_sem"] or f["words"] >= th["words_same"]
+            or (f["entity"] >= matcher.STRONG_ENTITY
+                and f["semantic"] >= (th["people_sem"] if f["people_only"] else matcher.SEM_MIN_ENTITY[fam])))
+
+
 def likely(ctx, cand, others, strict=True):
     """Tasks the candidate is likely the same as, best first: [(task_id, reason, scores)].
 
@@ -93,25 +143,17 @@ def likely(ctx, cand, others, strict=True):
     Otherwise the ranked shortlist "Same as…" offers."""
     if not others:
         return []
-    fam = matcher._family(ctx.embedder.model) if ctx.embedder else "hash"
-    shared = _shared(ctx.core, cand_idents(ctx, cand), others)
-    escore, names = matcher.stage2_entities(ctx, cand, others)
-    sem = matcher.stage3_semantic(ctx, cand, list(others)) or {}
+    fam = family(ctx)
+    th = thresholds(ctx.core, fam)
     out = []
-    mine = _words(cand["ask"])
-    for tid in others:
-        e, s, link = escore.get(tid, 0), sem.get(tid, 0), shared.get(tid)
-        # the same words: works with no embedder (Ollama down), where meaning can't be measured
-        same_words = max(_overlap(mine, _words(others[tid]["title"])), _overlap(mine, _words(others[tid]["ask"]))) >= WORDS_SAME
-        # the same people alone never make two asks the same: they need to mean nearly the same thing too
-        people_only = all(n.startswith("person:") for n in names.get(tid, []))
-        close = (bool(link) or s >= DUP_SEM[fam] or same_words
-                 or (e >= matcher.STRONG_ENTITY and s >= (PEOPLE_SEM if people_only else matcher.SEM_MIN_ENTITY)[fam]))
+    for tid, f in features(ctx, cand, others).items():
+        e, s, link, names = f["entity"], f["semantic"], f["link"], f["names"]
+        close = is_close(f, fam, th)
         loose = close or s >= matcher.SEM_FLOOR[fam] or e >= matcher.ENTITY_MIN
         if not (close if strict else loose):
             continue
         why = (f"Both point to {_name(link[0])}" if link else
-               f"Same {', '.join(n.split(':', 1)[1] for n in names.get(tid, [])[:2])}" if e >= matcher.STRONG_ENTITY
+               f"Same {', '.join(n.split(':', 1)[1] for n in names[:2])}" if e >= matcher.STRONG_ENTITY
                else "Asks for nearly the same thing")
         out.append((tid, why, {"link": link or [], "entity": e, "semantic": s}))
     out.sort(key=lambda x: (bool(x[2]["link"]), x[2]["semantic"], x[2]["entity"]), reverse=True)
