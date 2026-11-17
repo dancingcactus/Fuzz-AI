@@ -18,7 +18,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "core"))
 
-from fuzz import actions, answers, cards, states  # noqa: E402
+from fuzz import actions, answers, cards, spotcheck, states  # noqa: E402
 from fuzz.memory import mcards  # noqa: E402
 
 OUT = os.path.join(ROOT, "js", "vocab.js")
@@ -40,6 +40,8 @@ def vocab():
         "taskVerbs": list(actions.TASK_VERBS),
         # the cards Fuzz's memory raises, which have no task
         "memoryKinds": list(mcards.KINDS),
+        # Fuzz checking its own work (spotcheck.py): cards with no task, too
+        "checkKinds": list(spotcheck.KINDS),
     }
 
 

@@ -96,6 +96,11 @@ def task_action(core, task_id, verb, body=None):
     return {"task_id": task_id, "state": tasks.get(core, task_id)["state"]}, follow
 
 
+def _spot_undo(core, e):
+    from . import spotcheck   # here, not at the top: spotcheck reads tasks, which reach back to actions
+    return spotcheck.undo(core, e)
+
+
 # What undo puts back outside the projection, by the event that changed it (see events.undo)
 UNDO_HOOKS = {
     # the side tables a merge moved
@@ -107,6 +112,8 @@ UNDO_HOOKS = {
     "task.let_go": lambda core, e: evals.retire_for_task(core, e["task_id"]),
     # Yes taken back: the case waits on the card again
     "task.missed_confirmed": missed.undo_confirmed,
+    # a spot check's answer taken back: its case and label go
+    "eval.spot_checked": lambda core, e: _spot_undo(core, e),
     "engine.selected": lambda core, e: engine.restore_selection(core, e["payload"]["data"].get("prior")),
 }
 

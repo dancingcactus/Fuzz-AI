@@ -183,6 +183,26 @@ window.FuzzVocab = {
    ],
    "suggested": "yes",
    "safe": null
+  },
+  "spot_message": {
+   "family": "question",
+   "options": [
+    "nothing",
+    "had_ask",
+    "not_sure"
+   ],
+   "suggested": "nothing",
+   "safe": null
+  },
+  "spot_run": {
+   "family": "question",
+   "options": [
+    "right",
+    "off",
+    "not_sure"
+   ],
+   "suggested": "right",
+   "safe": null
   }
  },
  "taskAnswers": [
@@ -309,5 +329,9 @@ window.FuzzVocab = {
   "entity_term",
   "decision",
   "fact_conflict"
+ ],
+ "checkKinds": [
+  "spot_message",
+  "spot_run"
  ]
 };

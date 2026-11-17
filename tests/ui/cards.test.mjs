@@ -78,6 +78,31 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
   await page.locator('#way-h').waitFor({ timeout: 20000 });
 });
 
+test('Fuzz’s spot checks draw like memory cards: the message, then what was there; the run, then what was off', async () => {
+  await page.evaluate(() => {
+    const st = Store.get();
+    const base = { kind: 'deliv', memory: true, state: 'triage', incoming: '', source: 'Fuzz checking its work', who: '', age: '',
+      log: [], sources: [], people: [], context: [], conversation: [], code: [] };
+    st.items.push(Object.assign({}, base, { id: 'c902', cardKind: 'spot_message', cardId: 902, suggested: 'nothing',
+      cardOptions: ['nothing', 'had_ask', 'not_sure'], title: 'Was there anything for you here?', ask: 'Was there anything for you here?',
+      payload: { source: 'slack', from: 'Sam Lee', title: 'Launch', quote: 'Can someone own the launch notes?', link: 'https://chat.example/m1' } }));
+    st.items.push(Object.assign({}, base, { id: 'c903', cardKind: 'spot_run', cardId: 903, suggested: 'right',
+      cardOptions: ['right', 'off', 'not_sure'], title: 'How did Fuzz do on this?', ask: 'How did Fuzz do on this?',
+      payload: { title: 'Find the venue contract', steps: ['Searched mail for the contract.'],
+                 off: { gave_up: 'Handed back too early', brief: 'The brief is wrong' } } }));
+    st.queue.unshift('c902', 'c903');
+  });
+  await show('c902');
+  assert.match(await page.locator('#card .pquote').textContent(), /own the launch notes/);
+  assert.equal(await page.locator('#card #spot-ask').count(), 1);
+  assert.match(await page.locator('#card [data-dv="nothing"]').getAttribute('class'), /primary/);
+  assert.match(await page.locator('#card [data-dv="had_ask"]').textContent(), /There was something/);
+  await show('c903');
+  assert.equal(await page.locator('#card [data-spotoff]').count(), 2);
+  assert.match(await page.locator('#card .dv-steps').textContent(), /Searched mail/);
+  assert.match(await page.locator('#card [data-dv="off"]').textContent(), /Something was off/);
+});
+
 test('no Find out: a task card has Done, Q does nothing, and What’s in the way? has four choices; 2 lays out the options', async () => {
   const t = await page.evaluate(() => Store.get().queue.find(id => { const i = Store.item(id); return i && i.kind === 'task' && i.state === 'triage' && !i.doing && !i.result && !Store.isBig(i); }));
   await show(t);

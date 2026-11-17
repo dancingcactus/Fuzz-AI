@@ -28,6 +28,7 @@ EVENT_TYPES = {
     "task.missed_found", "task.missed_confirmed", "task.missed_retry", "task.missed_kept",
     # lessons (learning/): the learner adds, retires and restores them; you use or turn one off; evals score them
     "lesson.added", "lesson.retired", "lesson.restored", "lesson.used", "lesson.turned_off", "lesson.scored",
+    "eval.spot_checked",   # you answered one of Fuzz's checks on its own work (spotcheck.py)
     "task.doing", "task.paused",   # Do it now opened the working card; Pause put it back in the list
     "task.block_started", "task.block_ended", "task.block_missed", "task.block_extended",   # booked time
     "calendar.reported",   # the executor read the calendar: Focus time slots, free time and Fuzz's holds

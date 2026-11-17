@@ -352,6 +352,9 @@ def cmd_eval(a):
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
+    if a.op == "spots":   # what you said on "How did Fuzz do on this?": labels for invented executor cases
+        from . import spotcheck
+        return _print(spotcheck.run_labels(core))
 
     def lessons_from(path):   # None: the active lessons, as a real run reads them
         if not path:
@@ -691,7 +694,7 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show"])
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots"])
     s.add_argument("--surface", default="extract", choices=["extract"])
     s.add_argument("--set", default="all", choices=["all", "global", "personal"],
                    help="global: the invented cases in the repo; personal: yours, from your corrections")

@@ -704,7 +704,9 @@
     not_now: 'Not now', track: 'Track it', no: 'No', yes: 'Yes',
     /* Fuzz's memory */
     same: 'Same person', different: 'Different people', define: 'Save definition', record: 'It was a decision',
-    not_decision: 'Not a decision', first: 'The first one', second: 'The second one', neither: 'Neither' };
+    not_decision: 'Not a decision', first: 'The first one', second: 'The second one', neither: 'Neither',
+    /* Fuzz checking its own work */
+    nothing: 'Nothing for me', had_ask: 'There was something', right: 'That was right', off: 'Something was off' };
   var WHO_LABEL = { same: 'That’s them', different: 'Someone else' };
   function dvButtons(it, opts) {
     var which = it.cardKind === 'entity_person' && ((it.payload || {}).candidates || []).length;
@@ -749,6 +751,21 @@
         ((p.alternatives || []).length ? '<p class="meta">Also considered: ' + esc(p.alternatives.join(', ')) + '</p>' : '') +
         '<p class="meta">' + esc([p.decided_by ? 'Decided by ' + p.decided_by : '', p.decided_at ? String(p.decided_at).slice(0, 10) : ''].filter(Boolean).join(' · ')) +
         (/^https?:/.test(p.link || '') ? ' · <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Where it came from</a>' : '') + '</p></section>';
+    } else if (it.cardKind === 'spot_message') {
+      /* the message, as extraction saw it; the box says what the ask was, if there was one */
+      var mwhere = [MEM_SOURCE[p.source] || 'A message', p.from, p.title, p.ts ? String(p.ts).slice(0, 10) : ''].filter(Boolean).join(' · ');
+      var mq = p.quote ? '“' + esc(p.quote) + '”' : '';
+      if (/^https?:/.test(p.link || '')) mq = '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">' + (mq || 'Open it') + '</a>';
+      h += '<div class="profile"><span class="plabel">' + esc(mwhere) + '</span>' + (mq ? '<span class="pquote">' + mq + '</span>' : '') + '</div>' +
+        '<div class="dv-new"><label for="spot-ask">If there was something, what was it?</label><input id="spot-ask" type="text" autocomplete="off" placeholder="For example: send Dana the venue contract"></div>';
+    } else if (it.cardKind === 'spot_run') {
+      h += '<section class="dv-steps"><h3>' + esc(p.title || '') + '</h3>' +
+        (p.summary ? '<p class="meta">' + esc(p.summary) + '</p>' : '') +
+        ((p.steps || []).length ? '<ul class="mentions">' + p.steps.map(function (s) { return '<li><span>' + esc(s) + '</span></li>'; }).join('') + '</ul>' : '') + '</section>' +
+        '<fieldset class="asks"><legend>If something was off, what?</legend><ul class="mentions">' + Object.keys(p.off || {}).map(function (k) {
+          return '<li><label class="check"><input type="checkbox" data-spotoff="' + esc(k) + '"> <span>' + esc(p.off[k]) + '</span></label></li>';
+        }).join('') + '</ul></fieldset>' +
+        '<div class="dv-new"><label for="spot-note">Anything else?</label><input id="spot-note" type="text" autocomplete="off"></div>';
     } else if (it.cardKind === 'fact_conflict') {
       h += '<div class="profiles">' + (p.facts || []).map(function (f, i) {
         return '<div class="profile"><span class="plabel">' + (i ? 'Second' : 'First') + ' · ' + esc(MEM_LEVEL[f.level] || f.level) + '</span><span class="pname">' + esc(f.value) + '</span>' +
@@ -790,6 +807,9 @@
     if (opt === 'track') return { title: ($('#dv-title') || {}).value, done_when: ($('#dv-dw') || {}).value, checked_by: $('#dv-you') && $('#dv-you').checked ? 'you' : 'fuzz' };
     if (opt === 'define') return (($('#mem-def') || {}).value || '').trim();
     if (opt === 'neither') return (($('#mem-neither') || {}).value || '').trim();
+    if (opt === 'had_ask') return (($('#spot-ask') || {}).value || '').trim() || undefined;
+    if (opt === 'off') return { what: [].map.call(card.querySelectorAll('[data-spotoff]:checked'), function (b) { return b.dataset.spotoff; }),
+      note: (($('#spot-note') || {}).value || '').trim() };
     if (it.cardKind === 'entity_person' && opt === 'same') { var r = card.querySelector('input[name="mem-who"]:checked'); return r ? +r.value : undefined; }
     if (it.cardKind === 'entity_person' && opt === 'different') return (($('#mem-other') || {}).value || '').trim() || undefined;
     return undefined;

@@ -61,6 +61,10 @@ CARD_KINDS = {
                               suggested="first"),
     # Is it this one? the message Fuzz found for an ask it missed (missed.py)
     "missed": CardKind("question", "Is it this one?", ("yes", "not_quite", "skip"), suggested="yes"),
+    # Fuzz checking its own work, a few a week (spotcheck.py): no task, and Not sure yet just closes them
+    "spot_message": CardKind("question", "Was there anything for you here?", ("nothing", "had_ask", "not_sure"),
+                             suggested="nothing"),
+    "spot_run": CardKind("question", "How did Fuzz do on this?", ("right", "off", "not_sure"), suggested="right"),
 }
 
 

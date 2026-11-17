@@ -46,6 +46,8 @@ class CoreCase(unittest.TestCase):
                      "folders": {"meetings": "~/Context/meetings/summaries"}}
         cfg["embedder"] = "hash"
         cfg["tz"] = "UTC"
+        # spot checks would add cards to every ticked queue; test_spotcheck turns them on
+        cfg["evals"] = {"spot_checks_per_week": 0, "run_checks_per_week": 0}
         config.save(self.home, cfg)
         self.clock = Clock()
         self.core = self.make_core()
