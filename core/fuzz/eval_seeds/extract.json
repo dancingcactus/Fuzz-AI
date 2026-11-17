@@ -7,122 +7,649 @@
       "kind": "keep",
       "why": "A DM that names a deliverable and a day",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "slack", "ts": "2026-10-20T15:02:00Z",
-        "from": {"name": "Priya Shah", "email": "priya@acme.example", "slack_id": "UPRIYA1"},
-        "people": [{"name": "Alex Chen", "slack_id": "UALEX01"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-20T15:02:00Z",
+        "from": {
+          "name": "Priya Shah",
+          "email": "priya@acme.example",
+          "slack_id": "UPRIYA1"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "slack_id": "UALEX01"
+          }
+        ],
         "channel": "DM with Priya Shah",
         "text": "Hey! Can you send me the Q3 vendor numbers by Thursday? Finance wants them before the planning review."
       },
-      "expected": {"has_my_ask": true, "ask": "Send Priya the Q3 vendor numbers"}
+      "expected": {
+        "has_my_ask": true,
+        "ask": "Send Priya the Q3 vendor numbers"
+      }
     },
     {
       "name": "facilities-fyi",
       "kind": "skip",
       "why": "An announcement to everyone with nothing to do",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "email", "ts": "2026-10-20T13:00:00Z",
-        "from": {"name": "Facilities", "email": "facilities@acme.example"},
-        "people": [{"name": "All staff", "email": "all@acme.example"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T13:00:00Z",
+        "from": {
+          "name": "Facilities",
+          "email": "facilities@acme.example"
+        },
+        "people": [
+          {
+            "name": "All staff",
+            "email": "all@acme.example"
+          }
+        ],
         "title": "Office closed Monday",
         "text": "Hi all,\n\nThe office will be closed Monday for HVAC maintenance. Remote work as usual; badges won't work that day.\n\nThanks,\nFacilities"
       },
-      "expected": {"has_my_ask": false}
+      "expected": {
+        "has_my_ask": false
+      }
     },
     {
       "name": "ask-for-someone-else",
       "kind": "skip",
       "why": "Alex is on the thread, but the ask names Dana",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "email", "ts": "2026-10-20T16:40:00Z",
-        "from": {"name": "Marcus Lee", "email": "marcus@acme.example"},
-        "people": [{"name": "Alex Chen", "email": "alex@acme.example"}, {"name": "Dana Ortiz", "email": "dana@acme.example"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T16:40:00Z",
+        "from": {
+          "name": "Marcus Lee",
+          "email": "marcus@acme.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          },
+          {
+            "name": "Dana Ortiz",
+            "email": "dana@acme.example"
+          }
+        ],
         "title": "Northwind renewal",
         "text": "Thanks both. Northwind signed off on the terms. Dana, can you send them the final contract today so legal can countersign?\n\nMarcus"
       },
-      "expected": {"has_my_ask": false}
+      "expected": {
+        "has_my_ask": false
+      }
     },
     {
       "name": "can-someone-big-channel",
       "kind": "skip",
       "why": "\"Can someone\" to a 200-person channel: unclear, not Alex's",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "slack", "ts": "2026-10-20T17:10:00Z",
-        "from": {"name": "Jordan Park", "slack_id": "UJORD01"},
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-20T17:10:00Z",
+        "from": {
+          "name": "Jordan Park",
+          "slack_id": "UJORD01"
+        },
         "channel": "#eng-all (214 members)",
         "text": "Can someone take a look at the flaky checkout test? It's failed three of the last five runs on main."
       },
-      "expected": {"has_my_ask": false}
+      "expected": {
+        "has_my_ask": false
+      }
     },
     {
       "name": "meeting-action-item",
       "kind": "keep",
       "why": "A meeting action item assigned to Alex by name",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "meeting", "ts": "2026-10-20T10:30:00Z",
-        "from": {"name": "Launch sync"},
-        "people": [{"name": "Alex Chen"}, {"name": "Priya Shah"}, {"name": "Sam Rivera"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "meeting",
+        "ts": "2026-10-20T10:30:00Z",
+        "from": {
+          "name": "Launch sync"
+        },
+        "people": [
+          {
+            "name": "Alex Chen"
+          },
+          {
+            "name": "Priya Shah"
+          },
+          {
+            "name": "Sam Rivera"
+          }
+        ],
         "text": "Action items:\n| Owner | Item |\n| Sam | Confirm the press date with comms |\n| Alex | Draft the launch FAQ for support |\n| Priya | Book the demo room |"
       },
-      "expected": {"has_my_ask": true, "ask": "Draft the launch FAQ for support"}
+      "expected": {
+        "has_my_ask": true,
+        "ask": "Draft the launch FAQ for support"
+      }
     },
     {
       "name": "thank-you",
       "kind": "skip",
       "why": "A thank-you closes nothing new and asks for nothing",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "slack", "ts": "2026-10-21T09:05:00Z",
-        "from": {"name": "Sam Rivera", "slack_id": "USAM001"},
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-21T09:05:00Z",
+        "from": {
+          "name": "Sam Rivera",
+          "slack_id": "USAM001"
+        },
         "channel": "DM with Sam Rivera",
         "text": "Thanks Alex, that's perfect! 🙌"
       },
-      "expected": {"has_my_ask": false}
+      "expected": {
+        "has_my_ask": false
+      }
     },
     {
       "name": "buried-ask",
       "kind": "keep",
       "why": "A long status update with one ask for Alex at the end",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "email", "ts": "2026-10-21T11:20:00Z",
-        "from": {"name": "Sam Rivera", "email": "sam@acme.example"},
-        "people": [{"name": "Alex Chen", "email": "alex@acme.example"}, {"name": "Priya Shah", "email": "priya@acme.example"}, {"name": "Marcus Lee", "email": "marcus@acme.example"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-21T11:20:00Z",
+        "from": {
+          "name": "Sam Rivera",
+          "email": "sam@acme.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          },
+          {
+            "name": "Priya Shah",
+            "email": "priya@acme.example"
+          },
+          {
+            "name": "Marcus Lee",
+            "email": "marcus@acme.example"
+          }
+        ],
         "title": "Offsite update",
         "text": "Quick update on the offsite:\n\n- Venue is held through Friday\n- Catering quotes are in; going with the second one\n- Travel is booked for everyone but Marcus, who's driving\n\nAlex, could you confirm the final headcount with me before Friday so I can release the deposit?\n\nSam"
       },
-      "expected": {"has_my_ask": true, "ask": "Confirm the offsite headcount with Sam"}
+      "expected": {
+        "has_my_ask": true,
+        "ask": "Confirm the offsite headcount with Sam"
+      }
     },
     {
       "name": "own-invite-note",
       "kind": "skip",
       "why": "Alex's own invite: the calendar already holds it",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "email", "ts": "2026-10-21T14:00:00Z",
-        "from": {"name": "Alex Chen", "email": "alex@acme.example"},
-        "people": [{"name": "Priya Shah", "email": "priya@acme.example"}],
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-21T14:00:00Z",
+        "from": {
+          "name": "Alex Chen",
+          "email": "alex@acme.example"
+        },
+        "people": [
+          {
+            "name": "Priya Shah",
+            "email": "priya@acme.example"
+          }
+        ],
         "title": "Invitation: Roadmap walkthrough",
         "text": "Setting up time to walk through the Q1 roadmap before it goes to leadership."
       },
-      "expected": {"has_my_ask": false}
+      "expected": {
+        "has_my_ask": false
+      }
     },
     {
       "name": "own-commitment",
       "kind": "keep",
       "why": "Alex's own message commits to something beyond itself",
       "input": {
-        "me": {"names": ["Alex Chen", "Alex"], "emails": ["alex@acme.example"], "slack_ids": ["UALEX01"]},
-        "source": "slack", "ts": "2026-10-21T15:30:00Z",
-        "from": {"name": "Alex Chen", "slack_id": "UALEX01"},
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-21T15:30:00Z",
+        "from": {
+          "name": "Alex Chen",
+          "slack_id": "UALEX01"
+        },
         "channel": "#launch",
         "text": "Good call. I'll send the revised pricing deck to the group by Friday."
       },
-      "expected": {"has_my_ask": true, "ask": "Send the revised pricing deck by Friday"}
+      "expected": {
+        "has_my_ask": true,
+        "ask": "Send the revised pricing deck by Friday"
+      }
+    },
+    {
+      "name": "own-offer-in-dm",
+      "kind": "skip",
+      "why": "The person's own message, offering something: nothing in it is asked of them",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-20T16:40:00Z",
+        "from": {
+          "name": "Alex Chen",
+          "slack_id": "UALEX01"
+        },
+        "people": [
+          {
+            "name": "Marco Ruiz",
+            "slack_id": "UMARCO1"
+          }
+        ],
+        "channel": "DM with Marco Ruiz",
+        "text": "Hey, I've been writing up a short guide on confidence intervals and sample sizes, happy to share it if that's useful for your team"
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "news-alert",
+      "kind": "skip",
+      "why": "A news publisher's breaking-news alert, sent to the person alone",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T13:11:00Z",
+        "from": {
+          "name": "The Daily Ledger",
+          "email": "alerts@dailyledger.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "Breaking: Harbor Rail announces merger with Coastline Freight",
+        "text": "View in browser. Breaking news: Harbor Rail said on Tuesday it would merge with Coastline Freight in a deal valued at $4 billion. Read the full story. Manage your alerts."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "cc-on-technical-answer",
+      "kind": "skip",
+      "why": "A reply that answers someone else's question, with the person only cc'd and named in passing",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T15:05:00Z",
+        "from": {
+          "name": "Hana Okafor",
+          "email": "hana@acme.example"
+        },
+        "people": [
+          {
+            "name": "Leo Brandt",
+            "email": "leo@acme.example"
+          },
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "Re: Cohort retention windows",
+        "text": "Those limits look right to me (cc Leo and Alex). The reporting layer already applies a weighting step, so the daily numbers will line up with the weekly rollup without any extra work."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "access-removed-notice",
+      "kind": "skip",
+      "why": "An automated notice that access was removed: it tells, it doesn't ask",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T10:00:00Z",
+        "from": {
+          "name": "Acme IT",
+          "email": "no-reply@it.acme.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "Your access to Northwind Archive has changed",
+        "text": "Your Northwind Archive seat was removed on October 19. Questions can go to the IT help desk."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "sure-in-channel",
+      "kind": "skip",
+      "why": "A one-word reply in a busy channel; any ask happened elsewhere",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-20T17:20:00Z",
+        "from": {
+          "name": "Tomas Vidal",
+          "slack_id": "UTOMAS1"
+        },
+        "people": [],
+        "channel": "#launch-planning",
+        "text": "Sure"
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "bot-sign-in-notice",
+      "kind": "skip",
+      "why": "A bot's sign-in confirmation in a DM",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "slack",
+        "ts": "2026-10-20T09:05:00Z",
+        "from": {
+          "name": "deployBot",
+          "slack_id": "BDEPLOY1"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "slack_id": "UALEX01"
+          }
+        ],
+        "channel": "DM with deployBot",
+        "text": "Hi Alex Chen! You just signed in to Release Checker."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "internal-newsletter-from-a-person",
+      "kind": "skip",
+      "why": "A company newsletter sent by a colleague's address: no ask, though it comes from a person",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T14:00:00Z",
+        "from": {
+          "name": "Nadia Kowal",
+          "email": "nadia@acme.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "Customer stories and news: autumn summit edition",
+        "text": "Acme and Bluepeak Studios team up to bring new tools to their editors. Plus: three customer stories from the summit, and what's coming next quarter."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "vendor-webinar-with-date",
+      "kind": "skip",
+      "why": "A marketing invite with a date and a call to join: an offer, not an ask",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T12:00:00Z",
+        "from": {
+          "name": "Cloudmetric",
+          "email": "events@cloudmetric.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "312% ROI. See where it comes from.",
+        "text": "Join us on November 18 for a webinar on how the observability business case adds up. Save your seat."
+      },
+      "expected": {
+        "has_my_ask": false
+      }
+    },
+    {
+      "name": "vendor-follow-up-question",
+      "kind": "skip",
+      "why": "Cold outreach following up with a question: it asks something, but nothing the person owes. A hard case: extract-0.18 makes it an ask (2026-11-17)",
+      "input": {
+        "me": {
+          "names": [
+            "Alex Chen",
+            "Alex"
+          ],
+          "emails": [
+            "alex@acme.example"
+          ],
+          "slack_ids": [
+            "UALEX01"
+          ]
+        },
+        "source": "email",
+        "ts": "2026-10-20T16:00:00Z",
+        "from": {
+          "name": "Gil Arroyo",
+          "email": "gil@saleswave.example"
+        },
+        "people": [
+          {
+            "name": "Alex Chen",
+            "email": "alex@acme.example"
+          }
+        ],
+        "title": "Saw your talk on pricing experiments",
+        "text": "Circling back on my note from last week. Want me to drop a calendar link here so we can chat about how we help teams like yours?"
+      },
+      "expected": {
+        "has_my_ask": false
+      }
     }
   ]
 }
