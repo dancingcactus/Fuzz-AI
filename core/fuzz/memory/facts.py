@@ -286,7 +286,8 @@ def _judge(core, rows, now):
         rival = _rival(ranked, judged) if attr in SINGLE else None
         pair = {ranked[0][0]["id"], rival["id"]} if rival else set()
         for i, vals in enumerate(ranked):
-            best = vals[0]
+            # A group stands for its value by its best fact, or by the one the winner is disputed with.
+            best = next((f for f in vals if f["id"] in pair), vals[0])
             state = "winner" if i == 0 or attr not in SINGLE else "superseded"
             best = dict(best, state=state, disputed=best["id"] in pair,
                         sources=[_source(f) for f in vals], corroborated=len(vals))
@@ -296,13 +297,15 @@ def _judge(core, rows, now):
 
 
 def _rival(ranked, judged):
-    """The value the winner disagrees with badly enough to ask about, if any. Values that turn out to be the
-    winner said again (worded twice, judged the same, or the same source's older read) are passed over, so a
-    real disagreement further down still surfaces."""
+    """The fact the winner disagrees with badly enough to ask about, if any. Values that turn out to be the
+    winner said again (worded twice, or judged the same) are passed over, and so is the winner's own source's
+    older read, so a real disagreement further down, or from another source of the same value, still surfaces."""
     top = ranked[0][0]
     for vals in ranked[1:]:
-        b = vals[0]
-        if same_claim(top["value"], b["value"]) or same_source(top, b) or judged.get(pair_key(top, b)) == 1:
+        if same_claim(top["value"], vals[0]["value"]) or judged.get(pair_key(top, vals[0])) == 1:
+            continue
+        b = next((f for f in vals if not same_source(top, f)), None)
+        if b is None:
             continue
         return b if _real_conflict(top, b) else None
     return None
@@ -310,9 +313,15 @@ def _rival(ranked, judged):
 
 # ---------------------------------------------------------------- the extractor's word on two values
 
+# Values that are names: "same" for one person's pair says nothing about another's, so it's kept per entity.
+# The rest (a title, a team) mean the same wherever they're said.
+PER_ENTITY = {"manager", "owner", "contacts"}
+
+
 def pair_key(a, b):
     x, y = sorted((_gist(a["value"]), _gist(b["value"])))
-    return (a["attr"], x, y)
+    scope = a["attr"] + (f"#{min(a['entity_id'], b['entity_id'])}" if a["attr"] in PER_ENTITY else "")
+    return (scope, x, y)
 
 
 def judgments(core):

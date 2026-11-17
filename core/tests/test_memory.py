@@ -259,6 +259,38 @@ class Facts(MemoryCase):
         [(a, b)] = facts.disputes(self.core, m)
         self.assertEqual({a["value"], b["value"]}, {"Manager, Product Management", "Director, Product Management"})
 
+    def test_another_source_of_an_older_value_is_still_asked(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Manager, Product Management", source_kind="directory",
+                  source_ts="2026-11-12T09:00:00Z")
+        facts.add(self.core, m, "role", "Director, Product Management", source_kind="directory",
+                  source_ts="2026-11-11T09:00:00Z")
+        own, _ = facts.add(self.core, m, "role", "Director, Product Management", said_by=m, source_kind="email",
+                           source_ref="email:m-1", source_ts="2026-11-10T09:00:00Z")
+        [(a, b)] = facts.disputes(self.core, m)
+        self.assertEqual({a["value"], b["value"]}, {"Manager, Product Management", "Director, Product Management"})
+        self.assertIn(own, {a["id"], b["id"]}, "the card shows what they said, not the directory's older read")
+
+    def test_a_third_value_after_two_judged_the_same(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        facts.add(self.core, m, "role", "Head of Product", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+        facts.add(self.core, m, "role", "Product Lead", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        self.judge(same=True)
+        facts.add(self.core, m, "role", "Payments PM", source_kind="meeting", source_ts="2026-10-17T09:00:00Z")
+        [(a, b)] = facts.disputes(self.core, m)
+        self.assertEqual({a["value"], b["value"]}, {"Head of Product", "Payments PM"})
+
+    def test_names_judged_the_same_for_one_person_only(self):
+        m = self.person("Marcus Lee", "marcus@acme.example")
+        k = self.person("Kai Moss", "kai@acme.example")
+        for who in (m, k):
+            facts.add(self.core, who, "manager", "Pat", source_kind="slack", source_ts="2026-10-19T09:00:00Z")
+            facts.add(self.core, who, "manager", "Patricia Lee", source_kind="email", source_ts="2026-10-18T09:00:00Z")
+        [p, q] = tools.get_fact_pairs(self.core)["pairs"]
+        tools.judge_fact_pairs(self.core, [{"pair": p["pair"], "same": True}])
+        self.assertEqual([x["about"] for x in tools.get_fact_pairs(self.core)["pairs"]], [q["about"]],
+                         "a Pat for one person isn't every Pat")
+
     def test_a_source_updating_itself_is_not_asked(self):
         t = self.person("James Torio", "torio@acme.example")
         facts.add(self.core, t, "role", "Product Manager", source_kind="directory",
