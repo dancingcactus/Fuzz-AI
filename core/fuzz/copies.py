@@ -52,21 +52,46 @@ def generic_leaks(case):
     return out
 
 
+# a "person" whose name has one of these is a group or a list ("Engineering Team", "Weekly Newsletter"), not a
+# person: its last word is no surname
+GROUP_WORDS = {"team", "teams", "newsletter", "weekly", "daily", "digest", "news", "updates", "events", "marketing",
+               "summit", "support", "notifications", "workspace", "group", "office", "admin", "bot", "service",
+               "services", "desk", "ops", "program", "committee", "council", "channel", "list", "info", "noreply",
+               "no-reply", "help", "hr", "it", "sales", "billing", "security", "community", "announcements"}
+
+
+def _full_name(n):
+    """Two or three capitalised words, none of them a group word: a real person's name, as far as can be told."""
+    parts = n.split()
+    return (2 <= len(parts) <= 3 and all(re.fullmatch(r"[A-Z][A-Za-z'’-]+", p) for p in parts)
+            and not any(p.lower() in GROUP_WORDS for p in parts))
+
+
+def _code(n):
+    """A code or an acronym (C521, AEM, skc), not an everyday word that happens to be capitalised."""
+    return bool(re.search(r"\d", n) or re.fullmatch(r"[A-Z]{2,}", n) or re.search(r"[a-z][A-Z]", n))
+
+
 def _known(core):
-    """What would identify someone in the person's world: (what, value, whole_word)."""
+    """What would identify someone in the person's world: (what, value, whole_word). First names alone aren't
+    flagged (an invented case needs names, and every first name belongs to someone); full names, surnames,
+    organisations, codes and every address are."""
     out = []
     for r in core.all("SELECT type, name FROM entities WHERE user_id=? AND name IS NOT NULL AND redirect_to IS NULL",
                       (core.user_id,)):
         n = r["name"].strip()
-        if r["type"] in ("person", "org") and len(n) >= 3:
-            out.append((r["type"], n, True))
-            if r["type"] == "person" and len(n.split()) > 1 and len(n.split()[-1]) >= 4:
-                out.append(("surname", n.split()[-1], True))
-        elif len(n) >= 3 and re.search(r"[A-Z0-9]", n):   # a proper noun or a code (C521), not an everyday word
+        if r["type"] == "person":
+            if _full_name(n):
+                out.append(("person", n, True))
+                if len(n.split()[-1]) >= 4:
+                    out.append(("surname", n.split()[-1], True))
+        elif r["type"] == "org" and len(n) >= 3 and n.lower() not in GROUP_WORDS:
+            out.append(("org", n, True))
+        elif len(n) >= 3 and _code(n):
             out.append((r["type"], n, True))
     for r in core.all("SELECT a.alias FROM aliases a JOIN entities e ON e.id=a.entity_id WHERE e.user_id=? "
                       "AND e.type IN ('person', 'org')", (core.user_id,)):
-        if len(r["alias"]) >= 4:
+        if len(r["alias"]) >= 4 and len(r["alias"].split()) > 1:   # a nickname alone is a first name
             out.append(("alias", r["alias"], True))
     for r in core.all("SELECT type, value FROM identifiers WHERE user_id=?", (core.user_id,)):
         out.append((r["type"], r["value"], False))
@@ -78,9 +103,21 @@ def _known(core):
     return out
 
 
+STRUCTURAL = {"source", "ts", "kind", "has_my_ask", "strict", "format"}
+
+
+def _readable(x):
+    if isinstance(x, dict):
+        return {k: _readable(v) for k, v in x.items() if k not in STRUCTURAL}
+    if isinstance(x, list):
+        return [_readable(v) for v in x]
+    return x
+
+
 def leaks(core, case, private_text=None):
-    """Everything in an invented case that could identify the person or their world. [] when it's clean."""
-    text = _flat(case)
+    """Everything in an invented case that could identify the person or their world. [] when it's clean. Only what
+    a person would read is checked: a field like "source": "slack" names the channel, not anyone."""
+    text = _flat(_readable(case))
     low = text.lower()
     out = generic_leaks(case)
     seen = set()

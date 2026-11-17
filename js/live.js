@@ -781,6 +781,8 @@
     lessonAction: function (id, what) { return api('POST', '/lessons/' + id + '/' + what, {}); },
     evals: function () { return api('GET', '/evals'); },
     evalRun: function (id) { return api('GET', '/evals/' + id); },
+    startEval: function (surface, set) { return api('POST', '/evals/run', { surface: surface, set: set || 'all' }); },
+    stopEval: function (jobId) { return api('POST', '/evals/jobs/' + jobId + '/stop', {}); },
     saveSlots: function (n) { return api('PUT', '/slots', { slots: n }).then(function (r) { Store.setSlots(r.slots); return r; }); },
     engine: function () { return api('GET', '/engine?start=0'); },
     checkEngine: function () { return api('POST', '/engine/check', {}); },

@@ -336,6 +336,26 @@ def cmd_memory(a):
 
 
 def cmd_eval(a):
+    """A run the Evals page started (--job) records its own start and end, so the page can say what's running and
+    open the run when it's done."""
+    if not getattr(a, "job", None):
+        return _cmd_eval(a)
+    from . import eval_jobs
+    core = _core(a)
+    eval_jobs.began(core, a.job)
+    error = None
+    try:
+        return _cmd_eval(a)
+    except SystemExit:   # a run whose gate failed still recorded its run
+        raise
+    except Exception as e:
+        error = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        eval_jobs.finished(core, a.job, error)
+
+
+def _cmd_eval(a):
     """The golden set: load the seed cases, list cases, or score them (docs/self-improving.md)."""
     from . import evals
     core = _core(a)
@@ -743,6 +763,7 @@ def parser():
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
     s.add_argument("id", nargs="?", type=int, help="copy: the personal case; approve, reject: the proposed copy")
     s.add_argument("--force", action="store_true", help="approve: add it though its trap check failed")
+    s.add_argument("--job", type=int, help=argparse.SUPPRESS)   # started from the Evals page (eval_jobs.py)
     s.add_argument("--surface", default="extract", choices=["extract"])
     s.add_argument("--set", default="all", choices=["all", "global", "personal"],
                    help="global: the invented cases in the repo; personal: yours, from your corrections")

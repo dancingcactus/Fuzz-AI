@@ -70,6 +70,18 @@ class Copies(CoreCase):
             self.assertIn(what, found)
         self.assertIn("surname", found)
 
+    def test_first_names_groups_everyday_words_and_fields_are_not_leaks(self):
+        for typ, name in (("person", "Slack"), ("person", "Engineering Team"), ("person", "Weekly Newsletter"),
+                          ("term", "Retention"), ("term", "C521")):
+            self.core.q("INSERT INTO entities (user_id, type, name) VALUES (1, ?, ?)", (typ, name))
+        eid = self.core.one("SELECT id FROM entities WHERE name='Dana Whitfield'")["id"]
+        self.core.q("INSERT INTO aliases VALUES (?, 'dana')", (eid,))
+        case = {"input": {"source": "slack", "from": {"name": "Dana Lee"},
+                          "text": "The weekly team retention review moved. Dana says hi."}}
+        self.assertEqual(copies.leaks(self.core, case), [], "a first name, group words and everyday words are fine")
+        self.assertTrue(copies.leaks(self.core, {"input": {"text": "See ticket C521"}}), "a code is a leak")
+        self.assertTrue(copies.leaks(self.core, {"input": {"text": "Ask Ms Whitfield"}}), "a surname is a leak")
+
     def test_your_own_name_is_a_leak(self):
         leaky = json.loads(json.dumps(COPY))
         leaky["input"]["me"]["names"] = ["Justin"]

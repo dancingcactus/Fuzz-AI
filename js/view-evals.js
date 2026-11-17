@@ -21,18 +21,45 @@
     var p = [Live.evals()];
     if (runId) p.push(Live.evalRun(runId));
     Promise.all(p).then(function (r) { failed = null; list = r[0]; detail = r[1] || null; })
-      .catch(function (e) { failed = e.message; }).then(function () { if (root) paint(); });
+      .catch(function (e) { failed = e.message; }).then(function () { if (root) { paint(); poll(); } });
+  }
+
+  /* What a run costs, said on the button: the matcher needs no model; the rest take minutes of model calls */
+  var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes' };
+
+  function running(s) { return (list.jobs || []).filter(function (j) { return j.status === 'running' && (!s || j.surface === s); })[0]; }
+  function ago(ts) {
+    var s = Math.max(0, Math.round((Date.now() - Date.parse(ts)) / 1000));
+    return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's';
   }
 
   function latestHTML() {
-    var keys = Object.keys(list.latest || {});
-    if (!keys.length) return '';
-    return '<div class="ev-latest">' + ['extract', 'dupes', 'draft', 'executor'].filter(function (s) { return list.latest[s]; }).map(function (s) {
-      var r = list.latest[s];
-      return '<a class="ev-card" href="#/evals/' + r.id + '"><b>' + esc(NAME[s] || s) + '</b> ' + gate(r.gate) +
-        '<span class="meta">Global ' + esc(r.passing.global) + ' · Yours ' + esc(r.passing.personal) + '</span>' +
-        '<span class="meta">Run #' + r.id + ' · ' + esc(when(r.ts)) + '</span></a>';
+    return '<div class="ev-latest">' + ['extract', 'dupes', 'draft', 'executor'].map(function (s) {
+      var r = (list.latest || {})[s], job = running(s);
+      var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) : UI.pill('No runs yet', 'muted'));
+      var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + esc(r.passing.global) + ' · Yours ' + esc(r.passing.personal) +
+        ' · Run #' + r.id + ' · ' + esc(when(r.ts)) + '</a>' : '<span class="meta">' + esc(CMD[s]) + '</span>';
+      var act = job ? '<span class="meta ev-busy">Running for ' + ago(job.started_at) + '…</span>'
+        : '<button type="button" class="btn small" data-start="' + s + '" title="' + esc(COST[s]) + '">Run now</button><span class="meta">' + esc(COST[s]) + '</span>';
+      return '<div class="ev-card">' + head + body + '<div class="ev-act">' + act + '</div></div>';
     }).join('') + '</div>';
+  }
+
+  function jobsHTML() {
+    var jobs = list.jobs || [];
+    var live = jobs.filter(function (j) { return j.status === 'running'; });
+    var ended = jobs.filter(function (j) { return j.status !== 'running'; }).slice(0, 5);
+    if (!jobs.length) return '';
+    return '<section class="ev-jobs" aria-live="polite"><h2 class="ev-h">Started from here</h2><ul class="ev-joblist">' +
+      live.concat(ended).map(function (j) {
+        var tone = { running: 'accent', done: j.gate_ok === 0 ? 'danger' : 'ok', failed: 'danger', stopped: 'muted' }[j.status];
+        var label = { running: 'Running', done: j.gate_ok === 0 ? 'Done, gate failed' : 'Done', failed: 'Failed', stopped: 'Stopped' }[j.status];
+        return '<li class="ev-job">' + UI.pill(label, tone) + ' <b>' + esc(NAME[j.surface] || j.surface) + '</b> <span class="meta">' + esc(j.sets || 'all') +
+          ' · started ' + esc(when(j.started_at)) + (j.status === 'running' ? ' · ' + ago(j.started_at) : '') + '</span>' +
+          (j.status === 'running' ? ' <button type="button" class="btn small" data-stop="' + j.id + '">Stop</button>' : '') +
+          (j.run_id ? ' <a href="#/evals/' + j.run_id + '">Run #' + j.run_id + '</a>' : '') +
+          (j.status === 'failed' ? '<details data-k="job' + j.id + '"><summary class="meta">' + esc(j.error || 'Why') + '</summary>' + pre(j.log_tail || '(no log)') + '</details>' : '') + '</li>';
+      }).join('') + '</ul></section>';
   }
 
   function runsHTML() {
@@ -92,22 +119,52 @@
       (c.stripped ? '<p class="meta">Its replies are gone: they expire with your cases after 90 days.</p>'
         : (c.replies || []).map(function (x, i) { return '<h4>Repeat ' + (i + 1) + ': ' + (x.passed ? 'passed' : 'failed') + '</h4>' + pre(x); }).join('')) +
       '<p class="meta">Fingerprint ' + esc(c.fp || '–') + '</p>';
-    return '<li class="ev-case"><details><summary>' + UI.pill(c.passed ? 'Pass' : 'Fail', c.passed ? 'ok' : 'danger') + ' ' +
+    return '<li class="ev-case"><details data-k="' + esc(c.key) + '"><summary>' + UI.pill(c.passed ? 'Pass' : 'Fail', c.passed ? 'ok' : 'danger') + ' ' +
       '<b>' + esc(c.origin) + '</b> <span class="meta">' + esc(c.set === 'global' ? 'global' : 'yours') + ' · ' + esc(c.kind) + ' · ' + esc(c.score) + '</span>' +
       (ch ? ' ' + UI.pill(ch[0], ch[1]) : '') + '</summary>' + body + '</details></li>';
   }
 
   function paint() {
-    var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one from the terminal: ' +
-      'fuzz eval run, dupes, drafts or executor. What’s yours stays on this machine.</p></div>';
+    var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
+      'or from the terminal (fuzz eval run, dupes, drafts or executor). Times are UTC. What’s yours stays on this machine.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
     if (!list) { root.innerHTML = head + '<p class="lempty">Loading runs…</p>'; return; }
-    if (!list.runs.length) { root.innerHTML = head + '<p class="lempty">No runs yet. Try fuzz eval run in the terminal.</p>'; return; }
-    root.innerHTML = head + latestHTML() + detailHTML() + '<h2 class="ev-h">Every run</h2>' + runsHTML();
+    /* a <details> you opened stays open across the refresh while something runs */
+    var opened = [].map.call(root.querySelectorAll('details[open]'), function (d) { return d.dataset.k; });
+    root.innerHTML = head + latestHTML() + (said ? '<p class="meta ev-said" role="status">' + esc(said) + '</p>' : '') + jobsHTML() +
+      detailHTML() + '<h2 class="ev-h">Every run</h2>' + (list.runs.length ? runsHTML() : '<p class="lempty">No runs yet.</p>');
+    opened.forEach(function (k) { var d = root.querySelector('details[data-k="' + k + '"]'); if (d) d.open = true; });
+  }
+
+  /* While anything runs, look again every few seconds; a run that just finished opens, unless you've opened one */
+  var said = '', timer = 0, wasRunning = {};
+  function poll() {
+    clearTimeout(timer);
+    var jobs = (list && list.jobs) || [];
+    jobs.forEach(function (j) {
+      if (wasRunning[j.id] && j.status !== 'running') {
+        said = (NAME[j.surface] || j.surface) + (j.status === 'done' ? ' finished.' : j.status === 'stopped' ? ' stopped.' : ' failed.');
+        if (j.run_id && !runId) { delete wasRunning[j.id]; return open(j.run_id); }
+      }
+      if (j.status === 'running') wasRunning[j.id] = true; else delete wasRunning[j.id];
+    });
+    if (jobs.some(function (j) { return j.status === 'running'; })) timer = setTimeout(function () { if (root) load(); }, 4000);
+  }
+  function start(surface) {
+    said = 'Starting ' + NAME[surface] + '…'; paint();
+    Live.startEval(surface, 'all').then(function () { said = NAME[surface] + ' is running. This page updates when it’s done.'; load(); },
+      function (e) { said = 'It didn’t start: ' + e.message; paint(); });
+  }
+  function stop(id) {
+    Live.stopEval(id).then(load, function (e) { said = 'It didn’t stop: ' + e.message; paint(); });
   }
 
   function open(id) { location.hash = '#/evals/' + id; }
   function onClick(e) {
+    var go = e.target.closest('[data-start]');
+    if (go) { go.disabled = true; return start(go.dataset.start); }
+    var st = e.target.closest('[data-stop]');
+    if (st) { st.disabled = true; return stop(+st.dataset.stop); }
     var s = e.target.closest('[data-surface]');
     if (s) { surface = s.dataset.surface; return paint(); }
     var row = e.target.closest('[data-run]');
@@ -129,6 +186,7 @@
     paint(); load();
   };
   V.unmount = function () {
+    clearTimeout(timer);
     if (root) { root.removeEventListener('click', onClick); root.removeEventListener('keydown', onKey); root.removeEventListener('change', onChange); }
     root = null;
   };
