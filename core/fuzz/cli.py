@@ -359,6 +359,17 @@ def cmd_eval(a):
         if not run["gate_ok"]:
             sys.exit(1)
         return
+    if a.op in ("copy", "copies", "approve", "reject"):   # a real case's invented copy, on its way to the repo
+        from . import copies
+        if a.op == "copies":
+            return _print(copies.proposed(core))
+        if not a.id:
+            raise FuzzError(f"which case? pass its id: fuzz eval {a.op} <id>", "id")
+        if a.op == "copy":
+            return _print(copies.invent(core, a.id, repeats=a.repeats, client=a.client, model=a.model))
+        if a.op == "approve":
+            return _print(copies.approve(core, a.id, force_trap=a.force))
+        return _print(copies.reject(core, a.id))
     if a.op == "spots":   # what you said on "How did Fuzz do on this?": labels for invented executor cases
         from . import spotcheck
         return _print(spotcheck.run_labels(core))
@@ -701,7 +712,10 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes"])
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes",
+                                  "copy", "copies", "approve", "reject"])
+    s.add_argument("id", nargs="?", type=int, help="copy: the personal case; approve, reject: the proposed copy")
+    s.add_argument("--force", action="store_true", help="approve: add it though its trap check failed")
     s.add_argument("--surface", default="extract", choices=["extract"])
     s.add_argument("--set", default="all", choices=["all", "global", "personal"],
                    help="global: the invented cases in the repo; personal: yours, from your corrections")

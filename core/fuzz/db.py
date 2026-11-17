@@ -477,13 +477,14 @@ CREATE TABLE IF NOT EXISTS eval_cases (
   withdrawn INTEGER NOT NULL DEFAULT 0,   -- its label was taken back (Undo, a newer label), not just expired
   offers INTEGER NOT NULL DEFAULT 0,   -- how many executor runs were asked for its text
   offered_at TEXT,
-  status TEXT NOT NULL,            -- pending (waiting for its full text) | active | retired
+  status TEXT NOT NULL,            -- pending (waiting for its full text) | unconfirmed | active | retired | proposed (a copy)
   created_at TEXT NOT NULL,
   fetched_at TEXT,
   expires_at TEXT,
   note TEXT,
   scope TEXT NOT NULL DEFAULT 'personal',   -- personal (yours, never leaves the store) | global (an invented
                                             -- copy waiting for your yes before it's committed to the repo)
+  checks TEXT,                     -- an invented copy's trap and leak checks (copies.py) (JSON)
   UNIQUE (user_id, origin)
 );
 CREATE TABLE IF NOT EXISTS lessons (   -- what Fuzz learned from your corrections (learning/); projected
@@ -573,7 +574,7 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
               # the first eval tables went out without these (2026-11-11)
               "eval_cases": [("signal_key", "TEXT"), ("offers", "INTEGER NOT NULL DEFAULT 0"), ("offered_at", "TEXT"),
                              ("quote", "TEXT"), ("withdrawn", "INTEGER NOT NULL DEFAULT 0"),
-                             ("scope", "TEXT NOT NULL DEFAULT 'personal'")],
+                             ("scope", "TEXT NOT NULL DEFAULT 'personal'"), ("checks", "TEXT")],
               "eval_runs": [("against", "INTEGER"), ("gate_ok", "INTEGER NOT NULL DEFAULT 1"), ("sets", "TEXT"),
                             ("seeds_commit", "TEXT"), ("seconds", "REAL"), ("stripped", "INTEGER NOT NULL DEFAULT 0"),
                             ("meta", "TEXT")]}
