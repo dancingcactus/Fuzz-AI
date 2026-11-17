@@ -403,6 +403,16 @@ CREATE TABLE IF NOT EXISTS memory_files (   -- Knowledge/ files, which belong to
   updated_at TEXT,
   UNIQUE (user_id, path)
 );
+CREATE TABLE IF NOT EXISTS fact_judgments (     -- the extractor's word on whether two values say the same thing;
+  user_id INTEGER NOT NULL,                       -- keyed by value, not fact, so it holds wherever the pair recurs.
+  attr TEXT NOT NULL,                             -- Not events: losing one only means asking the model again.
+  a TEXT NOT NULL,                 -- the two values' gists (facts._gist), a < b
+  b TEXT NOT NULL,
+  same INTEGER NOT NULL,           -- 1 the same claim, 0 a real disagreement
+  reason TEXT,
+  judged_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, attr, a, b)
+);
 CREATE TABLE IF NOT EXISTS fact_views (     -- when a fact was shown to you, for exposure (rule 6); not events
   user_id INTEGER NOT NULL,
   fact_id INTEGER NOT NULL,

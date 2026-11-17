@@ -18,7 +18,7 @@ EXECUTOR = {"whoami", "claim_next_task", "get_task", "read_source", "add_source"
             "release", "list_deliverables", "report_deliverable_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why",
             "search_memory"}
 EXTRACTOR = {"whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
-             "submit_facts", "submit_knowledge"}
+             "submit_facts", "submit_knowledge", "get_fact_pairs", "judge_fact_pairs"}
 RECALL = {"whoami", "who_is", "what_is", "why", "search_memory", "correct"}
 ASK = RECALL - {"correct"} | {"answer_ask"}
 

@@ -130,6 +130,11 @@ async def _extractor(core, signals, say):
         if extra.get("knowledge"):
             out["knowledge"] = await _call(c, "submit_knowledge", {"items": extra["knowledge"]})
             say(f"Summarised {len(extra['knowledge'])}: {out['knowledge']}")
+        pairs = (await _call(c, "get_fact_pairs"))["pairs"]
+        if pairs:   # a script can't read meaning: anything that got this far is a real disagreement
+            items = [{"pair": p["pair"], "same": False, "reason": "scripted: the values differ"} for p in pairs]
+            out["fact_pairs"] = await _call(c, "judge_fact_pairs", {"items": items})
+            say(f"Judged {len(pairs)} fact pairs: {out['fact_pairs']}")
     return out
 
 

@@ -489,6 +489,21 @@ def submit_facts(core, facts_):
     return out
 
 
+def get_fact_pairs(core):
+    from .memory import facts
+    return {"pairs": facts.unjudged(core)}
+
+
+def judge_fact_pairs(core, items):
+    from .memory import facts
+    if not isinstance(items, list) or len(items) > 200:
+        raise FuzzError("items is a list of up to 200 {pair, same: true|false, reason?}", "items")
+    with core.tx("fuzz:extractor"):
+        out = facts.record_judgments(core, items)
+    _memory_cards(core)
+    return out
+
+
 def submit_knowledge(core, items):
     from .memory import extract
     signals.check_knowledge(items)
@@ -588,7 +603,7 @@ def report_calendar(core, slots, holds=None):
         raise FuzzError("holds is a list of {event_id, start?, end?, cancelled?}", "holds")
     return booking.report(core, slots, holds)
 EXTRACTOR = ("whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
-             "submit_facts", "submit_knowledge")
+             "submit_facts", "submit_knowledge", "get_fact_pairs", "judge_fact_pairs")
 SENDER = ("whoami", "claim_next_send", "mark_sent", "send_failed")
 SESSION = ("get_task", "read_source", "log_progress", "set_next_step", "add_source", "end_session")
 RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "correct")
