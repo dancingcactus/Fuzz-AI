@@ -90,6 +90,25 @@ class Harness(CoreCase):
             {"arg_lacks": {"tool": "save_draft", "field": "body", "any": ["friday"]}}]))
         self.assertEqual(list(verdict.values()), [True, True, True, False, True, True])
 
+    def test_a_task_from_a_message_can_be_replied_to_in_its_thread(self):
+        case = CASES["seed:reads-before-drafting"]
+        replies = []
+
+        def model(p):
+            done = p.split("Your calls so far, and what each returned:\n", 1)[1]
+            if done.startswith("(none yet)"):
+                return json.dumps({"tool": "get_task", "args": {}})
+            if not replies:
+                task = json.loads(done.split("-> ", 1)[1].split("\n", 1)[0])
+                sid = task["sources"][0]["id"]
+                replies.append(sid)
+                return json.dumps({"tool": "save_draft", "args": {"kind": "email.reply", "target": "Marco Ruiz",
+                                                                  "reply_to": sid, "body": "See you Thursday at 2pm."}})
+            return '{"done": true}'
+        record = ee.play(case, "skill", model)
+        self.assertNotIn("error", record[-1]["result"], record[-1]["result"])
+        self.assertEqual(record[-1]["tool"], "save_draft")
+
     def test_every_case_runs_at_its_own_now(self):
         for c in CASES.values():
             self.assertIn("now", c["input"], c["key"])

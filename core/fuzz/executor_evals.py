@@ -98,7 +98,7 @@ def _store(case, clock=None):
     config_mod.save(home, cfg)
     core = Core(home, 1, clock=clock)
     t = case["input"]["task"]
-    tid = tasks.capture(core, t["title"])
+    tid = _from_message(core, case, t) if t.get("from_message") else tasks.capture(core, t["title"])
     for title, link in (t.get("links") or {}).items():
         with core.tx("human"):
             tasks._link_source(core, tid, title, link, None)
@@ -109,6 +109,21 @@ def _store(case, clock=None):
         shutil.rmtree(home, ignore_errors=True)
         raise FuzzError(f"the case's task couldn't be claimed: {why}", "case")
     return home, core, tid
+
+
+def _person(s):
+    m = re.match(r"\s*(.*?)\s*<([^>]+)>", s or "")
+    return {"name": m.group(1), "email": m.group(2)} if m else {"name": s}
+
+
+def _from_message(core, case, t):
+    """The task as extraction would have made it from one of the world's messages, so that message is the task's
+    source: a reply's reply_to needs one."""
+    m = next(x for x in case["input"]["world"]["mail"] if x["id"] == t["from_message"])
+    tools.submit_signals(core, [{"source": "email", "source_id": m["id"], "anchor": f"email:{m['id']}",
+                                 "ts": f"{m['date']}T08:00:00Z", "title": m["subject"], "from": _person(m["from"]),
+                                 "quote": m["text"][:600], "candidates": [{"ask": t["title"], "owner": "me"}]}])
+    return core.one("SELECT id FROM tasks WHERE user_id=? ORDER BY id DESC LIMIT 1", (core.user_id,))["id"]
 
 
 def fuzz_call(core, tid, name, args):

@@ -26,7 +26,7 @@
       "why": "The time of the review is in the invite: it looks before it drafts, and puts that time in the reply",
       "input": {
         "now": "2026-10-20T09:00:00Z",
-        "task": {"title": "Reply to Marco confirming the design review"},
+        "task": {"title": "Reply to Marco confirming the design review", "from_message": "m1"},
         "world": {
           "mail": [{"id": "m1", "from": "Marco Ruiz <marco@acme.example>", "subject": "Design review", "date": "2026-10-19",
                     "text": "Can you make the design review? Let me know and I'll send the deck."}],
@@ -68,7 +68,7 @@
       "why": "The answer is in the person's own mail: it drafts with it instead of asking them",
       "input": {
         "now": "2026-10-20T09:00:00Z",
-        "task": {"title": "Tell Priya when the offsite is"},
+        "task": {"title": "Tell Priya when the offsite is", "from_message": "m1"},
         "world": {
           "mail": [
             {"id": "m1", "from": "Priya Shah <priya@acme.example>", "subject": "Offsite?", "date": "2026-10-19",

@@ -40,7 +40,13 @@ unchanged or made flaky, with a sign test once anything moved. A run exits 1 whe
    question below), and a test that no committed case holds a real-looking address or link.
 7. **Draft scoring and the draft-style learner** (`draft_evals.py`, `learning/learners/drafts.py`,
    executor-0.22 reads `draft_lessons`).
-8. **Executor harness** (`executor_evals.py`) and four global cases (`eval_seeds/executor.json`).
+8. **Executor harness** (`executor_evals.py`) and four global cases (`eval_seeds/executor.json`). Each case
+   runs at its own "now", and a task can come from one of the world's messages (`from_message`) so a reply has
+   a thread.
+
+First live runs on Copilot, 2026-11-17, on a copy of the store: extraction global 9 of 9 at 3/3 and the one
+personal case 1/3; executor 4 of 4 at 2/2; global draft rules 3 of 3; the matcher as in item 5. The drafts
+so far are all prep notes, so there's no sent draft to score yet.
 
 ## Goal
 
