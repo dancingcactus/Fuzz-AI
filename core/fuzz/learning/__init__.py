@@ -18,11 +18,15 @@ from .. import events
 CAP = 30   # the newest lessons a prompt carries
 
 
-def render(lessons):
+def render(lessons, surface="extract"):
     """The lessons as a prompt section, or "" when there are none. Examples are quoted data: their titles and
     quotes come from messages, which are untrusted."""
     if not lessons:
         return ""
+    if surface == "draft":   # style rules from the drafts you edited before sending (learners/drafts.py)
+        return ("## How this person writes\n\n"
+                "Learned from the drafts they edited before sending. Follow these when you write a draft:\n\n"
+                + "\n".join(f"- {x['rule']}" for x in lessons) + "\n")
     lines = []
     for x in lessons:
         ex = x.get("example")
@@ -50,7 +54,7 @@ def leave_out(lessons, case_id):
 
 
 def prompt_section(core, surface):
-    return render(lessons_for(core, surface))
+    return render(lessons_for(core, surface), surface)
 
 
 # ---- the store
@@ -135,6 +139,14 @@ def run(core):
                 back = "active" if row["confirmed_at"] or d["status"] == "active" else "proposed"
                 _set(core, row["id"], "lesson.restored", "system", status=back)
                 out["restored"] += 1
+            elif row["status"] in ("proposed", "active"):
+                # the evidence grew: an inferred lesson can go live (never back), and its wording follows the counts
+                promote = row["status"] == "proposed" and d["status"] == "active" and row["how"] == "inferred"
+                if promote or row["rule"] != d["rule"]:
+                    _set(core, row["id"], "lesson.updated", "system", rule=d["rule"],
+                         **({"status": "active"} if promote else {}),
+                         **({"example": d["example"]} if d.get("example") is not None else {}))
+                    out["updated"] = out.get("updated", 0) + 1
         for key, row in have.items():
             if key.startswith(learner.prefix) and key not in want and row["status"] in ("proposed", "active"):
                 _set(core, row["id"], "lesson.retired", "system", status="retired")

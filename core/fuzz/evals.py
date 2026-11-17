@@ -40,6 +40,9 @@ FETCH_ALONE_AFTER = timedelta(days=1)   # a case waiting this long starts an exe
 MAX_OFFERS = 3           # runs asked for a message's text before its case is given up
 MESSAGE_FIELDS = ("source", "ts", "link", "title", "from", "people", "channel")
 FORMATS = {1}            # the global case file shapes this harness reads
+# a case's kind, by surface: extraction's keep or skip; a draft's reference (what you sent) or rules (global);
+# an executor case's behaviour to check
+KINDS = {"extract": ("keep", "skip"), "draft": ("reference", "rules"), "executor": ("behaviour",)}
 SETS = ("all", "global", "personal")
 
 
@@ -53,8 +56,8 @@ def fingerprint(input, expected):
 
 def add_case(core, surface, kind, msg, expected, origin, status="active", expires_at=None, note=None,
              signal_key=None, quote=None, scope="personal"):
-    if kind not in ("keep", "skip"):
-        raise FuzzError("kind must be keep or skip", "kind")
+    if kind not in KINDS.get(surface, ()):
+        raise FuzzError(f"a {surface} case's kind is one of {', '.join(KINDS.get(surface, ()))}", "kind")
     now = core.now_iso()
     core.q("INSERT INTO eval_cases (user_id, surface, kind, input, expected, origin, signal_key, quote, status, "
            "created_at, fetched_at, expires_at, note, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "

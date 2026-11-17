@@ -352,6 +352,23 @@ def cmd_eval(a):
         if not run:
             raise FuzzError("no such eval run", "run")
         return _print(run)
+    if a.op == "drafts":   # how close drafts are to what you sent
+        from . import draft_evals
+        if a.history:   # the drafts Fuzz already wrote; the model only judges
+            return _print(draft_evals.score_history(core, client=a.client, model=a.model))
+        draft_evals.collect(core)
+
+        def lessons_file(path):
+            if not path:
+                return None
+            with open(path) as f:
+                return json.load(f)
+        run = draft_evals.run(core, sets=a.set, lessons=lessons_file(a.lessons), repeats=a.repeats or 1,
+                              client=a.client, model=a.model, against=a.against, ref=a.base_ref)
+        _print(evals.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op == "dupes":   # the duplicate matcher's replay: no model, labelled pairs, a threshold sweep
         from .matching import replay
         run = replay.run(core, sets=a.set, against=a.against)
@@ -366,7 +383,7 @@ def cmd_eval(a):
         if not a.id:
             raise FuzzError(f"which case? pass its id: fuzz eval {a.op} <id>", "id")
         if a.op == "copy":
-            return _print(copies.invent(core, a.id, repeats=a.repeats, client=a.client, model=a.model))
+            return _print(copies.invent(core, a.id, repeats=a.repeats or 3, client=a.client, model=a.model))
         if a.op == "approve":
             return _print(copies.approve(core, a.id, force_trap=a.force))
         return _print(copies.reject(core, a.id))
@@ -385,11 +402,11 @@ def cmd_eval(a):
         new = {"lessons": lessons_from(a.lessons), "installed": a.installed}
         if not (a.base_ref or a.base_installed or a.base_lessons or a.base_model):
             base["ref"] = "HEAD"   # the committed skill against the working tree's
-        old, run = evals.head_to_head(core, a.surface, base, new, repeats=a.repeats, client=a.client,
+        old, run = evals.head_to_head(core, a.surface, base, new, repeats=a.repeats or 3, client=a.client,
                                       model=a.model, sets=a.set)
         _print(dict(evals.summary(core, run), base_run=old["id"]))
     else:
-        run = evals.run(core, a.surface, lessons=lessons_from(a.lessons), repeats=a.repeats, installed=a.installed,
+        run = evals.run(core, a.surface, lessons=lessons_from(a.lessons), repeats=a.repeats or 3, installed=a.installed,
                         client=a.client, model=a.model, against=a.against, trying=a.trying, sets=a.set)
         _print(evals.summary(core, run))
     if not run["gate_ok"]:
@@ -712,8 +729,10 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes",
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "drafts",
                                   "copy", "copies", "approve", "reject"])
+    s.add_argument("--history", action="store_true",
+                   help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
     s.add_argument("id", nargs="?", type=int, help="copy: the personal case; approve, reject: the proposed copy")
     s.add_argument("--force", action="store_true", help="approve: add it though its trap check failed")
     s.add_argument("--surface", default="extract", choices=["extract"])
@@ -724,7 +743,7 @@ def parser():
     s.add_argument("--base-lessons", help="compare: a JSON file of lessons for the base (default: the active ones)")
     s.add_argument("--base-model", help="compare: a different model for the base")
     s.add_argument("--status", default="active", choices=["active", "pending", "retired"], help="cases: which ones")
-    s.add_argument("--repeats", type=int, default=3, help="run: how many times each case runs")
+    s.add_argument("--repeats", type=int, default=None, help="run: how many times each case runs (3; drafts 1)")
     s.add_argument("--lessons", help="run: a JSON file of lessons to score with (default: the active ones)")
     s.add_argument("--try", dest="trying", type=int, help="run: score the active lessons plus this one; only it takes the result")
     s.add_argument("--installed", action="store_true", help="run: score the installed skill, not the repo's")

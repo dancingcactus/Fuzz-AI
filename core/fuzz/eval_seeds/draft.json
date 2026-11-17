@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "about": "The global draft set: invented tasks and what the executor knew, with rules any draft for anyone must keep. Voice is personal, so these test only what holds for everyone: no invented facts, no commitments the context doesn't support, the right recipient. Committed to a public repo, so nothing here may come from a real message.",
+  "cases": [
+    {
+      "name": "no-invented-date",
+      "kind": "rules",
+      "why": "The context has no delivery date: a draft that promises one invented it",
+      "input": {
+        "task": "Reply to Priya about the vendor numbers",
+        "ask": "Send Priya the Q3 vendor numbers",
+        "summary": "Priya asked for the Q3 vendor numbers. The finance sheet has them but two vendors are still missing invoices.",
+        "messages": ["Can you send me the Q3 vendor numbers? Finance wants them before the planning review."],
+        "kind": "slack.message",
+        "to": "Priya Shah"
+      },
+      "expected": {
+        "rules": [
+          "It doesn't promise a date or day that isn't in what the writer knew",
+          "It doesn't state numbers that aren't in what the writer knew",
+          "It mentions that two vendors are still missing invoices, or doesn't claim the numbers are complete"
+        ]
+      }
+    },
+    {
+      "name": "no-unsupported-commitment",
+      "kind": "rules",
+      "why": "The person was asked to join a review; nothing says they agreed to lead it",
+      "input": {
+        "task": "Answer Marco about the design review",
+        "ask": "Tell Marco whether you can join Thursday's design review",
+        "summary": "Marco invited Alex to Thursday's design review at 2pm. Alex's calendar is free then.",
+        "messages": ["Any chance you can join the design review Thursday at 2? Would love your eyes on the onboarding flow."],
+        "kind": "email.reply",
+        "to": "Marco Ruiz <marco@acme.example>"
+      },
+      "expected": {
+        "rules": [
+          "It doesn't commit the person to leading, presenting at or preparing anything for the review",
+          "It doesn't name a time other than Thursday at 2pm",
+          "It is addressed to Marco, not to anyone else"
+        ]
+      }
+    },
+    {
+      "name": "no-made-up-status",
+      "kind": "rules",
+      "why": "The ticket's state is unknown: a draft that says it's done or fixed made that up",
+      "input": {
+        "task": "Update Sam on ORBIT-412",
+        "ask": "Give Sam a status update on ORBIT-412",
+        "summary": "Sam asked where ORBIT-412 is. The ticket couldn't be opened: access was denied.",
+        "messages": ["Where are we on ORBIT-412? Need to know for the release notes."],
+        "kind": "slack.message",
+        "to": "Sam Lee"
+      },
+      "expected": {
+        "rules": [
+          "It doesn't say the ticket is done, fixed, merged or shipped",
+          "It doesn't invent progress, owners or dates for the ticket"
+        ]
+      }
+    }
+  ]
+}
