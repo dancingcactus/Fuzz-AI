@@ -9,9 +9,15 @@
 
   function clip(s, n) { s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function where(file, line) { return file ? ' (' + String(file).replace(location.origin, '') + (line ? ':' + line : '') + ')' : ''; }
+  /* No secrets or data in a public issue: URLs lose their query (/files/7?token=… is how artifacts load), tokens and
+     bearer headers are blanked */
+  function scrub(s) {
+    return String(s).replace(/([\w.:\/-]*\/[\w.%\/-]*)\?[^\s'"`)]*/g, '$1?…')
+      .replace(/(token=)[^&\s'"`]+/gi, '$1…').replace(/(bearer\s+)\S+/gi, '$1…');
+  }
   function keep(msg) {
     var t = new Date().toTimeString().slice(0, 8);
-    errors.push(t + ' ' + clip(msg, 220));
+    errors.push(t + ' ' + clip(scrub(msg), 220));
     if (errors.length > MAX_ERRORS) errors.shift();
   }
   window.addEventListener('error', function (e) {
@@ -23,16 +29,19 @@
   });
   var cerr = console.error;
   console.error = function () {
-    try { keep('console: ' + Array.prototype.map.call(arguments, function (a) { return a && a.message ? a.message : typeof a === 'object' ? JSON.stringify(a) : a; }).join(' ')); } catch (x) { /* ignore */ }
+    try { keep('console: ' + Array.prototype.map.call(arguments, function (a) { return a && a.message ? a.message : a && typeof a === 'object' ? '{…}' : a; }).join(' ')); } catch (x) { /* ignore */ }
     return cerr.apply(console, arguments);
   };
 
   /* /version is only there under `fuzz serve`; the static demo shows "not served". Kept fresh on hover/focus so the
      click itself can open the tab right away (a popup opened after an await gets blocked). */
+  var stale = false;   /* `fuzz serve` answers /health but not /version: its Python predates this page's JS */
   function refresh() {
     if (location.protocol === 'file:' || fetching) return;
-    fetching = fetch('/version', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (v) { version = v; }, function () { version = null; })
+    fetching = fetch('/version', { cache: 'no-store' }).then(function (r) {
+      if (r.ok) return r.json();
+      return fetch('/health', { cache: 'no-store' }).then(function (h) { return h.ok && h.json(); }).then(function (h) { stale = !!(h && h.ok); return null; });
+    }).then(function (v) { version = v; }, function () { version = null; })
       .then(function () { fetching = null; });
   }
 
@@ -42,7 +51,7 @@
   }
   function gitLine(g) { return g && g.commit ? '`' + g.commit + '` (' + g.branch + (g.dirty ? ', uncommitted edits' : '') + ')' : 'not a git checkout'; }
   function versionLine() {
-    if (!version) return 'not served by `fuzz serve` (static or file page)';
+    if (!version) return stale ? 'server predates /version (restart serve to see commits)' : 'not served by `fuzz serve` (static or file page)';
     var s = version.version + ' · tree ' + gitLine(version.tree) + ' · server ' + (version.server && version.server.commit ? '`' + version.server.commit + '`' : '?') + ' started ' + ago(version.started);
     if (version.server && version.tree && version.server.commit && version.server.commit !== version.tree.commit) s += ' · **server is behind the tree (restart serve)**';
     return s;
@@ -52,7 +61,7 @@
     var h = (window.App && App.here && App.here()) || { name: '?', arg: null, params: {} };
     var keys = Object.keys(h.params || {});
     var route = '#/' + h.name + (h.arg ? '/' + h.arg : '') + (keys.length ? '?' + keys.join('&') : '');
-    var title = document.title.replace(/ · Fuzz$/, '');
+    var title = (window.App && App.viewTitle && App.viewTitle()) || h.name;   /* the route's name, never a page's own title */
     var live = !!(window.Live && Live.on && Live.on());
     var data = [live ? 'Live' : 'Demo'];
     try {

@@ -56,6 +56,8 @@
     },
     /* Where you are: the route, its id (#/work/<id>) and its query (?until=13:30&what=…) */
     here: function () { return here; },
+    /* The route's name (Lineup, My work…) for the feedback button: never a task's or file's title */
+    viewTitle: function () { return currentName && ROUTES[currentName] ? titleFor(currentName).replace(/ · Fuzz$/, '') : null; },
     paintLabel: function () { paintLabel(); },
     fmtUntil: function (s) { return fmtUntil(s); },
     resetDemo: function () {
