@@ -523,6 +523,20 @@ CREATE TABLE IF NOT EXISTS eval_runs (
   stripped INTEGER NOT NULL DEFAULT 0,  -- its replies on personal cases are gone (past KEEP_DAYS)
   meta TEXT                        -- what else a surface keeps (the matcher's threshold sweep) (JSON)
 );
+CREATE TABLE IF NOT EXISTS eval_jobs (   -- eval runs started from the Evals page (eval_jobs.py)
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  surface TEXT NOT NULL,
+  sets TEXT,
+  status TEXT NOT NULL,            -- running | done | failed | stopped
+  pid INTEGER,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  after_run INTEGER,               -- the newest eval run when it began: the one it made comes after
+  run_id INTEGER,
+  gate_ok INTEGER,
+  error TEXT
+);
 """
 
 JSON_COLS = {"quick_answers", "variant_tags", "schedule_anchor", "schedule_hints", "title_history",

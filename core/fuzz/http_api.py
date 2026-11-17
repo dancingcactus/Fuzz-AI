@@ -160,6 +160,8 @@ class App:
             ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
             ("GET", r"/evals", self.list_eval_runs),
             ("GET", r"/evals/(\d+)", self.get_eval_run),
+            ("POST", r"/evals/run", self.start_eval_run),
+            ("POST", r"/evals/jobs/(\d+)/stop", self.stop_eval_job),
             ("GET", r"/deliverables", self.list_deliverables),
             ("POST", r"/deliverables", self.create_deliverable),
             ("GET", r"/deliverables/(\d+)", self.get_deliverable),
@@ -494,8 +496,20 @@ class App:
 
     def list_eval_runs(self, core, m, body, q):
         from . import evals
+        from . import eval_jobs
         limit = q.get("limit") or "100"
-        return evals.run_list(core, limit=int(limit) if str(limit).isdigit() else 100)
+        return dict(evals.run_list(core, limit=int(limit) if str(limit).isdigit() else 100),
+                    jobs=eval_jobs.listing(core))
+
+    def start_eval_run(self, core, m, body, q):
+        """Start one eval in the background (the Evals page's Run button). It costs model calls, so only on a POST."""
+        from . import eval_jobs
+        body = body or {}
+        return eval_jobs.start(core, body.get("surface"), body.get("set") or "all")
+
+    def stop_eval_job(self, core, m, body, q):
+        from . import eval_jobs
+        return eval_jobs.stop(core, int(m.group(1)))
 
     def get_eval_run(self, core, m, body, q):
         from . import evals

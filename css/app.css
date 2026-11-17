@@ -1263,3 +1263,9 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ev-case summary { cursor: pointer; padding: 6px 0; overflow-wrap: anywhere; }
 .ev-pre { margin: 4px 0; padding: 10px; background: var(--field); border-radius: 8px; font-family: var(--font-code); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
 .ev-card .pill { justify-self: start; }
+.ev-card .ev-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.ev-busy { color: var(--accent); }
+.ev-said { margin: 0 0 12px; }
+.ev-joblist { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+.ev-job { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ev-job details { flex-basis: 100%; }
