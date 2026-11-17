@@ -597,3 +597,52 @@ class Prompt(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DebugPage(CoreCase):
+    """GET /evals and /evals/<id>: the debugging page's view of the runs (js/view-evals.js)."""
+
+    def test_the_list_has_every_run_and_the_newest_of_each_surface(self):
+        a = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        b = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        got = evals.run_list(self.core)
+        self.assertEqual([r["id"] for r in got["runs"]], [b["id"], a["id"]])
+        self.assertEqual(got["latest"]["extract"]["id"], b["id"])
+        self.assertEqual((got["runs"][0]["gate"], got["runs"][0]["passing"]["global"]),
+                         ("fail", f"{len(SEEDS) - 1} of {len(SEEDS)}"))
+
+    def test_a_run_in_full_says_what_changed_per_case(self):
+        evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        b = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        d = evals.run_detail(self.core, b["id"])
+        self.assertEqual(d["changed"]["broke"], 1)
+        broke = [c for c in d["cases"] if c["change"] == "broke"]
+        self.assertEqual([c["origin"] for c in broke], ["seed:dm-direct-ask"])
+        self.assertTrue(broke[0]["replies"])
+        self.assertIsNone(evals.run_detail(self.core, 999))
+
+    def test_over_http(self):
+        import threading
+        from fuzz import http_api
+        srv = http_api.make_server(self.home, port=0, clock=self.clock, ticker=False)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        token = http_api.ensure_token(self.home, 1)
+        run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        import urllib.error
+        import urllib.request
+
+        def get(path):
+            r = urllib.request.Request(f"http://127.0.0.1:{srv.server_address[1]}{path}")
+            r.add_header("Authorization", f"Bearer {token}")
+            try:
+                with urllib.request.urlopen(r, timeout=10) as resp:
+                    return resp.status, json.loads(resp.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read())
+        status, body = get("/evals")
+        self.assertEqual((status, body["runs"][0]["id"]), (200, run["id"]))
+        status, body = get(f"/evals/{run['id']}")
+        self.assertEqual((status, len(body["cases"])), (200, len(SEEDS)))
+        self.assertEqual(get("/evals/999")[0], 404)

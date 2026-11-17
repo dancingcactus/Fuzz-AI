@@ -13,7 +13,9 @@
     artifacts: { view: window.ArtifactsView, title: 'Artifacts' },
     capture: { view: window.CaptureView, title: 'New task' },
     welcome: { view: window.Onboard.view, title: 'Welcome' },
-    settings: { view: window.SettingsView, title: 'Settings' }
+    settings: { view: window.SettingsView, title: 'Settings' },
+    /* a debugging page, not in the menu: Settings, What I've learned, links to it */
+    evals: { view: window.EvalsView, title: 'Evals' }
   };
   /* Memory's inspector is a developer tool, like the mood lab: only with ?lab, and not in the nav */
   if (window.Memory && Memory.lab && window.InspectView) ROUTES.inspect = { view: window.InspectView, title: 'Inspector' };
@@ -185,7 +187,7 @@
   }
 
   /* ---------- The label: where you are, and the way back ---------- */
-  var PLACE = { triage: 'Triage', tasks: 'Lineup', artifacts: 'Artifacts', capture: 'New task', settings: 'Settings', inspect: 'Inspector' };
+  var PLACE = { triage: 'Triage', tasks: 'Lineup', artifacts: 'Artifacts', capture: 'New task', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
   var BACK = 'Back to the Guide';
   /* "13:30" (a calendar link's until) as "1:30pm"; null when it isn't a time */
   function fmtUntil(hhmm) {

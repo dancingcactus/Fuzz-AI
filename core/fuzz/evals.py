@@ -573,6 +573,71 @@ def sign_test(fixed, broke):
     return round(min(p, 1.0), 3)
 
 
+def _row(r):
+    """A run as one line of the list: what it scored, how it did, and against what."""
+    res = r["results"]
+    skill = r["skill_version"]
+    if r["surface"] == "dupes" and skill and skill.startswith("{"):   # the matcher's version is its thresholds
+        th = json.loads(skill)
+        skill = "; ".join(f"{s}: meaning ≥ {t['dup_sem']}" for s, t in th.items())
+    return {"id": r["id"], "ts": r["ts"], "surface": r["surface"], "skill": skill, "copy": r["skill_copy"],
+            "client": r["client"], "model": r["model"], "repeats": r["repeats"], "set": r.get("sets") or "all",
+            "seconds": r.get("seconds"), "gate": "pass" if r["gate_ok"] else "fail", "against": r.get("against"),
+            "lessons": len(r["lessons"] or []), "commit": r.get("seeds_commit"),
+            "passing": {s: _counts(res, s) for s in ("global", "personal")},
+            "failing": sum(not x["passed"] for x in res), "cases": len(res)}
+
+
+def run_list(core, limit=100):
+    """Every run, newest first, and the newest of each surface: the debugging page's list (GET /evals)."""
+    ids = [x["id"] for x in core.all("SELECT id FROM eval_runs WHERE user_id=? ORDER BY id DESC LIMIT ?",
+                                     (core.user_id, limit))]
+    runs = [_row(get_run(core, i)) for i in ids]
+    latest = {}
+    for r in runs:
+        latest.setdefault(r["surface"], r)
+    return {"runs": runs, "latest": latest}
+
+
+def run_detail(core, run_id):
+    """One run in full for the debugging page (GET /evals/<id>): its line, what changed against the run it was
+    gated on, every case with its replies, and the surface's own extras (the matcher's sweep)."""
+    run = get_run(core, run_id)
+    if not run:
+        return None
+    before = get_run(core, run["against"]) if run.get("against") else None
+    cmp = compare(before, run) if before else None
+    status = {}
+    for k, rows in (cmp or {}).items():
+        for x in rows:
+            status[_key(x)] = k
+    meta = run.get("meta")
+    meta = json.loads(meta) if isinstance(meta, str) else meta
+    # what each case was, as it stands now: a global case from the repo, yours from the store (its text only
+    # while it's kept); a fingerprint that moved since the run says it's been relabelled or re-fetched
+    now = {c["key"]: c for c in global_cases(run["surface"])} if run["surface"] in KINDS else {}
+    cases = []
+    for x in run["results"]:
+        c = now.get(_key(x))
+        if c is None and x.get("case_id"):
+            row = core.one("SELECT * FROM eval_cases WHERE user_id=? AND id=?", (core.user_id, x["case_id"]))
+            if row:
+                row = _decode(row)
+                c = dict(row, fp=fingerprint(row["input"], row["expected"]))
+        cases.append({"key": _key(x), "origin": x["origin"], "set": x.get("scope", "personal"), "kind": x["kind"],
+                      "input": c["input"] if c else None, "expected": c["expected"] if c else None,
+                      "note": c.get("note") if c else None,
+                      "moved": bool(c and x.get("fp") and c["fp"] != x["fp"]),
+                      "passed": bool(x["passed"]), "score": f"{x['passes']}/{x['runs']}", "fp": x.get("fp"),
+                      "change": status.get(_key(x)), "why": x.get("why"), "features": x.get("features"),
+                      "replies": x.get("replies"), "stripped": "replies" not in x})
+    out = {"run": _row(run), "cases": cases, "lessons": run["lessons"], "meta": meta}
+    if cmp is not None:
+        out["changed"] = {k: len(v) for k, v in cmp.items()}
+        out["sign_test_p"] = sign_test(len(cmp["fixed"]), len(cmp["broke"]))
+    return out
+
+
 def _said(x):
     """A failed reply, for reading: extraction's asks, or another surface's own detail (what a draft missed or
     added, which checks an executor run failed and the calls it made)."""

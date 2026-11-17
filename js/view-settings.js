@@ -348,6 +348,7 @@
       }).join('') + '</ul>';
     }).join('') : '<p class="meta">Nothing yet. When you tell me a message held nothing for you, or that I missed an ask, I learn from it here.</p>';
     return section('learned', 'What I’ve learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
+      '<p class="meta"><a href="#/evals">How I score on my tests</a>: every eval run, for debugging.</p>' +
       '<span class="meta set-said" id="said-learned" role="status"></span>');
   }
   function lessonAction(what, id) {
