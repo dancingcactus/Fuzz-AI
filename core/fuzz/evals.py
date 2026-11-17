@@ -403,6 +403,8 @@ def _call_model(core, adapter, model, runner, workers, prompts):
     def call(p):
         if runner is not None:
             return runner(None, p)
+        if p.startswith("-"):   # a CLI client would read it as a flag ("---" frontmatter): "unexpected argument"
+            p = "\n" + p
         argv = adapter.discovery_command(p, model)
         try:
             return subprocess.run(argv, capture_output=True, text=True, timeout=TIMEOUT, cwd=core.home).stdout
@@ -571,6 +573,14 @@ def sign_test(fixed, broke):
     return round(min(p, 1.0), 3)
 
 
+def _said(x):
+    """A failed reply, for reading: extraction's asks, or another surface's own detail (what a draft missed or
+    added, which checks an executor run failed and the calls it made)."""
+    if "candidates" in x or set(x) <= {"passed", "error"}:
+        return x.get("candidates", x.get("error"))
+    return {k: v for k, v in x.items() if k not in ("passed", "draft") and v not in (None, [])}
+
+
 def _counts(rows, scope=None):
     rows = [r for r in rows if scope is None or r.get("scope", "personal") == scope]
     return f"{sum(bool(r['passed']) for r in rows)} of {len(rows)}"
@@ -582,8 +592,7 @@ def summary(core, run):
     before = get_run(core, run["against"]) if run.get("against") else None
     rows = [{"case": r["origin"], "set": r.get("scope", "personal"), "kind": r["kind"],
              "passed": f"{r['passes']}/{r['runs']}",
-             **({"said": [x.get("candidates", x.get("error")) for x in r.get("replies", []) if not x["passed"]][:1]}
-                if not r["passed"] else {})}
+             **({"said": [_said(x) for x in r.get("replies", []) if not x["passed"]][:1]} if not r["passed"] else {})}
             for r in run["results"]]
     cmp = compare(before, run)
     out = {"run": run["id"], "skill": f"{run['skill_version']} ({run['skill_copy']})", "client": run["client"],

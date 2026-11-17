@@ -1,9 +1,46 @@
 # Evals: telling better from worse
 
-Status: design, worked out in conversation on 2026-11-17. Nothing here is built yet. It extends the Evals
-section of `docs/self-improving.md`, which built the extraction harness (`core/fuzz/evals.py`), and is the
-plan for growing it into something that answers one question for any change: **is this better or worse
+Status: designed and built on 2026-11-17 (see **Built** below; the outcome scorecard is still to come). It
+extends the Evals section of `docs/self-improving.md`, which built the extraction harness
+(`core/fuzz/evals.py`), into something that answers one question for any change: **is this better or worse
 than what we had before?**
+
+## Running them
+
+| Command | What it scores | Model? |
+| --- | --- | --- |
+| `fuzz eval run [--set global\|personal]` | Extraction: is there an ask, and whose | Yes, 3 repeats |
+| `fuzz eval compare [--base-ref main]` | Extraction, two versions head to head on today's cases | Yes |
+| `fuzz eval dupes` | The duplicate matcher on labelled pairs, with a threshold sweep | No |
+| `fuzz eval drafts --history` | The drafts Fuzz already wrote, against what you sent | Judge only |
+| `fuzz eval drafts` | Fresh drafts on personal and global draft cases | Yes |
+| `fuzz eval executor` | Invented tasks in invented worlds: gather, ask, hand back | Yes, 2 repeats |
+| `fuzz eval copy <case>` / `copies` / `approve <id>` / `reject <id>` | A personal case's invented copy, on its way to the repo | Yes |
+| `fuzz eval spots` | What you said on "How did Fuzz do on this?" | No |
+
+Every run prints the cases per set, then against the last run that passed its gate: what it fixed, broke, left
+unchanged or made flaky, with a sign test once anything moved. A run exits 1 when something solved broke.
+
+## Built
+
+1. **Global set from the repo** (`evals.global_cases`): `eval_seeds/<surface>.json` (format 1) read on every
+   run; an older store's copied seeds are retired. `eval_cases.scope`; runs record the set, the seeds' commit
+   and seconds.
+2. **Fingerprints and comparisons** (`evals.compare`, `head_to_head`, `sign_test`): flaky is never a break;
+   `--base-ref` scores the skill as it was at any git ref.
+3. **Run outputs expire** (`evals.strip_old_runs`): replies on personal cases go after 90 days.
+4. **Spot checks** (`spotcheck.py`): "Was there anything for you here?" (3 a week, two thirds from DMs) and
+   "How did Fuzz do on this?" (2 a week), raised on the tick; config `evals.spot_checks_per_week` and
+   `evals.run_checks_per_week`, 0 turns one off.
+5. **Matcher tuning and its replay** (`matching/replay.py`, `learning/learners/thresholds.py`): first run on
+   real labels, 2026-11-17: 27 pairs, 20 right at today's thresholds (precision 0.62, recall 0.80); no
+   threshold clearly better, so nothing proposed. Three of the seven misses were pairs sharing one link that you
+   had said differ.
+6. **Invented copies** (`copies.py`): trap check, leak check, review from the command line (for now: the open
+   question below), and a test that no committed case holds a real-looking address or link.
+7. **Draft scoring and the draft-style learner** (`draft_evals.py`, `learning/learners/drafts.py`,
+   executor-0.22 reads `draft_lessons`).
+8. **Executor harness** (`executor_evals.py`) and four global cases (`eval_seeds/executor.json`).
 
 ## Goal
 
@@ -212,22 +249,25 @@ in Fuzz's voice where it's shown (`docs/fuzz-tone.md`): never a score of the per
 
 ## Build order
 
-1. **Global set from the repo.** Read global cases from `eval_seeds/` on every run; add `scope`; report the
-   two sets apart.
-2. **Fingerprints.** Per case, recorded by each run; comparisons on shared fingerprints; fresh
-   head-to-head runs; fixed, broke, unchanged and flaky counts in the summary.
-3. **Run outputs expire** with their personal cases.
-4. **Invented copies:** the must-fail check, the leak check, and a review card before commit.
-5. **Spot-check cards** for missed asks and for executor runs, collecting labels now.
-6. **Duplicate-matching replay.**
-7. **Outcome scorecard.**
-8. **Draft scoring** (personal), once there are enough sent drafts to score.
-9. **Executor harness** with fake tools, then the first global executor cases.
+Everything but the outcome scorecard is built (see **Built**). Next:
+
+1. **Outcome scorecard.**
+2. **More executor cases** from spot-check answers, as they come in.
+3. **Later learners** (`docs/self-improving.md`): handback causes, source trust and the weekly retro, each
+   shipping with its own cases in the same change.
+
+How the harness differs from a real executor run: the model answers one tool call per turn through the plain
+client call, rather than calling MCP tools itself, and the person's connectors are stand-ins. It scores the
+judgment (what to look up, when to ask, what to write), not the client's tool plumbing.
 
 ## Open questions
 
 - Does `doctor` hold a skill update that breaks a personal case, or install it and warn?
-- How many spot-check cards a week before they feel like a chore? Two or three is the starting guess.
-- Leak check thresholds: how long a shared run of words counts as copied.
+- How many spot-check cards a week before they feel like a chore? Built with three message checks and two
+  run checks a week; adjust in config.
+- Leak check thresholds: built with six words in a row; first names alone aren't flagged, full names,
+  surnames and aliases are.
 - Whether a case's invented copy, once committed, retires the personal case early or both keep running.
-- Where invented copies are reviewed: a card in Fuzz, or a pull request.
+  Built: both keep running.
+- Where invented copies are reviewed: a card in Fuzz, or a pull request. Built: the command line
+  (`fuzz eval copies`, `approve`), then the diff in a pull request.

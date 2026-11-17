@@ -90,6 +90,11 @@ class Harness(CoreCase):
             {"arg_lacks": {"tool": "save_draft", "field": "body", "any": ["friday"]}}]))
         self.assertEqual(list(verdict.values()), [True, True, True, False, True, True])
 
+    def test_the_prompt_never_starts_with_the_skills_frontmatter(self):
+        p = ee.turn_prompt("---\nname: fuzz-executor\n---\n# Fuzz executor", CASES["seed:answer-in-front-drafts"], {}, [])
+        self.assertFalse(p.startswith("-"), "a CLI client reads a leading --- as a flag")
+        self.assertIn("# Fuzz executor", p)
+
     def test_a_reply_without_a_call_is_recorded_and_the_turns_run_out(self):
         record = ee.play(CASES["seed:answer-in-front-drafts"], "skill", lambda p: "Let me think about it.", max_turns=3)
         self.assertEqual(len(record), 3)

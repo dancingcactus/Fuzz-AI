@@ -125,7 +125,10 @@ def turn_prompt(skill, case, me, record):
         "\n".join(f"- {n} {a}" for n, a in WORLD_TOOLS.items())
     calls = "\n".join(f"{i + 1}. {json.dumps({'tool': r['tool'], 'args': r['args']}, ensure_ascii=False)}\n   -> "
                       f"{json.dumps(r['result'], ensure_ascii=False)[:1500]}" for i, r in enumerate(record)) or "(none yet)"
+    if skill.startswith("---"):   # the frontmatter: a prompt starting with dashes reads as a flag to a CLI client
+        skill = skill.split("---", 2)[2].lstrip()
     return (
+        "You are Fuzz's executor. Your skill:\n\n"
         f"{skill}\n\n---\n\nYou are running the loop above for one task you already claimed. whoami said: "
         f"{json.dumps(me, ensure_ascii=False)}. Your tools are reached through this conversation: reply with exactly "
         'one JSON object, {"tool": "<name>", "args": {...}}, for your next call, and nothing else. Leave out '

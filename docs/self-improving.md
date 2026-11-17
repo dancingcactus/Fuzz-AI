@@ -137,12 +137,13 @@ Each is a learner, a surface or a role on the shape above. Each should add its o
 
 ### Learners
 
-- **Draft edits.** Compare the draft with what was sent. Wording becomes a style lesson (global or per
-  person); a wrong fact becomes a memory correction. Active after 2–3 agreeing edits. Surface: `draft`
-  (the executor's draft prompt). Eval: the context and the sent version.
-- **Matcher tuning.** Duplicate answers, merges, splits and kept-separate entities, stored with the
-  matcher's score at the time. `core/scripts/tune_matcher.py` sweeps the thresholds in
-  `matching/dupes.py` for precision and recall. Manual first; a proposal card past about 50 labels.
+- **Draft edits** (built 2026-11-17, `learning/learners/drafts.py`): edits that agree (cut by a third,
+  greeting, sign-off or formatting taken out) become style rules the executor reads from `whoami`'s
+  `draft_lessons` (executor-0.22): proposed at 2 agreeing edits, in use at 3. A wrong fact in a draft
+  becoming a memory correction is still to come. Eval: `fuzz eval drafts` (`docs/evals.md`).
+- **Matcher tuning** (built 2026-11-17, `learning/learners/thresholds.py`): `fuzz eval dupes` replays your
+  merge, Keep separate and split answers through the matcher's own formula on a copy of the store and sweeps
+  the semantic threshold; past 20 labels, a clearly better threshold is proposed for your yes in Settings.
 - **Handback causes.** The executor tags each handback `access`, `context`, `judgement` or `ambiguous`.
   Access: ask for the grant at claim. Context: a candidate memory question. Judgement: this kind stays
   Justin's and stops being pre-filled as Assign.
