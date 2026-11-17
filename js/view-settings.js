@@ -332,11 +332,13 @@
   /* ---------- What I've learned ---------- */
   /* Each message you corrected me on is an example I read before judging new ones. A missed ask counts as soon as
      you confirm it; one you said held nothing waits for your OK here, since it changes what I leave out. */
-  var LEARNED = [['keep', 'Asks I missed'], ['skip', 'What isn’t a task']];
+  var LEARNED = [['keep', 'Asks I missed'], ['skip', 'What isn’t a task'], ['dupes', 'How I spot duplicates'], ['draft', 'How I write']];
+  /* extraction's lessons group by keep or skip; every other surface is a group of its own */
+  function learnedGroup(x) { return x.surface && x.surface !== 'extract' ? x.surface : x.kind; }
   function learnedHTML() {
     var all = data.lessons; if (!all) return '';
     var body = all.length ? LEARNED.map(function (g) {
-      var rows = all.filter(function (x) { return x.kind === g[0]; }); if (!rows.length) return '';
+      var rows = all.filter(function (x) { return learnedGroup(x) === g[0]; }); if (!rows.length) return '';
       return '<h3>' + g[1] + '</h3><ul class="set-apps">' + rows.map(function (x) {
         var b = busy['lesson-' + x.id], failed = x.eval_ok === 0;
         var tag = x.status === 'active' ? ['In use', 'ok'] : x.status === 'off' ? ['Off', 'muted'] : failed ? ['Made me worse in testing', 'warn'] : ['Waiting for your OK', 'accent'];
@@ -346,6 +348,7 @@
       }).join('') + '</ul>';
     }).join('') : '<p class="meta">Nothing yet. When you tell me a message held nothing for you, or that I missed an ask, I learn from it here.</p>';
     return section('learned', 'What I’ve learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
+      '<p class="meta"><a href="#/evals">How I score on my tests</a>: every eval run, for debugging.</p>' +
       '<span class="meta set-said" id="said-learned" role="status"></span>');
   }
   function lessonAction(what, id) {

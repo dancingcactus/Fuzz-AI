@@ -180,6 +180,8 @@
 
   /* Fuzz's memory asks about people, words, decisions and facts that disagree: cards with no task */
   var MEMORY_KINDS = FuzzVocab.memoryKinds;   /* js/vocab.js, from the core */
+  /* Fuzz checking its own work, a few a week: drawn like memory's cards, with no task */
+  var CHECK_KINDS = FuzzVocab.checkKinds || [];
 
   /* Memory's events, from the stream: the ask box's answers. Each taken once (the stream replays the log when
      it connects). */
@@ -424,14 +426,14 @@
     /* Cards about no single task: deliverables (last week, this week's pick and steps, a new one to track) and
        Fuzz's memory (same person?, what is this?, was this a decision?, which is right?) */
     cards.forEach(function (c) {
-      var memory = MEMORY_KINDS.indexOf(c.kind) > -1;
+      var check = CHECK_KINDS.indexOf(c.kind) > -1, memory = check || MEMORY_KINDS.indexOf(c.kind) > -1;
       if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory)) return;
       var id = 'c' + c.id;
       /* "Same as an existing one" needs a picker this card doesn't have yet; Not sure yet is the way out */
       var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
       items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: memory ? 'Fuzz’s memory' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: check ? 'Fuzz checking its work' : memory ? 'Fuzz’s memory' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
@@ -777,6 +779,8 @@
     /* What Fuzz learned from your corrections: use one, or turn it off (Undo takes either back) */
     lessons: function () { return api('GET', '/lessons'); },
     lessonAction: function (id, what) { return api('POST', '/lessons/' + id + '/' + what, {}); },
+    evals: function () { return api('GET', '/evals'); },
+    evalRun: function (id) { return api('GET', '/evals/' + id); },
     saveSlots: function (n) { return api('PUT', '/slots', { slots: n }).then(function (r) { Store.setSlots(r.slots); return r; }); },
     engine: function () { return api('GET', '/engine?start=0'); },
     checkEngine: function () { return api('POST', '/engine/check', {}); },

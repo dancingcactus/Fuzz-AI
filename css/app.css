@@ -1241,3 +1241,25 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .insp-mini { margin: 0; padding-left: 18px; display: grid; gap: 4px; overflow-wrap: anywhere; }
 .insp-sum { font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .insp-fact { grid-template-columns: 1fr; } .insp-fact > :nth-child(n+3) { grid-column: 1; } }
+
+/* Evals: a debugging page (js/view-evals.js) */
+.evals .ev-h { margin: 24px 0 8px; font-size: 18px; }
+.ev-latest { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 12px 0 20px; }
+.ev-card { display: grid; gap: 4px; padding: 12px 14px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 12px; color: inherit; text-decoration: none; }
+.ev-card:hover, .ev-card:focus-visible { border-color: var(--accent); }
+.ev-scroll { overflow-x: auto; margin: 8px 0 16px; }
+.ev-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ev-table th, .ev-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ev-table th { color: var(--muted); font-weight: 600; }
+.ev-row { cursor: pointer; }
+.ev-row:hover, .ev-row:focus-visible { background: var(--field); outline: none; }
+.ev-table .is-on { background: var(--chip); }
+.ev-detail { margin: 8px 0 24px; padding: 16px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 14px; }
+.ev-detail h2 { margin: 0 0 4px; font-size: 18px; }
+.ev-detail h3 { margin: 18px 0 8px; font-size: 15px; }
+.ev-detail h4 { margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
+.ev-changed { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ev-cases { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.ev-case summary { cursor: pointer; padding: 6px 0; overflow-wrap: anywhere; }
+.ev-pre { margin: 4px 0; padding: 10px; background: var(--field); border-radius: 8px; font-family: var(--font-code); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.ev-card .pill { justify-self: start; }

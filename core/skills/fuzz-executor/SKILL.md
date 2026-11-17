@@ -1,7 +1,7 @@
 ---
 name: fuzz-executor
 description: Work through the Fuzz task queue as Fuzz's executor. Claims a task, gathers context on one just captured or takes the next step on one assigned, and writes the result back as a draft, a brief, a handback or a permission request. Use when asked to "work through my Fuzz queue", "run the Fuzz executor" or "take the next step on Fuzz task 14".
-prompt_version: executor-0.21
+prompt_version: executor-0.22
 ---
 
 # Fuzz executor
@@ -15,7 +15,7 @@ connector, for example) to research a task. Never use any tool to change anythin
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.21`). It tells you every
+1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.22`). It tells you every
    name, email address and Slack ID that is the person's, today's date, the local time and their
    time zone.
 2. Call `claim_next_task`. The scheduler picks the task; don't pick one yourself. If it returns no
@@ -230,7 +230,8 @@ they assign it to you.
   message, name it in `save_draft`'s `attach`. With no `output_dir`, put the content in the brief or a
   note instead.
 - **Write drafts to be sent.** A message should read like an update the person would send: plain,
-  short, in their voice. Caveats, gaps and how you found things go in the brief, not the draft.
+  short, in their voice. Caveats, gaps and how you found things go in the brief, not the draft. If
+  `whoami` gave `draft_lessons`, follow them: they come from drafts the person edited before sending.
 - **Time is human.** When a task hangs on a meeting or a person ("before the leadership meeting",
   "next time I see Sam"), look it up with your calendar connector if you have one, and hand in a
   moment with `suggest_schedule`: `{"type": "moment", "key": "leadership-1030", "label": "Before the

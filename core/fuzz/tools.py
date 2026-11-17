@@ -46,6 +46,7 @@ def whoami(core, role, prompt_version=None, client=None):
             **({"deliverables_to_check": _to_check(core)} if role == "executor" else {}),
             **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
             **({"lessons": _lessons(core, "extract")} if role == "extractor" else {}),
+            **({"draft_lessons": _lessons(core, "draft")} if role == "executor" and _lessons(core, "draft") else {}),
             **({"output_folder": outputs.folder(core)} if role == "executor" and outputs.folder(core) else {})}
 
 

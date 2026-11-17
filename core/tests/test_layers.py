@@ -22,7 +22,7 @@ CYCLE_BASELINE = {
     "booking", "cards", "deliverables", "doctor", "drafts", "engine", "files", "focus", "groups", "matching",
     "matching.dupes", "matching.entities", "matching.matcher", "matching.who", "memory.briefs", "memory.extract",
     "memory.facts", "memory.knowledge", "memory.mcards", "missed", "onboarding", "outputs", "people", "review",
-    "scheduler", "sessions", "setup", "tasks",
+    "scheduler", "sessions", "setup", "spotcheck", "tasks",
 }
 
 

@@ -158,6 +158,8 @@ class App:
             ("POST", r"/tasks/(\d+)/(" + "|".join(actions.TASK_VERBS) + ")", self.task_action),
             ("GET", r"/lessons", self.list_lessons),
             ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
+            ("GET", r"/evals", self.list_eval_runs),
+            ("GET", r"/evals/(\d+)", self.get_eval_run),
             ("GET", r"/deliverables", self.list_deliverables),
             ("POST", r"/deliverables", self.create_deliverable),
             ("GET", r"/deliverables/(\d+)", self.get_deliverable),
@@ -489,6 +491,18 @@ class App:
     def list_lessons(self, core, m, body, q):
         from . import learning
         return {"lessons": learning.listing(core)}
+
+    def list_eval_runs(self, core, m, body, q):
+        from . import evals
+        limit = q.get("limit") or "100"
+        return evals.run_list(core, limit=int(limit) if str(limit).isdigit() else 100)
+
+    def get_eval_run(self, core, m, body, q):
+        from . import evals
+        out = evals.run_detail(core, int(m.group(1)))
+        if out is None:
+            raise FuzzError(f"No eval run {m.group(1)}", "run_id", 404)
+        return out
 
     def lesson_action(self, core, m, body, q):
         from . import learning

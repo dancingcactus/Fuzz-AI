@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "about": "The global duplicate-matching set: invented pairs of tasks and whether they're the same ask. Committed to a public repo, so nothing here may come from real tasks. Scored by `fuzz eval dupes` with the hash embedder, so the answer is the same every run.",
+  "pairs": [
+    {
+      "name": "same-ticket-two-channels",
+      "same": true,
+      "why": "A ticket key is the identifier that stays the same across email and Slack",
+      "a": {"text": "Review the rollout plan in ORBIT-412 before Thursday"},
+      "b": {"text": "Priya asked for your sign-off on ORBIT-412"}
+    },
+    {
+      "name": "same-doc-link",
+      "same": true,
+      "why": "Two asks that point at the same document page",
+      "a": {"text": "Add your numbers to the Q3 planning doc", "links": ["https://docs.example.com/d/q3-planning-7f2a"]},
+      "b": {"text": "Fill in the vendor section", "links": ["https://docs.example.com/d/q3-planning-7f2a"]}
+    },
+    {
+      "name": "same-ask-reworded",
+      "same": true,
+      "why": "The same ask in nearly the same words, from two messages",
+      "a": {"text": "Send Priya the Q3 vendor numbers"},
+      "b": {"text": "Send the Q3 vendor numbers to Priya"}
+    },
+    {
+      "name": "same-title-two-tickets",
+      "same": false,
+      "why": "The same words about two different tickets: the ticket keys tell them apart",
+      "a": {"text": "Fix the login timeout bug ORBIT-101"},
+      "b": {"text": "Fix the login timeout bug ORBIT-202"}
+    },
+    {
+      "name": "same-person-two-asks",
+      "same": false,
+      "why": "One person asking two unrelated things",
+      "a": {"text": "Review Priya's budget draft"},
+      "b": {"text": "Book Priya's travel for the offsite"}
+    },
+    {
+      "name": "shared-home-page",
+      "same": false,
+      "why": "A link to a site's home page says nothing about which ask it is",
+      "a": {"text": "Update the onboarding checklist", "links": ["https://wiki.example.com/"]},
+      "b": {"text": "Approve the expense policy change", "links": ["https://wiki.example.com/"]}
+    },
+    {
+      "name": "same-project-two-deliverables",
+      "same": false,
+      "why": "The same project name, two different pieces of work",
+      "a": {"text": "Draft the Orbit launch announcement"},
+      "b": {"text": "Schedule the Orbit launch retro"}
+    }
+  ]
+}
