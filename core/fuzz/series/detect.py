@@ -48,12 +48,12 @@ def _waits(core):
     return out
 
 
-def run(core, actor="fuzz:extractor"):
+def run(core, actor="fuzz:extractor", as_of=None):
     """One detection run. Returns counts: attached, promoted, items, season cards."""
     out = {"attached": 0, "promoted": 0, "items": 0, "season": 0}
     if not (core.config.get("series") or {}).get("detect", True):
         return out
-    idx = index_mod.Index(core)
+    idx = index_mod.Index(core, as_of)
     cfg = idx.cfg
     claimed = _claimed(core)
     said_no = record.unlinked_pairs(core)
@@ -128,6 +128,7 @@ def run(core, actor="fuzz:extractor"):
         if s["kind"] == "series" and s["state"] == "forming" and (s.get("grown_at") or "") < stalled and sid not in asked:
             _add_item(core, "stall", _stall_item(idx, sid))
             out["items"] += 1
+    record.sync_identifiers(core)
     return out
 
 
@@ -295,11 +296,11 @@ def check(core, i, v):
     return row, item
 
 
-def apply_verdict(core, row, item, v):
+def apply_verdict(core, row, item, v, as_of=None):
     """Turn one series verdict into series, areas, forming pieces or a wait. Inside submit_verdicts' transaction."""
     if item is None:
         return "skipped"
-    idx = index_mod.Index(core)
+    idx = index_mod.Index(core, as_of)
     act = v["action"]
     why = (v.get("why") or "")[:300] or None
     keys = item.get("keys") or []

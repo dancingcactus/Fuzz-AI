@@ -4,6 +4,7 @@ Human decisions (assign, done, park...) and the AI's writes (log_step, update_br
 here, so HTTP, MCP and the CLI all call the same code.
 """
 
+import os
 import re
 from datetime import timedelta
 from urllib.parse import unquote_plus, urlparse
@@ -787,6 +788,53 @@ def add_link(core, task_id, title, link, actor="fuzz:executor"):
         events.emit(core, "task.link_added", task_id=t["id"], data={"source_id": sid, "title": title, "link": link},
                     log=("status", f"{who} added {title} as a source."))
     return sid, True
+
+
+REF_ROLES = ("for", "about")
+
+
+def add_refs(core, task_id, people=(), links=(), artifacts=(), actor="human"):
+    """New task's +: a person it's for or about, a message or page Fuzz should read, and something Fuzz already
+    made. Each becomes one of the task's sources (role person, link or artifact), so the brief and the executor
+    see it, and a person shows in the task's People. Returns how many were added."""
+    t = require(core, task_id)
+    n = 0
+    for i, p in enumerate(people or []):
+        if not isinstance(p, dict) or not (p.get("name") or "").strip():
+            raise FuzzError(f"people[{i}] is {{name, email?, role: for|about}}", f"people[{i}].name")
+        if (p.get("role") or "for") not in REF_ROLES:
+            raise FuzzError(f"people[{i}].role is for or about", f"people[{i}].role")
+    for i, url in enumerate(links or []):
+        if not LINK_RE.match((url or "").strip()):
+            raise FuzzError(f"links[{i}] is the message's or page's full http(s) address", f"links[{i}]")
+    arts = []
+    for i, a in enumerate(artifacts or []):
+        s = core.one("SELECT * FROM sources WHERE id=? AND user_id=? AND role IN ('output','attachment') AND withdrawn=0",
+                     (int(a), core.user_id)) if str(a).isdigit() else None
+        if s is None:
+            raise FuzzError(f"artifacts[{i}] is an id from Artifacts", f"artifacts[{i}]")
+        arts.append(s)
+    with core.tx(actor):
+        for p in people or []:
+            name, role = p["name"].strip()[:120], p.get("role") or "for"
+            email = (p.get("email") or "").strip()
+            title = f"{'For' if role == 'for' else 'About'} {name}"
+            sid = core.q("INSERT INTO sources (user_id, task_id, role, title, link) VALUES (?,?,?,?,?)",
+                         (core.user_id, t["id"], "person", title, f"mailto:{email}" if "@" in email else None)).lastrowid
+            events.emit(core, "task.link_added", task_id=t["id"], data={"source_id": sid, "person": name, "role": role},
+                        log=("status", f"You said it’s {'for' if role == 'for' else 'about'} {name}."))
+            n += 1
+        for url in links or []:
+            _, added = add_link(core, t["id"], None, url.strip(), actor=actor)
+            n += 1 if added else 0
+        for s in arts:
+            sid = core.q("INSERT INTO sources (user_id, task_id, role, title, path, mime, size) VALUES (?,?,?,?,?,?,?)",
+                         (core.user_id, t["id"], "artifact", s["title"] or os.path.basename(s["path"] or "") or "A file Fuzz made",
+                          s["path"], s.get("mime"), s.get("size"))).lastrowid
+            events.emit(core, "task.link_added", task_id=t["id"], data={"source_id": sid, "artifact": s["id"]},
+                        log=("status", f"You added {s['title'] or 'a file Fuzz made'} for Fuzz to use."))
+            n += 1
+    return n
 
 
 def rename(core, task_id, title=None, ask=None, actor="fuzz:executor"):

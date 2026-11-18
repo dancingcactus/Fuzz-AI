@@ -596,7 +596,7 @@
     reopen: function (id) { var it = S.item(id); S.log(it, 'status', 'You brought this back.'); S.enqueue(it, 'front'); },
 
     /* ---- capture ---- */
-    capture: function (text, docs, picked, series) {
+    capture: function (text, docs, picked, series, refs) {
       docs = docs || [];
       var t = (text || '').trim();
       var title = t || docs[0];
@@ -612,6 +612,12 @@
         log: [], sources: docs.map(function (d) { return { type: 'Doc', title: d }; }), context: [], conversation: []
       };
       if (series && !series.start) it.series = { id: series.id, name: series.name };   /* New task's + → Series */
+      if (refs) {   /* ...Person, Source, Artifact: they join its sources, and a person its People */
+        refs.people.forEach(function (p) { it.sources.push({ type: 'Person', title: (p.role === 'about' ? 'About ' : 'For ') + p.name }); });
+        refs.links.forEach(function (l) { it.sources.push({ type: 'Link', title: l, url: l }); });
+        refs.artifacts.forEach(function (a) { it.sources.push({ type: 'Fuzz made', title: a.name }); });
+        it.people = refs.people.map(function (p) { return { name: p.name, email: p.email || '', did: [{ text: p.role === 'about' ? 'You said it’s about them' : 'You said it’s for them' }] }; });
+      }
       state.items.push(it);
       S.log(it, 'status', 'You captured this task.');
       S.enqueue(it, 'back');

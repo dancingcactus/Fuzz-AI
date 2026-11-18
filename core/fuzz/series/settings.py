@@ -40,9 +40,11 @@ DEFAULTS = {
     "risk_days": 5,
     "decision_wait_days": 1,        # a decision gets this long for a task or message to follow it
     "decision_window_days": 14,
+    "usual_min": 3,                 # usual next step: a step repeated at least this often, at least this many days apart
+    "usual_gap_min_days": 2,
     # How much each kind of anchor is worth, before rarity
     "weights": {"topic": 3.0, "ticket": 3.0, "document": 3.0, "term": 2.0, "word": 3.0, "meet": 2.0,
-                "chan": 2.0, "proj": 1.0, "tool": 1.0, "org": 1.0, "dm": 0.75, "person": 0.75},
+                "chan": 2.0, "list": 2.0, "proj": 1.0, "tool": 1.0, "org": 1.0, "dm": 0.75, "person": 0.75},
 }
 
 

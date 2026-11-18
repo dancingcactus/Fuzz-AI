@@ -70,16 +70,31 @@ test('New task’s + → Series puts the capture in one', async () => {
   await page.fill('#cap-text', 'Send Northwind the pilot checklist');
   await page.click('#cap-plus');
   const items = await page.$$eval('#cap-plusmenu [role="menuitem"] b', els => els.map(e => e.textContent));
-  assert.deepEqual(items, ['Series', 'Upload a file']);
+  assert.deepEqual(items, ['Series', 'Person', 'Source', 'Artifact', 'Upload a file']);
   await page.click('[data-plus="series"]');
   assert.match(await page.textContent('#cap-series'), /Start a new series from this/);
   assert.match(await page.textContent('#cap-series'), /Fuzz has been watching/);
-  await page.fill('#cap-serq', 'north');
+  await page.fill('#cap-q', 'north');
   await page.click('[data-serpick="1"]');
   assert.match(await page.textContent('#files'), /Part of Northwind rollout/);
+  /* Person: a name you type, for them */
+  await page.click('#cap-plus');
+  await page.click('[data-plus="person"]');
+  await page.fill('#cap-q', 'Dana Ortiz');
+  await page.click('[data-person="-1"][data-role="for"]');
+  /* Source: a link Fuzz should read */
+  await page.click('#cap-plus');
+  await page.click('[data-plus="source"]');
+  await page.fill('#cap-q', 'https://example.slack.com/archives/C1/p123');
+  await page.press('#cap-q', 'Enter');
+  const chips = await page.textContent('#files');
+  assert.match(chips, /For Dana Ortiz/);
+  assert.match(chips, /example\.slack\.com/);
   await page.click('#cap-go');
-  const line = await page.evaluate(() => Store.seriesLine(Store.get().items.filter(i => i.title === 'Send Northwind the pilot checklist')[0]));
-  assert.equal(line, 'Part of Northwind rollout');
+  const it = await page.evaluate(() => { const i = Store.get().items.filter(x => x.title === 'Send Northwind the pilot checklist')[0]; return { line: Store.seriesLine(i), sources: i.sources.map(s => s.type), people: i.people.map(p => p.name) }; });
+  assert.equal(it.line, 'Part of Northwind rollout');
+  assert.deepEqual(it.sources, ['Person', 'Link']);
+  assert.deepEqual(it.people, ['Dana Ortiz']);
   assert.deepEqual(page.errors, []);
   await page.close();
 });

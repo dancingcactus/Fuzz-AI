@@ -506,6 +506,9 @@ def submit_verdicts(core, verdicts):
             o = detect.apply_verdict(core, row, item, v)
             sstats[o] = sstats.get(o, 0) + 1
         found = detect.run(core) if asks else {}   # the tasks the judge just made can attach or seed too
+        if sstats and not asks:
+            from .series import record
+            record.sync_identifiers(core)
     out = dict(outcomes=stats, pending_judgments=_pending_count(core))
     if sstats:
         out["series"] = sstats

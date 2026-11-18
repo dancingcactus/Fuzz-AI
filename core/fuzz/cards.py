@@ -351,6 +351,14 @@ def queue(core, front=None):
     by_energy = priority.keys(level, [
         (c, by_id.get(c["task_id"]) if c["task_id"] else None, set(c["categories"]),
          (0 if c["task_id"] in fids else 1, 1 if c["postponed"] else 0)) for c in cards]) if level else {}
+    # Series weigh in quietly (docs/series.md): among cards otherwise level, a task in a series that's moving
+    # (something in it moved this week; not muted, not quiet or wrapped) comes first. SQL here, so the domain
+    # never imports series.
+    week = _days_ago(core, 7)
+    moving = {r["id"] for r in core.all(
+        "SELECT t.id FROM tasks t JOIN series s ON s.id=t.series_id AND s.user_id=t.user_id WHERE t.user_id=? AND s.kind='series' "
+        "AND s.state IN ('inferred','named') AND s.muted=0 AND EXISTS (SELECT 1 FROM tasks u WHERE u.user_id=t.user_id "
+        "AND u.series_id=s.id AND u.state_changed_at>=?)", (core.user_id, week))}
     keyed = []
     for c in cards:
         t = by_id.get(c["task_id"]) if c["task_id"] else None
@@ -367,10 +375,11 @@ def queue(core, front=None):
         # Monday's deliverable cards, that day
         doing = 0 if ("doing" in tags and c["kind"] == "task") or (c.get("payload") or {}).get("monday") else 1
         infocus = 0 if t and t["id"] in fids else 1
-        if level:   # today's set, then the order for your energy; ties keep focus, then order
-            k = (doing, at_end) + by_energy[c["id"]] + (0, c["order_key"] or 0)
+        inseries = 0 if t and t["id"] in moving else 1
+        if level:   # today's set, then the order for your energy; ties keep focus, then a moving series, then order
+            k = (doing, at_end) + by_energy[c["id"]] + (inseries, c["order_key"] or 0)
         else:
-            k = (doing, at_end, urgent, infocus, back, fits, 0, 0, c["order_key"] or 0)
+            k = (doing, at_end, urgent, infocus, back, fits, inseries, 0, c["order_key"] or 0)
         keyed.append((k, c, t))
     out = [(c, t) for _, c, t in sorted(_back_to_back(core, keyed), key=lambda x: x[0])]
     # The options for "I can't decide", once they land, come next, right after the card in front, which never changes under you
@@ -384,6 +393,12 @@ def queue(core, front=None):
         pin = [x for x in out if x[0]["id"] == front]
         out = pin + [x for x in out if x[0]["id"] != front]
     return out
+
+
+def _days_ago(core, days):
+    from datetime import timedelta
+    from .db import iso
+    return iso(core.now() - timedelta(days=days))
 
 
 def _back_to_back(core, keyed):

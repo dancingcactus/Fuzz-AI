@@ -21,6 +21,9 @@ from ..db import iso
 from . import settings as settings_mod
 
 LIVE_SERIES = ("forming", "inferred", "named", "dormant")
+# The local part of an address that is a mailing list, not a person: northwind-all@, dl-pricing@, eng-team@
+LIST_RE = re.compile(r"^(all|dl|list|team|everyone|announce|staff)[-._]|[-._](all|dl|list|lists|team|everyone|announce|group|staff)@|"
+                     r"^[^@]*(-list|-group|-dl)@")
 
 
 def norm(s):
@@ -34,15 +37,18 @@ def kind_of(key):
 
 
 class Index:
-    def __init__(self, core):
+    def __init__(self, core, as_of=None):
+        """as_of: an ISO time; tasks made and signals sent after it don't exist yet (a replay of history)."""
         self.core = core
+        self.as_of = as_of
         self.cfg = settings_mod.get(core)
         self.feats = {}       # task -> {key: label}
         self.index = {}       # key -> {task}
         self.origins = {}     # task -> {origin}
         self.dates = {}       # task -> {YYYY-MM-DD}
         self.last = {}        # task -> latest signal or change time
-        self.tasks = {t["id"]: t for t in core.all("SELECT * FROM tasks WHERE user_id=? AND state!='merged'", (core.user_id,))}
+        self.tasks = {t["id"]: t for t in core.all("SELECT * FROM tasks WHERE user_id=? AND state!='merged'", (core.user_id,))
+                      if not as_of or (t.get("created_at") or "") <= as_of}
         self.series = {s["id"]: s for s in core.all("SELECT * FROM series WHERE user_id=? AND state!='dropped'", (core.user_id,))}
         self.rows = {}        # series -> [anchor rows]
         for a in core.all("SELECT * FROM series_anchors WHERE user_id=? ORDER BY id", (core.user_id,)):
@@ -109,6 +115,11 @@ class Index:
             "FROM sources s JOIN candidates c ON c.id=s.candidate_id "
             "LEFT JOIN signals g ON g.key=c.signal_key AND g.user_id=c.user_id "
             "WHERE s.user_id=? AND s.role IN ('origin','update','context') AND s.withdrawn=0", (core.user_id,))
+        typed_lists = {a["key"] for rows_ in self.rows.values() for a in rows_ if a["key"].startswith("list:") and a["how"] == "added"}
+        senders = set()   # an address that sends mail is a person, never a list
+        for g in core.all("SELECT json_extract(payload,'$.from.email') e FROM signals WHERE user_id=? AND source='email'", (core.user_id,)):
+            if g["e"]:
+                senders.add(g["e"].strip().lower())
         mentions = {}
         for m in core.all("SELECT m.candidate_id, m.entity_id FROM mentions m JOIN candidates c ON c.id=m.candidate_id "
                           "WHERE c.user_id=? AND m.strength!='provisional'", (core.user_id,)):
@@ -118,6 +129,8 @@ class Index:
             if tid not in self.tasks:
                 continue
             ts = r["ts"] or ""
+            if self.as_of and ts > self.as_of:
+                continue
             if ts:
                 self.dates[tid].add(ts[:10])
                 self.last[tid] = max(self.last[tid], ts)
@@ -132,11 +145,16 @@ class Index:
                     self._add(tid, "dm:" + ch, "a Slack DM")
                 else:
                     self._add(tid, "chan:" + ch, f"Slack channel {ch}")
+            sp = r["spayload"] if isinstance(r["spayload"], dict) else json.loads(r["spayload"] or "{}")
             if r["source"] in ("meeting", "calendar"):
-                sp = r["spayload"] if isinstance(r["spayload"], dict) else json.loads(r["spayload"] or "{}")
                 title = ((sp.get("from") or {}).get("name") or sp.get("title") or "")
                 if norm(title):
                     self._add(tid, "meet:" + norm(title), f"meeting “{title}”")
+            if r["source"] == "email":   # an email list it went to: an address shaped like a list that never writes
+                for p in sp.get("people") or []:
+                    e = (p.get("email") or "").strip().lower()
+                    if e and ((LIST_RE.search(e) and e not in senders) or "list:" + e in typed_lists):
+                        self._add(tid, "list:" + e, f"email list {e}")
             for eid in mentions.get(r["cid"], []):
                 eid = follow(eid)
                 e = ents.get(eid)

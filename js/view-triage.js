@@ -532,6 +532,8 @@
     if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);
     if (it.deliverable) h += ebItem('<button type="button" class="eb eb-link" data-act="forline" title="For ' + esc(it.deliverable.title) + '">For ' + esc(it.deliverable.title) + '</button>', true);
     if (it.series) h += ebItem('<button type="button" class="eb eb-link" data-act="serline" title="' + esc(Store.seriesLine(it)) + '">' + esc(Store.seriesLine(it)) + '</button>', true);
+    /* a cross-series hint: this task also moves another series along */
+    if ((it.alsoTouches || []).length) h += ebItem('<span class="eb" title="It also touches ' + esc(it.alsoTouches.map(function (s) { return s.name; }).join(', ')) + '">Helps ' + esc(it.alsoTouches[0].name) + ' too</span>', true);
     return h;
   }
   /* The question leads the card. "The one thing to decide" stays for screen readers only. */

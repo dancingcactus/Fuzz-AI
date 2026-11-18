@@ -103,6 +103,7 @@ def start(core, note, task_id=None, name=None):
                                     "anchors": [{"key": "word:" + w, "label": f"the words “{w}”"} for w in g["words"]]
                                     + [{"key": k, "label": v} for k, v in g["anchors"].items()],
                                     "people": people}, where="front")
+    record.sync_identifiers(core)
     return {"series_id": sid, "card_id": cid}
 
 
@@ -216,6 +217,7 @@ def _looks_right(core, card, s, p, v):
             facts.edit(core, s["entity_id"], "your_role", ROLE_FROM_OPTION.get(role, role))
         if done_when:
             facts.edit(core, s["entity_id"], "done_when", done_when)
+        record.sync_identifiers(core)
 
 
 def _next(core, card, s, p, option, v):
@@ -231,6 +233,10 @@ def _next(core, card, s, p, option, v):
         core.q("INSERT INTO feedback (user_id, ts, kind, a, b, note) VALUES (?,?,?,?,?,?)",
                (core.user_id, core.now_iso(), "series_suggestion", s["id"], None,
                 json.dumps({"key": p.get("key"), "detector": p.get("detector"), "outcome": option, "title": title})))
+        from .. import evals   # the outcome is an eval case, for scoring the detectors later
+        evals.add_case(core, "series_suggest", "not_needed" if option == "not_needed" else "wanted",
+                       {"series": s["name"], "detector": p.get("detector"), "title": p.get("title"), "why": p.get("why")},
+                       {"wanted": option != "not_needed", "option": option}, f"series_card:{card['id']}")
         if option in ("add", "mine"):
             if not title:
                 raise FuzzError("value.title is the task to add", "value.title")

@@ -159,6 +159,7 @@ def drop(core, sid, why="not_series", actor="human", card=None, option="not_seri
             events.emit(core, "series.dropped", changes=ch, data={"series_id": s["id"], "tasks": members})
         if anchors and members:
             remember_wait(core, list(anchors), len(members))
+        sync_identifiers(core)
 
 
 def remember_wait(core, keys, size):
@@ -204,6 +205,8 @@ def anchor_key(text):
     keys = entities.tickets_in(t.upper())
     if keys and keys[0] == t.upper():
         return ("ticket_key:" + keys[0], f"ticket {keys[0]}")
+    if "@" in t and " " not in t:   # an email list
+        return ("list:" + t.lower(), f"email list {t.lower()}")
     w = index_mod.norm(t.lstrip("#"))
     if not w:
         raise FuzzError("Say a word, a ticket key or a Slack channel", "add")
@@ -277,7 +280,28 @@ def edit_anchors(core, sid, add=(), remove=(), actor="human", restore=()):
                 ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=label, how="added", removed=0)
         events.emit(core, "series.anchors", changes=ch,
                     data={"series_id": s["id"], "added": [k for k, _ in adds], "removed": list(remove or [])})
+        sync_identifiers(core)
     return [k for k, _ in adds]
+
+
+def sync_identifiers(core):
+    """A series' anchors are its entity's identifiers (type anchor, value "<key>#s<series>"; one anchor can belong
+    to several series, so the value names it). Derived: rewritten from the anchors as they stand after any change
+    to them and after each detection run, so they always say what the index says."""
+    idx = index_mod.Index(core)
+    core.q("DELETE FROM identifiers WHERE user_id=? AND type='anchor'", (core.user_id,))
+    for sid, s in idx.series.items():
+        if not s.get("entity_id"):
+            continue
+        for k in idx.anchors(sid):
+            core.q("INSERT OR REPLACE INTO identifiers (user_id, type, value, entity_id) VALUES (?,?,?,?)",
+                   (core.user_id, "anchor", f"{k}#s{sid}", s["entity_id"]))
+
+
+def series_for_anchor(core, key):
+    """The series an anchor belongs to, by their entities' identifiers."""
+    return [int(r["value"].rsplit("#s", 1)[1]) for r in core.all(
+        "SELECT value FROM identifiers WHERE user_id=? AND type='anchor' AND value LIKE ?", (core.user_id, f"{key}#s%"))]
 
 
 # ---------------------------------------------------------------- wrapping, seasons, merging, going quiet
@@ -322,6 +346,7 @@ def merge(core, from_sid, into_sid, actor="system", why=None):
         ch.series(b["id"], grown_at=core.now_iso())
         _withdraw_cards(core, ch, a["id"])
         events.emit(core, "series.merged", changes=ch, data={"from": a["id"], "into": b["id"], "why": why})
+        sync_identifiers(core)
 
 
 def check_dormant(core):

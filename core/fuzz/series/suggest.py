@@ -26,7 +26,7 @@ from . import index as index_mod
 from . import record
 
 AUDIENCE = {"follow_through": ("drive",), "prep": ("drive", "contribute"), "stall": ("drive", "contribute", "follow"),
-            "at_risk": ("drive", "contribute")}
+            "at_risk": ("drive", "contribute"), "usual_next": ("drive", "contribute")}
 MONTHS = {m: i + 1 for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))}
 
 
@@ -126,11 +126,51 @@ def detect(core, s, idx):
             out.append({"detector": "at_risk", "key": f"at_risk:deliverable{did}:{d['due'][:10]}",
                         "title": f"Finish “{left[0]['title']}” for {d['title']}"[:120],
                         "why": f"{d['title']} is due {due.strftime('%A')} and {len(left)} of its tasks are still open."})
+    out += usual_next(core, s, rows, cfg)
     dw = known.get("done_when")
     if dw and when and now <= when <= soon and not out:
         out.append({"detector": "at_risk", "key": f"at_risk:done_when:{index_mod.norm(ms)}",
                     "title": f"Check what’s left before {ms}"[:120],
                     "why": f"{s['name']} is done when {dw[:1].lower() + dw[1:]}, and {ms} is close."})
+    return out
+
+
+_DATEISH = re.compile(r"\b(\d+(st|nd|rd|th)?|mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|"
+                      r"saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|"
+                      r"june|july|august|september|october|november|december|today|tomorrow|this|next|week|weekly|"
+                      r"week's|weeks)\b")
+
+
+def gist(title):
+    """A task's title without its dates: "Send Priya the status note, Nov 14" and "… Nov 21" are one step."""
+    return " ".join(_DATEISH.sub(" ", index_mod.norm(title)).split())
+
+
+def usual_next(core, s, rows, cfg):
+    """Usual next step, mined from its own history: a step it repeats on a rhythm (the same task, at least
+    usual_min times, about the same days apart) that's due again with nothing open for it."""
+    by = {}
+    for r in rows.values():
+        g = gist(r["title"])
+        if g and r.get("created_at"):
+            by.setdefault(g, []).append(r)
+    out = []
+    now = core.now()
+    for g, rs in by.items():
+        if len(rs) < cfg["usual_min"] or any(r["state"] in states.LIVE for r in rs):
+            continue
+        times = sorted(parse_iso(r["created_at"]) for r in rs)
+        gaps = sorted((b - a).total_seconds() / 86400 for a, b in zip(times, times[1:]))
+        gap = gaps[len(gaps) // 2]
+        if gap < cfg["usual_gap_min_days"] or gaps[-1] > 2 * gap:   # not a rhythm
+            continue
+        due = times[-1] + timedelta(days=gap)
+        if now < due - timedelta(days=1):
+            continue
+        last = max(rs, key=lambda r: r["created_at"])
+        every = "week" if 5 <= gap <= 9 else f"{round(gap)} days"
+        out.append({"detector": "usual_next", "key": f"usual_next:{g}:{due.date().isoformat()}", "title": last["title"][:120],
+                    "why": f"You’ve done this every {every}, {len(rs)} times now, and this round’s isn’t started."})
     return out
 
 
@@ -167,6 +207,9 @@ def run(core):
     idx = index_mod.Index(core)
     cfg = idx.cfg
     said = _said(core)
+    # lessons from Not needed (learning/learners/series.py): kinds of suggestion you don't want in a series
+    quiet = {r["key"] for r in core.all("SELECT key FROM lessons WHERE user_id=? AND surface='series_suggest' AND status='active'",
+                                        (core.user_id,))}
     fids = focus.focus_ids(core)
     week = iso(core.now() - timedelta(days=7))
     going = [s for s in idx.series.values() if s["kind"] == "series" and s["state"] in ("inferred", "named") and not s["muted"]]
@@ -184,7 +227,7 @@ def run(core):
         for sug in detect(core, s, idx):
             if room <= 0 or n >= cfg["suggest_per_run"]:
                 break
-            if sug["key"] in said or r not in AUDIENCE[sug["detector"]]:
+            if sug["key"] in said or r not in AUDIENCE[sug["detector"]] or f"series:{s['id']}:{sug['detector']}" in quiet:
                 continue
             if not s.get("met"):
                 ask.role_card(core, s, reason=f"Fuzz has a next step to suggest in it. {sug['why']}")

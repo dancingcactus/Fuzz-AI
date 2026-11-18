@@ -19,7 +19,7 @@
 
   var STATE = { merged: 'resolved' };   /* the core's states are the UI's, except a merged task */
   var VIA = { email: 'Email', slack: 'Slack', calendar: 'Calendar invite', nudge: 'The same thread' };
-  var ROLE = { origin: 'Source', update: 'Update', context: 'Context', attachment: 'File', output: 'Saved file', link: 'Link' };
+  var ROLE = { origin: 'Source', update: 'Update', context: 'Context', attachment: 'File', output: 'Saved file', link: 'Link', person: 'Person', artifact: 'Fuzz made' };
 
   /* ---------- Talking to the core ---------- */
   function readToken() {
@@ -696,7 +696,7 @@
 
     /* Capture: in the queue at once, then given its core id */
     var capture = S.capture;
-    S.capture = function (text, docs, picked, series) {
+    S.capture = function (text, docs, picked, series, refs) {
       var it = capture.apply(S, arguments);
       gen++;
       write(function () {
@@ -705,7 +705,10 @@
           /* New task's + → Series: into one you picked, or a new one started from this note (it waits for your OK) */
           var into = !series ? null : series.start ? api('POST', '/series', { note: (text || '').trim(), task_id: r.task_id })
             : api('POST', '/tasks/' + r.task_id + '/series', { series_id: series.id });
-          return Promise.resolve(into).then(function () { return upload(r.task_id, picked || []); });
+          /* ...and the person, links and things Fuzz made you added with the + */
+          var more = refs && (refs.people.length || refs.links.length || refs.artifacts.length) ? api('POST', '/tasks/' + r.task_id + '/refs',
+            { people: refs.people, links: refs.links, artifacts: refs.artifacts.map(function (a) { return a.id; }) }) : null;
+          return Promise.all([into, more]).then(function () { return upload(r.task_id, picked || []); });
         });
       });
       return it;
@@ -854,6 +857,8 @@
     serverId: function () { return fetch('/health', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (h) { return h.ok ? h.boot || 'up' : null; }, function () { return null; }); },
     /* The Artifacts tab: what Fuzz wrote in your output folder, and a call whenever the core's events move */
     artifacts: function () { return api('GET', '/artifacts'); },
+    /* New task's + → Person: the people Fuzz knows, by name or email */
+    people: function (q) { return api('GET', '/people?q=' + encodeURIComponent(q || '')); },
     /* Finished work older than Lineup shows, by words in its title or summary, newest first */
     searchFinished: function (q) {
       return api('GET', '/tasks/search?q=' + encodeURIComponent(q)).then(function (r) { return r.tasks.map(function (t) { return toItem(t, null, null); }); });

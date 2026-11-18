@@ -179,6 +179,8 @@ class App:
             ("POST", r"/series/(\d+)/(keep|name|role|mute|unmute|drop|wrap|reopen|anchors|preview|facts|add_task|work_on|check)",
              self.series_action),
             ("GET", r"/tasks/(\d+)/series", self.series_choices),
+            ("POST", r"/tasks/(\d+)/refs", self.task_refs),
+            ("GET", r"/people", self.people_search),
             ("POST", r"/tasks/(\d+)/series", self.task_series),
             ("GET", r"/tasks/(\d+)/part_of", self.part_of_choices),
             ("GET", r"/tasks/(\d+)/book_options", self.book_options),
@@ -667,6 +669,19 @@ class App:
                 events.emit(core, "series.reviewed", changes=ch, data={"series_id": sid, "asked": True})
         with core.reading():
             return views.sheet(core, sid)
+
+    def task_refs(self, core, m, body, q):
+        """New task's +: {people: [{name, email?, role}], links: [url], artifacts: [source id]}."""
+        tid = int(m.group(1))
+        for k in ("people", "links", "artifacts"):
+            if not isinstance(body.get(k) or [], list):
+                raise FuzzError(f"{k} is a list", k)
+        n = tasks.add_refs(core, tid, body.get("people") or [], body.get("links") or [], body.get("artifacts") or [])
+        return dict(task_view(core, tasks.require(core, tid), full=True), added=n)
+
+    def people_search(self, core, m, body, q):
+        """People Fuzz knows, for New task's + → Person: by name or email, the most seen first."""
+        return {"people": people.search(core, q.get("q") or "", int(q.get("limit") or 8))}
 
     def series_choices(self, core, m, body, q):
         from .series import views
