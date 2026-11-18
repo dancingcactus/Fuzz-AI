@@ -28,10 +28,14 @@ h3{font-size:16px}
 .fact dt{font-weight:700;color:#7A6454;font-size:13.5px}
 .fact dd{margin:0}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #EFE3D2;flex-wrap:wrap}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;border:0;background:transparent;color:#5E4A3C;cursor:pointer}
+.ib:hover{background:#F0E1CC}
+.fld{min-height:44px;box-sizing:border-box;background:#FFFBF4;border:1px solid #E8D9C5;border-radius:12px;padding:8px 12px;font:inherit;color:#3A2A20;min-width:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 10px;border-radius:10px;background:#F6EBDB;border:1px solid #E8D9C5}
 </style>
 </helmet>
-<div style="width: 880px; min-height: 2060px; box-sizing: border-box; padding: 40px; background: #D9CBB9;">
+<div style="width: 880px; min-height: 2760px; box-sizing: border-box; padding: 40px; background: #D9CBB9;">
   <div role="dialog" aria-labelledby="ss-title" style="background: #FFFBF4; border-radius: 22px; border: 1px solid #E8D9C5; box-shadow: 0 24px 60px -20px rgba(58,42,32,.45); padding: 28px 32px; display: flex; flex-direction: column; gap: 28px;">
 
     <div style="display: flex; align-items: flex-start; gap: 16px;">
@@ -100,6 +104,14 @@ h3{font-size:16px}
 
     <section aria-labelledby="h-open">
       <h3 id="h-open">Open work</h3>
+      <form style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+        <label for="ss-add" class="meta" style="font-weight: 700;">Add a task to Northwind</label>
+        <div style="display: flex; gap: 8px;">
+          <input id="ss-add" type="text" placeholder="What needs doing?" value="Share the pilot success criteria with Dana" style="flex: 1 1 auto; min-width: 0; min-height: 44px; box-sizing: border-box; background: #F6EBDB; border: 1px solid #E8D9C5; border-radius: 12px; padding: 10px 12px; font: inherit; color: #3A2A20;">
+          <button type="submit" class="btn primary">Add</button>
+        </div>
+        <p class="meta" style="margin: 0;">It goes to Triage like any new task, already part of Northwind. <a href="#">Move one you already have</a></p>
+      </form>
       <div style="margin-top: 8px;">
         <div class="row"><span>Review the pilot runbook draft</span><span class="pill warn">Needs your OK</span></div>
         <div class="row"><span>Book the pilot kickoff with both teams</span><span class="pill accent">With Fuzz</span></div>
@@ -144,19 +156,74 @@ h3{font-size:16px}
 
     <section aria-labelledby="h-where">
       <h3 id="h-where">How Fuzz spots it</h3>
-      <p class="meta" style="margin: 2px 0 10px;">New work that touches any of these lands in Northwind.</p>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <span class="chip">NW tickets</span>
-        <span class="chip">#northwind</span>
-        <span class="chip">Northwind sync (recurring meeting)</span>
-        <span class="chip">Northwind pilot plan (doc)</span>
-        <span class="chip">“NW rollout”</span>
+      <p class="meta" style="margin: 2px 0 8px;">New work that touches any of these lands in Northwind. Fix one that’s close, remove one that catches the wrong things.</p>
+
+      <div class="row">
+        <div style="min-width: 0; flex: 1 1 360px;"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Tickets</span> NW-*</p><p class="meta" style="margin: 0;">Caught 9 · Fuzz found it</p></div>
+        <span style="display: inline-flex; gap: 4px;">
+          <button type="button" class="ib" aria-label="Correct NW tickets"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button>
+          <button type="button" class="ib" aria-label="Remove NW tickets"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </span>
       </div>
+
+      <div style="border-top: 1px solid #EFE3D2; padding: 12px 14px; margin: 0 -14px; background: #F6EBDB; border-radius: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <p class="meta" style="margin: 0; font-weight: 700;">Correcting a Slack channel</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <label class="sr" for="an-edit-kind">Kind</label>
+          <select id="an-edit-kind" class="fld" style="flex: 0 0 180px;"><option>Slack channel</option></select>
+          <label class="sr" for="an-edit-val">Channel</label>
+          <input id="an-edit-val" class="fld" type="text" value="#northwind-pilot" style="flex: 1 1 200px;">
+          <button type="button" class="btn primary">Save</button>
+          <button type="button" class="btn">Cancel</button>
+        </div>
+        <p style="margin: 0; font-size: 13.5px;">Was <s>#northwind</s>. This would have caught 5 of the 6 tasks #northwind did, and missed “Answer Sam’s question on test data”.</p>
+      </div>
+
+      <div class="row">
+        <div style="min-width: 0; flex: 1 1 360px;"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Recurring meeting</span> Northwind sync, Tuesdays</p><p class="meta" style="margin: 0;">Caught 4 · Fuzz found it</p></div>
+        <span style="display: inline-flex; gap: 4px;">
+          <button type="button" class="ib" aria-label="Correct Northwind sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button>
+          <button type="button" class="ib" aria-label="Remove Northwind sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </span>
+      </div>
+
+      <div class="row">
+        <div style="min-width: 0; flex: 1 1 360px;"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Doc</span> Northwind pilot plan</p><p class="meta" style="margin: 0;">Caught 3 · Fuzz found it</p></div>
+        <span style="display: inline-flex; gap: 4px;">
+          <button type="button" class="ib" aria-label="Correct Northwind pilot plan"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button>
+          <button type="button" class="ib" aria-label="Remove Northwind pilot plan"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </span>
+      </div>
+
+      <div class="row">
+        <div style="min-width: 0; flex: 1 1 360px;"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Words</span> “NW rollout”</p><p class="meta" style="margin: 0;">Caught 2 · You added it</p></div>
+        <span style="display: inline-flex; gap: 4px;">
+          <button type="button" class="ib" aria-label="Correct NW rollout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button>
+          <button type="button" class="ib" aria-label="Remove NW rollout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </span>
+      </div>
+
+      <div class="row" style="color: #7A6454;">
+        <div style="min-width: 0; flex: 1 1 360px;"><p style="margin: 0;"><s><span style="font-weight: 700;">Email list</span> northwind-all@</s></p><p class="meta" style="margin: 0;">Removed. Fuzz stops using it, and won’t suggest it again.</p></div>
+        <button type="button" class="btn">Undo</button>
+      </div>
+
+      <form style="border-top: 1px solid #EFE3D2; padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+        <p class="meta" style="margin: 0; font-weight: 700;">Add a way to spot it</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <label class="sr" for="an-add-kind">Kind</label>
+          <select id="an-add-kind" class="fld" style="flex: 0 0 180px;"><option>Ticket key</option><option>Slack channel</option><option>Recurring meeting</option><option>Doc or folder</option><option>Email list</option><option>Words</option></select>
+          <label class="sr" for="an-add-val">Value</label>
+          <input id="an-add-val" class="fld" type="text" placeholder="e.g. NWPILOT" style="flex: 1 1 200px;">
+          <button type="submit" class="btn">Add</button>
+        </div>
+        <p class="meta" style="margin: 0;">Before it saves, Fuzz shows what it would have caught.</p>
+      </form>
     </section>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":2060}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":2760}}'>
 class Component extends DCLogic {
 renderVals() {
 return {};

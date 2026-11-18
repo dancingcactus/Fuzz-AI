@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Start a series · what Fuzz found</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&amp;family=Nunito+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Nunito Sans",system-ui,sans-serif;font-size:15px;line-height:1.5;color:#3A2A20}
+a{color:#A23F1B}a:hover{color:#7A2A0E}
+h2,h3{margin:0;font-family:"Nunito",system-ui,sans-serif;font-weight:800}
+h3{font-size:16px}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1.5px solid #E8D9C5;background:#FFFBF4;color:#3A2A20;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}
+.btn.primary{background:#B94E28;border-color:#B94E28;color:#FFFFFF}
+.meta{color:#7A6454;font-size:13.5px}
+.lbl{font-weight:700;font-size:14px}
+.fld{width:100%;box-sizing:border-box;min-height:44px;background:#F6EBDB;border:1px solid #E8D9C5;border-radius:12px;padding:10px 12px;font:inherit;color:#3A2A20}
+.pill{display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;padding:2px 10px;border-radius:999px;background:#F0E1CC;color:#5E4A3C;white-space:nowrap}
+.pill.accent{background:#F6DCCD;color:#8A2F10}
+.pill.warn{background:#F6E3C0;color:#6E4405}
+.task{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid #EFE3D2}
+.task input{width:20px;height:20px;margin:2px 0 0;accent-color:#B94E28;flex:none}
+.task label{flex:1 1 auto;min-width:0;cursor:pointer}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #E8D9C5;background:#FFFBF4;font-weight:700;cursor:pointer}
+.seg input{accent-color:#B94E28;margin:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #EFE3D2;flex-wrap:wrap}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;border:0;background:transparent;color:#5E4A3C;cursor:pointer}
+.ib:hover{background:#F0E1CC}
+</style>
+</helmet>
+<div style="width: 760px; min-height: 1500px; box-sizing: border-box; padding: 32px; background: #D9CBB9;">
+  <form role="dialog" aria-labelledby="st2-title" style="background: #FFFBF4; border: 1px solid #E8D9C5; border-radius: 22px; padding: 28px 32px; display: flex; flex-direction: column; gap: 26px; box-shadow: 0 24px 60px -20px rgba(58,42,32,.45);">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <h2 id="st2-title" style="font-size: 24px;">Here’s what Fuzz found</h2>
+      <p class="meta" style="margin: 0; font-size: 14.5px;">Untick anything that isn’t part of it. Nothing is sent or changed; this only puts your work together.</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <label class="lbl" for="st2-name">Name</label>
+      <input id="st2-name" class="fld" type="text" value="Q1 pricing change">
+    </div>
+
+    <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+      <legend class="lbl" style="padding: 0; margin-bottom: 8px;">Your part</legend>
+      <div class="seg">
+        <label><input type="radio" name="role" checked>I’m driving it</label>
+        <label><input type="radio" name="role">I’m helping</label>
+        <label><input type="radio" name="role">Just keeping up</label>
+      </div>
+      <p class="meta" style="margin: 0;">You said you’re pulling the customer comms together, so Fuzz picked driving.</p>
+    </fieldset>
+
+    <section aria-labelledby="st2-tasks">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px;">
+        <h3 id="st2-tasks">These look like part of it</h3>
+        <span class="meta">4 of 5 picked</span>
+      </div>
+      <div class="task"><input id="t1" type="checkbox" checked><label for="t1"><span style="font-weight: 600;">Draft the customer email about the new tiers</span><br><span class="meta">Email from Alex in Finance, Nov 10</span></label><span class="pill accent">My work</span></div>
+      <div class="task"><input id="t2" type="checkbox" checked><label for="t2"><span style="font-weight: 600;">Collect the pricing questions support keeps getting</span><br><span class="meta">#pricing, Nov 12</span></label><span class="pill warn">Waiting on others</span></div>
+      <div class="task"><input id="t3" type="checkbox" checked><label for="t3"><span style="font-weight: 600;">Prep for Thursday’s pricing review</span><br><span class="meta">Pricing review, a recurring meeting</span></label><span class="pill accent">In Triage</span></div>
+      <div class="task"><input id="t4" type="checkbox" checked><label for="t4"><span style="font-weight: 600;">Check the tier comparison table</span><br><span class="meta">Doc: Q1 pricing tiers</span></label><span class="pill warn">Needs your OK</span></div>
+      <div class="task" style="background: #F6EBDB; margin: 0 -12px; padding: 10px 12px; border-radius: 12px;"><input id="t5" type="checkbox"><label for="t5"><span style="font-weight: 600;">Update the billing FAQ page</span><br><span class="meta">Not sure: it mentions pricing, but it came from the billing migration thread.</span></label><span class="pill">Later</span></div>
+    </section>
+
+    <section aria-labelledby="st2-spot">
+      <h3 id="st2-spot">How Fuzz will spot new work</h3>
+      <p class="meta" style="margin: 2px 0 6px;">What these tasks have in common. Remove one that’s too broad.</p>
+      <div class="row"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Slack channel</span> #pricing</p><span style="display: inline-flex; gap: 4px;"><button type="button" class="ib" aria-label="Correct #pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button><button type="button" class="ib" aria-label="Remove #pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span></div>
+      <div class="row"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Recurring meeting</span> Pricing review, Thursdays</p><span style="display: inline-flex; gap: 4px;"><button type="button" class="ib" aria-label="Correct Pricing review"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button><button type="button" class="ib" aria-label="Remove Pricing review"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span></div>
+      <div class="row"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Doc</span> Q1 pricing tiers</p><span style="display: inline-flex; gap: 4px;"><button type="button" class="ib" aria-label="Correct Q1 pricing tiers"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button><button type="button" class="ib" aria-label="Remove Q1 pricing tiers"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span></div>
+      <div class="row"><p style="margin: 0;"><span class="meta" style="font-weight: 700;">Words</span> “new tiers”, “Q1 pricing”</p><span style="display: inline-flex; gap: 4px;"><button type="button" class="ib" aria-label="Correct the words"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path></svg></button><button type="button" class="ib" aria-label="Remove the words"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span></div>
+      <div style="border-top: 1px solid #EFE3D2; padding-top: 10px;"><button type="button" class="btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add a way to spot it</button></div>
+    </section>
+
+    <section aria-labelledby="st2-done" style="display: flex; flex-direction: column; gap: 6px;">
+      <h3 id="st2-done">Done when</h3>
+      <div style="border: 1.5px solid #E8D9C5; border-radius: 14px; padding: 12px 14px; background: #FFFFFF;">
+        <p style="margin: 0;">The new tiers are on the public pricing page and the customer email has gone out</p>
+        <p class="meta" style="margin: 2px 0 0;">You said this · Fuzz can check it: the pricing page, and your Sent mail</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="st2-people">
+      <h3 id="st2-people">People in it</h3>
+      <p style="margin: 4px 0 0;">Alex Kim (Finance) · Rosa Mendes (Support) · Priya Shah</p>
+    </section>
+
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 6px; border-top: 1px solid #EFE3D2;">
+      <a class="btn primary" href="Main.dc.html">Start the series</a>
+      <a class="btn" href="Start1.dc.html">Back</a>
+      <span class="meta">You can change any of this later on its sheet.</span>
+    </div>
+  </form>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":760,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
