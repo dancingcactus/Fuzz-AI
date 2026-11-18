@@ -25,36 +25,51 @@ beforeEach(async () => {
   page.on('pageerror', e => errors.push(e.message));
   page.errors = errors;
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card [data-act]').first().waitFor();
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });
 
-test('arriving shows what happened, then the card to start with and why', async () => {
-  const fc = page.locator('#focuscard');
-  assert.equal(await fc.locator('.arrive-pick').count(), 1);
-  assert.equal(await fc.locator('#fo-q').count(), 0, 'no question before you have the context');
-  const named = await fc.locator('.arrive-pick h2').textContent();
-  assert.ok(named.trim().length > 0);
-  assert.ok((await fc.locator('.arrive-pick .meta').textContent()).trim().length > 0, 'it says why');
-  await page.keyboard.press('Enter');
-  await page.locator('#card [data-act]').first().waitFor();
-  assert.equal((await page.locator('#ask').textContent()).replace(/^The one thing to decide: /, '').trim(), named.trim(), 'Enter starts on the named card');
+/* The card on screen is this one: its heading is the task's title or its question */
+const showing = (id) => page.evaluate((id) => {
+  const i = Store.item(id), h = document.getElementById('ask').textContent.replace(/^The one thing to decide: /, '').trim();
+  return h === i.title || h === i.ask;
+}, id);
+
+test('Triage opens on the first card: no “while you were away” screen, no focus question (#31)', async () => {
+  assert.equal(await page.locator('#focuscard').isHidden(), true);
+  assert.equal(await page.locator('.arrive-list, .arrive-pick').count(), 0);
+  assert.ok(await showing(await page.evaluate(() => Store.front().id)), 'the front card is on screen');
 });
 
-test('O asks what we’re working on instead', async () => {
-  await page.keyboard.press('o');
+test('F still asks what we’re working on', async () => {
+  await page.keyboard.press('f');
   await page.locator('#focuscard #fo-q').waitFor();
+  await page.keyboard.press('Escape');
+  await page.locator('#card [data-act]').first().waitFor();
+});
+
+test('a card picked from Lineup opens in Triage, straight away (#31)', async () => {
+  await page.evaluate(() => App.navigate('#/tasks'));
+  await page.locator('#decide-list').waitFor();
+  await page.click('#decide-list summary');
+  const rows = page.locator('#decide-list [data-pick]');
+  const pick = await rows.nth(await rows.count() - 1);
+  const id = await pick.getAttribute('data-pick');
+  assert.notEqual(id, await page.evaluate(() => Store.front().id), 'pick one that isn’t already first');
+  await pick.click();
+  await page.locator('#card [data-act]').first().waitFor();
+  assert.equal(await page.evaluate(() => location.hash), '#/triage');
+  assert.equal(await page.locator('#focuscard').isHidden(), true);
+  assert.equal(await page.evaluate(() => Store.front().id), id);
+  assert.ok(await showing(id), 'the card you picked is on screen');
 });
 
 test('the header shows the stretch to the first check-in, not the whole queue (#9)', async () => {
-  await page.keyboard.press('Enter');
-  await page.locator('#card [data-act]').first().waitFor();
   const open = await page.evaluate(() => [...document.querySelectorAll('.pg-seg')].filter(s => !s.classList.contains('is-tick') && !s.classList.contains('is-bank') && !s.classList.contains('is-ghost')).length);
   assert.equal(open, await page.evaluate(() => Math.min(2, Store.queue().length)));
 });
 
 test('Lineup names what’s first, with no counts of what’s left', async () => {
-  await page.keyboard.press('Escape');
   await page.evaluate(() => App.navigate('#/tasks'));
   await page.locator('#board .decide').waitFor();
   assert.equal(await page.locator('.decide-n').count(), 0);
@@ -64,7 +79,6 @@ test('Lineup names what’s first, with no counts of what’s left', async () =>
 });
 
 test('New task: the field first, with focus; a document is a small link, and the box takes a drop', async () => {
-  await page.keyboard.press('Escape');
   await page.evaluate(() => App.navigate('#/capture'));
   await page.locator('#cap-text').waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'cap-text');
