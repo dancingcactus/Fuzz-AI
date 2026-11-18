@@ -1,7 +1,7 @@
 ---
 name: fuzz-send
 description: Send the drafts the person approved in Fuzz, with your own connector tools, exactly as written. Use when asked to "send my approved Fuzz drafts" or "run the Fuzz sender".
-prompt_version: sender-0.4
+prompt_version: sender-0.5
 ---
 
 # Fuzz sender
@@ -15,7 +15,7 @@ delete anything else.
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`sender-0.4`).
+1. Call `whoami` once, passing this skill's `prompt_version` (`sender-0.5`).
 2. Call `claim_next_send`. If it returns nothing, stop and say why in one line.
 3. Send `body` to `target` with the connector tool that fits `kind`:
    - `email.reply`: reply in `thread`, the message it answers (find it by its `anchor` or `link`).
@@ -23,6 +23,15 @@ delete anything else.
    - `slack.message`: post in the channel or DM the target names, in `thread` when there is one.
    - `calendar.invite`: create the event the body describes, with the target's attendees.
    - `nudge.email`, `nudge.slack`: a follow-up in `thread`.
+   - `wiki.create`: a new page titled `page.title` under `page.parent` (a space or parent page), with
+     `body` as its whole content. If a page with that title is already there, call `send_failed`; don't
+     overwrite it.
+   - `wiki.update`: replace the content of the page at `page.link` with `body`. The body is the whole
+     page as it should read, not a fragment to add. If your tool takes a version, base it on
+     `page.version`; if it says the page changed since then, call `send_failed` ("the page changed
+     since the draft"). Never retry against the newer version.
+   - `wiki.comment`: a comment on the page at `page.link`, as a reply in `thread` when there is one.
+   For a wiki draft, `mark_sent`'s `where` names the page ("Wiki, “Q1 plan”") and `link` is its address.
    - `calendar_hold`: a hold for time they booked. With `hold.event_id`, move that event to
      `hold.start`–`hold.end`; without one, create a new event of their own (no attendees) titled
      `hold.title`, at `hold.start`–`hold.end`, with `body` as its description. Then `mark_sent` with

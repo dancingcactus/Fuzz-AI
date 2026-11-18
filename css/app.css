@@ -360,6 +360,9 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .draft-to { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14.5px; }
 .draft-to > span:first-child { color: var(--muted); }
 .draft-to .via { font-size: 12.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--chip); color: var(--ink); }
+.draft-to strong a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+/* A wiki edit: Fuzz's one line on what changes, above the whole page as it will read */
+.draft-change { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--warn); border-radius: 4px; background: var(--chip); font-size: 14px; line-height: 1.5; }
 .draft textarea { font-size: 15.5px; line-height: 1.55; padding: 12px 14px; resize: vertical; min-height: 7.5em; }
 .actions.review { grid-template-columns: 1fr 1fr; }
 .actions.review .split { grid-column: 1 / -1; } /* Approve and send, with Mark done behind its arrow, gets the whole row */
@@ -1148,7 +1151,8 @@ body.onb-bare .onb { padding-top: 10vh; }
 .set-app small { flex-basis: 100%; color: var(--muted); }
 .set-src { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
 .set-src small { color: var(--muted); }
-.set-switches { display: flex; gap: 18px; }
+.set-switches { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.setup-tools small.set-risk { color: var(--danger); }
 .set-details summary { cursor: pointer; color: var(--link); font-weight: 600; font-size: 14px; min-height: 36px; display: flex; align-items: center; }
 .set-details code { font-size: 13px; overflow-wrap: anywhere; }
 

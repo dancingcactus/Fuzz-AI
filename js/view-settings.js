@@ -207,19 +207,23 @@
     return Live.saveSlots(n).then(function (r) { data.slots = r; slotsEdit = null; return 'Saved. I’ll take up to ' + r.slots + ' at once.'; });
   }
 
-  /* ---------- What Fuzz can read and send ---------- */
+  /* ---------- What Fuzz can read, send and change ---------- */
   /* One row per source. A source is on for reading when Fuzz may use any of its ways to look things up;
-     switching it on allows them all, off removes them all. The same for sending. Details has each tool. */
+     switching it on allows them all, off removes them all. The same for sending, and for changing (a wiki
+     page created or edited). Sending and changing both happen only after you approve a draft, so both go
+     in send.tools. A tool that deletes or runs other tools is never in a switch: only by name, in Details. */
   function sources(v) {
     var by = {}, order = [];
     v.tools.forEach(function (t) {
-      if (t.kind === 'change') return;   /* creates, changes or deletes: never Fuzz's */
       var s = t.server || 'Other';
-      if (!by[s]) { by[s] = { name: s, look: [], send: [] }; order.push(s); }
-      by[s][t.kind === 'send' ? 'send' : 'look'].push(t);
+      if (!by[s]) { by[s] = { name: s, look: [], send: [], change: [], risky: [] }; order.push(s); }
+      by[s][t.risk ? 'risky' : t.kind === 'send' ? 'send' : t.kind === 'change' ? 'change' : 'look'].push(t);
     });
     return order.map(function (s) { return by[s]; });
   }
+  /* Where a tool's pick lives: reading in read.tools, the rest in send.tools */
+  function groupOf(t) { return t.kind === 'lookup' ? 'read' : 'send'; }
+  var DOES = { read: 'Reads: ', send: 'Sends: ', change: 'Changes: ', deletes: 'Deletes: ', runs: 'Runs any tool: ' };
   function startPicks(v) {
     if (picks && picks.client === v.client) return picks;
     var read = {}, send = {};
@@ -232,39 +236,40 @@
     if (!v) return '';
     var d = v.discovery || {}, running = d.state === 'running';
     var again = '<button type="button" class="btn small" data-list="1"' + (running ? ' disabled' : '') + '>' + (running ? 'Asking ' + esc(v.label) + '…' : v.discovered_at ? 'List again' : 'Find what ' + esc(v.label) + ' can reach') + '</button>';
-    var intro = 'What I may use through ' + esc(v.label) + '. I read with these without asking, and I only send drafts you’ve approved.';
+    var intro = 'What I may use through ' + esc(v.label) + '. I read with these without asking. I only send a message or change a page after you’ve approved its draft, word for word.';
     if (!v.tools.length) {
-      return section('sources', 'What Fuzz can read and send', intro,
+      return section('sources', 'What Fuzz can read, send and change', intro,
         (d.state === 'error' ? '<p class="setup-hint" role="alert">That didn’t work: ' + esc(d.error) + '</p>' : '') +
         '<p class="meta">' + (running ? 'Usually about a minute. Nothing is read or changed while I ask.' : 'I haven’t asked ' + esc(v.label) + ' what it can reach yet. That’s one run; nothing is read.') + '</p>' +
         '<div class="set-actions">' + again + '</div>');
     }
     var p = startPicks(v), rows = sources(v);
-    function on(group, tools) { return tools.length && tools.some(function (t) { return p[group][t.allow]; }); }
+    function on(tools) { return tools.length && tools.some(function (t) { return p[groupOf(t)][t.allow]; }); }
     function can(tools) { return tools.slice(0, 3).map(function (t) { return (t.does || t.allow).replace(/\.$/, ''); }).join(', ') + (tools.length > 3 ? ', and ' + (tools.length - 3) + ' more' : ''); }
+    function sw(i, group, label, tools) { return tools.length ? '<label class="check"><input type="checkbox" data-src="' + i + '" data-group="' + group + '"' + (on(tools) ? ' checked' : '') + '> <span>' + label + '</span></label>' : ''; }
     var table = '<ul class="set-sources">' + rows.map(function (r, i) {
-      return '<li><div class="set-src"><b>' + esc(plain(r.name)) + '</b><small>' + esc(can(r.look.length ? r.look : r.send)) + '</small></div>' +
-        '<div class="set-switches">' +
-          (r.look.length ? '<label class="check"><input type="checkbox" data-src="' + i + '" data-group="read"' + (on('read', r.look) ? ' checked' : '') + '> <span>Reading</span></label>' : '') +
-          (r.send.length ? '<label class="check"><input type="checkbox" data-src="' + i + '" data-group="send"' + (on('send', r.send) ? ' checked' : '') + '> <span>Sending</span></label>' : '') +
-        '</div></li>';
+      return '<li><div class="set-src"><b>' + esc(plain(r.name)) + '</b><small>' + esc(can(r.look.length ? r.look : r.send.length ? r.send : r.change.length ? r.change : r.risky)) + '</small></div>' +
+        '<div class="set-switches">' + sw(i, 'read', 'Reading', r.look) + sw(i, 'send', 'Sending', r.send) + sw(i, 'change', 'Changing', r.change) + '</div></li>';
     }).join('') + '</ul>';
     var n = Object.keys(p.read).length;
+    var risky = v.tools.filter(function (t) { return t.risk && p.send[t.allow]; });
     var details = '<details class="set-details" data-open="tools"' + (open.tools ? ' open' : '') + '><summary>Details: each tool, by name</summary>' +
-      '<p class="meta">Each tool I may read with adds about 180 tokens to every run' + (n ? ' (' + (n * 180).toLocaleString() + ' now)' : '') + '. Tools that create, change or delete things are never mine.</p>' +
+      '<p class="meta">Each tool I may read with adds about 180 tokens to every run' + (n ? ' (' + (n * 180).toLocaleString() + ' now)' : '') + '. Sending and changing cost nothing until you approve a draft. Tools that delete things or run other tools aren’t in the switches above; turn one on here only if you mean it.</p>' +
       rows.map(function (r) {
-        return '<h3>' + esc(plain(r.name)) + '</h3><ul class="setup-tools">' + r.look.concat(r.send).map(function (t) {
-          var g = t.kind === 'send' ? 'send' : 'read';
-          return '<li><label class="check"><input type="checkbox" data-tool="' + esc(t.allow) + '" data-group="' + g + '"' + (p[g][t.allow] ? ' checked' : '') + '> <span><code>' + esc(t.allow) + '</code><small>' + (g === 'send' ? 'Sends: ' : 'Reads: ') + esc(t.does || '') + '</small></span></label></li>';
+        return '<h3>' + esc(plain(r.name)) + '</h3><ul class="setup-tools">' + r.look.concat(r.send, r.change, r.risky).map(function (t) {
+          var g = groupOf(t), what = t.risk || (t.kind === 'lookup' ? 'read' : t.kind);
+          return '<li><label class="check"><input type="checkbox" data-tool="' + esc(t.allow) + '" data-group="' + g + '"' + (p[g][t.allow] ? ' checked' : '') + '> <span><code>' + esc(t.allow) + '</code><small' + (t.risk ? ' class="set-risk"' : '') + '>' + (DOES[what] || DOES.change) + esc(t.does || '') + '</small></span></label></li>';
         }).join('') + '</ul>';
       }).join('') + '</details>';
-    return section('sources', 'What Fuzz can read and send', intro, '<form data-form="sources">' + table + details +
+    var warn = risky.length ? '<p class="setup-hint" role="note">' + (risky.length === 1 ? '<code>' + esc(risky[0].allow) + '</code> ' + (risky[0].risk === 'runs' ? 'can run any other tool' : 'deletes things') : risky.length + ' tools you allowed delete things or run other tools') + '. I still only use them for a draft you approve.</p>' : '';
+    return section('sources', 'What Fuzz can read, send and change', intro, '<form data-form="sources">' + table + warn + details +
       '<div class="set-actions"><button type="submit" class="btn primary small"' + (busy.sources ? ' disabled' : '') + '>' + (busy.sources ? 'Saving…' : 'Save') + '</button>' + again +
       '<span class="meta set-said" id="said-sources" role="status">' + (running ? 'Asking ' + esc(v.label) + ' what it can reach. Usually about a minute.' : p.dirty ? 'Not saved yet.' : '') + '</span></div></form>');
   }
   function setSource(i, group, onOff) {
     var v = toolsView(), r = sources(v)[i], p = startPicks(v);
-    (group === 'send' ? r.send : r.look).forEach(function (t) { if (onOff) p[group][t.allow] = true; else delete p[group][t.allow]; });
+    var g = group === 'read' ? 'read' : 'send';   /* changing is send.tools too: the sender applies approved drafts */
+    (group === 'read' ? r.look : group === 'send' ? r.send : r.change).forEach(function (t) { if (onOff) p[g][t.allow] = true; else delete p[g][t.allow]; });
     p.dirty = true; repaint('sources');
   }
   function saveSources() {

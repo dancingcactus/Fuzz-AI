@@ -969,13 +969,16 @@
      its connected tools, so the card says what goes to whom, lets you change it first, and keeps Send off
      the single-letter keys. */
   function reviewHTML(it) {
-    var r = Store.recipient(it), val = edits[it.id + ':draft'] !== undefined ? edits[it.id + ':draft'] : (it.draft || '');
+    var r = Store.recipient(it), w = Store.wording(r), val = edits[it.id + ':draft'] !== undefined ? edits[it.id + ':draft'] : (it.draft || '');
     var h = tagrow(it, '<span class="tag tag--ok">Needs your OK</span>', true);
-    h += askHTML(r ? 'Send this to ' + r.to + '?' : 'Does this look right?') + titleHTML(it);
+    h += askHTML(r ? w.ask : 'Does this look right?') + titleHTML(it);
     /* After "Ask Fuzz to change it", the draft says it was reworked and what you asked for */
     if (it.revisedNote) h += '<div class="finding"><span class="finding-tag">Updated from your note</span>' + Fuzz.mini('good', { cls: 'finding-av' }) + '<p>“' + esc(it.revisedNote) + '”</p></div>';
-    h += '<section class="draft"><div class="draft-to">' + (r ? '<span>To</span> <strong>' + esc(r.to) + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
-      '<label class="sr" for="draft">' + (r ? 'Message to ' + esc(r.to) : 'Fuzz’s write-up') + '</label><textarea id="draft" rows="4">' + esc(val) + '</textarea></section>';
+    /* A page edit leads with what changes: the body below is the whole page as it will read */
+    var page = r && r.verb && r.link ? '<a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.to) + '</a>' : esc(r ? r.to : '');
+    h += '<section class="draft"><div class="draft-to">' + (r ? '<span>' + esc(w.toLabel) + '</span> <strong>' + page + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
+      (r && r.change ? '<p class="draft-change"><b>What changes:</b> ' + esc(r.change) + '</p>' : '') +
+      '<label class="sr" for="draft">' + (r ? esc(w.field) : 'Fuzz’s write-up') + '</label><textarea id="draft" rows="' + (r && r.verb && r.verb !== 'comment' ? 10 : 4) + '">' + esc(val) + '</textarea></section>';
     h += '<div id="actions">' + actionsHTML(it) + '</div>';
     h += '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, what Fuzz did</span>' + kbd('I') + '</summary><p class="incoming">' + UI.text(it.incoming) + '</p>' + contextHTML(it, true) + '</details>' + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">OK</div>';
@@ -983,18 +986,18 @@
   }
   /* Not now opens the Schedule picker in their place: the draft waits and asks again then */
   function reviewActionsHTML(it) {
-    var r = Store.recipient(it);
+    var r = Store.recipient(it), w = Store.wording(r);
     return '<div class="actions review">' +
       (r ? '<div class="split">' : '') +
-      '<button type="button" class="btn primary' + (r ? ' done-btn' : '') + '" data-act="send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (r ? '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>' : '<path d="M5 12.5l4.5 4.5L19 7.5"/>') + '</svg>' + (r ? 'Approve and send' : 'Looks good') + '</button>' +
+      '<button type="button" class="btn primary' + (r ? ' done-btn' : '') + '" data-act="send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (r ? '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>' : '<path d="M5 12.5l4.5 4.5L19 7.5"/>') + '</svg>' + (r ? w.btn : 'Looks good') + '</button>' +
       /* You'd rather send it yourself: the task is done and Fuzz never sends the draft */
       (r ? '<button type="button" class="btn primary more-btn" data-act="more" aria-haspopup="menu" aria-expanded="false" aria-label="Finish it another way" title="Finish it another way"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
         '<div class="menu" role="menu" id="moremenu" hidden aria-label="Finish it another way">' +
-          '<button type="button" role="menuitem" data-act="sentself" aria-keyshortcuts="D"><b>Mark done' + kbd('D') + '</b><span>You send it yourself. Fuzz won’t send this draft.</span></button>' +
+          '<button type="button" role="menuitem" data-act="sentself" aria-keyshortcuts="D"><b>Mark done' + kbd('D') + '</b><span>' + (r.verb ? 'You make the change yourself. Fuzz won’t touch the page.' : 'You send it yourself. Fuzz won’t send this draft.') + '</span></button>' +
         '</div></div>' : '') +
       '<button type="button" class="btn" data-act="revise" aria-expanded="false" aria-controls="revise" aria-keyshortcuts="E">Ask Fuzz to change it' + kbd('E') + '</button>' +
       '<button type="button" class="btn" data-act="notnow" aria-keyshortcuts="S">Not now' + kbd('S') + '</button></div>' +
-      (r ? '<p class="sendnote">Fuzz sends exactly this once you approve. You can undo until it has gone out.</p>' : it.afterApprove ? '<p class="sendnote">' + esc(it.afterApprove) + '</p>' : '') +
+      (r ? '<p class="sendnote">' + esc(w.note) + '</p>' : it.afterApprove ? '<p class="sendnote">' + esc(it.afterApprove) + '</p>' : '') +
       '<form class="revise" id="revise" hidden><label for="revise-text">Tell Fuzz what to change</label><div class="parkrow"><input id="revise-text" type="text" autocomplete="off" placeholder="For example: shorter, and mention the two maybes">' + Dictate.button('revise-text', 'Dictate what to change') + '<button class="btn" type="submit">Send back to Fuzz</button></div></form>';
   }
 
@@ -1756,11 +1759,12 @@
     var st = card.querySelector('.stamp'); st.className = 'stamp s4'; st.textContent = 'OK';
     card.classList.add('stamped');
     await sleep(220);
-    if (r) offer('Approved “' + title + '” to send.', Store.track([it.id], function () { Store.approve(it.id, text); }), 'Approved. Fuzz is sending it to ' + r.to + '.');
+    var w = Store.wording(r);
+    if (r) offer('Approved “' + title + '” to ' + (r.verb ? 'go to the wiki' : 'send') + '.', Store.track([it.id], function () { Store.approve(it.id, text); }), 'Approved. ' + w.will + '.');
     else offer('Approved “' + title + '”.', Store.track([it.id], function () { Store.accept(it.id, text); }));
     forgetEdits(it.id);
     Fuzz.flash(); Fuzz.setMood('proud'); Fuzz.setArm('salute'); Fuzz.pAnim('bow');
-    Fuzz.say(r ? 'On its way to ' + r.to + '.' : it.prep && it.afterApprove ? it.afterApprove : 'Filed. Thanks for checking.', { cls: 'sign', type: false });
+    Fuzz.say(r ? (r.verb ? w.going + '.' : 'On its way to ' + r.to + '.') : it.prep && it.afterApprove ? it.afterApprove : 'Filed. Thanks for checking.', { cls: 'sign', type: false });
     stats();
     var shown = null, exit = sleep(260).then(function () {
       if (Fuzz.isCalm()) return fadeOut();

@@ -256,8 +256,8 @@ that would be handling the request. The page has to survive that and reconnect.
   Escape or Back returns to the page it was opened from, and in a text box Escape only leaves the box)
   replaces the four-step wizard with one page of sections, each saved on its own: About you (names,
   emails, Slack IDs); App (status, set up, repair, switch, check again); Working hours (the same choices
-  as Fuzz's question); What Fuzz can read and send (one row per source in plain words, with Reading and
-  Sending switches, List again, and each tool by name under Details, with its token cost); Where Fuzz
+  as Fuzz's question); What Fuzz can read, send and change (one row per source in plain words, with Reading,
+  Sending and Changing switches, List again, and each tool by name under Details, with its token cost); Where Fuzz
   saves files; Look and feel (theme, appearance, contrast, code font, Calm mode, applied at once and kept
   in this browser); Your queue (Refresh now, or Reset demo data in the demo, and Switch account); and Show me
   around again. In the demo the page has only Look and feel, Demo and the tour.

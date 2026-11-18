@@ -248,11 +248,11 @@
   function actionsFor(it) {
     var A = [];
     function act(label, kind, fn, msg) { A.push({ label: label, kind: kind, fn: fn, msg: msg }); }
-    var id = it.id, r = Store.recipient(it);
+    var id = it.id, r = Store.recipient(it), w = Store.wording(r);
     if (it.state === 'review') {
       if (r) {
-        act('Approve and send', 'primary', function (text) { Store.approve(id, text); }, 'Approved. Fuzz is sending it to ' + r.to + '.');
-        act('Mark done', 'menu', function () { Store.done(id); }, 'Marked done. Fuzz won’t send the draft.');
+        act(w.btn, 'primary', function (text) { Store.approve(id, text); }, 'Approved. ' + w.will + '.');
+        act('Mark done', 'menu', function () { Store.done(id); }, r.verb ? 'Marked done. Fuzz won’t touch the page.' : 'Marked done. Fuzz won’t send the draft.');
       } else act('Looks good', 'primary', function (text) { Store.accept(id, text); }, 'Approved and filed in Done.');
       if (!Store.inQueue(id)) act('Put it in triage', 'secondary', function () { Store.queueUp(Store.item(id), 'front'); }, 'It’s first in triage.');
     } else if (it.state === 'working' || it.state === 'queued') {
@@ -288,7 +288,7 @@
   }
 
   /* How each action is named in the Undo list; % is the task title */
-  var DID = { 'Approve and send': 'Approved % to send', 'Approve and send nudge': 'Approved the nudge for %', 'Looks good': 'Approved %', 'Put it in triage': 'Moved % to triage', 'Pull back into triage': 'Pulled % back into triage', 'Mark done': 'Marked % done',
+  var DID = { 'Approve and send': 'Approved % to send', 'Approve and create': 'Approved the page for %', 'Approve and save': 'Approved the page change for %', 'Approve and post': 'Approved the comment for %', 'Approve and send nudge': 'Approved the nudge for %', 'Looks good': 'Approved %', 'Put it in triage': 'Moved % to triage', 'Pull back into triage': 'Pulled % back into triage', 'Mark done': 'Marked % done',
     'Bring back now': 'Brought % back to triage', 'Hand to Fuzz': 'Handed % to Fuzz', 'To triage': 'Moved % to triage', 'Let go': 'Let go of %',
     'Draft a nudge': 'Drafted a nudge for %', 'Replied': 'Marked % replied', 'Reopen': 'Reopened %', 'Bring back': 'Brought back %' };
   function didLabel(a, it) { return (DID[a.label] || a.label + ': %').replace('%', '“' + it.title + '”') + '.'; }
@@ -296,12 +296,13 @@
   /* For a draft waiting for your OK, the draft and the decision come first: who it goes to, the text you
      can change, then the buttons. The background follows. */
   function draftHTML(it, acts) {
-    var r = it.state === 'waiting' ? { to: it.waitingOn || 'them', via: it.source } : Store.recipient(it);
+    var r = it.state === 'waiting' ? { to: it.waitingOn || 'them', via: it.source } : Store.recipient(it), w = Store.wording(r);
     var h = '<section class="draftbox draft"><h3>' + (it.state === 'review' ? 'Draft, ready for your OK' : 'Nudge, ready for your OK') + '</h3>' +
-      '<div class="draft-to">' + (r ? '<span>To</span> <strong>' + esc(r.to) + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
-      '<label class="sr" for="dlg-draft">' + (r ? 'Message to ' + esc(r.to) : 'Fuzz’s write-up') + '</label><textarea id="dlg-draft" rows="5">' + esc(it.draft) + '</textarea></section>';
+      '<div class="draft-to">' + (r ? '<span>' + esc(w.toLabel) + '</span> <strong>' + esc(r.to) + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
+      (r && r.change ? '<p class="draft-change"><b>What changes:</b> ' + esc(r.change) + '</p>' : '') +
+      '<label class="sr" for="dlg-draft">' + (r ? esc(w.field) : 'Fuzz’s write-up') + '</label><textarea id="dlg-draft" rows="' + (r && r.verb && r.verb !== 'comment' ? 10 : 5) + '">' + esc(it.draft) + '</textarea></section>';
     h += actionsRow(acts, it.state === 'review');
-    if (r) h += '<p class="sendnote">Fuzz sends exactly this once you approve. You can undo until it has gone out.</p>';
+    if (r) h += '<p class="sendnote">' + esc(w.note) + '</p>';
     if (it.state === 'review') h += '<form class="revise" id="dlg-revise" hidden><label for="dlg-revise-text">Tell Fuzz what to change</label><div class="parkrow"><input id="dlg-revise-text" type="text" autocomplete="off" placeholder="For example: shorter, and mention the two maybes"><button class="btn" type="submit">Send back to Fuzz</button></div></form>';
     return h;
   }

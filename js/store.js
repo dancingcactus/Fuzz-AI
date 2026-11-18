@@ -504,16 +504,27 @@
       if (!it.who || it.who === 'You' || ['Email', 'Slack'].indexOf(it.source) < 0) return null;
       return { to: it.who, via: it.source };
     },
+    /* How the card, its button and the log say what approving does. A message is sent to someone; a wiki
+       draft (r.verb) creates a page, edits one or comments on one. */
+    wording: function (r) {
+      var to = r ? r.to : 'its recipient', q = '“' + to + '”';
+      switch (r && r.verb) {
+        case 'create': return { ask: 'Create the page ' + q + (r.where ? ' in ' + r.where : '') + '?', toLabel: 'New page', btn: 'Approve and create', going: 'Creating ' + q, did: 'Created the page ' + q, will: 'Fuzz will create the page ' + q, field: 'The new page, ' + to, note: 'Fuzz creates exactly this page once you approve. You can undo until it’s made.' };
+        case 'edit': return { ask: 'Make this change to ' + q + '?', toLabel: 'Page', btn: 'Approve and save', going: 'Saving ' + q, did: 'Changed ' + q, will: 'Fuzz will save the change to ' + q, field: q + ' as it will read', note: 'Fuzz replaces the page with exactly this once you approve. You can undo until it’s saved.' };
+        case 'comment': return { ask: 'Comment on ' + q + '?', toLabel: 'On', btn: 'Approve and post', going: 'Commenting on ' + q, did: 'Commented on ' + q, will: 'Fuzz will post the comment on ' + q, field: 'Comment on ' + to, note: 'Fuzz posts exactly this once you approve. You can undo until it has gone out.' };
+      }
+      return { ask: 'Send this to ' + to + '?', toLabel: 'To', btn: 'Approve and send', going: 'Sending to ' + to, did: 'Sent to ' + to, will: 'Fuzz will send it to ' + to, field: 'Message to ' + to, note: 'Fuzz sends exactly this once you approve. You can undo until it has gone out.' };
+    },
     editDraft: function (it, text) {
       if (text == null || text === it.draft) return;
       it.draft = text; S.log(it, 'guidance', 'You edited the draft.');
     },
     /* Approved: Fuzz's sender sends it with its own connector tools, in a moment. Until then it can be undone. */
     approve: function (id, text) {
-      var it = S.item(id), r = S.recipient(it);
+      var it = S.item(id), r = S.recipient(it), w = S.wording(r);
       S.leave(id); S.editDraft(it, text);
-      it.state = 'sending'; it.sendKind = 'draft'; it.sendAt = Date.now() + SEND_MS; it.now = 'Sending to ' + (r ? r.to : 'its recipient');
-      S.log(it, 'status', 'You approved the draft. Fuzz will send it' + (r ? ' to ' + r.to + ' (' + r.via + ')' : '') + '.');
+      it.state = 'sending'; it.sendKind = 'draft'; it.sendAt = Date.now() + SEND_MS; it.now = w.going;
+      S.log(it, 'status', 'You approved the draft. ' + (r ? w.will + ' (' + r.via + ')' : 'Fuzz will send it') + '.');
     },
     /* A draft that goes nowhere: approving it just files it, so it can be undone. */
     accept: function (id, text) {
@@ -639,7 +650,7 @@
     if (it.sendKind === 'nudge') { it.state = 'waiting'; it.nextCheck = 'Nudge sent, checking tomorrow'; it.now = ''; }
     else { it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Sent with your OK'; }
     it.sendAt = 0; sentN++;
-    S.log(it, 'sent', (it.sendKind === 'nudge' ? 'Sent the follow-up nudge' : 'Sent') + (r ? ' to ' + r.to + ' (' + r.via + ')' : '') + ' after you approved it.');
+    S.log(it, 'sent', (it.sendKind === 'nudge' ? 'Sent the follow-up nudge' + (r ? ' to ' + r.to : '') : r ? S.wording(r).did : 'Sent') + (r ? ' (' + r.via + ')' : '') + ' after you approved it.');
     if (it.state === 'done') wrapCheck(it);
     emit({ type: 'sent', item: it });
   }

@@ -38,7 +38,7 @@ FUZZ_TOOLS = {   # Fuzz's executor tools the harness runs for real, and what eac
     "log_step": '{"kind": "research" | "action" | "guidance", "text"}',
     "save_notes": '{"text"}',
     "update_brief": '{"context_md"?, "question"?, "effort_mins"?, "due"?}',
-    "save_draft": '{"kind": "email.reply" | "email.new" | "slack.message" | "note", "target", "body", "final"?}',
+    "save_draft": '{"kind": "email.reply" | "email.new" | "slack.message" | "wiki.create" | "wiki.update" | "wiki.comment" | "note", "target", "body", "final"?, "page"?}',
     "hand_back": '{"question"?, "options"?: [..], "result"?: bool}',
     "request_permission": '{"scope": "read" | "write", "resource", "why"}',
     "suggest_schedule": '{"anchor"?, "reason"?}',

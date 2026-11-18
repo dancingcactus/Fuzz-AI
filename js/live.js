@@ -208,6 +208,21 @@
     return (d.kind === 'email.reply' ? 'Email reply' : how) + (src.title ? ' in “' + src.title + '”' : '');
   }
 
+  /* Who or where a draft goes, and how. A wiki draft goes to a page, not a person: verb says what
+     approving does (create, edit, comment), change is Fuzz's one line on what an edit changes. */
+  var WIKI_VERB = { 'wiki.create': 'create', 'wiki.update': 'edit', 'wiki.comment': 'comment' };
+  var WIKI_VIA = { create: 'Wiki, new page', edit: 'Wiki, edits the page', comment: 'Wiki comment' };
+  function sendToOf(d, t) {
+    if (!d || d.kind === 'note') return null;
+    var verb = WIKI_VERB[d.kind];
+    if (!verb) return { to: d.target || 'its recipient', via: via(d, t) };
+    var m = d.meta;
+    if (typeof m === 'string') { try { m = JSON.parse(m); } catch (e) { m = null; } }
+    var page = (m && m.page) || {};
+    return { to: (verb === 'create' ? page.title : '') || d.target || page.title || 'the page', via: WIKI_VIA[verb],
+      verb: verb, where: verb === 'create' ? page.parent || d.target || '' : '', change: page.change || '', link: page.link || '' };
+  }
+
   /* The last "Where I left off: …" in a task's notes (Pause, or Done for now in Deep Work) */
   function leftOffOf(notes) {
     var m = String(notes || '').match(/Where I left off: (.+)/g);
@@ -256,7 +271,7 @@
       doneAgo: agoText(t.state_changed_at), parkedAgo: agoText(t.state_changed_at), changedAt: ts(t.state_changed_at) || 0,
       draft: draft ? draft.body : null, draftId: draft ? draft.id : null,
       afterApprove: (c && c.after_approve) || null, prep: !!(draft && draft.kind === 'note' && draft.final === 0),
-      sendTo: draft && draft.kind !== 'note' ? { to: draft.target || 'its recipient', via: via(draft, t) } : null,
+      sendTo: sendToOf(draft, t),
       steps: t.steps_used || 0, needsPermission: tags.indexOf('needs_permission') > -1,
       cardId: c ? c.id : null, cardKind: c ? c.kind : null, cardOptions: c ? c.options : [],
       scheduleOptions: c && c.schedule_options && c.schedule_options.length ? c.schedule_options : null,

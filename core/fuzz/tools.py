@@ -42,6 +42,7 @@ def whoami(core, role, prompt_version=None, client=None):
             "now": core.now_iso(), "today": local.strftime("%A %Y-%m-%d"), "local_time": local.isoformat(timespec="minutes"),
             "tz": timeres.tz_name(core), "run_id": (core.run or {}).get("id"),
             **({"can_ask_for": _askable(core)} if role == "executor" else {}),
+            **({"wiki_drafts": _wiki_drafts(core)} if role == "executor" else {}),
             **({"calendar": _calendar_ask(core)} if role == "executor" else {}),
             **({"deliverables_to_check": _to_check(core)} if role == "executor" else {}),
             **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
@@ -75,11 +76,21 @@ def _calendar_ask(core):
             "days": 7, "your_holds": holds}
 
 
+def _client(core):
+    client = (core.run or {}).get("client") or (core.config.get("engine") or {}).get("client")
+    return client if client in adapters.ADAPTERS else None
+
+
 def _askable(core):
     """Connectors set up found but you haven't allowed: name one of these in request_permission."""
     from . import connectors
-    client = (core.run or {}).get("client") or (core.config.get("engine") or {}).get("client")
-    return connectors.askable(core, client if client in adapters.ADAPTERS else None)
+    return connectors.askable(core, _client(core))
+
+
+def _wiki_drafts(core):
+    """The wiki.* kinds the sender has an allowed tool for: the only ones worth drafting."""
+    from . import connectors
+    return connectors.wiki_kinds(core, _client(core))
 
 
 # ---------------------------------------------------------------- executor
@@ -196,12 +207,16 @@ def add_source(core, task_id, title, link):
     return {"source_id": sid, "added": added}
 
 
-def save_draft(core, task_id, kind, target, body, final=True, attach=None, reply_to=None, covers=None, relied_on=None):
+def save_draft(core, task_id, kind, target, body, final=True, attach=None, reply_to=None, covers=None, relied_on=None,
+               page=None):
+    if kind in drafts.WIKI_KINDS and kind not in _wiki_drafts(core):
+        raise FuzzError(f"You can't draft a {kind}: the person hasn't allowed a wiki tool that does it. Write the "
+                        "page in a note, or hand it back saying which tool you'd need", "kind")
     with _lease(core, task_id) as t:
         scheduler.refuse_while_gathering(t)
         outputs.record(core, task_id)
         did = drafts.save_draft(core, task_id, kind, target, body, final, attach=attach, reply_to=reply_to,
-                                covers=covers, relied_on=relied_on)
+                                covers=covers, relied_on=relied_on, page=page)
     return {"draft_id": did, "state": "review"}
 
 
@@ -408,6 +423,8 @@ def claim_next_send(core):
         thread = _thread_ref(core, s) if s else None
     out = {"task_id": t["id"], "draft_id": d["id"], "kind": d["kind"], "target": d["target"],
            "thread": thread, "body": d["body"], "title": t["title"], "attachments": att}
+    if drafts.page_of(d):   # a wiki draft: the page it creates (title, parent) or changes (link, version)
+        out["page"] = drafts.page_of(d)
     if d["kind"] in drafts.HOLD_KINDS:   # a hold: an event of your own inside the slot (title, start, end), or its id to remove
         m = d.get("meta") or {}
         out["hold"] = {"title": m.get("title") or t["title"], "start": m.get("start"), "end": m.get("end"),

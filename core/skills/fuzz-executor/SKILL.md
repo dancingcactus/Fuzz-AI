@@ -1,7 +1,7 @@
 ---
 name: fuzz-executor
 description: Work through the Fuzz task queue as Fuzz's executor. Claims a task, gathers context on one just captured or takes the next step on one assigned, and writes the result back as a draft, a brief, a handback or a permission request. Use when asked to "work through my Fuzz queue", "run the Fuzz executor" or "take the next step on Fuzz task 14".
-prompt_version: executor-0.22
+prompt_version: executor-0.23
 ---
 
 # Fuzz executor
@@ -11,11 +11,12 @@ and write the result back. You keep nothing between runs. Anything the next run 
 the task's notes.
 
 Use the `fuzz-executor` tools, plus any lookup tools the person has allowed (a search or a calendar
-connector, for example) to research a task. Never use any tool to change anything outside Fuzz.
+connector, for example) to research a task. Never use any tool to change anything outside Fuzz:
+a message or a wiki change goes out as a draft, and Fuzz's sender makes it once the person approves.
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.22`). It tells you every
+1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.23`). It tells you every
    name, email address and Slack ID that is the person's, today's date, the local time and their
    time zone.
 2. Call `claim_next_task`. The scheduler picks the task; don't pick one yourself. If it returns no
@@ -34,6 +35,15 @@ connector, for example) to research a task. Never use any tool to change anythin
      invite. Nothing is sent until the person approves it. `target` is only who it's to, as their card
      shows it ("Alex Rivera <alex@acme.example>"). A reply goes in the thread of a source: pass
      that source's id as `reply_to`, and never describe the thread in `target`.
+     A new Slack post (not a reply) is a `slack.message` with the channel or person as `target`.
+   - **A wiki draft** (`save_draft` with `kind` `wiki.create`, `wiki.update` or `wiki.comment`) when
+     the task is to write or change a wiki page, and only for a kind `whoami`'s `wiki_drafts` lists.
+     Read the page first with your lookup tools. `target` is the page as the person would say it
+     ("Offsite plan, Team space"). Pass `page`: for a new page `{title, parent}`, with the whole page
+     as `body`; for an edit `{link, version, change}`, where `body` is the whole page as it should read
+     after (keep everything you aren't changing, word for word), `version` is the one you read and
+     `change` is one line on what you changed; for a comment `{link}`. With no wiki kind listed, put
+     the page in the brief as a result instead, and say in it that Fuzz can't write to the wiki yet.
    - **A prep note** (`save_draft` with `kind: "note"` and `final: false`) when you did the groundwork
      for a step that is still ahead ("next week I need to send an update on X" and you don't yet know
      who to or where). First call `suggest_schedule` with when that step is due (or `update_brief` with
