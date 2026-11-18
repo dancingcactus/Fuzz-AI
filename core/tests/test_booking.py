@@ -254,3 +254,73 @@ class Booking(CoreCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Checkin(CoreCase):
+    """The onboarding's check-in: 20 minutes on your calendar to come back to your first task, without booking it."""
+
+    def setUp(self):
+        super().setUp()
+        from fuzz import onboarding
+        self.ob = onboarding
+        self.tid = tasks.capture(self.core, "Plan the offsite")
+        onboarding.update(self.core, {"step": "checkin", "task_id": self.tid})
+
+    def calendar_tool(self):
+        cfg = config.load(self.home)
+        cfg["engine"] = {"client": "claude-code", "model": None}
+        cfg["send"]["tools"]["claude-code"] = ["mcp__gcal__create_event"]
+        config.save(self.home, cfg)
+        self.core = self.make_core()
+
+    def test_options_are_twenty_minutes_and_say_whether_fuzz_can_add_it(self):
+        v = self.ob.checkin_options(self.core)
+        self.assertFalse(v["calendar"])
+        self.assertTrue(v["options"])
+        for o in v["options"]:
+            self.assertEqual((parse_iso(o["end"]) - parse_iso(o["start"])).total_seconds(), 20 * 60)
+            self.assertTrue(o["label"])
+        self.calendar_tool()
+        self.assertTrue(self.ob.checkin_options(self.core)["calendar"])
+
+    def test_without_a_calendar_tool_it_returns_a_file_to_make_and_changes_nothing(self):
+        before = self.task(self.tid)
+        got = self.ob.checkin(self.core, "2026-10-21T14:00:00Z")
+        self.assertEqual(got["via"], "file")
+        self.assertEqual((got["start"], got["end"]), ("2026-10-21T14:00:00Z", "2026-10-21T14:20:00Z"))
+        self.assertEqual(got["title"], "Check in with Fuzz: Plan the offsite")
+        self.assertIn("#/triage?until=14:20", got["link"])
+        self.assertEqual(self.task(self.tid)["state"], before["state"])
+        self.assertIsNone(self.core.one("SELECT id FROM drafts WHERE task_id=?", (self.tid,)))
+
+    def test_with_one_the_sender_adds_it_and_the_task_is_not_booked(self):
+        self.calendar_tool()
+        state = self.task(self.tid)["state"]
+        got = self.ob.checkin(self.core, "2026-10-21T14:00:00Z")
+        self.assertEqual(got["via"], "calendar")
+        t = self.task(self.tid)
+        self.assertEqual((t["state"], t["schedule_anchor"]), (state, None), "only the time; Fuzz keeps working")
+        self.assertFalse([c for c in cards.open_cards(self.core, self.tid) if c["kind"] == "hold"], "pressing the button was the yes")
+        send = tools.claim_next_send(self.core)["send"]
+        self.assertEqual((send["kind"], send["hold"]["title"], send["hold"]["start"], send["hold"]["end"]),
+                         ("calendar_hold", "Check in with Fuzz: Plan the offsite", "2026-10-21T14:00:00Z", "2026-10-21T14:20:00Z"))
+        self.assertIn("#/triage?until=14:20", send["body"])
+        tools.mark_sent(self.core, self.tid, send["draft_id"], "Google Calendar", "evt-9")
+        t = self.task(self.tid)
+        self.assertEqual((t["state"], t["lease_owner"]), (state, None))
+
+    def test_a_task_in_my_work_opens_on_the_guide(self):
+        self.core.q("UPDATE tasks SET state='deepwork' WHERE id=?", (self.tid,))
+        self.assertIn(f"#/work/{self.tid}?until=14:20", self.ob.checkin(self.core, "2026-10-21T14:00:00Z")["link"])
+
+    def test_a_time_in_the_past_or_no_first_task_is_refused(self):
+        with self.assertRaises(FuzzError):
+            self.ob.checkin(self.core, "2026-10-19T14:00:00Z")
+        with self.assertRaises(FuzzError):
+            self.ob.checkin(self.core, "soon")
+        self.ob.update(self.core, {"task_id": None})
+        with self.assertRaises(FuzzError):
+            self.ob.checkin_options(self.core)
+
+    def task(self, tid):
+        return tasks.get(self.core, tid)

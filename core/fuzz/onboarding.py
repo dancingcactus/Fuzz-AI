@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from . import cards, events, outputs, setup, tasks
 from .db import FuzzError
 
-STEPS = ("intro", "form", "how", "question", "capture", "wait", "card", "done")   # Fuzz says hello, then asks
+STEPS = ("intro", "form", "how", "question", "capture", "wait", "card", "checkin", "tour", "done")   # Fuzz says hello, then asks
 SETUP_CARDS = ("lookup", "folder", "theme")
 THEME_AFTER_DAYS = 3        # the colour theme card is a light one, a few days in
 LATER_AGAIN_DAYS = 1        # a card you said Not now to can come back once, a day later at the soonest
@@ -105,6 +105,29 @@ def update(core, body):
         st["first_read"] = core.now_iso()
     save(core, st)
     return view(core)
+
+
+# ---------------------------------------------------------------- the check-in on your first task
+
+def _first_task(core):
+    from . import tasks
+    tid = load(core).get("task_id")
+    if not tid:
+        raise FuzzError("There's no first task yet: capture one in the onboarding first", "task_id", 409)
+    return tasks.require(core, tid)
+
+
+def checkin_options(core):
+    """{options: [{start, end, label}], calendar: whether Fuzz puts it on your calendar, task: its title}"""
+    from . import booking
+    t = _first_task(core)
+    opts = [{"start": o["anchor"]["start"], "end": o["anchor"]["end"], "label": o["label"]} for o in booking.checkin_options(core, t)]
+    return {"options": opts, "calendar": booking.can_hold(core), "task": t["title"], "state": t["state"]}
+
+
+def checkin(core, start):
+    from . import booking
+    return booking.checkin(core, _first_task(core)["id"], start)
 
 
 # ---------------------------------------------------------------- working hours

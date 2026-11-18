@@ -35,7 +35,12 @@ Changing anything later happens on the Settings page (`#/settings`, see "As buil
    two ways, and both need a path:
    - **As a normal card:** Fuzz teaches Assign.
    - **Already done,** when looking it up was the whole job: Fuzz shows what he did.
-7. **What's next.** One line saying that Fuzz only knows what they type until a source is connected.
+7. **A check-in on that task.** Twenty minutes to come back to it, once, at a time the user picks.
+   Fuzz puts it on their calendar when he has a calendar tool to send with; otherwise it's a calendar
+   file to open. Not now skips it.
+8. **The Guide, one part at a time.** Fuzz points at Triage, My work, Something else and the menu,
+   with a line on each, so the user knows where to start next time.
+9. **What's next.** One line saying that Fuzz only knows what they type until a source is connected.
    The onboarding ends here, Fuzz runs a first read, and setup cards take over.
 
 The first read must use Run now. Scheduled reading stops outside working hours, so a user setting up on
@@ -62,9 +67,9 @@ the intro and the tips.
 
 These three are the only tips in the onboarding itself:
 
-1. **Set aside 20 minutes, once or twice a day, to go through your queue.** Put it on your calendar.
-   Fuzz offers a one-click calendar file for a time inside their working hours, with a link back to
-   Fuzz. The app sends no reminders of its own.
+1. **Fuzz keeps one queue and brings what matters to the front.** When they sit down, the Guide asks
+   where to start. (This used to ask for a recurring daily slot on the calendar; since the Guide, the
+   only calendar ask is the one check-in on the first task, after its card.)
 2. **Don't be afraid to ask Fuzz to change things, or to send a task back to him as often as you
    like.** On a draft, E asks for a change. On other cards, E (Tell Fuzz) opens the card's box. Fuzz repeats
    this on their first draft.
@@ -224,7 +229,7 @@ that would be handling the request. The page has to survive that and reconnect.
   button ringed and pointed at.
 - **How Fuzz helps, guilt-free** is its own step, right after the name and app, still with the header
   hidden. The three first tips are told as what Fuzz does: one queue he helps you prioritize, so a
-  short session is enough (with the calendar file); he collects each task's context and resources in
+  short stretch is enough and the Guide asks where to start; he collects each task's context and resources in
   one place; he keeps things up to date while you're away (and doesn't keep score). Each has "Why this helps"
   folded away, and Got it (Enter) moves on.
 - **Fuzz is there in full** on each onboarding page: the jointed body, greeting once and then resting.
@@ -235,7 +240,17 @@ that would be handling the request. The page has to survive that and reconnect.
   and any questions he has. The Triage tab is ringed and pointed at. Going there early is fine: Fuzz is
   shown reading up on the task, and when it lands the lesson is on its card.
 - **The first card** is picked to the front of Triage and carries the lesson above its question. Acting on
-  it in any way ends the onboarding: the Undo tip, and one line saying the next card is a task for Fuzz.
+  it moves on to the check-in (or straight to the tour when it's done or let go).
+- **The check-in** (step `checkin`, on `#/welcome`) offers Book time's times for 20 minutes
+  (`GET /onboarding/checkin`: your calendar's free time once the executor has read it, else the next
+  working-hour starts) as a row of choices. With a calendar tool in `send.tools`, Put it on my calendar
+  (`POST /onboarding/checkin`) makes an approved `calendar_hold` draft for the sender, since pressing the
+  button was the yes; there's no hold card. Without one, Add to my calendar downloads a one-off `.ics`.
+  Either way it's only the time: the task isn't booked or moved, so Fuzz keeps working on it. The event is
+  "Check in with Fuzz: <task>", and links to Triage (or to the task on the Guide when it's in My work).
+- **The tour** (step `tour`) runs on the Guide: a bubble beside each part in turn, the part ringed, Next
+  (Enter) and Skip the tour. Leaving the Guide hides it; coming back picks it up again. Got it on the last
+  one ends the onboarding: the Undo tip, and one line saying the next card is a task for Fuzz.
 - **Fuzz's own task, "Let me find your asks",** is the last card (`POST /onboarding/kickoff`, made once,
   tagged `kickoff`). Assigning it doesn't start the executor (the tag keeps it off the executor's list):
   Fuzz asks the app what it can reach (the guided setup's discovery run), then asks one permission card

@@ -810,6 +810,9 @@
     firstRead: function () { return api('POST', '/engine/run', { role: 'extractor' }); },
     /* Fuzz's own task to find your asks; assigning it starts the listing and the permission cards */
     kickoff: function () { return api('POST', '/onboarding/kickoff', {}); },
+    /* The check-in on your first task: its times, and adding it (to your calendar, or a file to open) */
+    checkinOptions: function () { return api('GET', '/onboarding/checkin'); },
+    checkin: function (start) { return api('POST', '/onboarding/checkin', { start: start }); },
     /* Which server answered: the id changes when it restarts (installing a client restarts it) */
     serverId: function () { return fetch('/health', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (h) { return h.ok ? h.boot || 'up' : null; }, function () { return null; }); },
     /* The Artifacts tab: what Fuzz wrote in your output folder, and a call whenever the core's events move */

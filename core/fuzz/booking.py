@@ -468,3 +468,56 @@ def check(core, t, anchor):
     if not _free(s, e, own_blocks(core, exclude=t["id"])):
         raise FuzzError("Fuzz already booked another task then", "value.anchor")
     return s, e
+
+
+# ---------------------------------------------------------------- the onboarding's check-in
+
+CHECKIN_MINUTES = 20
+
+
+def checkin_link(core, t, end):
+    """Where a check-in opens: the task on the Guide when it's yours to work on (My work), else Triage,
+    where Fuzz brings back what it found. Either way the time is set to the check-in's end."""
+    base = (_bcfg(core).get('ui_url') or 'http://127.0.0.1:8765/').rstrip('/')
+    until = f"?until={end.astimezone(timeres.local_tz(core)).strftime('%H:%M')}"
+    return f"{base}/#/work/{t['id']}{until}" if t["state"] == "deepwork" else f"{base}/#/triage{until}"
+
+
+def checkin_options(core, t, now=None):
+    """The times the check-in offers: Book time's, for 20 minutes (your calendar's free time when Fuzz has
+    read it, else the next working-hour starts)."""
+    return options(core, dict(t, effort_mins=CHECKIN_MINUTES), now)
+
+
+def checkin(core, task_id, start):
+    """The onboarding's check-in: 20 minutes on your calendar to come back to your first task. It doesn't
+    book the task (Fuzz may be working on it); it's only the time. With a calendar tool the sender adds the
+    event: you asked for it by pressing the button, so the draft is approved. Without one, the page makes a
+    calendar file from what this returns. {via: calendar | file, title, start, end, link, label}"""
+    from . import events, tasks
+    from .db import FuzzError
+    t = tasks.require(core, task_id)
+    try:
+        s = parse_iso(start)
+    except (TypeError, ValueError, AttributeError):
+        s = None
+    if not s or s <= core.now():
+        raise FuzzError("start is when the check-in begins, an ISO time ahead of now", "start")
+    e = s + timedelta(minutes=CHECKIN_MINUTES)
+    anchor = {"type": "block", "start": iso(s), "end": iso(e)}
+    title = f"Check in with Fuzz: {t['title']}"
+    link = checkin_link(core, t, e)
+    lab = timeres.block_label(core, anchor)
+    out = {"via": "file", "title": title, "start": iso(s), "end": iso(e), "link": link, "label": lab}
+    if not can_hold(core):
+        return out
+    with core.tx("human"):
+        did = core.new_id("drafts")
+        ch = events.Changes()
+        ch.draft(did, task_id=t["id"], kind="calendar_hold", target="Your calendar",
+                 body=f"{link}\nSee where “{t['title']}” stands with Fuzz.", status="approved", created_at=core.now_iso(),
+                 final=1, meta={"title": title, "start": iso(s), "end": iso(e), "checkin": True},
+                 approved_by="you", approved_at=core.now_iso())
+        events.emit(core, "task.draft_ready", task_id=t["id"], changes=ch, data={"draft_id": did, "kind": "calendar_hold", "checkin": True},
+                    log=("status", f"You asked for a check-in on this: {lab}. Fuzz will put it on your calendar."))
+    return dict(out, via="calendar", draft_id=did)

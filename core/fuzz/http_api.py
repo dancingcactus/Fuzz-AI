@@ -206,6 +206,8 @@ class App:
             ("PUT", r"/onboarding", self.onboarding_put),
             ("POST", r"/onboarding/setup/(lookup|folder|theme)", self.onboarding_setup),
             ("POST", r"/onboarding/kickoff", self.onboarding_kickoff),
+            ("GET", r"/onboarding/checkin", self.onboarding_checkin_options),
+            ("POST", r"/onboarding/checkin", self.onboarding_checkin),
             ("GET", r"/hours", self.hours_get),
             ("PUT", r"/hours", self.hours_put),
             ("GET", r"/deepwork", self.deepwork_get),
@@ -468,6 +470,17 @@ class App:
         """The end of the onboarding: Fuzz's own task, "Let me find your asks", in Triage. Made once."""
         from . import onboarding
         return onboarding.kickoff(core), 201
+
+    def onboarding_checkin_options(self, core, m, body, q):
+        """The times the check-in on your first task offers, and whether Fuzz can put it on your calendar."""
+        from . import onboarding
+        return onboarding.checkin_options(core)
+
+    def onboarding_checkin(self, core, m, body, q):
+        """{start}: 20 minutes to come back to your first task. On your calendar through the sender when
+        there's a calendar tool, else what the page needs to make a calendar file."""
+        from . import onboarding
+        return onboarding.checkin(core, body.get("start")), 201
 
     def hours_get(self, core, m, body, q):
         from . import onboarding

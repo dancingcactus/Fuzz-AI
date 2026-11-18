@@ -4,6 +4,8 @@
    intro    Fuzz says who he is and what he promises, then asks for one real task (N)
    wait     the task goes to Fuzz first; meanwhile, the three first tips
    card     the first card, on Triage, with one lesson: Assign, or what Fuzz already did
+   checkin  20 minutes to come back to that task: Fuzz puts it on your calendar, or you get a calendar file
+   tour     the Guide, one part at a time: Triage, My work, Something else, the menu
    done     one line on what's next, a first read, and setup cards take over
 
    It's a page (#/welcome), not a locked dialog: the header and Settings stay reachable throughout.
@@ -94,6 +96,8 @@
     if (s === 'how') return paintHow();
     if (s === 'wait') return paintWait(true);
     if (s === 'card') { App.navigate('#/triage'); return; }
+    if (s === 'checkin') return paintCheckin();
+    if (s === 'tour') { App.navigate('#/guide'); return; }
     App.navigate('#/triage');
   }
   function heading(h) {
@@ -362,9 +366,9 @@
 
   /* ---------- 5. Tips during the wait ---------- */
   var TIPS = [
-    { key: 'sessions', title: 'I keep everything in one queue and help you prioritize it.',
-      line: 'Set aside 20 minutes, once or twice a day, and we’ll go through what matters most together.',
-      why: 'You don’t have to work out what comes first on your own: I bring the most important things to the front, so a short session is enough to make real progress. A slot you’ve already decided on helps a lot of people get started, because the “when” is settled. Put it on your calendar so you don’t have to hold it in your head. I don’t send reminders of my own.' },
+    { key: 'sessions', title: 'I keep everything and help you prioritize it.',
+      line: 'Whatever comes in, I put the most important things at the front. When you sit down, the Guide asks where you want to start.',
+      why: 'You don’t have to work out what comes first on your own: I bring the most important things to the front, so even a short stretch is enough to make real progress. Quick decisions go to Triage, and work that’s yours goes to My work, so you always know where to look.' },
     { key: 'context', title: 'I collect everything a task needs into one place.',
       line: 'The emails, threads, notes and links behind a task end up on its card, wherever they started.',
       why: 'Hunting for the right email or message is often what makes a task feel heavy. With the context and resources already together, you can start right away instead of digging through your inbox first.' },
@@ -378,7 +382,7 @@
       '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">Here’s how I help you get things done, guilt-free.</h1>' +
         '<p class="meta">Three things that help a lot of people. None of them is required.</p></div></div>' +
       '<ol class="onb-tips">' + TIPS.map(function (t, i) {
-        return '<li class="onb-tip"><p class="tip-title">' + esc(t.title) + '</p><p class="tip-line">' + esc(t.line) + '</p>' + (i === 0 ? calendarHTML() : '') + '<details><summary>Why this helps</summary><p>' + esc(t.why) + '</p></details></li>';
+        return '<li class="onb-tip"><p class="tip-title">' + esc(t.title) + '</p><p class="tip-line">' + esc(t.line) + '</p><details><summary>Why this helps</summary><p>' + esc(t.why) + '</p></details></li>';
       }).join('') + '</ol>' +
       '<div class="onb-actions"><button type="button" class="btn primary" data-onb="howdone">Got it<kbd aria-hidden="true">↵</kbd></button></div>' +
       skipLink() + '</section>';
@@ -440,45 +444,153 @@
     }
   }
 
-  /* ---------- The calendar file: 20 minutes, inside your working hours, with a link back ---------- */
-  function sessionTimes() {
-    var hr = hours && hours.hours, out = [];
-    var from = hr ? hr[0] : 9, until = hr ? hr[1] : 17.5;
-    for (var t = Math.ceil(from * 2) / 2; t + 1 / 3 <= until; t += 0.5) out.push(t);
-    return out.length ? out : [9];
+  /* ---------- 7. A check-in on your first task: 20 minutes on your calendar, once ---------- */
+  /* Fuzz adds it with the calendar tool you allowed him to send with; without one, a calendar file you open.
+     It's only the time: the task stays where it is (Fuzz may be working on it). Then the Guide tour. */
+  var ci = null;   /* { options: [{start, end, label}], calendar, task, state, pick, busy } */
+  function demoTimes() {
+    var now = new Date(), out = [];
+    function at(d, h) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h); }
+    function add(s) { var e = new Date(s.getTime() + 20 * 60000); out.push({ start: s.toISOString(), end: e.toISOString(), label: label(s, now) }); }
+    var nx = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1);
+    if (nx.getHours() >= 9 && nx.getHours() < 17 && nx.getDay() % 6) add(nx);
+    var d = new Date(now); while (out.length < 3) { d.setDate(d.getDate() + 1); if (d.getDay() % 6) { add(at(d, 9)); if (out.length < 3) add(at(d, 14)); } }
+    return out;
   }
-  function calendarHTML() {
-    var times = sessionTimes(), def = times[Math.min(1, times.length - 1)];
-    return '<div class="onb-cal"><label for="onb-caltime">Every ' + (hours && (hours.weekends || !hours.hours) ? 'day' : 'weekday') + ' at</label><select id="onb-caltime">' +
-      times.map(function (t) { return '<option value="' + t + '"' + (t === def ? ' selected' : '') + '>' + esc(clock(t)) + '</option>'; }).join('') + '</select>' +
-      '<button type="button" class="btn small" data-onb="ics"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>Add to my calendar</button></div>';
+  function label(s, now) {
+    var day = s.toDateString() === now.toDateString() ? 'Today' : s.toDateString() === new Date(now.getTime() + 864e5).toDateString() ? 'Tomorrow' : s.toLocaleDateString([], { weekday: 'short' });
+    return day + ' ' + s.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
-  function icsText(at, everyDay, now) {
+  function loadCheckin() {
+    var it = taskItem();
+    var got = Live.on() ? Live.checkinOptions() : Promise.resolve({ options: demoTimes(), calendar: false, task: it ? it.title : '', state: it ? it.state : '' });
+    return got.then(function (r) { ci = Object.assign(r, { pick: 0, busy: false }); return ci; });
+  }
+  function paintCheckin() {
+    if (!ci) { root.innerHTML = '<p class="meta" role="status">One moment…</p>'; loadCheckin().then(function () { if (root && st.step === 'checkin') paintCheckin(); }, function () { if (root) toTour(); }); return; }
+    var mine = ci.state === 'deepwork';
+    var opts = ci.options || [];
+    root.innerHTML = '<section class="onb onb-intro onb-ci" aria-labelledby="onb-h">' +
+      '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">' + (mine ? 'It’s yours now. When will you start?' : 'I’m on it. Come back in a bit?') + '</h1>' +
+        '<p class="meta">' + (mine ? '“' + esc(ci.task) + '” is in My work. Twenty minutes is enough to make a start.'
+          : '“' + esc(ci.task) + '” is with me. Twenty minutes is enough to see what I found and decide what’s next.') + '</p></div></div>' +
+      (opts.length ? '<div class="onb-ci-times" role="group" aria-label="When">' + opts.map(function (o, i) {
+        return '<button type="button" class="seg" data-citime="' + i + '" aria-pressed="' + (i === ci.pick) + '">' + esc(o.label) + '</button>';
+      }).join('') + '</div>' +
+      '<p class="onb-note">' + (ci.calendar ? 'I’ll put a 20-minute event on your calendar, with a link back here. Nothing else on it changes.'
+        : 'You’ll get a calendar file. Open it and your calendar adds the 20 minutes, with a link back here.') + '</p>' : '') +
+      '<div class="onb-actions">' + (opts.length ? '<button type="button" class="btn primary" data-onb="ciadd"' + (ci.busy ? ' disabled' : '') + '>' + (ci.calendar ? 'Put it on my calendar' : 'Add to my calendar') + '<kbd aria-hidden="true">↵</kbd></button>' : '') +
+        '<button type="button" class="btn" data-onb="cinot">Not now</button></div>' +
+      skipLink() + '</section>';
+    react('standHappy', 'thumb', 2400);
+    heading(true);
+  }
+  function icsText(ev, now) {
     now = now || new Date();
     function two(n) { return ('0' + n).slice(-2); }
-    function local(d) { return d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate()) + 'T' + two(d.getHours()) + two(d.getMinutes()) + '00'; }
     function utc(d) { return d.getUTCFullYear() + two(d.getUTCMonth() + 1) + two(d.getUTCDate()) + 'T' + two(d.getUTCHours()) + two(d.getUTCMinutes()) + two(d.getUTCSeconds()) + 'Z'; }
-    function text(s) { return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
-    /* The next time it comes round: today if it's still ahead, else the next day it runs */
-    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(at), (at % 1) * 60);
-    while (d <= now || (!everyDay && (d.getDay() === 0 || d.getDay() === 6))) d.setDate(d.getDate() + 1);
-    var link = location.origin + location.pathname + '#/triage';
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Fuzz//Queue time//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
-      'UID:fuzz-queue-' + now.getTime() + '@fuzz.local', 'DTSTAMP:' + utc(now), 'DTSTART:' + local(d), 'DURATION:PT20M',
-      'RRULE:' + (everyDay ? 'FREQ=DAILY' : 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'),
-      'SUMMARY:' + text('20 minutes with Fuzz'),
-      'DESCRIPTION:' + text('Go through your queue, one card at a time. Stopping with cards left is fine, and missing one loses nothing.\nOpen Fuzz: ' + link),
-      'URL:' + link, 'TRANSP:OPAQUE', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
+    function text(s) { return s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Fuzz//Check-in//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      'UID:fuzz-checkin-' + now.getTime() + '@fuzz.local', 'DTSTAMP:' + utc(now), 'DTSTART:' + utc(new Date(ev.start)), 'DTEND:' + utc(new Date(ev.end)),
+      'SUMMARY:' + text(ev.title),
+      'DESCRIPTION:' + text('See where it stands with Fuzz and decide what’s next.\nOpen Fuzz: ' + ev.link),
+      'URL:' + ev.link, 'TRANSP:OPAQUE', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
   }
-  function downloadIcs() {
-    var sel = root.querySelector('#onb-caltime'), at = parseFloat(sel.value);
-    var everyDay = !!(hours && (hours.weekends || !hours.hours));
-    var blob = new Blob([icsText(at, everyDay)], { type: 'text/calendar' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Fuzz queue time.ics';
+  function downloadIcs(ev) {
+    var blob = new Blob([icsText(ev)], { type: 'text/calendar' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Fuzz check-in.ics';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-    Say.tell('Open the file and your calendar adds it. It links back here.');
   }
+  function addCheckin() {
+    var o = ci && ci.options[ci.pick]; if (!o || ci.busy) return;
+    ci.busy = true; paintCheckin();
+    var it = taskItem(), base = location.origin + location.pathname;
+    var made = Live.on() ? Live.checkin(o.start)
+      : Promise.resolve({ via: 'file', title: 'Check in with Fuzz: ' + ci.task, start: o.start, end: o.end, label: o.label,
+          link: base + (it && it.state === 'deepwork' && it.coreId ? '#/work/' + it.coreId : '#/triage') });
+    made.then(function (r) {
+      if (r.via === 'file') { downloadIcs(r); Say.tell('Open the file and your calendar adds it: ' + r.label + '.'); }
+      else Say.tell('I’ll put it on your calendar: ' + r.label + '.');
+      toTour();
+    }, function (e) { ci.busy = false; if (root) paintCheckin(); Say.tell('That didn’t work: ' + e.message, { stay: true }); });
+  }
+
+  /* ---------- 8. The Guide, one part at a time ---------- */
+  var TOUR = [
+    { sel: '.g-row[data-pick="triage"]', title: 'Triage',
+      line: 'I bring you things to decide here, one card at a time: your tasks once I’ve looked into them, and my questions. Quick decisions; I do the rest.' },
+    { sel: '.g-list .g-grp:nth-of-type(2), .g-list li.g-grp ~ li.g-grp', title: 'My work',
+      line: 'When a task is yours and takes real time, say “I’ll do it” in Triage and it lands here. Pick one, say how long you have, and I’ll keep you on it, breaks included.' },
+    { sel: '.g-row[data-pick="typed"]', title: 'Something else',
+      line: 'Not on the list? Tell me what you want to work on, in your own words, and start there.' },
+    { sel: '#menubtn', title: 'Everything else',
+      line: 'Lineup shows who has the ball on every task. Artifacts is what I’ve made. Settings is in here too. New task (N) is always at the top.' }
+  ];
+  var tourAt = 0, tourTimer = 0;
+  function toTour() {
+    ci = null;
+    return save({ step: 'tour' }).then(function () { tourAt = 0; App.navigate('#/guide'); setTimeout(tourShow, 400); });
+  }
+  function tourEl() {
+    var t = TOUR[tourAt]; if (!t) return null;
+    var el = document.querySelector(t.sel); if (!el) return null;
+    var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? el : null;
+  }
+  function tourShow() {
+    if (!st || st.step !== 'tour' || !active()) return tourEnd(true);
+    if (!onGuide()) return tourEnd(true);
+    var t = TOUR[tourAt]; if (!t) return tourDone();
+    var tip = document.getElementById('onb-tour');
+    if (!tip) {
+      tip = document.createElement('div'); tip.id = 'onb-tour'; tip.className = 'onb-tour'; tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-labelledby', 'onb-tour-h');
+      document.body.appendChild(tip);
+      tip.addEventListener('click', function (e) {
+        if (e.target.closest('[data-tour="next"]')) { tourAt++; tourShow(); }
+        else if (e.target.closest('[data-tour="skip"]')) { tourEnd(); finish('skip'); }
+      });
+      window.addEventListener('resize', tourPlace); window.addEventListener('scroll', tourPlace, { passive: true });
+      clearInterval(tourTimer); tourTimer = setInterval(tourPlace, 600);   /* the Guide redraws its rows */
+    }
+    var last = tourAt === TOUR.length - 1;
+    tip.innerHTML = '<p class="onb-tour-n">' + (tourAt + 1) + ' of ' + TOUR.length + '</p><h2 id="onb-tour-h">' + esc(t.title) + '</h2><p>' + esc(t.line) + '</p>' +
+      '<div class="onb-tour-btns"><button type="button" class="btn primary small" data-tour="next">' + (last ? 'Got it' : 'Next') + '<kbd aria-hidden="true">↵</kbd></button>' +
+      '<button type="button" class="linkbtn" data-tour="skip">Skip the tour</button></div>';
+    tourPlace();
+    tip.querySelector('[data-tour="next"]').focus({ preventScroll: true });
+    Say.announce(t.title + '. ' + t.line);
+  }
+  function tourPlace() {
+    var tip = document.getElementById('onb-tour'); if (!tip) return;
+    if (!onGuide()) return tourEnd(true);
+    document.querySelectorAll('.onb-spot').forEach(function (b) { b.classList.remove('onb-spot'); });
+    var el = tourEl();
+    if (!el) { tip.classList.add('free'); tip.style.left = tip.style.top = ''; return; }
+    tip.classList.remove('free');
+    el.classList.add('onb-spot');
+    var r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 14;
+    var below = r.bottom + gap + h < innerHeight || r.top - gap - h < 0;
+    tip.classList.toggle('above', !below);
+    var left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2));
+    tip.style.left = left + 'px';
+    tip.style.top = (below ? r.bottom + gap : r.top - gap - h) + 'px';
+    tip.style.setProperty('--ax', Math.max(18, Math.min(w - 18, r.left + r.width / 2 - left)) + 'px');
+  }
+  /* Gone from the page; quiet keeps your place (you went elsewhere, it comes back on the Guide) */
+  function tourEnd(quiet) {
+    clearInterval(tourTimer); tourTimer = 0;
+    window.removeEventListener('resize', tourPlace); window.removeEventListener('scroll', tourPlace);
+    document.querySelectorAll('.onb-spot').forEach(function (b) { b.classList.remove('onb-spot'); });
+    var tip = document.getElementById('onb-tour'); if (tip) tip.remove();
+    if (quiet) tourAt = 0;
+  }
+  function onGuide() { var h = location.hash; return h === '' || h === '#' || h === '#/' || /^#\/(guide|work|deepwork)([/?]|$)/.test(h); }
+  function tourDone() { tourEnd(); finish('acted'); }
+  window.addEventListener('hashchange', function () {
+    if (!st || st.step !== 'tour' || !active()) return;
+    if (onGuide()) { if (!document.getElementById('onb-tour')) setTimeout(tourShow, 300); }
+    else tourEnd(true);
+  });
 
   /* ---------- 6. The first card, on Triage ---------- */
   function showCard() {
@@ -511,7 +623,17 @@
   /* The guided card left the queue: you made the decision */
   function watchCard() {
     if (!st || st.done || st.step !== 'card' || !guidedId || finishing) return;
-    if (!Store.inQueue(guidedId) && Store.item(guidedId)) finish('acted');
+    if (!Store.inQueue(guidedId) && Store.item(guidedId)) afterCard(Store.item(guidedId));
+  }
+  /* You decided the first card: a check-in on it if it's still open, then the Guide tour */
+  function afterCard(it) {
+    if (finishing) return;
+    finishing = true;
+    var open = ['done', 'letgo', 'dropped', 'merged'].indexOf(it.state) < 0;
+    save({ step: open ? 'checkin' : 'tour' }).then(function () {
+      finishing = false;
+      if (open) { ci = null; App.navigate('#/welcome'); } else { tourAt = 0; App.navigate('#/guide'); setTimeout(tourShow, 400); }
+    });
   }
 
   /* ---------- 7. What's next ---------- */
@@ -531,8 +653,8 @@
       quietUntil = Date.now() + 12000;   /* and no later tip talks over it */
       if (how === 'acted') {
         tip('undo');
-        setTimeout(function () { Say.tell(tipLine('undo')); }, 2600);
-        setTimeout(function () { Say.tell(next, { ms: 12000 }); }, 7000);
+        Say.tell(tipLine('undo'));
+        setTimeout(function () { Say.tell(next, { ms: 12000 }); }, 4400);
       } else if (how === 'skip') {
         Say.tell('Okay. Settings has the tour if you want it.');
         setTimeout(function () { Say.tell(next, { ms: 12000 }); }, 4000);
@@ -600,6 +722,7 @@
   function onClick(e) {
     var b = e.target.closest('button, a'); if (!b || !root) return;
     if (b.dataset.app) { pickApp(b.dataset.app); return; }
+    if (b.dataset.citime !== undefined && ci) { ci.pick = +b.dataset.citime; root.querySelectorAll('[data-citime]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); return; }
     var a = b.dataset.onb; if (!a) return;
     if (a === 'retry') return setUp(chosen, true);
     if (a === 'recheck') { apps = null; appState = {}; return loadApps(); }
@@ -608,7 +731,8 @@
     if (a === 'hello') return save({ step: needsForm() ? 'form' : 'how' }).then(paint);
     if (a === 'show') return showCard();
     if (a === 'howdone') return save({ step: afterForm() }).then(paint);   /* Fuzz's question in Triage, or a task */
-    if (a === 'ics') return downloadIcs();
+    if (a === 'ciadd') return addCheckin();
+    if (a === 'cinot') return toTour();
   }
   function onSubmit(e) { if (e.target.id === 'onb-form') { e.preventDefault(); submitForm(); } }
   function onChange(e) {
@@ -618,7 +742,7 @@
   /* Enter on the ready screen from anywhere on the page */
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' || !root || e.defaultPrevented) return;
-    var go = root.querySelector('#onb-show, [data-onb="hello"], [data-onb="howdone"]'); if (!go) return;   /* Open Triage, Got it, Nice to meet you */
+    var go = root.querySelector('#onb-show, [data-onb="hello"], [data-onb="howdone"], [data-onb="ciadd"]:not([disabled])'); if (!go) return;   /* Open Triage, Got it, Nice to meet you */
     var t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(t.tagName)) return;
     e.preventDefault(); go.click();
   });
@@ -633,6 +757,7 @@
         if (!active()) { chrome('done'); return null; }
         calm(true); chrome(st.step);
         if (st.step === 'question') return '#/triage';
+        if (st.step === 'tour') { tourAt = 0; setTimeout(tourShow, 600); return '#/guide'; }
         if (st.step === 'card') { var it = taskItem(); if (it && Store.inQueue(it.id)) { Store.pick(it.id); return '#/triage'; } st.step = 'wait'; }
         return '#/welcome';
       }, function () { chrome('done'); return null; });
@@ -674,6 +799,7 @@
       return save({ again: true }).then(function () { st.needed = true; calm(true); chrome('intro'); App.navigate('#/welcome'); if (location.hash === '#/welcome' && root) paint(); });
     },
     /* For tests */
-    _ics: icsText
+    _ics: icsText,
+    _tour: TOUR
   };
 })();

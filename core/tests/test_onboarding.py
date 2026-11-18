@@ -42,7 +42,7 @@ class Progress(CoreCase):
 
     def test_bad_steps_and_tips_are_refused(self):
         with self.assertRaises(FuzzError):
-            onboarding.update(self.core, {"step": "tour"})
+            onboarding.update(self.core, {"step": "tutorial"})
         with self.assertRaises(FuzzError):
             onboarding.update(self.core, {"tips": "dictate"})
 
