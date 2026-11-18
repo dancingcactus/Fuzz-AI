@@ -18,6 +18,8 @@ The design doc for memory (`docs/memory-layers.md`) left "workstreams" for later
 - **Series** is the word, in copy and in code (`series` table, `series_id`). It sits next to Lineup in
   Fuzz's TV-flavoured naming. "Channel" was rejected (Slack channels, and email/Slack/meetings as
   channels); "Storyline" was the runner-up.
+- A series' icon is a **clipboard** (with two list lines), wherever one shows: the Fuzz menu, the New task
+  + menu and the series picker. Not a TV: that reads as Fuzz himself.
 - Repeating calendar events are **recurring meetings**, never "series".
 - On a task the noun stays out of sight: **"Part of Northwind"**, like "From …" and "For …".
 - An ongoing area of responsibility (the product you own, a customer account in general, your team, a
