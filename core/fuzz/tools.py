@@ -45,6 +45,7 @@ def whoami(core, role, prompt_version=None, client=None):
             **({"wiki_drafts": _wiki_drafts(core)} if role == "executor" else {}),
             **({"calendar": _calendar_ask(core)} if role == "executor" else {}),
             **({"deliverables_to_check": _to_check(core)} if role == "executor" else {}),
+            **({"series_to_check": _series_to_check(core)} if role == "executor" else {}),
             **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
             **({"lessons": _lessons(core, "extract")} if role == "extractor" else {}),
             **({"draft_lessons": _lessons(core, "draft")} if role == "executor" and _lessons(core, "draft") else {}),
@@ -461,28 +462,56 @@ def get_cursors(core):
 def submit_signals(core, signals_):
     signals.check_signals(signals_)
     ctx = matching.Context(core)
+    from .series import detect
     with core.tx("fuzz:extractor"):
         counts = matching.ingest(ctx, signals_)
         outcomes = matching.propose(ctx)
+        series = detect.run(core)   # attach and seed (docs/series.md); judge items join the pending judgments
     _memory_cards(core)
-    pending = core.one("SELECT COUNT(*) n FROM candidates WHERE user_id=? AND status='pending'", (core.user_id,))["n"]
+    pending = _pending_count(core)
     out = dict(counts, outcomes=outcomes, pending_judgments=pending)
+    if any(series.values()):
+        out["series"] = series
     if ctx.notes:
         out["notes"] = ctx.notes
     return out
 
 
+def _pending_count(core):
+    from .series import detect
+    return core.one("SELECT COUNT(*) n FROM candidates WHERE user_id=? AND status='pending'", (core.user_id,))["n"] \
+        + detect.pending_count(core)
+
+
 def get_pending_judgments(core, page=1):
-    return matching.pending_judgments(core, page)
+    """The matcher's shortlists, ten a page, and every series item waiting (series_items) on each page."""
+    from .series import detect
+    out = matching.pending_judgments(core, page)
+    out["series_items"] = detect.pending_items(core)
+    return out
 
 
 def submit_verdicts(core, verdicts):
+    """Verdicts on asks ({candidate_id, ...}) and on series items ({series_item, action, ...}), in one list."""
+    from .series import detect
     signals.check_verdicts(verdicts)
+    asks = [v for v in verdicts if "candidate_id" in v]
+    series = [(i, v) for i, v in enumerate(verdicts) if "series_item" in v]
+    checked = [(v,) + detect.check(core, i, v) for i, v in series]   # refuse an unknown id before anything changes
     ctx = matching.Context(core)
     with core.tx("fuzz:extractor"):
-        stats = matching.apply_verdicts(ctx, verdicts)
-    pending = core.one("SELECT COUNT(*) n FROM candidates WHERE user_id=? AND status='pending'", (core.user_id,))["n"]
-    return dict(outcomes=stats, pending_judgments=pending)
+        stats = matching.apply_verdicts(ctx, asks) if asks else {}
+        sstats = {}
+        for v, row, item in checked:
+            o = detect.apply_verdict(core, row, item, v)
+            sstats[o] = sstats.get(o, 0) + 1
+        found = detect.run(core) if asks else {}   # the tasks the judge just made can attach or seed too
+    out = dict(outcomes=stats, pending_judgments=_pending_count(core))
+    if sstats:
+        out["series"] = sstats
+    if any(found.values()):
+        out["series_detected"] = found
+    return out
 
 
 # ---------------------------------------------------------------- memory (docs/memory-layers.md)
@@ -564,7 +593,7 @@ def answer_ask(core, ask_id, text, sources=None):
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
-            "release", "list_deliverables", "report_deliverable_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory")
+            "release", "list_deliverables", "report_deliverable_done", "report_series_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory")
 
 
 def list_deliverables(core, since=None):
@@ -589,6 +618,18 @@ def report_deliverable_done(core, deliverable_id, evidence=None, cant_check=None
         deliverables.cant_check(core, deliverable_id, cant_check)
         return {"state": "open", "asked": True}
     return deliverables.report_done(core, deliverable_id, evidence)
+
+
+def _series_to_check(core):
+    from .series import record
+    return record.to_check(core)
+
+
+def report_series_done(core, series_id, evidence=None, cant_check=None):
+    """You checked a series' done-when (whoami's series_to_check). It's true: evidence says what you saw, and Fuzz
+    wraps it (the person can undo). You couldn't reach the evidence: cant_check says why. Not true yet: don't call."""
+    from .series import record
+    return record.report_done(core, series_id, evidence, cant_check)
 
 
 def _missed_tries(core, task_id):

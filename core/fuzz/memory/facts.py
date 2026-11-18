@@ -26,16 +26,25 @@ ALLOWED = {
     "term": ("definition", "stands_for", "used_for"),
     "document": ("what_it_is", "owner"),
     "ticket": ("what_it_is", "owner"),
+    # a series (docs/series.md, "Facts the AI captures"): never copies of messages, opinions of people or a priority
+    "series": ("goal", "your_role", "owner", "for", "status", "blocked_on", "next_milestone", "cadence", "scope_out",
+               "done_when"),
+    "area": ("what_it_is", "owner"),   # internal: what you own, for recall and the extractor
 }
+SERIES_ROLES = ("drive", "contribute", "follow")
+# Rewritten only on a real change: the same claim again (worded twice, or judged the same) isn't a new fact
+ONLY_ON_CHANGE = {"status"}
 # One value at a time: a newer or better-sourced value supersedes the old one. The rest hold several.
 SINGLE = {"role", "team", "company", "manager", "how_met", "works_hours", "definition", "stands_for", "what_it_is",
-          "owner", "relationship"}
+          "owner", "relationship", "goal", "your_role", "for", "status", "blocked_on", "next_milestone", "cadence",
+          "done_when"}
 HOW = ("stated", "extracted", "inferred", "edited")
 SOURCE_KINDS = ("email", "slack", "meeting", "calendar", "doc", "directory", "you", "teams")
 CONFLICT_DAYS = 30   # two equally trusted sources this close together that disagree: ask, don't pick
 # Written as a sentence or two, so two sources never word it the same way: comparing text can't tell a
 # paraphrase from a disagreement, and asking about every rewording is noise. The better-sourced one wins.
-PROSE = {"definition", "what_it_is", "relationship", "how_met"}
+PROSE = {"definition", "what_it_is", "relationship", "how_met", "goal", "status", "blocked_on", "next_milestone",
+         "cadence", "scope_out", "done_when"}
 VALUE_MAX = 500
 
 
@@ -109,7 +118,7 @@ def resolve_about(core, ref, me=None, ctx=None):
     if typ == "person":
         r = entities.resolve_person(core, {k: ref[k] for k in ("name", "email", "slack_id") if ref.get(k)}, me, ctx)
         return r[0] if r else None
-    if not name:
+    if not name and not (typ == "series" and ref.get("id") is not None):
         raise FuzzError(f"about.name is required for a {typ}", "about.name")
     if typ == "term":
         return entities.resolve_term(core, name)[0]
@@ -124,7 +133,17 @@ def resolve_about(core, ref, me=None, ctx=None):
             if typ == "org" and ref.get("domain"):
                 entities._add_identifier(core, "domain", ref["domain"].lower(), eid)
         return eid
-    raise FuzzError("about.type is person, org, tool or term", "about.type")
+    if typ == "series":   # by the id get_lookups gave, else its name
+        if ref.get("id") is not None:
+            s = core.one("SELECT entity_id FROM series WHERE id=? AND user_id=? AND kind='series'", (ref["id"], core.user_id))
+            if s is None or not s["entity_id"]:
+                raise FuzzError(f"No series {ref['id']}: use an id from get_lookups' series", "about.id")
+            return s["entity_id"]
+        eid = entities._unique_alias(core, "series", name)
+        if eid is None:
+            raise FuzzError(f"No series called “{name}”: use an id from get_lookups' series", "about.name")
+        return eid
+    raise FuzzError("about.type is person, org, tool, term or series", "about.type")
 
 
 def add_aliases(core, eid, aliases):
@@ -155,6 +174,11 @@ def check(core, eid, attr, value, how):
         raise FuzzError("value is a short text", "value")
     if len(v) > VALUE_MAX:
         raise FuzzError(f"value is at most {VALUE_MAX} characters: a summary, not a copy", "value")
+    if e["type"] == "series" and attr == "your_role" and v not in SERIES_ROLES:
+        raise FuzzError(f"your_role is one of {', '.join(SERIES_ROLES)}", "value")
+    if e["type"] == "series" and attr == "done_when":   # the deliverables' rubric: a state, never an activity
+        from ..deliverables import check_done_when
+        v = check_done_when(v)
     return e, v
 
 
@@ -181,6 +205,10 @@ def add(core, eid, attr, value, how="extracted", said_by=None, source_kind=None,
                       f"({','.join('?' * len(ids))})", (core.user_id, attr, *ids)):
         if norm(f["value"]) == norm(v) and (f["source_ref"] or "") == (source_ref or "") and f["how"] == how:
             return f["id"], False
+    if attr in ONLY_ON_CHANGE and how != "edited":
+        cur = next((f for f in for_entity(core, e["id"]) if f["attr"] == attr and f["state"] == "winner"), None)
+        if cur and (same_claim(cur["value"], v) or judgment(core, cur, {"attr": attr, "value": v, "entity_id": e["id"]}) == 1):
+            return cur["id"], False
     auth = authority_for(core, e["id"], how, said_by, source_kind)
     with core.tx(actor):
         fid = core.new_id("facts")
@@ -268,8 +296,12 @@ def _judge(core, rows, now):
     top two disagree badly enough to ask (disputed)."""
     seen = views(core, [f["id"] for f in rows])
     judged = judgments(core)
+    etypes = {}
     for f in rows:
-        f["trust"] = trust_mod.trust(f, now, seen.get(f["id"], ()), trust_mod.half_life(core, f["attr"]))
+        if f["entity_id"] not in etypes:
+            e = entity(core, f["entity_id"])
+            etypes[f["entity_id"]] = e["type"] if e else None
+        f["trust"] = trust_mod.trust(f, now, seen.get(f["id"], ()), trust_mod.half_life(core, f["attr"], etypes[f["entity_id"]]))
     out = []
     by_attr = {}
     for f in rows:

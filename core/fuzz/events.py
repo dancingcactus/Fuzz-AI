@@ -36,6 +36,16 @@ EVENT_TYPES = {
     "focus.set", "focus.refined", "focus.cleared",
     "deliverable.created", "deliverable.linked", "deliverable.unlinked", "deliverable.renamed", "deliverable.tier_set",
     "deliverable.reviewed", "deliverable.done", "deliverable.reopened", "deliverable.dropped",
+    # series (docs/series.md): bigger bodies of work, and the areas that aren't
+    "series.formed", "series.inferred", "series.named", "series.linked", "series.unlinked", "series.merged",
+    "series.split", "series.area_marked", "series.dormant", "series.wrapped",
+    "series.asked",        # you started one (New task's +): it waits for your OK
+    "series.dropped",      # Not a series
+    "series.muted",        # no suggestions (or back on)
+    "series.anchors",      # you corrected how Fuzz spots it: added or removed anchors
+    "series.woke",         # a dormant one moved again
+    "series.reopened",     # Start season 2
+    "series.reviewed",     # its done-when checked and not true yet, or Fuzz couldn't check
     "group.created", "group.linked", "group.unlinked", "group.renamed", "group.wrapped",
     "group.collected", "group.working",   # working through a group: Fuzz has the answers / the run goes on
     "entity.merged", "entity.kept_separate", "entity.defined",
@@ -75,6 +85,8 @@ TABLES = {
     "grants": _t("id", {"kind"}, {"kind": "revoked"}),
     "user_state": _t("key", {"value"}, {"value": None}),
     "deliverables": _t("id", {"state", "tier", "title", "done_when"}, {"state": "dropped"}),
+    "series": _t("id", {"state", "name", "kind", "muted"}, {"state": "dropped"}),
+    "series_anchors": _t("id", {"removed"}, {"removed": 1}),
     "facts": _t("id", {"status", "value", "confirmed_at"}, {"status": "undone"}),
     "knowledge": _t("id", {"status"}, {"status": "undone"}),
     "decision_log": _t("id", {"status", "what"}, {"status": "undone"}),
@@ -115,6 +127,12 @@ class Changes:
 
     def deliverable(self, did, **fields):
         return self._put("deliverables", did, fields)
+
+    def series(self, sid, **fields):
+        return self._put("series", sid, fields)
+
+    def anchor(self, aid, **fields):
+        return self._put("series_anchors", aid, fields)
 
     def fact(self, fid, **fields):
         return self._put("facts", fid, fields)
@@ -312,7 +330,7 @@ def check_replay(core, user_id=None):
 # ---------------------------------------------------------------- undo
 
 # The AI's own changes you can take back, like a rename, or Fuzz closing a deliverable it checked.
-AI_UNDOABLE = {"task.retitled", "deliverable.done"}
+AI_UNDOABLE = {"task.retitled", "deliverable.done", "series.wrapped"}
 NOT_UNDOABLE = {"task.restored", "run.started", "run.finished", "engine.installed", "engine.removed",
                 "task.sent", "source.read", "task.file_attached", "task.file_deleted", "task.link_added"}
 

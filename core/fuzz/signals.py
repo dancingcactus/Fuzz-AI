@@ -49,7 +49,8 @@ CANDIDATE = {
 
 ABOUT = {   # what a fact is about: a person (by email or Slack ID when known), a company, a tool or a term
     "type": "object", "required": ["type"],
-    "properties": {"type": {"enum": ["person", "org", "tool", "term"]}, "name": {"type": "string", "maxLength": 200},
+    "properties": {"type": {"enum": ["person", "org", "tool", "term", "series"]}, "name": {"type": "string", "maxLength": 200},
+                   "id": {"type": "integer"},   # a series, by get_lookups' series id
                    "email": {"type": "string"}, "slack_id": {"type": "string"}, "domain": {"type": "string"}},
     "additionalProperties": False}
 
@@ -189,9 +190,44 @@ def check_signals(signals):
                             f"signals[{i}].waiting_on")
 
 
+SERIES_PART = {"type": "object", "required": ["name", "tasks"],
+               "properties": {"name": {"type": "string", "maxLength": 80}, "bounded": {"type": "boolean"},
+                              "tasks": {"type": "array", "items": {"type": ["integer", "string"]}}},
+               "additionalProperties": False}
+SERIES_VERDICT = {   # a series item: a candidate (new | join | split | area | wait) or a forming one that stalled (merge | wait | drop)
+    "type": "object",
+    "required": ["series_item", "action"],
+    "properties": {
+        "series_item": {"type": "integer"},
+        "action": {"enum": ["new", "join", "split", "area", "wait", "merge", "drop"]},
+        "name": {"type": "string", "maxLength": 80},
+        "bounded": {"type": "boolean"},   # it has an implied end; false: an area
+        "series_id": {"type": ["integer", "null"]},
+        "parts": {"type": "array", "items": SERIES_PART},
+        "why": {"type": "string"},
+    },
+    "additionalProperties": False,
+}
+
+
 def check_verdicts(verdicts):
-    _check(verdicts, VERDICT, "verdicts", 200)
+    if not isinstance(verdicts, list):
+        raise FuzzError("verdicts must be a JSON array", "verdicts")
+    if len(verdicts) > 200:
+        raise FuzzError("Send at most 200 verdicts per call", "verdicts")
+    for i, v in enumerate(verdicts):   # each against its own schema, with its own index in the field
+        schema = SERIES_VERDICT if isinstance(v, dict) and "series_item" in v else VERDICT
+        errs = sorted(jsonschema.Draft202012Validator(schema).iter_errors(v), key=lambda e: list(e.absolute_path))
+        if errs:
+            e = errs[0]
+            field = _path(f"verdicts[{i}]", e)
+            msg = e.message
+            if e.validator == "additionalProperties":
+                msg = f"unknown field: {msg.split(chr(39))[1] if chr(39) in msg else msg}"
+            raise FuzzError(f"{field}: {msg}", field)
     for i, v in enumerate(verdicts):
+        if "series_item" in v:
+            continue
         if v["verdict"] != "new" and v.get("task_id") is None:
             raise FuzzError(f"verdicts[{i}].task_id is required when the verdict is {v['verdict']}",
                             f"verdicts[{i}].task_id")

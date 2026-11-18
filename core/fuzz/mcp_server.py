@@ -225,6 +225,13 @@ def build(core, role, task_id=None):
             return _call(tools.list_deliverables, core, since)
 
         @srv.tool()
+        def report_series_done(series_id: int, evidence: str | None = None, cant_check: str | None = None) -> dict:
+            """For each of whoami's series_to_check, look for its done-when's evidence with your lookup tools. True:
+            pass evidence (what you saw), and Fuzz wraps the series. Couldn't reach it: cant_check says why. Not true
+            yet: don't call."""
+            return _call(tools.report_series_done, core, series_id, evidence, cant_check)
+
+        @srv.tool()
         def report_deliverable_done(deliverable_id: int, evidence: str | None = None,
                                     cant_check: str | None = None) -> dict:
             """For each of whoami's deliverables_to_check, look for its done-when's evidence with your lookup
@@ -331,13 +338,15 @@ def build(core, role, task_id=None):
 
         @srv.tool()
         def get_pending_judgments(page: int = 1) -> dict:
-            """The shortlists you must judge, ten at a time: each ask with the tasks it might be."""
+            """The shortlists you must judge, ten at a time: each ask with the tasks it might be. series_items (on
+            every page) are clusters of tasks that may be one series, or forming series that stopped growing."""
             return _call(tools.get_pending_judgments, core, page)
 
         @srv.tool()
         def submit_verdicts(verdicts: list[dict[str, Any]]) -> dict:
             """Apply your verdicts: {candidate_id, task_id, verdict: same|related|new, confidence 0-1,
-            new_ask, new_title?, reason}. Returns counts."""
+            new_ask, new_title?, reason}, and for series items {series_item, action, name?, bounded?, series_id?,
+            parts?, why}. Returns counts."""
             return _call(tools.submit_verdicts, core, verdicts)
 
         @srv.tool()

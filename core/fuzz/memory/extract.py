@@ -187,7 +187,20 @@ def lookups(core):
                 for d in core.all("SELECT * FROM decision_log WHERE user_id=? AND status IN ('recorded','proposed') "
                                   "ORDER BY id DESC LIMIT ?", (core.user_id, lim["decisions"]))],
             "known_terms": [r["name"] for r in core.all("SELECT name FROM entities WHERE user_id=? AND type IN ('term','tool') "
-                                                        "AND redirect_to IS NULL AND name IS NOT NULL ORDER BY name", (core.user_id,))]}
+                                                        "AND redirect_to IS NULL AND name IS NOT NULL ORDER BY name", (core.user_id,))],
+            "series": series_lookups(core)}
+
+
+def series_lookups(core):
+    """The series Fuzz keeps, with what it knows of each, so a fact can name one ({"type": "series", "id": …}) and a
+    status is only sent when it really changed."""
+    out = []
+    for s in core.all("SELECT * FROM series WHERE user_id=? AND kind='series' AND state IN ('inferred','named','dormant') "
+                      "ORDER BY id", (core.user_id,)):
+        known = facts.winners(core, s["entity_id"]) if s.get("entity_id") else {}
+        out.append({"id": s["id"], "name": s["name"], "state": s["state"],
+                    **{k: known[k] for k in ("goal", "status", "done_when", "next_milestone", "blocked_on") if k in known}})
+    return out
 
 
 def settled_threads(core, limit=5):

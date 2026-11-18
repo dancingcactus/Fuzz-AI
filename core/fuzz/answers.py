@@ -278,7 +278,13 @@ def _deliverable(core, card, t, option, value):
     return deliverables.answer(core, card, option, value)
 
 
-HANDLERS = {"task": _task_answer, "duplicate": _duplicate, "entity_person": _entity_person,
+def _series(core, card, t, option, value):
+    from .series import ask
+    return ask.answer(core, card, option, value)
+
+
+HANDLERS = {"series_new": _series, "series_role": _series, "series_next": _series, "series_season": _series,
+            "task": _task_answer, "duplicate": _duplicate, "entity_person": _entity_person,
             "entity_term": _entity_term, "is_task": _is_task, "draft": _draft, "nudge": _draft,
             "permission": _permission, "hold": _hold, "part_of": _deliverable, "deliverable": _deliverable,
             "deliverable_new": _deliverable, "week_plan": _deliverable, "decision": _decision,

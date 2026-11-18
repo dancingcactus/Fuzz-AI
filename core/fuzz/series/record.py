@@ -1,0 +1,402 @@
+"""The series record: a projected `series` row for its lifecycle, an entity for its aliases and facts, and
+its anchors (docs/series.md, "The record").
+
+Lifecycle: forming -> inferred -> named (you accepted or renamed it) -> dormant / wrapped / dropped.
+An area is a row with kind 'area': it keeps its anchors and the judge's reason, takes no tasks, and never
+appears in the app.
+
+Every change is an event, so Undo and replay work. Membership (tasks.series_id, the primary series) is
+sticky: only you, the judge's first verdict, or attach (for a task in no series) set it.
+"""
+
+import json
+from datetime import timedelta
+
+from .. import cards, events, states
+from ..db import FuzzError, iso, parse_iso
+from . import index as index_mod
+
+NAME_MAX = 80
+ROLES = ("drive", "contribute", "follow")
+
+
+def get(core, sid):
+    return core.one("SELECT * FROM series WHERE id=? AND user_id=?", (int(sid), core.user_id))
+
+
+def require(core, sid, kind="series"):
+    s = get(core, sid)
+    if s is None or (kind and s["kind"] != kind):
+        raise FuzzError(f"No series {sid}", "series_id", 404)
+    return s
+
+
+def live(core, kind="series"):
+    return core.all("SELECT * FROM series WHERE user_id=? AND kind=? AND state NOT IN ('dropped') ORDER BY id",
+                    (core.user_id, kind))
+
+
+def _clean_name(name):
+    n = " ".join((name or "").split())[:NAME_MAX]
+    if not n:
+        raise FuzzError("name is what you'd call it, in a few plain words, like “Northwind pilot”", "name")
+    return n
+
+
+def _entity(core, kind, name):
+    from ..matching import entities
+    return entities._new_entity(core, kind, name, False)
+
+
+def make(core, ch, name, kind="series", state="inferred", origin="inferred", why=None, task_ids=(), seed=None,
+         ruled_size=None):
+    """Write a new series (or area) into ch, with its entity and seed anchors. Inside a transaction.
+    seed: {key: label}. Tasks only join a series, never an area. Returns its id."""
+    name = _clean_name(name)
+    sid = core.new_id("series")
+    now = core.now_iso()
+    eid = _entity(core, kind, name)
+    ch.series(sid, kind=kind, name=name, state=state, origin=origin, entity_id=eid, muted=0,
+              met=1 if origin == "asked" else 0, named_at=None, why=(why or None) and why[:300],
+              ruled_size=ruled_size, season=1, evidence=None, check_due=0, grown_at=now, created_at=now)
+    for key, label in (seed or {}).items():
+        ch.anchor(core.new_id("series_anchors"), series_id=sid, key=key, label=label, how="seed", removed=0)
+    if kind == "series":
+        for tid in task_ids:
+            ch.task(int(tid), series_id=sid)
+    return sid
+
+
+def link(core, task_id, sid, actor="human", quiet=False, why=None):
+    """The task's primary series is now this one: its "Part of …" line. Undo puts it back."""
+    from .. import tasks
+    t = tasks.require(core, task_id)
+    s = require(core, sid)
+    if s["state"] == "dropped":
+        raise FuzzError(f"“{s['name']}” isn't a series any more", "series_id", 409)
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.task(t["id"], series_id=s["id"])
+        ch.series(s["id"], grown_at=core.now_iso())
+        if s["state"] == "dormant":
+            ch.series(s["id"], state="named" if s.get("named_at") else "inferred")
+        events.emit(core, "series.linked", task_id=t["id"], changes=ch,
+                    data={"series_id": s["id"], "quiet": quiet, "from": t.get("series_id"), **({"why": why} if why else {})},
+                    log=None if quiet else ("status", f"Part of {s['name']}."))
+    return s["id"]
+
+
+def unlink(core, task_id, actor="human"):
+    """Out of its series. Fuzz won't put it back in that one by itself."""
+    from .. import tasks
+    t = tasks.require(core, task_id)
+    if not t.get("series_id"):
+        raise FuzzError("This task isn't part of a series", "task_id", 409)
+    s = get(core, t["series_id"])
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.task(t["id"], series_id=None)
+        events.emit(core, "series.unlinked", task_id=t["id"], changes=ch, data={"series_id": t["series_id"]},
+                    log=("status", f"You took this out of {s['name'] if s else 'its series'}."))
+        core.q("INSERT INTO feedback (user_id, ts, kind, a, b, note) VALUES (?,?,?,?,?,?)",
+               (core.user_id, core.now_iso(), "series_unlinked", t["id"], t["series_id"], None))
+
+
+def unlinked_pairs(core):
+    """(task, series) pairs you took apart: attach never puts them back together."""
+    return {(r["a"], r["b"]) for r in core.all("SELECT a, b FROM feedback WHERE user_id=? AND kind IN "
+                                                 "('series_unlinked', 'series_left_out')", (core.user_id,))}
+
+
+def name(core, sid, new_name=None, actor="human", card=None, option=None, value=None, extra=None):
+    """You accepted it (Keep it, Looks right) or renamed it: named, and met. extra(ch) adds to the same event."""
+    s = require(core, sid)
+    n = _clean_name(new_name) if new_name else s["name"]
+    with core.tx(actor):
+        ch = events.Changes()
+        state = s["state"] if s["state"] in ("wrapped",) else "named"
+        ch.series(s["id"], name=n, state=state, met=1, named_at=core.now_iso())
+        if card:
+            cards.mark_answered(core, ch, card, option, value)
+        if extra:
+            extra(ch)
+        if n != s["name"] and s.get("entity_id"):
+            core.q("UPDATE entities SET name=? WHERE id=? AND user_id=?", (n, s["entity_id"], core.user_id))
+            core.q("INSERT OR IGNORE INTO aliases VALUES (?,?)", (s["entity_id"], n.lower()))
+        events.emit(core, "series.named", changes=ch, data={"series_id": s["id"], "from": s["name"], "to": n})
+    return s["id"]
+
+
+def meet(core, ch, s):
+    """It's in front of you now (a card about it): no longer only "Fuzz is watching"."""
+    if not s.get("met"):
+        ch.series(s["id"], met=1)
+
+
+def drop(core, sid, why="not_series", actor="human", card=None, option="not_series", value=None):
+    """Not a series. why: not_series (its tasks go free, and its cluster isn't proposed again until it grows)
+    or ongoing (it's an area: kept, never shown, and its anchors stop proposing series)."""
+    s = require(core, sid)
+    idx = index_mod.get(core)
+    members = sorted(idx.members.get(s["id"], ()))
+    anchors = idx.anchors(s["id"])
+    with core.tx(actor):
+        ch = events.Changes()
+        for tid in members:
+            ch.task(tid, series_id=None)
+        if card:
+            cards.mark_answered(core, ch, card, option, value)
+        _withdraw_cards(core, ch, s["id"], keep=card["id"] if card else None)
+        if why == "ongoing":
+            ch.series(s["id"], kind="area", state="area", ruled_size=len(members), why="You said it's ongoing.")
+            have = {a["key"] for a in idx.rows.get(s["id"], [])}
+            for k, label in anchors.items():
+                if k not in have:
+                    ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=label, how="seed", removed=0)
+            events.emit(core, "series.area_marked", changes=ch, data={"series_id": s["id"], "by": "you", "tasks": members})
+        else:
+            ch.series(s["id"], state="dropped")
+            events.emit(core, "series.dropped", changes=ch, data={"series_id": s["id"], "tasks": members})
+        if anchors and members:
+            remember_wait(core, list(anchors), len(members))
+
+
+def remember_wait(core, keys, size):
+    core.q("INSERT OR REPLACE INTO series_waits (user_id, keys, size, ts) VALUES (?,?,?,?)",
+           (core.user_id, json.dumps(sorted(keys)) if isinstance(keys, list) else keys, size, core.now_iso()))
+
+
+def _withdraw_cards(core, ch, sid, keep=None):
+    for c in core.all("SELECT * FROM cards WHERE user_id=? AND status='open' AND kind LIKE 'series%'", (core.user_id,)):
+        if (c.get("payload") or {}).get("series_id") == sid and c["id"] != keep:
+            ch.card(c["id"], status="withdrawn")
+
+
+def mute(core, sid, on=True, actor="human"):
+    s = require(core, sid)
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.series(s["id"], muted=1 if on else 0)
+        if on:
+            for c in core.all("SELECT * FROM cards WHERE user_id=? AND status='open' AND kind='series_next'", (core.user_id,)):
+                if (c.get("payload") or {}).get("series_id") == s["id"]:
+                    ch.card(c["id"], status="withdrawn")
+        events.emit(core, "series.muted", changes=ch, data={"series_id": s["id"], "muted": bool(on)})
+
+
+def set_role(core, sid, role, actor="human"):
+    """Your part in it: a fact you stated (your_role)."""
+    from ..memory import facts
+    s = require(core, sid)
+    if role not in ROLES:
+        raise FuzzError(f"role is one of {', '.join(ROLES)}", "role")
+    return facts.edit(core, s["entity_id"], "your_role", role, actor=actor)
+
+
+# ---------------------------------------------------------------- anchors: how Fuzz spots it
+
+def anchor_key(text):
+    """What you typed into "How Fuzz spots it": a ticket key, a #channel, or words."""
+    from ..matching import entities
+    t = (text or "").strip()
+    if not t:
+        raise FuzzError("Say a word, a ticket key or a Slack channel", "add")
+    keys = entities.tickets_in(t.upper())
+    if keys and keys[0] == t.upper():
+        return ("ticket_key:" + keys[0], f"ticket {keys[0]}")
+    w = index_mod.norm(t.lstrip("#"))
+    if not w:
+        raise FuzzError("Say a word, a ticket key or a Slack channel", "add")
+    return ("word:" + w, f"the words “{t}”")
+
+
+def _resolve_key(core, key, label):
+    """A ticket key you typed becomes the ticket entity's anchor when Fuzz knows that ticket; else words."""
+    if key.startswith("ticket_key:"):
+        k = key.split(":", 1)[1]
+        e = core.one("SELECT id FROM entities WHERE user_id=? AND type='ticket' AND upper(name)=?", (core.user_id, k))
+        return (f"ticket:{e['id']}", label) if e else ("word:" + index_mod.norm(k), label)
+    return key, label
+
+
+def preview_anchors(core, sid, add=(), remove=()):
+    """What a change to its anchors would have caught: tasks that would join (free ones scoring past the
+    attach line) and members that would no longer score. Read-only."""
+    s = require(core, sid)
+    idx = index_mod.get(core)
+    adds = [_resolve_key(core, *anchor_key(a)) for a in add or []]
+    cur = idx.anchors(s["id"])
+    new = dict(cur)
+    for k in remove or []:
+        new.pop(k, None)
+    for k, label in adds:
+        new[k] = label
+        if k.startswith("word:") and k not in idx.index:   # words nobody has added yet: index them now
+            w = f" {k[5:]} "
+            for tid, t in idx.tasks.items():
+                if w in f" {index_mod.norm(t['title'])} {index_mod.norm(t.get('ask') or '')} ":
+                    idx.feats.setdefault(tid, {})[k] = label
+                    idx.index.setdefault(k, set()).add(tid)
+    added_keys = {k for k, _ in adds} | idx.added(s["id"])
+    line = idx.cfg["attach_score"]
+
+    def sc(tid, anchors):
+        return sum(idx.weight(k, added=k in added_keys) for k in idx.feats.get(tid, {}) if k in anchors)
+
+    join = [t for t, r in idx.tasks.items() if not r.get("series_id") and sc(t, new) >= line > sc(t, cur)]
+    lose = [t for t in idx.members.get(s["id"], ()) if sc(t, new) < line <= sc(t, cur)]
+    return {"would_join": [{"id": t, "title": idx.tasks[t]["title"]} for t in sorted(join)][:20],
+            "would_stop_matching": [{"id": t, "title": idx.tasks[t]["title"]} for t in sorted(lose)][:20],
+            "anchors": [{"key": k, "label": v} for k, v in new.items()]}
+
+
+def edit_anchors(core, sid, add=(), remove=(), actor="human"):
+    """Add anchors you typed and remove ones Fuzz found (Undo puts them back). A removed anchor isn't
+    suggested again. Returns the added keys."""
+    s = require(core, sid)
+    idx = index_mod.get(core)
+    rows = {a["key"]: a for a in idx.rows.get(s["id"], [])}
+    adds = [_resolve_key(core, *anchor_key(a)) for a in add or []]
+    if not adds and not remove:
+        raise FuzzError("Add or remove at least one", "add")
+    with core.tx(actor):
+        ch = events.Changes()
+        for k in remove or []:
+            if k in rows:
+                ch.anchor(rows[k]["id"], removed=1, how="removed" if rows[k]["how"] != "added" else "added")
+            else:
+                ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=idx.labels.get(k, k),
+                          how="removed", removed=1)
+        for k, label in adds:
+            if k in rows:
+                ch.anchor(rows[k]["id"], removed=0, how="added", label=label)
+            else:
+                ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=label, how="added", removed=0)
+        events.emit(core, "series.anchors", changes=ch,
+                    data={"series_id": s["id"], "added": [k for k, _ in adds], "removed": list(remove or [])})
+    return [k for k, _ in adds]
+
+
+# ---------------------------------------------------------------- wrapping, seasons, merging, going quiet
+
+def wrap(core, sid, evidence, actor="human", card=None, option=None):
+    s = require(core, sid)
+    if s["state"] == "wrapped":
+        raise FuzzError(f"“{s['name']}” is already wrapped", "series_id", 409)
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.series(s["id"], state="wrapped", evidence=(evidence or "")[:300] or None, check_due=0)
+        if card:
+            cards.mark_answered(core, ch, card, option)
+        _withdraw_cards(core, ch, s["id"], keep=card["id"] if card else None)
+        events.emit(core, "series.wrapped", changes=ch, data={"series_id": s["id"], "evidence": evidence, "name": s["name"]})
+
+
+def reopen(core, sid, task_ids=(), actor="human", card=None, option="season2"):
+    """Start season 2: it's going again, with the new work in it."""
+    s = require(core, sid)
+    with core.tx(actor):
+        ch = events.Changes()
+        ch.series(s["id"], state="named" if s.get("named_at") else "inferred", evidence=None, season=(s.get("season") or 1) + 1,
+                  grown_at=core.now_iso())
+        for tid in task_ids:
+            ch.task(int(tid), series_id=s["id"])
+        if card:
+            cards.mark_answered(core, ch, card, option)
+        events.emit(core, "series.reopened", changes=ch, data={"series_id": s["id"], "season": (s.get("season") or 1) + 1,
+                                                               "tasks": list(task_ids)})
+
+
+def merge(core, from_sid, into_sid, actor="system", why=None):
+    """Two pieces of one body of work: from's tasks move into into, and from is dropped."""
+    a, b = require(core, from_sid), require(core, into_sid)
+    idx = index_mod.get(core)
+    with core.tx(actor):
+        ch = events.Changes()
+        for tid in sorted(idx.members.get(a["id"], ())):
+            ch.task(tid, series_id=b["id"])
+        ch.series(a["id"], state="dropped")
+        ch.series(b["id"], grown_at=core.now_iso())
+        _withdraw_cards(core, ch, a["id"])
+        events.emit(core, "series.merged", changes=ch, data={"from": a["id"], "into": b["id"], "why": why})
+
+
+def check_dormant(core):
+    """Gone quiet: a series none of whose tasks moved for dormant_days. Returns how many went quiet."""
+    idx = index_mod.get(core)
+    days = idx.cfg["dormant_days"]
+    cutoff = iso(core.now() - timedelta(days=days))
+    n = 0
+    for sid, s in list(idx.series.items()):
+        if s["kind"] != "series" or s["state"] not in ("inferred", "named"):
+            continue
+        last = idx.last_moved(sid) or s.get("created_at") or ""
+        if last and last < cutoff and (s.get("grown_at") or "") < cutoff:
+            with core.tx("system"):
+                ch = events.Changes()
+                ch.series(sid, state="dormant")
+                events.emit(core, "series.dormant", changes=ch, data={"series_id": sid, "last": last})
+            n += 1
+    return n
+
+
+def wake_if_moved(core):
+    """A dormant series whose task moved again goes back to going."""
+    idx = index_mod.get(core)
+    cutoff = iso(core.now() - timedelta(days=idx.cfg["dormant_days"]))
+    n = 0
+    for sid, s in list(idx.series.items()):
+        if s["kind"] == "series" and s["state"] == "dormant" and (idx.last_moved(sid) or "") >= cutoff:
+            with core.tx("system"):
+                ch = events.Changes()
+                ch.series(sid, state="named" if s.get("named_at") else "inferred")
+                events.emit(core, "series.woke", changes=ch, data={"series_id": sid})
+            n += 1
+    return n
+
+
+# ---------------------------------------------------------------- done-when: Fuzz checks it
+
+def mark_check(core, ch, task):
+    """A task of this series just closed: Fuzz checks its done-when on its next run."""
+    if task.get("series_id"):
+        ch.series(task["series_id"], check_due=1)
+
+
+def to_check(core):
+    """whoami's series_to_check: series with a done-when whose task closed, or that you asked Fuzz to check."""
+    from ..memory import facts
+    out = []
+    for s in core.all("SELECT * FROM series WHERE user_id=? AND kind='series' AND check_due=1 AND state IN "
+                      "('inferred','named','dormant')", (core.user_id,)):
+        dw = facts.winners(core, s["entity_id"]).get("done_when") if s.get("entity_id") else None
+        if dw:
+            out.append({"id": s["id"], "name": s["name"], "done_when": dw})
+    return out
+
+
+def report_done(core, sid, evidence=None, cant_check=None, actor="fuzz:executor"):
+    """The executor checked a series' done-when. True: wrapped with the evidence (Undo). Couldn't reach it:
+    not checked again until another task closes. Not true yet: don't call."""
+    s = require(core, sid)
+    if cant_check:
+        with core.tx(actor):
+            ch = events.Changes()
+            ch.series(s["id"], check_due=0)
+            events.emit(core, "series.reviewed", changes=ch, data={"series_id": s["id"], "cant_check": cant_check[:200]})
+        return {"state": s["state"], "checked": False}
+    if not (evidence or "").strip():
+        raise FuzzError("evidence says what you saw, like “NW-342 is accepted and Northwind confirmed in writing”", "evidence")
+    if s["state"] not in ("inferred", "named", "dormant"):
+        raise FuzzError(f"“{s['name']}” is {s['state']}: nothing to check", "series_id", 409)
+    wrap(core, s["id"], evidence.strip(), actor=actor)
+    return {"state": "wrapped"}
+
+
+def recent(core, ts, days):
+    d = parse_iso(ts) if ts else None
+    return bool(d) and d >= core.now() - timedelta(days=days)
+
+
+LIVE = index_mod.LIVE_SERIES
+STATES_LIVE = states.LIVE

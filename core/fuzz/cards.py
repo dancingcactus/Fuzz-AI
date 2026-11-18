@@ -53,6 +53,14 @@ CARD_KINDS = {
                                 suggested="track", safe="no"),
     "week_plan": CardKind("deliverables", "Which are this week’s active ones?", ("keep_these", "keep_steps", "not_now"),
                           suggested="keep_these"),
+    # series (series/ask.py): one you started waits for your OK; your part, the first time Fuzz names one; a
+    # suggested next task; new work on a wrapped one
+    "series_new": CardKind("series", "Is this the series?", ("looks_right", "not_series", "not_sure"),
+                           suggested="looks_right", safe="looks_right"),
+    "series_role": CardKind("series", "What’s your part in this series?", ("drive", "help", "follow", "not_series", "not_sure"),
+                            suggested="help", safe="help"),
+    "series_next": CardKind("series", "Add this next step?", ("add", "mine", "not_needed"), suggested="add"),
+    "series_season": CardKind("series", "Start season 2?", ("season2", "not_part"), suggested="season2"),
     # Was this a decision? (memory/mcards.py)
     "decision": CardKind("question", "Was this a decision?", ("record", "not_decision", "not_sure"),
                          suggested="record", safe="not_decision"),
