@@ -1,8 +1,9 @@
 # Series: the bigger things you're working on
 
-Status: designed, not built. Worked out in conversation on 2026-11-18, with a UI mockup and two detection
-spikes run against a copy of real data (`spikes/series-page/`). This doc holds the requirements decided so
-far, what the spikes taught us, and what comes next. Where the mockup and this doc differ, this doc wins.
+Status: first version built (2026-11-18), on branch `worktree-series-page-mockup`. Worked out in
+conversation the same day, with a UI mockup and two detection spikes run against a copy of real data
+(`spikes/series-page/`). This doc holds the requirements, what the spikes taught us, how the build meets
+them ("Built"), and what comes next. Where the mockup and this doc differ, this doc wins.
 
 ## Goal
 
@@ -248,14 +249,71 @@ Day-by-day replay, one judge call per day with items:
   forming pieces that can't merge back, and the same happened to two others. The judge never chose
   `wait`.
 
+## Built
+
+Code is in `core/fuzz/series/`, one module per job:
+
+| Module | What it does |
+| --- | --- |
+| `settings.py` | Every number above (the rules, the 60% near tie, the 3-task seed, weights, suggestion limits), with defaults. Tune them in `config.json` under `"series"`, e.g. `{"series": {"min_tasks": 5}}` |
+| `index.py` | The anchor index, worked out from the store when needed: each task's anchors, rarity weights, scores, also touches, the rules |
+| `record.py` | The record and its lifecycle: make, link/unlink, name, drop (or ongoing → area), mute, anchors (add, remove, restore, preview), wrap, season 2, merge, dormant/wake, the done-when check |
+| `detect.py` | Detection as things come in: attach, forming → series, seed, an area's second look, forming series that stall; the judge's items and verdicts |
+| `ask.py` | Starting one yourself (gather from a note) and the four cards: `series_new`, `series_role`, `series_next`, `series_season` |
+| `suggest.py` | The detectors (follow-through, prep, stall, at risk), rate limits, role gating, the clock's share |
+| `views.py` | What the Series page, the sheet, a task's "Part of …" line and the "Part of…" picker show |
+
+How it's wired:
+
+- `submit_signals` runs detection after matching, and `submit_verdicts` runs it again after the asks it
+  judged became tasks.
+- Judge items reach the extractor as `series_items` on every `get_pending_judgments` page. Verdicts come
+  back in the same `submit_verdicts` list (`{series_item, action, …}`), and an id the item didn't give is
+  refused with the field to fix. The extractor skill says how to judge them, including "prefer `wait` over
+  `split`".
+- The executor sees `series_to_check` in `whoami` and answers with `report_series_done`.
+- The clock's share (dormant, wake, suggestions) runs from `actions.tick`, so the domain modules never
+  import `series` (`tests/test_layers.py`).
+- The UI pieces:
+  - `js/view-series.js`: the page and the sheet.
+  - `js/app.js`: the menu entry and `#/series`.
+  - `js/view-triage.js`: the four cards, and the "Part of …" line on task cards.
+  - `js/view-tasks.js`: the Lineup line, plus task detail's "Part of …", also touches and the picker.
+  - `js/view-capture.js`: New task's + → Series.
+- Tests: `core/tests/test_series.py`, `core/tests/test_series_more.py`, `tests/ui/series.test.mjs`.
+
+Where the build departs from the text above, and why:
+
+- **Anchors are a projected `series_anchors` table, not the entity's identifiers.** `identifiers` is
+  derived and maps one value to one entity, while anchors need Undo and replay. A series still has its
+  entity (`type 'series'`, or `'area'`), which holds its aliases and facts. A series' anchors are worked out
+  when read: what at least 2 of its tasks carry, plus yours, minus the ones you removed. The table only
+  holds the seed keys, the ones you added and the ones you removed.
+- **Judge items live in `series_items`** (derived, like `fact_judgments`), and "wait" memory lives in
+  `series_waits`.
+- **Recurring meetings** are anchored by a meeting's title (`meet:`). **Email lists aren't anchors yet**:
+  signals don't carry list addresses.
+- **"Not needed" feeds `feedback`, not `lessons`.** Every suggestion's outcome is a `series_suggestion`
+  feedback row with its detector and key, ready to become eval cases. No lesson learner reads them yet.
+- **Tasks the judge leaves out of a split** don't attach to its parts afterwards (a `series_left_out`
+  feedback row). Without that, the very next run put them straight back.
+- **New task's + has Series and Upload a file.** Person, Source and Artifact aren't built: nothing yet says
+  what they do.
+- **Usual next step** isn't built (it needs evals first, as planned).
+- **Ranking** uses series only through Focus: Work on …, or a focus phrase that names one. The queue's own
+  order doesn't weigh series yet. Also touches feeds Work on … and the stall detector. Cross-series hints
+  ("This unblocks Northwind too") and grouping orphans by area aren't built.
+- The trust labels use the placeholders: Confirmed, From the owner, Reported, Fuzz noticed, Out of date.
+
 ## Next
 
-Recommendations accepted on 2026-11-18, not built yet:
-
-1. Offer **forming series to the judge as join targets**, so pieces can merge back.
-2. **Re-check a forming series that stalls** (no growth in a week) with the judge: merge, wait or drop.
-3. Tell the judge to **prefer `wait` over `split`** when the parts would be under the rules.
-4. Rerun the replay and compare with the batch result; then build it into the core behind the matcher.
+1. Forming series as join targets, re-checking a forming series that stalls, and "prefer `wait`": built
+   (the 2026-11-18 recommendations 1-3).
+2. Rerun `stream.py`'s replay through the core's detection on a copy of the store, and compare with the
+   batch result, before turning detection loose on the live queue. Turn it off with
+   `{"series": {"detect": false}}`, and suggestions with `{"series": {"suggest": false}}`.
+3. Usual next step, once suggestion outcomes have built up eval cases.
+4. Person, Source and Artifact in New task's +.
 
 ## Open questions
 

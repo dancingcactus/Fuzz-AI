@@ -153,6 +153,47 @@ window.FuzzVocab = {
    "suggested": "keep_these",
    "safe": null
   },
+  "series_new": {
+   "family": "series",
+   "options": [
+    "looks_right",
+    "not_series",
+    "not_sure"
+   ],
+   "suggested": "looks_right",
+   "safe": "looks_right"
+  },
+  "series_role": {
+   "family": "series",
+   "options": [
+    "drive",
+    "help",
+    "follow",
+    "not_series",
+    "not_sure"
+   ],
+   "suggested": "help",
+   "safe": "help"
+  },
+  "series_next": {
+   "family": "series",
+   "options": [
+    "add",
+    "mine",
+    "not_needed"
+   ],
+   "suggested": "add",
+   "safe": null
+  },
+  "series_season": {
+   "family": "series",
+   "options": [
+    "season2",
+    "not_part"
+   ],
+   "suggested": "season2",
+   "safe": null
+  },
   "decision": {
    "family": "question",
    "options": [

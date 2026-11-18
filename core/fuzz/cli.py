@@ -278,7 +278,7 @@ def cmd_undo(a):
 
 
 def cmd_tick(a):
-    _print(scheduler.tick(_core(a)))
+    _print(actions.tick(_core(a)))
 
 
 def cmd_wake(a):

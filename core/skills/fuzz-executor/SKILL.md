@@ -197,6 +197,10 @@ they assign it to you.
   the evidence its done-when names with your lookup tools. True: `report_deliverable_done` with
   `evidence`, one line on what you saw. You can't reach it: `report_deliverable_done` with
   `cant_check` and why; Fuzz asks them. Not true yet: leave it.
+- **Check series the same way.** `whoami`'s `series_to_check` are bigger bodies of work (a
+  customer engagement, a spec) whose done-when may be true now. True: `report_series_done` with
+  `evidence`; Fuzz wraps the series and they can undo it. Can't reach it: `cant_check` and why.
+  Not true yet: leave it.
 - **Find a message Fuzz missed.** Some tasks say an ask reached the person and Fuzz never made a
   task of it: `missed` is set, or their words say so ("you missed Dana's email about the venue
   contract", "find the task from Sam's Slack message"). It's a task to find the ask, not to do it.

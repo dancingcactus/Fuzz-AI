@@ -7,6 +7,7 @@
   ask       starting one yourself, and the cards (role, new series, season 2, suggestions)
   suggest   the detectors that suggest new tasks
   views     what the Series page and the series sheet show
-"""
 
-from . import record, settings  # noqa: F401
+Import the modules themselves (from fuzz.series import record): the package imports nothing, and the domain
+never imports series (the clock's share runs from actions.tick), so it stays out of the domain's import cycle.
+"""

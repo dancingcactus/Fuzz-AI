@@ -531,6 +531,7 @@
     var g = Store.groupOf(it);
     if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);
     if (it.deliverable) h += ebItem('<button type="button" class="eb eb-link" data-act="forline" title="For ' + esc(it.deliverable.title) + '">For ' + esc(it.deliverable.title) + '</button>', true);
+    if (it.series) h += ebItem('<button type="button" class="eb eb-link" data-act="serline" title="' + esc(Store.seriesLine(it)) + '">' + esc(Store.seriesLine(it)) + '</button>', true);
     return h;
   }
   /* The question leads the card. "The one thing to decide" stays for screen readers only. */
@@ -703,7 +704,10 @@
     same: 'Same person', different: 'Different people', define: 'Save definition', record: 'It was a decision',
     not_decision: 'Not a decision', first: 'The first one', second: 'The second one', neither: 'Neither',
     /* Fuzz checking its own work */
-    nothing: 'Nothing for me', had_ask: 'There was something', right: 'That was right', off: 'Something was off' };
+    nothing: 'Nothing for me', had_ask: 'There was something', right: 'That was right', off: 'Something was off',
+    /* series */
+    looks_right: 'Looks right', not_series: 'Not a series', drive: 'I’m driving it', help: 'I’m helping', follow: 'Just keeping up',
+    add: 'Add it', mine: 'I’ll do it', not_needed: 'Not needed', season2: 'Start season 2', not_part: 'Not part of it' };
   var WHO_LABEL = { same: 'That’s them', different: 'Someone else' };
   function dvButtons(it, opts) {
     var which = it.cardKind === 'entity_person' && ((it.payload || {}).candidates || []).length;
@@ -776,6 +780,7 @@
     var p = it.payload || {}, h = '<div class="tagrow"><span class="src">' + esc(it.source || 'Your deliverables') + '</span></div>' + askHTML(it.ask);
     if (it.incoming) h += '<p class="dlg-what">' + esc(it.incoming) + '</p>';
     if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
+    if (it.series) return h + seriesHTML(it) + UI.idTag(it);
     if (it.cardKind === 'week_plan' && p.steps) {
       h += (p.all || []).map(function (d) {
         return '<section class="dv-steps"><h3>' + esc(d.title) + '</h3>' + (d.open && d.open.length ? '<p class="meta">Open: ' + esc(d.open.slice(0, 4).join(' · ')) + '</p>' : '') +
@@ -793,10 +798,64 @@
     }
     return h + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
   }
+  /* Series cards (docs/series.md): one you started waits for your OK (its tasks, one unsure task explained, the
+     ways Fuzz will spot new work as removable chips, your part, its done-when); your part the first time Fuzz names
+     one; a suggested next step; new work on a wrapped one. Three or four buttons; the rest under Not a series ▾. */
+  var SER_ROLE = [['drive', 'I’m driving it'], ['help', 'I’m helping'], ['follow', 'Just keeping up']];
+  function seriesHTML(it) {
+    var p = it.payload || {}, h = '';
+    if (it.cardKind === 'series_new') {
+      var tasks = (p.tasks || []).map(function (tid) { var x = Store.item('t' + tid); return { id: tid, title: x ? x.title : 'Task #' + tid }; });
+      h += '<fieldset class="asks"><legend>The tasks Fuzz gathered</legend><ul class="mentions">' + tasks.map(function (t) {
+        return '<li><label class="check"><input type="checkbox" data-sertask="' + t.id + '" checked> <span>' + esc(t.title) + '</span></label></li>';
+      }).join('') + (p.unsure ? '<li><label class="check"><input type="checkbox" data-sertask="' + p.unsure.id + '"> <span>' + esc(p.unsure.title) + '</span></label><span class="meta">Not sure: ' + esc(p.unsure.why) + '</span></li>' : '') + '</ul></fieldset>';
+      if ((p.anchors || []).length) h += '<fieldset class="asks"><legend>How Fuzz will spot new work for it</legend><p class="ser-chips">' + p.anchors.map(function (a) {
+        return '<button type="button" class="chip" data-seranchor="' + esc(a.key) + '" aria-pressed="true" title="Click to remove; click again to keep">' + esc(a.label) + '<span aria-hidden="true"> ×</span></button>';
+      }).join('') + '</p></fieldset>';
+      h += '<fieldset class="asks"><legend>Your part</legend><p class="ser-roles">' + SER_ROLE.map(function (r, i) {
+        return '<label class="check"><input type="radio" name="ser-role" value="' + r[0] + '"' + (i === 1 ? ' checked' : '') + '> <span>' + r[1] + '</span></label>';
+      }).join('') + '</p></fieldset>' +
+        '<div class="dv-new"><label for="ser-dw">Done when (if you know)</label><input id="ser-dw" type="text" autocomplete="off" placeholder="A state: the new tiers are live and the comms went out">' +
+        ((p.people || []).length ? '<p class="meta">People: ' + esc(p.people.map(function (x) { return x.name; }).join(', ')) + '</p>' : '') + '</div>';
+      return h + serButtons(it, [['looks_right', 'Looks right', true], ['adjust', 'Adjust on its sheet']], true);
+    }
+    if (it.cardKind === 'series_role') return h + serButtons(it, [['drive', 'I’m driving it'], ['help', 'I’m helping', true], ['follow', 'Just keeping up']], true);
+    if (it.cardKind === 'series_next') {
+      h += '<div class="dv-new"><label for="ser-title">The task</label><input id="ser-title" type="text" autocomplete="off" value="' + esc(p.title || '') + '"></div>';
+      return h + serButtons(it, [['add', 'Add it', true], ['mine', 'I’ll do it'], ['not_needed', 'Not needed']]);
+    }
+    if (it.cardKind === 'series_season') {
+      h += '<ul class="mentions">' + (p.tasks || []).map(function (tid) { var x = Store.item('t' + tid); return '<li><span>' + esc(x ? x.title : 'Task #' + tid) + '</span></li>'; }).join('') + '</ul>';
+      return h + serButtons(it, [['season2', 'Start season 2', true], ['not_part', 'Not part of it']]);
+    }
+    return h + dvButtons(it, it.cardOptions || []);
+  }
+  function serButtons(it, list, notSeries) {
+    var i = 0, h = '<div id="actions"><div class="actions">' + list.map(function (b) {
+      i++;
+      if (b[0] === 'adjust') return '<button type="button" class="btn" data-act="seriessheet">' + b[1] + '</button>';
+      return '<button type="button" class="btn' + (b[2] ? ' primary' : '') + '" data-dv="' + b[0] + '" aria-keyshortcuts="' + i + '">' + esc(b[1]) + kbd(i) + '</button>';
+    }).join('');
+    if (notSeries) h += '<details class="ser-not"><summary class="btn">Not a series</summary><div class="menu" role="menu">' +
+      '<button type="button" role="menuitem" data-dv="not_series"><b>Not a series</b><span>These just happened together.</span></button>' +
+      '<button type="button" role="menuitem" data-dv="not_series" data-why="ongoing"><b>It’s ongoing</b><span>Part of your job, with no finish line.</span></button>' +
+      '<button type="button" role="menuitem" data-dv="not_sure"><b>Not sure yet</b><span>Ask me again later.</span></button></div></details>';
+    return h + '</div></div>';
+  }
   function partOfQHTML(it) {
     return tagrow(it, '', true) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
   }
   function dvValue(it, opt) {
+    if (it.series) {
+      if (opt === 'looks_right') {
+        var role = card.querySelector('input[name="ser-role"]:checked');
+        return { tasks: [].map.call(card.querySelectorAll('[data-sertask]:checked'), function (b) { return +b.dataset.sertask; }),
+          removed_anchors: [].map.call(card.querySelectorAll('[data-seranchor][aria-pressed="false"]'), function (b) { return b.dataset.seranchor; }),
+          role: role ? role.value : undefined, done_when: (($('#ser-dw') || {}).value || '').trim() || undefined };
+      }
+      if (opt === 'add' || opt === 'mine') return { title: (($('#ser-title') || {}).value || '').trim() || (it.payload || {}).title };
+      return undefined;
+    }
     if (opt === 'keep_these') return [].map.call(card.querySelectorAll('[data-dvpick]:checked'), function (b) { return +b.dataset.dvpick; });
     if (opt === 'keep_steps') {
       var v = {}; card.querySelectorAll('[data-dvsteps]').forEach(function (ta) { var lines = ta.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); if (lines.length) v[ta.dataset.dvsteps] = lines; }); return v;
@@ -2123,9 +2182,11 @@
         var first = refPick[ci.id] && card.querySelector('#refpick input'); (first || card.querySelector('[data-act="plus"]')).focus();
         return;
       }
+      var sa = e.target.closest('[data-seranchor]');
+      if (sa && card.contains(sa)) { sa.setAttribute('aria-pressed', String(sa.getAttribute('aria-pressed') !== 'true')); return; }
       var dv = e.target.closest('[data-dv]');
       if (dv && card.contains(dv)) {
-        var dit = cur(), dopt = dv.dataset.dv, dval = dvValue(dit, dopt);
+        var dit = cur(), dopt = dv.dataset.dv, dval = dv.dataset.why ? { why: dv.dataset.why } : dvValue(dit, dopt);
         if (dopt === 'define' && !dval) { var dd = $('#mem-def'); if (dd) dd.focus(); Fuzz.say('What does it mean? A few words is plenty.', { type: false }); return; }
         if (dopt === 'neither' && !dval) { var dn = $('#mem-neither'); if (dn) dn.focus(); Fuzz.say('What is it, then? Type it in and press Neither again.', { type: false }); return; }
         if (dopt === 'track' && !(dval.title || '').trim()) { var dtl = $('#dv-title'); if (dtl) dtl.focus(); Fuzz.say('Give it a name first.', { type: false }); return; }
@@ -2183,6 +2244,8 @@
       else if (a === 'book') { booking = true; pausing = false; wayOpen = false; renderCardKeep(); var bh = $('#book-h'); if (bh) bh.focus(); Fuzz.setMood('eager'); Fuzz.say('When will you do it? I’ll hold the time.', { type: false }); }
       else if (a === 'book-cancel') { booking = false; renderCardKeep(); Fuzz.setMood('idle'); }
       else if (a === 'donow') moment(doNow);
+      else if (a === 'serline') { var si = cur(); if (si && si.series && window.SeriesView) SeriesView.open(si.series.id, t); }
+      else if (a === 'seriessheet') { var ss = cur(); if (ss && window.SeriesView) SeriesView.open((ss.payload || {}).series_id, t); }
       else if (a === 'forline') { var fi = cur(); if (fi && fi.deliverable && window.TasksView && TasksView.openDeliverable) TasksView.openDeliverable(fi.deliverable.id, t); }
       else if (a === 'keepgoing') moment(function () { return quickClear('Kept going on', 'Kept going: the block runs on a little, if your calendar is free.', function (i) { Store.keepGoing(i.id); }, 'Nice. I’ll stretch the block.'); });
       else if (a === 'hold-approve' || a === 'hold-always' || a === 'hold-skip') moment(function () {

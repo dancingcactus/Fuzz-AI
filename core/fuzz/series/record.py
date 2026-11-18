@@ -250,17 +250,20 @@ def preview_anchors(core, sid, add=(), remove=()):
             "anchors": [{"key": k, "label": v} for k, v in new.items()]}
 
 
-def edit_anchors(core, sid, add=(), remove=(), actor="human"):
-    """Add anchors you typed and remove ones Fuzz found (Undo puts them back). A removed anchor isn't
-    suggested again. Returns the added keys."""
+def edit_anchors(core, sid, add=(), remove=(), actor="human", restore=()):
+    """Add anchors you typed and remove ones Fuzz found (Undo puts them back; so does restore, by key). A
+    removed anchor isn't suggested again. Returns the added keys."""
     s = require(core, sid)
     idx = index_mod.get(core)
     rows = {a["key"]: a for a in idx.rows.get(s["id"], [])}
     adds = [_resolve_key(core, *anchor_key(a)) for a in add or []]
-    if not adds and not remove:
+    if not adds and not remove and not restore:
         raise FuzzError("Add or remove at least one", "add")
     with core.tx(actor):
         ch = events.Changes()
+        for k in restore or []:
+            if k in rows and rows[k]["removed"]:
+                ch.anchor(rows[k]["id"], removed=0, how="added" if rows[k]["how"] == "added" else "seed")
         for k in remove or []:
             if k in rows:
                 ch.anchor(rows[k]["id"], removed=1, how="removed" if rows[k]["how"] != "added" else "added")

@@ -44,7 +44,8 @@ def gather(core, note, idx=None):
         if shared:
             hits[tid] = shared
     open_first = sorted(hits, key=lambda t: (-len(hits[t]), idx.tasks[t]["state"] not in states.LIVE, -t))
-    sure = [t for t in open_first if len(hits[t]) >= 2 or (len(rare) == 1 and hits[t])][:GATHER_MAX]
+    need = max(1, (len(rare) + 1) // 2)   # at least half of the note's distinctive words
+    sure = [t for t in open_first if len(hits[t]) >= need][:GATHER_MAX]
     loose = [t for t in open_first if t not in sure]
     counts = {}
     for t in sure:
@@ -62,6 +63,14 @@ def gather(core, note, idx=None):
         t = loose[0]
         unsure = {"id": t, "title": idx.tasks[t]["title"],
                   "why": f"It says “{hits[t][0]}”, but nothing else ties it to the rest."}
+    else:   # a task that shares some of the anchors, not enough to count
+        part = sorted(((sum(idx.weight(k) for k in idx.feats.get(t, {}) if k in anchors), t) for t in idx.tasks if t not in sure),
+                      reverse=True)
+        if part and part[0][0] >= line / 2:
+            t = part[0][1]
+            shared = [anchors[k] for k in idx.feats.get(t, {}) if k in anchors]
+            unsure = {"id": t, "title": idx.tasks[t]["title"],
+                      "why": f"It shares {shared[0]} with them, but not much else."}
     return {"tasks": sure, "unsure": unsure, "anchors": anchors, "words": rare[:3]}
 
 

@@ -292,6 +292,8 @@
       holdRemove: !!(c && c.kind === 'hold' && c.payload && c.payload.kind === 'calendar_remove'),
       /* its deliverable ("For …"), and a part_of card asking whether it belongs to one */
       deliverable: t.deliverable || null, partOfPrompt: c && c.kind === 'part_of' ? c.prompt : '',
+      /* its series ("Part of …"), and the others it also touches (worked out by the core when read) */
+      series: t.series || null, alsoTouches: t.also_touches || [],
       group: t.group_id ? 'g' + t.group_id : null,
       /* Deep Work: the next step and where you left off last time, for picking it up */
       nextStep: t.next_step || '', leftOff: leftOffOf(t.notes)
@@ -369,8 +371,11 @@
     return Promise.all([api('GET', '/tasks'), api('GET', '/cards'), api('GET', '/undo'),
       /* A core from before groups has no /groups: the queue still loads, just without "From …" lines */
       api('GET', '/groups').catch(function () { return { groups: [] }; }),
-      api('GET', '/deliverables').catch(function () { return { deliverables: [] }; })]).then(function (r) {
+      api('GET', '/deliverables').catch(function () { return { deliverables: [] }; }),
+      /* A core from before series has no /series: the Series page just says there are none yet */
+      api('GET', '/series').catch(function () { return null; })]).then(function (r) {
       Store.get().deliverables = r[4].deliverables || [];   /* the Lineup's Deliverables section and sheet */
+      if (r[5]) Store.get().series = r[5];   /* the Series page: its sections, and the menu's line */
       var list = r[0].tasks, cards = r[1].cards, groups = r[3].groups;
       if (r[0].max_working) Store.setSlots(r[0].max_working);
       if (r[0].work_in) Store.workIn = r[0].work_in;
@@ -426,6 +431,8 @@
       members: (g.tasks || []).map(function (t) { return { id: 't' + t.id, state: STATE[t.state] || t.state }; }) };
   }
 
+  /* Series cards about no single task: one you started, your part, a suggestion, season 2 */
+  var SERIES_KINDS = ['series_new', 'series_role', 'series_next', 'series_season'];
   function apply(list, cards, moment, groups) {
     var st = Store.get(), byTask = {};
     cards.forEach(function (c) { if (c.task && !byTask[c.task.id]) byTask[c.task.id] = c; });
@@ -442,13 +449,14 @@
        Fuzz's memory (same person?, what is this?, was this a decision?, which is right?) */
     cards.forEach(function (c) {
       var check = CHECK_KINDS.indexOf(c.kind) > -1, memory = check || MEMORY_KINDS.indexOf(c.kind) > -1;
-      if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory)) return;
+      var series = SERIES_KINDS.indexOf(c.kind) > -1;
+      if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory && !series)) return;
       var id = 'c' + c.id;
       /* "Same as an existing one" needs a picker this card doesn't have yet; Not sure yet is the way out */
       var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
-      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory,
+      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory, series: series,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: check ? 'Fuzz checking its work' : memory ? 'Fuzz’s memory' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: check ? 'Fuzz checking its work' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
@@ -630,6 +638,25 @@
     wrap('answerHold', function (id, opt) { var it = S.item(id); return it && decide(it, opt); });
     /* Deliverables: any of their cards' answers, and the sheet's actions */
     wrap('answerCard', function (id, opt, value) { var it = S.item(id); return it && decide(it, opt, value); });
+    /* Series: the sheet (read when it opens), what you do on it, the preview of an anchor change, starting
+       one from New task, and "Part of…" on a task */
+    S.seriesSheet = function (coreId) { return api('GET', '/series/' + coreId); };
+    S.seriesAction = function (coreId, what, body) {
+      gen++;
+      return write(function () { return api('POST', '/series/' + coreId + '/' + what, body || {}); }).then(function (r) { soon(0); return r; });
+    };
+    S.seriesPreview = function (coreId, body) { return api('POST', '/series/' + coreId + '/preview', body || {}); };
+    S.seriesChoices = function (taskCoreId) { return api('GET', '/tasks/' + taskCoreId + '/series').then(function (r) { return r.choices || []; }); };
+    S.taskSeries = function (id, seriesId) {
+      var tid = (S.item(id) || {}).coreId; if (!tid) return Promise.resolve();
+      gen++;
+      return write(function () { return api('POST', '/tasks/' + tid + '/series', { series_id: seriesId }); }).then(syncThenRefresh);
+    };
+    /* A suggestion answered on the sheet: the same card Triage shows */
+    S.answerSeriesCard = function (cardId, opt, value) {
+      gen++;
+      return write(function () { return api('POST', '/cards/' + cardId + '/answer', { option: opt, value: value }); }).then(syncThenRefresh);
+    };
     S.deliverableAction = function (coreId, what, body) {
       gen++;
       return write(function () { return api('POST', '/deliverables/' + coreId + '/' + what, body || {}); }).then(syncThenRefresh);
@@ -669,10 +696,18 @@
 
     /* Capture: in the queue at once, then given its core id */
     var capture = S.capture;
-    S.capture = function (text, docs, picked) {
+    S.capture = function (text, docs, picked, series) {
       var it = capture.apply(S, arguments);
       gen++;
-      write(function () { return api('POST', '/tasks', { text: (text || '').trim() || undefined, docs: docs || [], uploading: !!(picked && picked.length) }).then(function (r) { rename(it, r.task_id); if (r.gathering) gathering(it); return upload(r.task_id, picked || []); }); });
+      write(function () {
+        return api('POST', '/tasks', { text: (text || '').trim() || undefined, docs: docs || [], uploading: !!(picked && picked.length) }).then(function (r) {
+          rename(it, r.task_id); if (r.gathering) gathering(it);
+          /* New task's + → Series: into one you picked, or a new one started from this note (it waits for your OK) */
+          var into = !series ? null : series.start ? api('POST', '/series', { note: (text || '').trim(), task_id: r.task_id })
+            : api('POST', '/tasks/' + r.task_id + '/series', { series_id: series.id });
+          return Promise.resolve(into).then(function () { return upload(r.task_id, picked || []); });
+        });
+      });
       return it;
     };
     var captureDeep = S.captureDeep;

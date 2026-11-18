@@ -135,6 +135,13 @@ def match(core, text):
                 found.setdefault(tid, why)
     except ImportError:
         pass
+    said = _words(text)   # a series' name: its tasks, "Part of …"
+    for s in core.all("SELECT id, name FROM series WHERE user_id=? AND kind='series' AND state IN ('inferred','named','dormant')",
+                      (core.user_id,)):
+        if said & _words(s["name"]):
+            for r in core.all("SELECT id FROM tasks WHERE user_id=? AND series_id=?", (core.user_id, s["id"])):
+                if r["id"] in live:
+                    found.setdefault(r["id"], f"Part of {s['name']}")
     keys = entities.tickets_in(text)
     for tid, t in live.items():
         if any(k in f"{t['title']} {t.get('ask') or ''}" for k in keys):
@@ -245,7 +252,7 @@ def prompt(core, text):
     rows = []
     for t in list(live.values())[:150]:
         rows.append({"id": t["id"], "title": t["title"][:100], "group": t.get("group_id"),
-                     "deliverable": t.get("deliverable_id")})
+                     "deliverable": t.get("deliverable_id"), "series": t.get("series_id")})
     return (
         "You help sort a to-do list. The person said what they're working on now. From the tasks below, pick "
         "the ones that belong to it. Reply with one JSON object and nothing else: "

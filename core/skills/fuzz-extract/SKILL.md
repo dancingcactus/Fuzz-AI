@@ -116,6 +116,14 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
        opinions of them or anything sensitive. The core refuses anything else. `how` is `stated` when someone said it,
        `inferred` when you concluded it ("seems to own billing" because they answer billing questions). Add
        `said_by` when it isn't the message's sender. Don't send facts about the person themself.
+     - Facts about a **series** (`get_lookups`' `series`, by id: `{"about": {"type": "series", "id": 4}, …}`) when a
+       message is about one: `goal`, `your_role` (`drive`, `contribute` or `follow`, only when it's said), `owner`
+       (a person, when it isn't them), `for` (a customer or team), `status` ("Waiting on Northwind legal's review";
+       **send it only when it really changed** from the one `get_lookups` shows), `blocked_on` (who or what, since
+       when), `next_milestone` ("Pilot go-live, Jan 15"), `cadence` ("Weekly sync Tuesdays"), `scope_out`, and
+       `done_when` **only when one is available**: someone with authority states it, or a deliverable is clearly the
+       finish line. It's a state, not an activity ("NW-342 is accepted and Northwind confirms in writing"). Never
+       invent one. Never copy message text, opinions of people or a priority into these.
      - `terms`: every acronym or internal name you meet that `get_lookups`' `known_terms` doesn't list, with a
        `best_guess` at its meaning from how it was used: `{"term": "ORN", "aliases": ["Orion"], "kind": "tool",
        "best_guess": "The internal billing reconciliation service"}`. `kind` is `tool` for a system, else `term`.
@@ -137,7 +145,26 @@ Use the `fuzz-extract` tools for everything that touches Fuzz.
    Each item also lists the person's `deliverables` (named outcomes many tasks serve, like "The
    report builder launch"). When the ask serves one, add its `deliverable_id` to the verdict; your
    `confidence` decides whether Fuzz links it quietly or asks them.
-7. **`submit_verdicts`**, then check `get_pending_judgments` is empty.
+   **Series items.** Every page also has `series_items`: groups of tasks that may be one *series*, a
+   project, launch, escalation, spec, customer engagement or transition with several parts that will
+   wrap up some day, even if nobody knows when. An ongoing area of responsibility (the product the
+   person owns, a customer account in general, their team, a standing duty, weekly reporting) is an
+   **area**, not a series. Answer each with one of its `actions`, in the same `submit_verdicts` list:
+   - `series_candidate` (tasks, the anchors they share, `nearby` series and forming pieces, and any
+     area it `inside_area`):
+     `{"series_item": 12, "action": "new", "name": "Northwind pilot", "bounded": true, "why": "ends at go-live"}`
+     (2-5 plain, specific words; `bounded` false makes it an area); `"join"` with `"series_id"` from
+     `nearby` when it's more of one of those (a forming piece included: that's how pieces come back
+     together); `"split"` with `"parts": [{"name", "bounded", "tasks": [task ids]}]` when it really mixes
+     separate bodies of work (leave out tasks that fit no part); `"area"`; or `"wait"`. **Prefer `wait`
+     over `split`** when the parts would be small (fewer than four tasks each): an early split on thin
+     evidence breaks a real series into pieces. Inside an area, a bounded effort (a launch within the
+     product) is still a series; the area itself isn't. `your_series_inside_areas` are the person's own
+     corrections: they started or kept those, so similar clusters are likely series too.
+   - `series_stall`, a forming piece that stopped growing: `"merge"` with a `nearby` `series_id` when
+     it's part of that one, `"wait"` to give it longer, or `"drop"` when it was never one thing.
+   Use only the ids and task numbers an item gives you; anything else is refused.
+7. **`submit_verdicts`**, then check `get_pending_judgments` is empty (no `items` and no `series_items`).
 8. **Fill in from context.** Call `get_lookups` and work through what it lists, as far as your tools allow:
    - `people` and `things`: look each up in the org directory (people search, Glean or Graph) and send what you
      find with `submit_facts`, `"source_kind": "directory"` (title as `role`, department as `team`, `manager`).

@@ -190,15 +190,15 @@ test('starting Something else makes it a task and starts the session on it', asy
   assert.equal(await page.evaluate(() => Store.inState('deepwork').some(i => i.title === 'Plan the garden party')), true);
 });
 
-test('the menu with Fuzz’s head: Lineup, Artifacts, Settings, Keys and help; Esc and outside clicks close it', async () => {
+test('the menu with Fuzz’s head: Lineup, Series, Artifacts, Settings, Keys and help; Esc and outside clicks close it', async () => {
   await open('#/guide');
   await page.click('#menubtn');
   assert.equal(await page.getAttribute('#menubtn', 'aria-expanded'), 'true');
   const items = await page.$$eval('#navmenu [role="menuitem"] b', els => els.map(e => e.textContent));
-  assert.deepEqual(items, ['Lineup', 'Artifacts', 'Settings', 'Keys and help']);
+  assert.deepEqual(items, ['Lineup', 'Series', 'Artifacts', 'Settings', 'Keys and help']);
   assert.equal(await page.evaluate(() => document.activeElement.dataset.menu), 'tasks');
   await page.keyboard.press('ArrowDown');
-  assert.equal(await page.evaluate(() => document.activeElement.dataset.menu), 'artifacts');
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.menu), 'series');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#navmenu').isHidden(), true);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'menubtn');

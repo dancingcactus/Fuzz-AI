@@ -74,6 +74,10 @@ def task_view(core, t, full=False):
     if t.get("deliverable_id"):   # its "For …" line
         d = core.one("SELECT id, title, tier, state FROM deliverables WHERE id=?", (t["deliverable_id"],))
         out["deliverable"] = d
+    if t.get("series_id"):   # its "Part of …" line
+        s = core.one("SELECT id, name, state, kind FROM series WHERE id=? AND user_id=?", (t["series_id"], core.user_id))
+        if s and s["kind"] == "series" and s["state"] != "dropped":
+            out["series"] = {"id": s["id"], "name": s["name"], "state": s["state"]}
     if t["state"] in ("review", "sending"):   # answered in one reply with another task of its group
         d = drafts.covering(core, t["id"])
         if d:
@@ -94,6 +98,8 @@ def task_view(core, t, full=False):
         out["files"] = files.listing(core, t["id"])
         out["drafts"] = core.all("SELECT * FROM drafts WHERE task_id=? AND user_id=? ORDER BY id DESC",
                                  (t["id"], core.user_id))
+        from .series import views as series_views
+        out["also_touches"] = series_views.task_line(core, t).get("also_touches") or []
         out["steps_used"], out["attempts"] = t["steps_used"], t["attempts"]
         out["merged_into"], out["parent_id"] = t["merged_into"], t["parent_id"]
     return out
@@ -166,6 +172,14 @@ class App:
             ("POST", r"/deliverables", self.create_deliverable),
             ("GET", r"/deliverables/(\d+)", self.get_deliverable),
             ("POST", r"/deliverables/(\d+)/(tier|done|drop|rename)", self.deliverable_action),
+            # series (docs/series.md): the page, a sheet, starting one, and what you can do on its sheet
+            ("GET", r"/series", self.list_series),
+            ("POST", r"/series", self.start_series),
+            ("GET", r"/series/(\d+)", self.get_series),
+            ("POST", r"/series/(\d+)/(keep|name|role|mute|unmute|drop|wrap|reopen|anchors|preview|facts|add_task|work_on|check)",
+             self.series_action),
+            ("GET", r"/tasks/(\d+)/series", self.series_choices),
+            ("POST", r"/tasks/(\d+)/series", self.task_series),
             ("GET", r"/tasks/(\d+)/part_of", self.part_of_choices),
             ("GET", r"/tasks/(\d+)/book_options", self.book_options),
             ("POST", r"/tasks/(\d+)/part_of", self.part_of),
@@ -583,6 +597,94 @@ class App:
         from . import booking, tasks
         return {"options": booking.options(core, tasks.require(core, int(m.group(1))))}
 
+    # ---- series
+    def list_series(self, core, m, body, q):
+        from .series import views
+        with core.reading():
+            return views.page(core)
+
+    def get_series(self, core, m, body, q):
+        from .series import views
+        with core.reading():
+            return views.sheet(core, int(m.group(1)))
+
+    def start_series(self, core, m, body, q):
+        """{note, task_id?, name?}: New task's + → Series → Start a new series from this. It waits for your OK."""
+        from .series import ask
+        tid = body.get("task_id")
+        if tid is not None and not isinstance(tid, int):
+            raise FuzzError("task_id is the task you were writing, or left out", "task_id")
+        return ask.start(core, body.get("note"), tid, body.get("name")), 201
+
+    def series_action(self, core, m, body, q):
+        from . import tasks as tasks_mod
+        from .memory import facts
+        from .series import record, views
+        sid, what = int(m.group(1)), m.group(2)
+        s = record.require(core, sid)
+        if what == "preview":   # read-only: what the change would have caught
+            return record.preview_anchors(core, sid, body.get("add") or [], body.get("remove") or [])
+        if what in ("keep", "name"):
+            record.name(core, sid, body.get("name") if what == "name" else None)
+            if what == "keep":
+                from .series import ask
+                ask.role_card(core, record.get(core, sid), reason="You kept it. Fuzz will suggest next steps that fit your part.")
+        elif what == "role":
+            record.set_role(core, sid, body.get("role"))
+        elif what in ("mute", "unmute"):
+            record.mute(core, sid, what == "mute")
+        elif what == "drop":
+            record.drop(core, sid, "ongoing" if body.get("why") == "ongoing" else "not_series")
+        elif what == "wrap":
+            record.wrap(core, sid, (body.get("evidence") or "You said it's wrapped.").strip())
+        elif what == "reopen":
+            record.reopen(core, sid)
+        elif what == "anchors":
+            if not all(isinstance(body.get(k) or [], list) for k in ("add", "remove", "restore")):
+                raise FuzzError("add, remove and restore are lists", "add")
+            record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [])
+        elif what == "facts":
+            if body.get("fact_id"):   # "That's wrong": rejected, with Undo
+                facts.reject(core, int(body["fact_id"]))
+            else:
+                facts.edit(core, s["entity_id"], body.get("attr"), body.get("value"))
+        elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have
+            if body.get("task_id"):
+                record.link(core, int(body["task_id"]), sid)
+            else:
+                tid = tasks_mod.capture(core, body.get("text"))
+                record.link(core, tid, sid)
+        elif what == "work_on":   # Work on …: Focus is the series
+            from . import focus
+            with core.reading():
+                ids = views.focus_ids(core, s)
+            cur = focus.set_focus(core, s["name"], ids, source="series")
+            return {"focus": cur}
+        elif what == "check":   # Fuzz checks its done-when on its next run
+            with core.tx("human"):
+                ch = events.Changes()
+                ch.series(sid, check_due=1)
+                events.emit(core, "series.reviewed", changes=ch, data={"series_id": sid, "asked": True})
+        with core.reading():
+            return views.sheet(core, sid)
+
+    def series_choices(self, core, m, body, q):
+        from .series import views
+        with core.reading():
+            return {"choices": views.choices(core, int(m.group(1)))}
+
+    def task_series(self, core, m, body, q):
+        """{series_id}: "Part of…" from task detail (or swapping in an also-touches one); null takes it out."""
+        from .series import record
+        tid = int(m.group(1))
+        if body.get("series_id") is None:
+            record.unlink(core, tid)
+        elif isinstance(body["series_id"], int):
+            record.link(core, tid, body["series_id"])
+        else:
+            raise FuzzError("series_id is the series this task is part of, or null", "series_id")
+        return task_view(core, tasks.require(core, tid), full=True)
+
     def part_of_choices(self, core, m, body, q):
         from . import deliverables
         return {"choices": deliverables.choices(core, int(m.group(1)))}
@@ -761,7 +863,7 @@ class App:
         return {"came_back": scheduler.wake(core)}
 
     def tick(self, core, m, body, q):
-        return scheduler.tick(core)
+        return actions.tick(core)
 
     def deepwork_get(self, core, m, body, q):
         """For starting a Deep Work session: when your free time ends (the next meeting), or null."""
@@ -1009,7 +1111,7 @@ def _ticker(app, stop):
             core = app.core(int(uid))
             try:
                 with core.lock:
-                    scheduler.tick(core)
+                    actions.tick(core)
                     kick_sender(app, core)
                     kick_executor(app, core, wait=followups.GATHER_RETRY_SECONDS)
             except Exception as e:   # the clock must keep going
