@@ -163,3 +163,28 @@ html.calm .dw-take, html.calm .dw-check, html.calm .dw-step.enter, html.calm .dw
 .dw-then { display: flex; flex-wrap: wrap; gap: 10px; }
 .dw-then .dw-time[aria-checked="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
 @media (max-width: 560px) { .g-row { padding: 10px 12px; gap: 10px; } .g-q { font-size: 20px; } }
+
+/* While you were away (the Guide): what Fuzz did on its own, in a bubble under the panel */
+.g-away { position: relative; margin: 18px 0 0; padding: 14px 18px 16px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+.g-away-h { font-family: var(--font-display); font-size: 15px; font-weight: 800; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.g-away-h small { font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--muted); }
+.g-away-line { margin: 4px 0 0; font-size: 14.5px; }
+.g-away-chips { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+/* like the task's tabs (.tabbtn, People 2): an outlined pill, the label, then a small muted count */
+.g-away-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; color: var(--ink); }
+.g-away-chip .g-away-ic { flex: none; color: var(--muted); }
+.g-away-chip[data-kind="closed"] .g-away-ic { color: var(--done); }
+.g-away-chip[data-kind="waiting"] .g-away-ic { color: var(--wait); }
+.g-away-n { margin-left: 1px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.g-away-tag .g-away-ic { flex: none; }
+.g-away-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.g-away-item { display: grid; gap: 2px; padding-top: 8px; border-top: var(--bw) solid var(--line); }
+.g-away-item:first-child { padding-top: 0; border-top: 0; }
+.g-away-item b { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.g-away-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.g-away-item[data-kind="closed"] .g-away-tag { color: var(--done); }
+.g-away-item[data-kind="waiting"] .g-away-tag { color: var(--wait); }
+.g-away-item .g-away-why { font-size: 13px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.g-away-more { margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+.g-away-more summary { cursor: pointer; color: var(--link); }
+@media (max-width: 560px) { .g-away { padding: 12px 14px 14px; } }

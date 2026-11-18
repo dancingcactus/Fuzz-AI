@@ -773,6 +773,8 @@
     /* Lineup's Open again, for a task that's already in Claude */
     /* Deep Work: when the free time you're in ends (your next meeting), from the calendar Fuzz last read */
     deepWorkInfo: function () { return api('GET', '/deepwork'); },
+    /* The Guide: what Fuzz did on its own while you were away (at least the last two hours) */
+    awaySummary: function () { return api('GET', '/away'); },
     openSession: function (id) { var it = Store.item(id); return openSession(it).catch(function (e) { Say.tell('It didn’t open: ' + e.message); }); },
     /* Who you are: every email, name and Slack ID that is yours, so Fuzz uses either account without asking */
     saveMe: function (body) { return api('PUT', '/me', body); },

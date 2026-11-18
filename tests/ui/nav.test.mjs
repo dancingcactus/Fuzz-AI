@@ -76,6 +76,27 @@ test('one list: Triage, then My work, then Something else; one is picked and tag
   assert.equal(await page.locator('.dw-times').count(), 0);   /* no time question for Triage */
 });
 
+test('under the Guide, a bubble sums up what Fuzz did while you were away, one chip per kind; the list is behind See what changed', async () => {
+  await open('#/guide');
+  await page.locator('#g-away').waitFor();
+  assert.match(await page.textContent('#g-away-h'), /^While you were away since /);
+  /* like the task's tabs: what it was, then the count */
+  const chips = await page.$$eval('.g-away-chip', els => els.map(e => [e.firstChild.nextSibling.textContent, e.lastChild.textContent]));
+  assert.deepEqual(chips, [['Marked complete', '1'], ['Moved to waiting', '1'], ['New tasks', '2']]);
+  /* the summary only, until you open it */
+  assert.equal(await page.locator('.g-away-item').first().isVisible(), false);
+  await page.click('.g-away-more summary');
+  assert.equal(await page.textContent('.g-away-more summary'), 'See what changed (4)');
+  const items = await page.$$eval('.g-away-item', els => els.map(e => [e.dataset.kind, e.querySelector('.g-away-tag').textContent]));
+  assert.deepEqual(items.map(i => i[0]), ['closed', 'waiting', 'new', 'new']);
+  assert.deepEqual(items.slice(0, 2).map(i => i[1]), ['Complete', 'Waiting']);
+  /* it sits below the choice, and stays open as you pick a row */
+  const [panel, away] = await page.$$eval('.g-panel, #g-away', els => els.map(e => e.getBoundingClientRect().top));
+  assert.ok(away > panel);
+  await page.click('.g-row[data-pick="typed"]');
+  assert.equal(await page.locator('.g-away-item').first().isVisible(), true);
+});
+
 test('picking a task asks how long and names it on Start; Start Triage opens Triage, and the label leads back', async () => {
   await open('#/guide');
   const id = await page.$$eval('.g-row', els => els[1].dataset.pick);   /* the first task on the short list */
