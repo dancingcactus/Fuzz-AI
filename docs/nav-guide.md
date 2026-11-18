@@ -70,10 +70,9 @@ working on (or one waiting on someone) says it isn't yours to start. Tests: `tes
 against a real core in `tests/ui/live.test.mjs`, and `core/tests/test_booking.py`.
 
 **Not built, waiting on a ruling:** something urgent pausing the clock mid-session, walking away pausing it (and the
-"Paused" label that goes with them), and question 1's short "while you were away" in the Guide's line. Triage's arrival
-screen still shows on `#/triage` links, but Start Triage from the Guide skips it and the focus question and goes
-straight to the first card, because the Guide already asked where to start (F still sets a focus; user ruling,
-2026-11-15). The other open questions are at their defaults: no single-key shortcuts for the menu places,
+"Paused" label that goes with them), and question 1's short "while you were away" in the Guide's line. Triage has no
+arrival screen any more: every way in (Start Triage, a `#/triage` link, a card picked in Lineup) goes straight to the
+front card with no focus question, and F still sets a focus (user rulings, 2026-11-15 and 2026-11-18, issue #31). The other open questions are at their defaults: no single-key shortcuts for the menu places,
 links don't start a session by themselves, a typed task starts at once while Fuzz gathers, the core's `mine` and
 `deepwork` states stay separate, and Do it now and booked tasks still work in Triage.
 
@@ -298,8 +297,9 @@ the perch or the small Fuzz), never a toast.
 Defaults are marked. Ask before going a different way.
 
 1. **The "While you were away" screen.** Today Triage opens with an arrival recap when you've been away. Does the
-   Guide absorb it (Fuzz's line on the Guide says what happened), or does it stay on Triage? *Default: the Guide's
-   line carries a short version, and Triage's arrival screen stays as is.*
+   Guide absorb it (Fuzz's line on the Guide says what happened), or does it stay on Triage? *Ruled (2026-11-18,
+   #31): it's gone from Triage. A card you pick in Lineup opens in Triage at once. The Guide's short version is
+   still to build.*
 2. **Keyboard.** The spike used L and F for Lineup and Artifacts, but in the app F is "Say what we're working on" and
    L is "Let it go" on cards. *Default: no single-key shortcuts for the menu places yet. On the Guide, Enter starts and the
    arrow keys move through the list, like Deep Work's entry box today (`wireBox()`); number keys picking a row would
