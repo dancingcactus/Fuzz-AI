@@ -26,8 +26,6 @@ beforeEach(async () => {
   page.errors = errors;
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   /* The session-focus question comes first; Esc skips it to the first card */
-  await page.locator('#focuscard').waitFor();
-  await page.keyboard.press('Escape');
   await page.locator('[data-act="schedule"]').first().waitFor();
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });

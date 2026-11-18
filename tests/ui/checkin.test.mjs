@@ -41,7 +41,7 @@ beforeEach(async () => {
   page.on('pageerror', e => errors.push(e.message));
   page.errors = errors;
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card [data-act]').first().waitFor();
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });
 
@@ -49,7 +49,6 @@ const boxes = () => page.evaluate(() => [...document.querySelectorAll('.pg-seg')
 const checkinOpen = () => page.evaluate(() => !document.querySelector('#checkin').hidden);
 async function start(n, quick) {
   await plain(n, quick);
-  await page.keyboard.press('Escape');
   await page.locator('#card [data-act]').first().waitFor();
 }
 /* Park the card in front and wait for whatever comes next */

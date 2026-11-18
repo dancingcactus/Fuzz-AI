@@ -24,9 +24,6 @@
   var shownCard = null, lastTask = null, streak = 0, rushTimer = 0, ambientTimer = 0;
   /* Cards whose box you opened (Tell Fuzz, E): it stays open through a redraw until you close it */
   var planOpen = {};
-  /* Arriving shows what happened and a card to start with, once a session (the ADHD pass, #7). The focus
-     question waits behind Something else (O). */
-  var arrived = false, foMode = 'ask';
   var scheduling = false, askingWho = false, booking = false, pausing = false, wayOpen = false, schedMore = false, tab = null, keptStale = {}, edits = {}, greeted = false, refs = {}, refPick = {};
   var docClick = null, docKey = null, unhold = null, docDrag = null, booting = false, offSay = null, onScroll = null, echoTimer = 0, scrollHold = 0;
 
@@ -96,8 +93,9 @@
     if (!greeted) { greeted = true; greet(); }
     else Fuzz.say('Back to the queue.', { type: false });
     booting = true; showNext(); booting = false;
-    /* The router focuses the heading on arrival unless something on the page already has focus */
-    var l = landing(); if (l && l.tagName === 'TEXTAREA') { l.focus({ preventScroll: true }); l.selectionStart = l.selectionEnd = l.value.length; }
+    /* Triage opens on a card (#31), so you land on its heading and its keys work at once; the router leaves
+       focus alone when the page already placed it */
+    var l = landing(); if (l && card.style.display !== 'none') l.focus({ preventScroll: true });
   };
   V.unmount = function () {
     alive = false; epoch++;
@@ -112,10 +110,7 @@
     if (onScroll) window.removeEventListener('scroll', onScroll); onScroll = null;
     Fuzz.unmount(); root = null;
   };
-  V.hardReset = function () { arrived = false; foMode = 'ask'; foAsked = false; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
-  /* The Guide already asked where to start: Triage opens on the first card, with no arrival screen or focus
-     question (F still asks) */
-  V.fromGuide = function () { arrived = true; foAsked = true; foMode = 'ask'; };
+  V.hardReset = function () { foAsked = true; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();
@@ -1880,10 +1875,11 @@
     Fuzz.say('What’s in the way?', { type: false });
   }
   /* ---------- Focus: what we're working on this session ----------
-     Asked once at the start of a session, before the first card: chips (this week's active deliverables,
-     last session's focus, Whatever's next), or your own words. The queue reorders as soon as you confirm;
-     Fuzz's AI pass may find more a moment later. F changes it; stepping away ends it. */
-  var foAsked = false, foOpen = false, foTimer = 0, foSeq = 0, foMatch = null, foNot = {}, foSaidAdded = '';
+     Asked when you press F (or change on the focus line): chips (this week's active deliverables, last
+     session's focus, Whatever's next), or your own words. The queue reorders as soon as you confirm; Fuzz's
+     AI pass may find more a moment later. Triage itself always opens on the front card: the Guide asks where
+     to start, and a card picked from Lineup is the one you came for (#31). */
+  var foAsked = true, foOpen = false, foTimer = 0, foSeq = 0, foMatch = null, foNot = {}, foSaidAdded = '';
   function needFocus(q) {
     if (foAsked || foOpen || scOpen || ciOpen || q.length < 2) return false;
     if (q[0].doing && q[0].block) { foAsked = true; return false; }   /* a booked block is the focus */
@@ -1917,43 +1913,15 @@
       Store.focusPreview(text).then(function (m) { if (seq === foSeq) { foMatch = m; foNot = {}; paintPreview(); } });
     }, 600);
   }
-  /* What happened while you were away, from what's waiting now: drafts ready, cards that came back, Fuzz's work */
-  function arriveHTML(q) {
-    var lines = [], first = q[0];
-    q.filter(function (i) { return i.state === 'review'; }).slice(0, 3).forEach(function (i) { lines.push(['✓', esc(i.title) + ' is drafted and waiting for your OK.']); });
-    q.filter(function (i) { return i.handedBack && i.state !== 'review'; }).slice(0, 2).forEach(function (i) { lines.push(['↩', esc(i.title) + ' came back. I need one answer from you.']); });
-    var w = Store.inState('working').length;
-    if (w) lines.push(['…', 'Still working on ' + (w === 1 ? 'one' : w) + '. Nothing needs you there.']);
-    var head = first.kind === 'task' && !hasAnswers(first) && !first.handedBack && first.state !== 'review' ? first.title : first.ask || first.title;
-    var why = first.dueAt ? (mins(first) <= 0 ? 'It’s past its time, so I put it first.' : 'It’s due in ' + fmtDue(mins(first)) + ', so I put it first.')
-      : first.state === 'review' ? 'It’s ready and only needs your OK.'
-      : first.handedBack ? 'I need one answer from you on it.'
-      : (first.mins || 99) <= 5 ? 'A quick one to warm up with.' : 'It’s next in line.';
-    return (lines.length ? '<div class="tagrow"><span class="src">While you were away</span></div><ul class="arrive-list">' +
-        lines.map(function (l) { return '<li><span class="arrive-mark" aria-hidden="true">' + l[0] + '</span><span>' + l[1] + '</span></li>'; }).join('') + '</ul>' : '') +
-      '<div class="arrive-pick"><p class="lbl">Start with</p><h2 id="fo-h" tabindex="-1">' + esc(head) + '</h2><p class="meta">' + why + '</p></div>' +
-      '<div class="arrive-btns"><button type="button" class="btn primary" data-fo="start" aria-keyshortcuts="Enter">Start here' + kbd('Enter') + '</button>' +
-      '<button type="button" class="btn" data-fo="other" aria-keyshortcuts="O">Something else' + kbd('O') + '</button></div>';
-  }
   function showFocus() {
     foAsked = true; foOpen = true;
     card.style.display = 'none'; $('#checkin').hidden = true; $('#dropbtn').hidden = true;
     var fc = $('#focuscard');
-    if (!arrived) {
-      arrived = true; foMode = 'arrive';
-      fc.innerHTML = arriveHTML(Store.queue()); fc.hidden = false;
-      Fuzz.setMood('happy'); Fuzz.say(fc.querySelector('.arrive-list') ? 'Welcome back. Here’s what happened while you were away.' : 'Here’s where I’d start.', { type: false });
-      refocus($('#fo-h'));
-      return;
-    }
-    foMode = 'ask';
     fc.innerHTML = focusHTML(); fc.hidden = false;
     foMatch = null; foNot = {};
     Fuzz.setMood('eager'); Fuzz.say('What are we working on?', { type: false });
     refocus($('#fo-q'));
   }
-  /* Start here: the usual order, with the card Fuzz named first */
-  function arriveStart() { foMode = 'ask'; var f = Store.focusNow(); if (!(f && (f.text || f.quick))) Store.setFocus(null, null, true); closeFocus('Okay, that one first.'); }
   function closeFocus(line) {
     foOpen = false; $('#focuscard').hidden = true; paintFocusLine();
     if (line) { Fuzz.setMood('happy'); Fuzz.say(line, { type: false }); Say.announce(line); }
@@ -2080,8 +2048,6 @@
       var c = e.target.closest('[data-fochip]'); if (c) { var chip = Store.focusChips()[+c.dataset.fochip]; return focusOn(chip.text || chip.label, chip); }
       var n = e.target.closest('[data-fonot]'); if (n) { foNot[n.dataset.fonot] = !foNot[n.dataset.fonot]; return paintPreview(); }
       if (e.target.closest('[data-fo="skip"]')) { Store.setFocus(null, null, true); closeFocus('The usual order, then.'); }
-      if (e.target.closest('[data-fo="start"]')) arriveStart();
-      if (e.target.closest('[data-fo="other"]')) showFocus();
     });
     $('#focuscard').addEventListener('submit', function (e) { e.preventDefault(); focusOn($('#fo-q').value); });
     $('#focuscard').addEventListener('input', function (e) { if (e.target.id === 'fo-q') preview(e.target.value); });
@@ -2312,12 +2278,6 @@
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (t && t.closest && t.closest('dialog, [role="dialog"]')) return;
       if (e.key === '?') { e.preventDefault(); openKeys(); return; }
-      if (foOpen && foMode === 'arrive') {
-        if (e.key === 'Enter' && !(t && t.closest && t.closest('button'))) { e.preventDefault(); arriveStart(); }
-        else if (e.key === 'Escape') { e.preventDefault(); arriveStart(); }
-        else if (e.key.toLowerCase() === 'o') { e.preventDefault(); showFocus(); }
-        return;
-      }
       if (foOpen) {
         if (e.key === 'Escape') { e.preventDefault(); Store.setFocus(null, null, true); closeFocus('The usual order, then.'); }
         else if (/^[1-9]$/.test(e.key)) { var fb = $('#focuscard').querySelectorAll('[data-fochip]')[+e.key - 1]; if (fb) { e.preventDefault(); fb.click(); } }

@@ -48,7 +48,7 @@ test('the session time is in the header, not in the card', async () => {
   await page.click('#dw-clocktoggle');
   assert.equal(await page.locator('#dwprog').isVisible(), true);
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card [data-act]').first().waitFor();
   assert.equal(await page.locator('#dwprog').isHidden(), true);
 });
 

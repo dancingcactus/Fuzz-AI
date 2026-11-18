@@ -359,7 +359,7 @@ test('a link to a task Fuzz is working on isn’t started from the Guide', async
 test('#/triage?until= opens Triage straight away, with the end time on the label', async () => {
   await morning();
   await open('#/triage?until=13:30');
-  await page.locator('#focuscard').waitFor();
+  await page.locator('#card [data-act]').first().waitFor();
   assert.equal((await label()).text, 'Triage · Until 1:30pm · Back to the Guide');
   /* same page, a new link: only the label changes */
   await page.evaluate(() => { location.hash = '#/triage'; });
