@@ -211,6 +211,7 @@ class App:
             ("GET", r"/hours", self.hours_get),
             ("PUT", r"/hours", self.hours_put),
             ("GET", r"/deepwork", self.deepwork_get),
+            ("GET", r"/away", self.away_get),
             ("GET", r"/slots", self.slots_get),
             ("PUT", r"/slots", self.slots_put),
             ("GET", r"/groups", self.list_groups),
@@ -766,6 +767,11 @@ class App:
         """For starting a Deep Work session: when your free time ends (the next meeting), or null."""
         from . import booking
         return {"free_until": booking.free_until(core)}
+
+    def away_get(self, core, m, body, q):
+        """For the Guide: what Fuzz did on its own while you were away (at least the last two hours)."""
+        from . import away
+        return away.summary(core)
 
     def slots_get(self, core, m, body, q):
         return {"slots": scheduler.budget(core)["max_working"], "max": scheduler.MAX_SLOTS}

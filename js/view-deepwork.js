@@ -339,6 +339,91 @@
     }
     return sug.why;
   }
+  /* ---------- While you were away: what Fuzz did on its own, under the Guide ----------
+     Not a full accounting: a few lines so you can see Fuzz working, mostly on tasks that never reached your
+     screen because it closed them or moved them to waiting. The core picks the window (GET /away): back to
+     the last thing you did, never less than two hours. */
+  var AWAY = null, AWAY_OPEN = false;
+  /* The summary, as one chip per kind, styled like the task's tabs (People 2): what it was [plural, one], then the count */
+  var AWAY_SAY = {
+    closed: ['Marked complete', 'Marked complete'],
+    sent: ['Sent', 'Sent'],
+    drafted: ['Drafts to check', 'Draft to check'],
+    waiting: ['Moved to waiting', 'Moved to waiting'],
+    merged: ['Duplicates merged', 'Duplicate merged'],
+    let_go: ['Let go', 'Let go'],
+    new: ['New tasks', 'New task'],
+    reopened: ['Back with news', 'Back with news'],
+    updated: ['Updated', 'Updated']
+  };
+  /* Each task in the list, by what happened to it */
+  var AWAY_TAG = { closed: 'Complete', sent: 'Sent', drafted: 'Drafted', waiting: 'Waiting', merged: 'Merged', let_go: 'Let go', new: 'New', reopened: 'Back', updated: 'Updated' };
+  /* One icon per kind, on the chips and the list's tags, in the stroke style of the activity log's badges */
+  var AWAY_ICON = {
+    closed: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3',
+    sent: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+    drafted: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+    waiting: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2',
+    merged: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+    let_go: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+    new: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z',
+    reopened: 'M1 4v6h6M3.5 15a9 9 0 1 0 2.1-9.4L1 10',
+    updated: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
+  };
+  function awayIcon(k, size) {
+    return '<svg class="g-away-ic" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (AWAY_ICON[k] || '') + '"/></svg>';
+  }
+  var AWAY_ORDER = ['closed', 'sent', 'drafted', 'waiting', 'merged', 'let_go', 'new', 'reopened', 'updated'];
+  function demoAway() {
+    var at = function (min) { return new Date(Date.now() - min * 60000).toISOString(); };
+    var venue = Store.item('venue'), budget = Store.item('budget');
+    var items = [];
+    if (venue) items.push({ kind: 'closed', task_id: venue.id, title: venue.title, at: at(50), text: 'You answered in Email: “Agenda attached, see you Thursday.” Fuzz marked this done.' });
+    if (budget) items.push({ kind: 'waiting', task_id: budget.id, title: budget.title, at: at(95), text: 'You asked Dana Reyes in Email. Fuzz moved this to waiting on Dana Reyes and checks back Friday, sooner if they reply.' });
+    var more = Store.inState('triage').slice(0, 2);
+    more.forEach(function (it, n) { items.push({ kind: 'new', task_id: it.id, title: it.title, at: at(30 + n * 20), text: 'Created from ' + (it.source || 'Email') + (it.who ? ' (' + it.who + ')' : '') }); });
+    var counts = {}; items.forEach(function (i) { counts[i.kind] = (counts[i.kind] || 0) + 1; });
+    return { since: at(150), last_here: at(150), counts: counts, items: items };
+  }
+  function loadAway() {
+    var p = Live.on() ? Live.awaySummary() : Promise.resolve(demoAway());
+    return p.then(function (r) { AWAY = r || null; }, function () { AWAY = null; });
+  }
+  function sinceLabel(iso) {
+    var d = new Date(iso), now = new Date(), day = new Date(now); day.setHours(0, 0, 0, 0);
+    if (d >= day) return 'since ' + fmt(d);
+    var y = new Date(day); y.setDate(y.getDate() - 1);
+    if (d >= y) return 'since yesterday ' + fmt(d);
+    return 'since ' + d.toLocaleDateString(undefined, { weekday: 'short' }) + ' ' + fmt(d);
+  }
+  function awayChips(counts) {
+    var ks = AWAY_ORDER.filter(function (k) { return counts[k] > 0; });
+    if (!ks.length) return '<p class="g-away-line">Nothing needed you. I kept an eye on things.</p>';
+    return '<ul class="g-away-chips" aria-label="What Fuzz did">' + ks.map(function (k) {
+      var n = counts[k];
+      return '<li class="g-away-chip" data-kind="' + k + '">' + awayIcon(k, 15) + esc(AWAY_SAY[k][n === 1 ? 1 : 0]) + '<span class="g-away-n">' + n + '</span></li>';
+    }).join('') + '</ul>';
+  }
+  function awayItem(i) {
+    return '<li class="g-away-item" data-kind="' + esc(i.kind) + '"><span class="g-away-tag">' + awayIcon(i.kind, 12) + esc(AWAY_TAG[i.kind] || '') + '</span>' +
+      '<b>' + esc(i.title) + '</b><span class="g-away-why">' + esc(i.text) + '</span></li>';
+  }
+  function paintAway() {
+    if (!root || S || !view) return;
+    var old = $('#g-away'), html = awayHTML();
+    if (old) { if (html) old.outerHTML = html; else old.remove(); }
+    else if (html) view.insertAdjacentHTML('beforeend', html);
+  }
+  function awayHTML() {
+    var A = AWAY; if (!A || !A.since) return '';
+    var items = A.items || [];
+    return '<aside class="g-away" id="g-away" aria-labelledby="g-away-h">' +
+      '<h2 class="g-away-h" id="g-away-h">While you were away <small>' + esc(sinceLabel(A.since)) + '</small></h2>' +
+      awayChips(A.counts || {}) +
+      (items.length ? '<details class="g-away-more"' + (AWAY_OPEN ? ' open' : '') + '><summary>See what changed (' + items.length + ')</summary>' +
+        '<ul class="g-away-list">' + items.map(awayItem).join('') + '</ul></details>' : '') +
+      '</aside>';
+  }
   function vGuide() {
     var sug = suggestion(), n = triageN(), tasks = guideTasks();
     if (E.link && E.link.pick && (E.link.pick === 'typed' || tasks.some(function (it) { return it.id === E.link.pick; }))) sug = { pick: E.link.pick, why: sug.why };   /* what your calendar booked the time for */
@@ -378,7 +463,7 @@
         return '<button type="button" class="dw-time" data-v="' + c.v + '" aria-pressed="' + (c.v === E.choice) + '"><b>' + esc(c.l) + '</b><span>' + esc(c.sub) + '</span></button>';
       }).join('') + '</div><p class="dw-planline" id="g-fit">' + esc(fitLine(p)) + '</p>' : '') +
       '<div class="dw-row"><button type="button" class="btn primary" id="dw-go"' + (can ? '' : ' disabled') + '>' + esc(startLabel(p)) + '<kbd aria-hidden="true">Enter</kbd></button></div>' +
-      (deep ? '<details class="dw-optfold"><summary>Options</summary><label class="dw-toggle"><input type="checkbox" id="dw-hide"' + (E.hideClock ? ' checked' : '') + '> Hide the clock (breaks still happen)</label></details>' : '') + '</div>';
+      (deep ? '<details class="dw-optfold"><summary>Options</summary><label class="dw-toggle"><input type="checkbox" id="dw-hide"' + (E.hideClock ? ' checked' : '') + '> Hide the clock (breaks still happen)</label></details>' : '') + '</div>' + awayHTML();
     wireGuide(p);
   }
   function choose(id, focus) {
@@ -967,6 +1052,8 @@
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div id="dw-view"></div></div>' + footHTML() + '</section>';
     view = root.querySelector('#dw-view');
+    /* the away bubble's "more" stays open as the Guide redraws with Fuzz's sync */
+    view.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('g-away-more')) AWAY_OPEN = e.target.open; }, true);
     wireFoot();
     Fuzz.mount(root, {});
     keyFn = onKey; document.addEventListener('keydown', keyFn, true);
@@ -996,6 +1083,7 @@
     lastSig = guideSig();
     render();
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); if (!(document.activeElement && document.activeElement.id === 'g-typed')) render(); } });
+    loadAway().then(paintAway);
   };
   /* A new link while the Guide is on screen (the logo from a work link, one work link to another) */
   V.arrive = function (info) {
@@ -1004,6 +1092,7 @@
     arrive(info); setChoice(E.choice); lastSig = guideSig(); render();
     var h = $('#g-q'); if (h) h.focus({ preventScroll: true });
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); render(); } });
+    loadAway().then(paintAway);
   };
   V.label = label;
   /* The header's label (and the logo) on the session: a way out like Done for now, through the wrap-up */
