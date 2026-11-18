@@ -199,4 +199,100 @@ for c, d in near:
     name = labels[d["anchors"][0][1]] if d["anchors"] else "?"
     P("  · %s: %d tasks — fails %s — e.g. %s" % (name, len(c), ", ".join(d["fails"]),
       " | ".join((tasks[t]["title"] or "")[:50] for t in sorted(c)[:3])))
+
+
+# ---------------------------------------------------------------------------------------------------------
+# The judge: one tools-free model call over every candidate with 2+ tasks. It may only use candidate ids it was
+# given; it merges the same body of work, says whether each series has an implied end (bounded) or is an
+# ongoing area, and names it. The core then re-applies the rules to merged series and keeps bounded ones.
+JUDGE_PROMPT = """You are grouping one person's work tasks into "series": a project, launch, escalation, spec,
+engagement or transition with several parts that will wrap up at some point, even if nobody knows when.
+
+Below are candidate clusters a program found. Do three things:
+1. MERGE candidates that are the same body of work (e.g. the same project under slightly different topic names).
+   Do not merge things that merely share a product or customer name.
+2. For each resulting series, decide BOUNDED: true if it has an implied end (it could be finished, wrapped or
+   handed off); false if it is an ongoing area of responsibility (the product the person owns, a customer
+   account in general, their team, a standing duty). Areas are not series.
+3. NAME each series in 2-5 plain words, the way the person would say it.
+
+Use only the candidate ids given. Every id must appear exactly once, in a series or in "not_series".
+Answer with JSON only, no prose:
+{"series":[{"name":"...","candidates":["c1","c4"],"bounded":true,"why":"one short clause"}],
+ "not_series":[{"candidate":"c7","why":"one short clause"}]}
+
+Candidates:
+"""
+
+
+def judge():
+    import os
+    import subprocess
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "core"))
+    from fuzz import adapters
+
+    cands = {}
+    for c, d in desc:
+        if len(c) >= 2:
+            cands["c%d" % (len(cands) + 1)] = (c, d)
+    lines = []
+    for cid, (c, d) in cands.items():
+        tops = "; ".join(labels[k] for n, k in d["anchors"][:5])
+        titles = " | ".join((tasks[t]["title"] or "")[:100] for t in sorted(c)[:8])
+        lines.append("%s (%d tasks) anchors: %s\n  tasks: %s" % (cid, len(c), tops, titles))
+    with open(os.path.expanduser("~/Library/Application Support/Fuzz/config.json")) as f:
+        client = json.load(f)["engine"]["client"]
+    argv = adapters.get(client).discovery_command(JUDGE_PROMPT + "\n".join(lines), None)
+    res = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+    raw = res.stdout[res.stdout.find("{"): res.stdout.rfind("}") + 1]
+    if not raw:
+        P("")
+        P("JUDGE FAILED: no JSON back. stderr: " + res.stderr[-500:])
+        return
+    verdict = json.loads(raw)
+
+    used, refused, series, areas = set(), [], [], []
+    for s in verdict.get("series", []):
+        ids = [i for i in s.get("candidates", []) if i in cands and i not in used]
+        refused += [i for i in s.get("candidates", []) if i not in cands]
+        used.update(ids)
+        if not ids:
+            continue
+        comp = set().union(*(cands[i][0] for i in ids))
+        d = describe(comp)
+        why = s.get("why", "")
+        if not s.get("bounded", False):
+            areas.append("%s (%d tasks, %s) — ongoing area — %s" % (s.get("name"), len(comp), "+".join(ids), why))
+        elif d["fails"]:
+            areas.append("%s (%d tasks, %s) — fails %s — %s" % (s.get("name"), len(comp), "+".join(ids), ", ".join(d["fails"]), why))
+        else:
+            series.append((s.get("name") or "?", ids, comp, d, why))
+    not_ids = {n.get("candidate") for n in verdict.get("not_series", [])}
+    for n in verdict.get("not_series", []):
+        cid = n.get("candidate")
+        if cid in cands and cid not in used:
+            c, d = cands[cid]
+            areas.append("%s (%d tasks, %s) — not a series — %s" % (labels[d["anchors"][0][1]] if d["anchors"] else "?", len(c), cid, n.get("why", "")))
+
+    series.sort(key=lambda r: -len(r[2]))
+    P("")
+    P("=" * 100)
+    P("AFTER THE JUDGE (%s, %d candidates sent): %d series" % (client, len(cands), len(series)))
+    P("=" * 100)
+    for name, ids, comp, d, why in series:
+        P("")
+        P("%s  [%s] %d tasks (%d open) · from %s · %s" % (name, d["status"], len(comp), d["live"], "+".join(ids), why))
+        for t in sorted(comp, key=lambda t: tasks[t]["created_at"] or ""):
+            P("     - #%-4d %-9s %s" % (t, tasks[t]["state"], (tasks[t]["title"] or "")[:90]))
+    P("")
+    P("NOT SERIES:")
+    for a in areas:
+        P("  · " + a)
+    skipped = [i for i in cands if i not in used and i not in not_ids]
+    P("")
+    P("Judge hygiene: unknown ids refused: %s · ids skipped: %s" % (", ".join(refused) or "none", ", ".join(skipped) or "none"))
+
+
+if "--judge" in sys.argv:
+    judge()
 print("\n".join(out))
