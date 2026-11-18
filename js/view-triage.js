@@ -78,7 +78,9 @@
   function release() { if (busy) lock(false); }
 
   V.mount = function (container) {
-    alive = true; busy = false; epoch++; ciOpen = false; ciBusy = false; scOpen = false; scState = null; scheduling = false; askingWho = false; booking = false; pausing = false; wayOpen = false; tab = null; streak = 0;
+    /* foOpen too: a focus question left open when you went elsewhere is gone from the new layout, and
+       showNext would wait behind it forever (a blank card on coming back from Lineup) */
+    alive = true; busy = false; epoch++; ciOpen = false; ciBusy = false; scOpen = false; foOpen = false; scState = null; scheduling = false; askingWho = false; booking = false; pausing = false; wayOpen = false; tab = null; streak = 0;
     root = container;
     root.innerHTML = layout();
     card = $('#card'); stack = $('#stack'); stage = $('#stage');

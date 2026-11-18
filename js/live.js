@@ -457,7 +457,11 @@
     var restart = unpin, front = unpin ? null : (Store.shown() || st.queue[0]);
     if (unpin) st.shown = null;
     unpin = false;
-    if (front && seen[front] && order[0] !== front) order = [front].concat(order.filter(function (id) { return id !== front; }));
+    /* ...then one you picked from Lineup, as Store.sortQueue does: a re-sync after Start here (unpin) must not
+       hand the front back to the core's order, which may have it last (you moved it to the end earlier) */
+    var lead = front && seen[front] ? [front] : [];
+    st.queue.forEach(function (id) { var x = Store.item(id); if (x && x.picked && seen[id] && lead.indexOf(id) < 0) lead.push(id); });
+    if (lead.length) order = lead.concat(order.filter(function (id) { return lead.indexOf(id) < 0; }));
     var added = order.filter(function (id) { return st.queue.indexOf(id) < 0; });
     groups = (groups || []).map(toGroup);
     var next = JSON.stringify([items, order, moment, groups]);

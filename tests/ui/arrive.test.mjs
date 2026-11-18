@@ -41,6 +41,15 @@ test('arriving shows what happened, then the card to start with and why', async 
   assert.equal((await page.locator('#ask').textContent()).replace(/^The one thing to decide: /, '').trim(), named.trim(), 'Enter starts on the named card');
 });
 
+test('leaving with the welcome still up, then picking from Lineup, shows that card (not a blank one)', async () => {
+  await page.evaluate(() => App.navigate('#/tasks'));
+  await page.locator('#board .decide').waitFor();
+  const id = await page.evaluate(() => Store.queue()[1].id);
+  await page.evaluate(id => { document.querySelector('#decide-list').open = true; document.querySelector('[data-pick="' + id + '"]').click(); }, id);
+  await page.locator('#card [data-act]').first().waitFor({ timeout: 3000 });
+  assert.equal(await page.evaluate(() => Store.queue()[0].id), id);
+});
+
 test('O asks what we’re working on instead', async () => {
   await page.keyboard.press('o');
   await page.locator('#focuscard #fo-q').waitFor();
