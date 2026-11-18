@@ -978,13 +978,42 @@
     if (it.revisedNote) h += '<div class="finding"><span class="finding-tag">Updated from your note</span>' + Fuzz.mini('good', { cls: 'finding-av' }) + '<p>“' + esc(it.revisedNote) + '”</p></div>';
     /* A page edit leads with what changes: the body below is the whole page as it will read */
     var page = r && r.verb && r.link ? '<a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.to) + '</a>' : esc(r ? r.to : '');
+    /* A new or edited page is HTML (Confluence storage format): it opens as the page will look, Source to edit it */
+    var html = !!(r && (r.verb === 'create' || r.verb === 'edit') && /<[a-z][^>]*>/i.test(val)), pv = html && (dview[it.id] || 'preview') === 'preview';
     h += '<section class="draft"><div class="draft-to">' + (r ? '<span>' + esc(w.toLabel) + '</span> <strong>' + page + '</strong><span class="via">' + esc(r.via) + '</span>' : '<strong>Just for you</strong><span class="via">Nothing is sent anywhere</span>') + '</div>' +
       (r && r.change ? '<p class="draft-change"><b>What changes:</b> ' + esc(r.change) + '</p>' : '') +
-      '<label class="sr" for="draft">' + (r ? esc(w.field) : 'Fuzz’s write-up') + '</label><textarea id="draft" rows="' + (r && r.verb && r.verb !== 'comment' ? 10 : 4) + '">' + esc(val) + '</textarea></section>';
+      (html ? '<div class="draft-view" role="group" aria-label="Show the page as">' +
+        '<button type="button" class="seg" data-dview="preview" aria-pressed="' + pv + '">Preview</button>' +
+        '<button type="button" class="seg" data-dview="source" aria-pressed="' + !pv + '">Source</button></div>' +
+        '<iframe class="draft-preview" sandbox="" title="' + esc(w.field) + ', preview" srcdoc="' + esc(pageDoc(val)) + '"' + (pv ? '' : ' hidden') + '></iframe>' : '') +
+      '<label class="sr" for="draft">' + (r ? esc(w.field) : 'Fuzz’s write-up') + '</label><textarea id="draft" rows="' + (r && r.verb && r.verb !== 'comment' ? 10 : 4) + '"' + (pv ? ' hidden' : '') + '>' + esc(val) + '</textarea></section>';
     h += '<div id="actions">' + actionsHTML(it) + '</div>';
     h += '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, what Fuzz did</span>' + kbd('I') + '</summary><p class="incoming">' + UI.text(it.incoming) + '</p>' + contextHTML(it, true) + '</details>' + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">OK</div>';
     return h;
+  }
+  /* The page as a document of its own, for a sandboxed frame: no scripts, forms or plugins (sandbox=""), and the
+     CSP keeps it from loading anything, so a draft can't phone home. Confluence's ac:/ri: tags show their text;
+     macro parameters are hidden and a macro gets a dashed box, so it reads as "something goes here". */
+  var dview = {};
+  function pageDoc(body) {
+    return '<!doctype html><html><head><meta charset="utf-8">' +
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">' +
+      '<style>:root{color-scheme:light}body{margin:0;padding:16px 20px;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b4d;background:#fff;overflow-wrap:anywhere}' +
+      'h1,h2,h3,h4{line-height:1.3;margin:1.2em 0 .5em}h1{font-size:1.6em}h2{font-size:1.35em}h3{font-size:1.15em}' +
+      'table{border-collapse:collapse;margin:.8em 0}th,td{border:1px solid #c1c7d0;padding:6px 10px;vertical-align:top;text-align:left}th{background:#f4f5f7}' +
+      'a{color:#0052cc}code,pre{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:#f4f5f7;border-radius:3px}pre{padding:10px;overflow:auto}' +
+      'hr{border:0;border-top:1px solid #dfe1e6}img{max-width:100%}' +
+      'ac\\:parameter{display:none}ac\\:structured-macro{display:block;border:1px dashed #c1c7d0;border-radius:4px;padding:6px 10px;margin:.6em 0}</style></head><body>' +
+      body + '</body></html>';
+  }
+  function setDraftView(it, v) {
+    var ta = card.querySelector('#draft'), fr = card.querySelector('.draft-preview'); if (!ta || !fr) return;
+    dview[it.id] = v;
+    card.querySelectorAll('[data-dview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.dview === v)); });
+    if (v === 'preview') fr.srcdoc = pageDoc(ta.value);   /* what you changed in Source */
+    fr.hidden = v !== 'preview'; ta.hidden = v === 'preview';
+    if (v === 'source') { fit(ta); ta.focus(); }
   }
   /* Not now opens the Schedule picker in their place: the draft waits and asks again then */
   function reviewActionsHTML(it) {
@@ -2111,6 +2140,7 @@
     Object.keys(docDrag).forEach(function (n) { window.addEventListener(n, docDrag[n]); });
     card.addEventListener('click', function (e) {
       if (e.target.closest('#adropbtn')) { $('#afile').click(); return; }
+      var dv = e.target.closest('[data-dview]'); if (dv) { var di = cur(); if (di) setDraftView(di, dv.dataset.dview); return; }
       if (e.target.closest('[data-guide="skip"]')) { var gd = card.querySelector('.onb-guide'); if (gd) gd.remove(); Onboard.skipGuide(); refocus($('#ask')); return; }
       var ux = e.target.closest('[data-unref]'), ci = cur();
       if (ux && ci) {

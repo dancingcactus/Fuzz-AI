@@ -178,3 +178,33 @@ test('Details folds the rest, and I opens it', async () => {
   assert.equal(await d.evaluate(x => x.open), true);
   assert.equal(await d.locator('.incoming').count(), 1, 'where it came from is inside');
 });
+
+test('a wiki page draft opens as the page will look, sandboxed, with Source to edit it', async () => {
+  await page.evaluate(() => {
+    const it = Store.item('retro');
+    it.sendTo = { to: 'Team notes', via: 'Wiki, edits the page', verb: 'edit', where: '', change: 'Adds the Q3 retro section', link: 'https://wiki.example/x' };
+    it.draft = '<h2>Q3 retro</h2><p>Three actions.</p><script>parent.HACKED = 1</script><ac:structured-macro ac:name="info"><ac:parameter ac:name="title">T</ac:parameter><ac:rich-text-body><p>Note</p></ac:rich-text-body></ac:structured-macro>';
+  });
+  await show('retro');
+  const fr = page.locator('#card .draft-preview');
+  assert.equal(await fr.isVisible(), true, 'preview first');
+  assert.equal(await page.locator('#card #draft').isVisible(), false);
+  assert.equal(await fr.getAttribute('sandbox'), '', 'no scripts, forms or same-origin');
+  const doc = page.frameLocator('#card .draft-preview');
+  assert.equal((await doc.locator('h2').textContent()).trim(), 'Q3 retro');
+  assert.equal(await page.evaluate(() => window.HACKED), undefined);
+  await page.locator('#card [data-dview="source"]').click();
+  assert.equal(await page.locator('#card #draft').isVisible(), true);
+  assert.equal(await fr.isVisible(), false);
+  await page.locator('#card #draft').fill('<h2>Changed</h2>');
+  await page.locator('#card [data-dview="preview"]').click();
+  assert.equal((await doc.locator('h2').textContent()).trim(), 'Changed', 'preview shows your edit');
+  assert.equal(await page.locator('#card #draft').inputValue(), '<h2>Changed</h2>', 'the edit is what gets approved');
+});
+
+test('a message draft stays a plain text box', async () => {
+  await page.evaluate(() => { Store.item('retro').draft = '<b>hi</b> team'; });
+  await show('retro');
+  assert.equal(await page.locator('#card .draft-preview').count(), 0);
+  assert.equal(await page.locator('#card #draft').isVisible(), true);
+});
