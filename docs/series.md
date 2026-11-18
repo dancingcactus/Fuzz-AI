@@ -21,7 +21,8 @@ The design doc for memory (`docs/memory-layers.md`) left "workstreams" for later
 - Repeating calendar events are **recurring meetings**, never "series".
 - On a task the noun stays out of sight: **"Part of Northwind"**, like "From …" and "For …".
 - An ongoing area of responsibility (the product you own, a customer account in general, your team, a
-  standing duty) is an **area**. Areas are not series (see "Implied end").
+  standing duty) is an **area**. Areas are not series (see "Implied end") and are internal: the word never
+  appears in the UI.
 
 ## Where a series sits
 
@@ -31,8 +32,8 @@ The design doc for memory (`docs/memory-layers.md`) left "workstreams" for later
 | Made by | The core, from the signal | Fuzz suggests, you confirm | Fuzz infers it; you can start one |
 | Ends | Its tasks close | Its done-when is true | It has an implied end; done-when if known; dormant when quiet |
 
-A deliverable belongs to at most one series; a series holds many. For now a task is in at most one
-series (see Open questions).
+A deliverable belongs to at most one series; a series holds many. A task has at most one **primary**
+series and may **also touch** others (see "Primary and also touches").
 
 ## Requirements
 
@@ -95,8 +96,44 @@ Allowlisted, each with `how`, `authority`, `said_by` and `source_ref`, trust wor
 
 A series must have an **implied end**: it could be finished, wrapped or handed off, even if nobody knows
 when. That is weaker than a done-when, which stays optional. The judge decides it; anything without one
-is an area. Areas are remembered so their anchors stop proposing new series, but they **never take tasks**
-(a task in an area can still join a real series).
+is an area.
+
+### 5a. Areas: kept, never shown
+
+Areas are a real internal concept (an entity with its anchors and the judge's reason), but they never
+appear in the UI. They earn their keep in five ways:
+
+1. **A memory of "no".** Their anchors stop proposing new series, so the judge isn't asked the same
+   question every run (the replay showed what that costs).
+2. **Context for the judge.** Candidates arrive with "this sits inside an area: …", so a bounded effort
+   inside your product reads as a series and the product itself doesn't.
+3. **Weighting.** An area's anchors count for less when scoring, the way regular people do in matching.
+4. **Memory.** "What you own" helps recall, briefs and the extractor understand your work.
+5. **Somewhere to put orphans.** Tasks in no series can be grouped by area for Fuzz's own reasoning.
+
+Rules that keep a hidden decision from going wrong silently:
+
+- An area **never takes tasks**. It only stops its own anchors from seeding; a task in an area can still
+  join a series through its other anchors, and a series can form inside an area.
+- **You always win.** Starting a series yourself, or keeping one from "Fuzz is watching", overrides an
+  area that covers its anchors, and the judge sees that correction next time.
+- **Areas get a second look.** When a cluster inside an area keeps growing (say it doubles since it was
+  ruled an area), it goes back to the judge, who can split out a series.
+- Areas are visible in the memory inspector, for debugging, not in the app.
+
+### 5b. Primary and also touches
+
+- A task's **primary** series is event-sourced and sticky. Only the primary counts: open/done counts, the
+  "Part of …" line, wrapping, and suggestion rate limits.
+- A task **also touches** any other series whose anchors it matches above the attach threshold. This is
+  **worked out when read**: not stored, no events, no judge calls, so it corrects itself as anchors change.
+- Also touches is used for: detector evidence (stall, follow-through, done-when at risk), Focus ("Work on
+  …" brings it in), merging forming pieces, cross-series hints ("This unblocks Northwind too"), and a quiet line
+  on the sheet ("Also touches this: 3 tasks from …").
+- A near tie between two series no longer needs the judge: the higher score is primary, the other is
+  also touches. Swapping them is the correction.
+- Why: a third of real tasks (79 of 271) fit more than one candidate; forcing one choice fragmented a
+  real series and left detectors blind to work filed elsewhere.
 
 ### 6. Detection, as things come in
 
@@ -217,10 +254,8 @@ Recommendations accepted on 2026-11-18, not built yet:
 
 ## Open questions
 
-- **One series per task, or a primary plus "also touches"?** A third of tasks fit more than one.
 - **Recurring meetings** couldn't be tested: the store has no meeting signals yet, and most Slack is DMs.
 - **Gone quiet** can't be tested with three weeks of history.
-- **Is an area worth keeping as its own light concept** (a customer account, a product area)? Not needed now.
 - **Undecided UI copy:** the trust labels (Reported, From the owner, Fuzz noticed, Confirmed) and the
   Artifacts and Settings sublines in the menu are placeholders.
 
