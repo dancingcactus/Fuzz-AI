@@ -153,6 +153,9 @@ when unsure. Each run:
    refused.
 
 **Rules for a series:** at least 4 tasks, from at least 2 origins, active on at least 3 different days.
+These numbers are starting points, not settled values. Keep them, and the other detection thresholds (the
+60% near-tie margin, the 3-task seed), as named settings in one place so they're easy to adjust as the
+system gets tuned, rather than spread through the code as literals.
 
 **Stability:** membership is sticky. The judge only ever sees new candidates and ambiguous tasks, never the
 whole set again. A series you named or approved is never changed without you.
