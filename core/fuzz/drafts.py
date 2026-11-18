@@ -11,18 +11,22 @@ ahead: then the task is scheduled for when that step is due.
 from . import cards, events, tasks
 from .db import FuzzError, iso
 
-DRAFT_KINDS = ("email.reply", "email.new", "slack.message", "calendar.invite", "nudge.email", "nudge.slack", "note")
+DRAFT_KINDS = ("email.reply", "email.new", "slack.message", "calendar.invite", "nudge.email", "nudge.slack",
+               "wiki.create", "wiki.update", "wiki.comment", "note")
 HOLD_KINDS = ("calendar_hold", "calendar_remove")   # made by the core when you book time (booking.ask_hold)
-IN_THREAD = ("email.reply", "slack.message", "nudge.email", "nudge.slack")   # kinds that can go in a source's thread
+IN_THREAD = ("email.reply", "slack.message", "nudge.email", "nudge.slack", "wiki.comment")   # can go in a source's thread
+WIKI_KINDS = ("wiki.create", "wiki.update", "wiki.comment")   # change a page, not message a person: target is the page
+PAGE_KEYS = ("title", "link", "parent", "version", "change")
 BODY_MAX = 32 * 1024
 
 
 def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:executor", attach=None, reply_to=None,
-               covers=None, relied_on=None):
+               covers=None, relied_on=None, page=None):
     """attach: file names in the task's output folder, for the sender to attach when it sends.
     reply_to: the id of the task's source whose thread it goes in. target is only who it's to.
     covers: the other tasks of a group claim this one reply answers. They wait in review with it, and
-    approving it (or sending it yourself) closes them all."""
+    approving it (or sending it yourself) closes them all.
+    page: for a wiki.* kind, the page it creates or changes (see _page)."""
     if kind not in DRAFT_KINDS:
         raise FuzzError(f"kind must be one of {', '.join(DRAFT_KINDS)}", "kind")
     if not final and kind != "note":
@@ -36,6 +40,9 @@ def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:execut
     reply_to = _thread(core, t["id"], kind, reply_to)
     covered = _covered(core, t, covers, final)
     meta = _relied_on(core, relied_on)
+    page = _page(kind, page)
+    if page:
+        meta = dict(meta or {}, page=page)
     if not final and _comes_back(core, t)[0] is None:
         raise FuzzError("A prep note needs to know when the real step is due. Call suggest_schedule with that "
                         "time (or update_brief with due), then save the note again", "final")
@@ -61,6 +68,38 @@ def save_draft(core, task_id, kind, target, body, final=True, actor="fuzz:execut
                     log=("action", log))
         cards.sync(core, t["id"])
     return did
+
+
+def _page(kind, page):
+    """The page a wiki draft creates or changes. wiki.create: title, and parent (the space or parent page,
+    as a link or a name). wiki.update: link, change (one line on what changes, for the card) and version
+    (the one the body was written from, so the sender can tell the page moved on). wiki.comment: link."""
+    if kind not in WIKI_KINDS:
+        if page:
+            raise FuzzError(f"page is for wiki drafts, not a {kind}", "page")
+        return None
+    if not isinstance(page, dict):
+        raise FuzzError(f"A {kind} needs page: the page it " + ("creates (title, parent)" if kind == "wiki.create"
+                        else "changes (link)"), "page")
+    extra = set(page) - set(PAGE_KEYS)
+    if extra:
+        raise FuzzError(f"page takes {', '.join(PAGE_KEYS)}, not {', '.join(sorted(extra))}", "page")
+    out = {k: str(v).strip() for k, v in page.items() if v is not None and str(v).strip()}
+    if kind == "wiki.create":
+        if not out.get("title"):
+            raise FuzzError("A wiki.create needs page.title, the new page's title", "page")
+        if not out.get("parent"):
+            raise FuzzError("A wiki.create needs page.parent: the space or parent page it goes under", "page")
+    elif not out.get("link"):
+        raise FuzzError(f"A {kind} needs page.link, the page's address", "page")
+    if kind == "wiki.update" and not out.get("change"):
+        raise FuzzError("A wiki.update needs page.change, one line on what changes (\"Adds the Q1 dates to "
+                        "Timeline\"), so the person knows what they approve", "page")
+    return out
+
+
+def page_of(d):
+    return ((d or {}).get("meta") or {}).get("page")
 
 
 def _relied_on(core, relied_on):
@@ -300,11 +339,23 @@ def mark_sent(core, task_id, draft_id, where, link=None, actor="fuzz:sender"):
         else:
             tasks.move(core, ch, t, "done")
             _close_covered(core, ch, d, None)   # one reply answered them all
-        to = f" to {d['target']}" if d.get("target") else ""
         events.emit(core, "task.sent", task_id=t["id"], changes=ch,
                     data={"draft_id": d["id"], "kind": d["kind"], "where": where.strip(), "link": link},
-                    log=("sent", f"Sent{to} ({where.strip()}) after you approved it."))
+                    log=("sent", f"{_did(d)} ({where.strip()}) after you approved it."))
     return {"state": "waiting" if d["kind"].startswith("nudge") else "done"}
+
+
+def _did(d):
+    """What the sender did, for the task's log: "Sent to Marcus", "Created the page “Q1 plan”"."""
+    p = page_of(d) or {}
+    page = f"the page “{p['title']}”" if p.get("title") else (d.get("target") or "the page")
+    if d["kind"] == "wiki.create":
+        return f"Created {page}"
+    if d["kind"] == "wiki.update":
+        return f"Changed {page}"
+    if d["kind"] == "wiki.comment":
+        return f"Commented on {page}"
+    return "Sent" + (f" to {d['target']}" if d.get("target") else "")
 
 
 def _hold_sent(core, t, d, where, link, actor):

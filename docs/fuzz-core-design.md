@@ -572,6 +572,13 @@ are the same, so this costs nothing extra, but headless runs come first.
 
 - A draft has a `kind` (`email.reply`, `slack.message`, `calendar.invite`…) and a `target` (thread,
   channel, people).
+- **Wiki drafts** (`wiki.create`, `wiki.update`, `wiki.comment`) change a page instead of messaging
+  someone. They carry `meta.page`: `{title, parent}` for a new page; `{link, version, change}` for an
+  edit, whose body is the whole page as it should read and whose `change` is the one line the card
+  leads with; `{link}` for a comment. The executor may draft one only for a kind `whoami.wiki_drafts`
+  lists: a tool in `send.tools` that can apply it (`connectors.wiki_kinds`). Settings lists tools that
+  change things under a **Changing** switch per server; ones that delete or run other tools
+  (`connectors.risk`) are never switched on with the rest and are only chosen by name.
 - **Approve and send** in the UI writes `task.approved` and moves the task to `sending`. A note goes
   nowhere, so approving one files it as `done`.
 - **The AI sends, with its own connectors.** There are no actuators in the core. A third role, the

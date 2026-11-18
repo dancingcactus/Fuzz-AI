@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS drafts (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,
   task_id INTEGER NOT NULL,
-  kind TEXT NOT NULL,              -- email.reply | slack.message | calendar.invite | nudge.* | note
+  kind TEXT NOT NULL,              -- email.reply | slack.message | calendar.invite | nudge.* | wiki.* | note
   target TEXT,
   body TEXT,
   status TEXT NOT NULL,            -- pending | approved | sent | sent_back | withdrawn

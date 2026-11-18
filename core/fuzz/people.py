@@ -46,8 +46,8 @@ def for_task(core, t):
         book.add_name(t["waiting_on"], kind="waiting", text="You’re waiting on them", ts=t["state_changed_at"])
     if (t.get("owner") or "").strip() not in NOT_A_NAME:
         book.add_name(t["owner"], kind="owner", text="It’s theirs, not yours", ts=t["state_changed_at"])
-    for d in core.all("SELECT kind, target, approved_at FROM drafts WHERE task_id=? AND user_id=? AND status='sent'",
-                      (t["id"], core.user_id)):
+    for d in core.all("SELECT kind, target, approved_at FROM drafts WHERE task_id=? AND user_id=? AND status='sent' "
+                      "AND kind NOT LIKE 'wiki.%'", (t["id"], core.user_id)):   # a wiki draft's target is a page
         # a draft goes to a person, a channel or a thread; only one to someone already here is theirs
         book.add_name(d["target"], kind="sent_to", text=_sent_text(d["kind"]), ts=d["approved_at"], known_only=True)
     return book.people()

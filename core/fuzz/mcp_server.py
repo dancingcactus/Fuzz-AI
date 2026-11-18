@@ -107,13 +107,19 @@ def build(core, role, task_id=None):
         @srv.tool()
         def save_draft(task_id: int, kind: str, target: str, body: str, final: bool = True,
                        attach: list[str] | None = None, reply_to: int | None = None,
-                       covers: list[int] | None = None, relied_on: list[int] | None = None) -> dict:
+                       covers: list[int] | None = None, relied_on: list[int] | None = None,
+                       page: dict | None = None) -> dict:
             """Store a draft for the human to approve. The task moves to review. kind: email.reply, email.new,
-            slack.message, calendar.invite, nudge.email, nudge.slack or note. target: only who it's to, as the
-            person would say it on the card ("Alex Rivera <alex@acme.example>", "Slack #offsite-planning").
+            slack.message, calendar.invite, nudge.email, nudge.slack, wiki.create, wiki.update, wiki.comment or
+            note. target: only who it's to, as the person would say it on the card ("Alex Rivera
+            <alex@acme.example>", "Slack #offsite-planning"); for a wiki.* kind, the page's name as they'd say it.
             No thread, source number or explanation: it's shown as "Send this to …".
+            Wiki drafts only for the kinds whoami's wiki_drafts lists, with page: wiki.create {title, parent (the
+            space or parent page)}, body the whole new page; wiki.update {link, change (one line on what changes,
+            for the card), version (the page version you read)}, body the whole page as it should read after;
+            wiki.comment {link}, body the comment.
             reply_to: the id of the task's source whose thread it goes in. Required for email.reply; for a
-            slack.message or nudge.* in a source's thread. This is the only way toward anything outside the system:
+            slack.message, wiki.comment or nudge.* in a source's thread. This is the only way toward anything outside the system:
             once the human approves it, Fuzz's sender sends exactly this body. A note is only filed.
             final: false for a note that prepares a step still ahead ("send the update next week"). Call
             suggest_schedule (or update_brief with due) first: approving it schedules the task for then
@@ -124,7 +130,8 @@ def build(core, role, task_id=None):
             ask; approving it closes them all.
             relied_on: the fact_ids from who_is or what_is the draft leans on, like the fact that told you who to send
             it to. A fact labelled Fuzz's guess makes the card say so and ask the person to check it first."""
-            return _call(tools.save_draft, core, task_id, kind, target, body, final, attach, reply_to, covers, relied_on)
+            return _call(tools.save_draft, core, task_id, kind, target, body, final, attach, reply_to, covers, relied_on,
+                         page)
 
         @srv.tool()
         def hand_back(task_id: int, question: str | None = None, options: list[str] | None = None,
@@ -250,7 +257,8 @@ def build(core, role, task_id=None):
         def claim_next_send() -> dict:
             """Lease the oldest approved draft waiting to go out: its kind, target (who it's to), thread (the
             message it replies in: title, link and the connector's ids, or null for a new one), the exact body to
-            send, and attachments (each a name and a path) to attach to it. A calendar_hold has hold {title, start,
+            send, and attachments (each a name and a path) to attach to it. A wiki.* draft has page: {title,
+            parent} for wiki.create, {link, version?} for wiki.update and wiki.comment. A calendar_hold has hold {title, start,
             end, event_id?}: create an event of their own with that title and the body as its description (or move
             event_id to the new times), then mark_sent with link set to the event's id. A calendar_remove: delete
             event_id, then mark_sent. Never change any other event."""

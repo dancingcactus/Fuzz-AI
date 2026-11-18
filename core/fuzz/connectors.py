@@ -7,6 +7,10 @@ connectors.json in the store folder, so choosing tools later costs nothing.
 
 Nothing here pre-selects a tool that sends or changes anything: a tool is suggested for lookups only
 when the run says it only reads and its name doesn't say otherwise.
+
+send.tools is every tool the sender may use once you approve a draft: ones that send (a Slack post, an
+email) and ones you chose that change something (a wiki page created or edited). A change tool carries a
+risk when it deletes or runs other tools; those are never switched on with the rest of their server.
 """
 
 import json
@@ -31,7 +35,38 @@ WRITES = re.compile(r"(^|[_\-.])(send|post|reply|comment|create|add|new|update|e
                     r"do_action|execute|exec|call_function|run|trigger|generate|submit|approve|merge|close)"
                     r"([_\-.]|$)", re.I)
 SEND = re.compile(r"^(send|post|reply|forward|chat_postmessage)([_\-.]|$)", re.I)
+SENDS_IN = re.compile(r"(^|[_\-.])(send|post|reply|forward|postmessage|chat_postmessage)([_\-.]|$)", re.I)
+DELETES = re.compile(r"(^|[_\-.])(delete|remove|trash|archive|purge|destroy)([_\-.]|$)", re.I)
+RUNS = re.compile(r"(^|[_\-.])(execute|exec|run|run_tool|call_function|do_action|invoke)([_\-.]|$)", re.I)
+WIKI = re.compile(r"wiki|confluence|(^|[\s_\-.])pages?([\s_\-.]|$)", re.I)
 TOKENS_PER_TOOL = 180   # a tool's name, description and schema in every run's context, roughly
+
+
+def _short(allow):
+    """The tool's own name out of "Server(tool)" or "mcp__server__tool"."""
+    return re.split(r"__|-", allow)[-1] if "(" not in allow else allow[allow.index("(") + 1:-1]
+
+
+def risk(t):
+    """Why a change tool is more than an edit: "deletes" or "runs" (it runs other tools, so anything goes)."""
+    if t.get("kind") != "change":
+        return None
+    short = _short(t["allow"])
+    return "runs" if RUNS.search(short) else "deletes" if DELETES.search(short) else None
+
+
+def wiki_kind(t):
+    """The wiki draft kind a tool can apply (wiki.create, wiki.update, wiki.comment), or None."""
+    short = _short(t.get("allow") or t.get("tool") or "")
+    if t.get("kind") == "lookup" or not WIKI.search(short + " " + (t.get("does") or "")) or risk(t):
+        return None
+    if re.search(r"comment", short, re.I):
+        return "wiki.comment"
+    if re.search(r"(^|[_\-.])(create|new|add)([_\-.]|$)", short, re.I):
+        return "wiki.create"
+    if re.search(r"(^|[_\-.])(update|edit|write|put|replace)([_\-.]|$)", short, re.I):
+        return "wiki.update"
+    return None
 
 
 def path(core):
@@ -68,7 +103,9 @@ def parse(text):
 def classify(name, said):
     """lookup, send or change. A name that writes wins over a run that said lookup."""
     said = said if said in ("lookup", "send", "change") else "change"
-    short = re.split(r"__|-", name)[-1] if "(" not in name else name[name.index("(") + 1:-1]
+    short = _short(name)
+    if said != "lookup" and SENDS_IN.search(short) and not DELETES.search(short):   # slack_send_message, post_comment
+        return "send"
     if said == "change":
         return said
     if SEND.search(short):
@@ -143,7 +180,7 @@ def view(core, client):
     tools = []
     for t in found.get("tools") or []:
         tools.append(dict(t, read=any(covers(p, t["allow"]) for p in read),
-                          send=any(covers(p, t["allow"]) for p in send)))
+                          send=any(covers(p, t["allow"]) for p in send), risk=risk(t), wiki=wiki_kind(t)))
     n = sum(1 for t in tools if t["read"]) or len(read)
     return {"client": client, "label": adapter.label, "discovered_at": found.get("discovered_at"),
             "servers": found.get("servers") or [], "tools": tools, "read": read, "send": send,
@@ -162,6 +199,22 @@ def choose(core, client, read=None, send=None):
             raise FuzzError(f"{name} is a list of tool names", name)
         core.update_config(lambda cfg: set_(cfg, f"{name}.tools.{client}", sorted({x.strip() for x in value})))
     return view(core, client)
+
+
+def wiki_kinds(core, client=None):
+    """The wiki.* draft kinds some send.tools entry can apply, so the executor drafts only what can go out.
+    A whole server allowed by name covers every tool it was found with. With no client, any client's."""
+    clients = [client] if client else list(set(load(core)) | set(((core.config.get("send") or {}).get("tools") or {})))
+    kinds = set()
+    for c in clients:
+        found = (load(core).get(c) or {}).get("tools") or []
+        for p in chosen(core, c)[1]:
+            hits = [t for t in found if covers(p, t["allow"])]
+            for t in hits or [{"allow": p, "kind": "change"}]:   # not discovered: its name has to say it
+                k = wiki_kind(t)
+                if k:
+                    kinds.add(k)
+    return sorted(kinds)
 
 
 def _norm(s):
