@@ -30,9 +30,17 @@ URL_RE = re.compile(r"https?://([A-Za-z0-9.-]+)", re.I)
 
 # ---- the leak check
 
+PUBLIC = ("github.com", "linkedin.com")   # services everyone gets mail from: their own addresses say nothing about anyone
+
+
 def _reserved(domain):
     d = domain.lower().rstrip(".")
     return any(d == r or d.endswith("." + r) for r in RESERVED)
+
+
+def _public(domain):
+    d = domain.lower().rstrip(".")
+    return any(d == r or d.endswith("." + r) for r in PUBLIC)
 
 
 def _words(text):
@@ -47,7 +55,7 @@ def generic_leaks(case):
     """What can be checked with no store, as CI does for every committed case: real-looking addresses and links."""
     text = _flat(case)
     out = [f"an address off the example domains: {m.group(0)}" for m in EMAIL_RE.finditer(text)
-           if not _reserved(m.group(1))]
+           if not (_reserved(m.group(1)) or _public(m.group(1)))]
     out += [f"a link off the example domains: {m.group(1)}" for m in URL_RE.finditer(text) if not _reserved(m.group(1))]
     return out
 

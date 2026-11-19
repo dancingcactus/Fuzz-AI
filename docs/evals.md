@@ -12,6 +12,7 @@ than what we had before?**
 | `fuzz eval run [--set global\|personal]` | Extraction: is there an ask, and whose | Yes, 3 repeats |
 | `fuzz eval compare [--base-ref main]` | Extraction, two versions head to head on today's cases | Yes |
 | `fuzz eval dupes` | The duplicate matcher on labelled pairs, with a threshold sweep | No |
+| `fuzz eval senders` | Who a sender is: a person, a bot, a list or a brand | No |
 | `fuzz eval drafts --history` | The drafts Fuzz already wrote, against what you sent | Judge only |
 | `fuzz eval drafts` | Fresh drafts on personal and global draft cases | Yes |
 | `fuzz eval executor` | Invented tasks in invented worlds: gather, ask, hand back | Yes, 2 repeats |
@@ -191,6 +192,24 @@ Merge and kept-separate answers are labelled pairs. Replaying `matching/dupes.py
 and recall at each threshold, with no model calls, so it's fast and gives the same result every run.
 This is the `tune_matcher.py` idea in `docs/self-improving.md`. Labels are personal; invented pairs with
 the same traps (same name at two companies, one person with two addresses) go global.
+
+### Senders: person, bot, list or brand (no model)
+
+`senders.classify()` says what a sender is from what a message carries (name, address, Slack ID) and what Fuzz
+knows about the address (whether the org directory found them, the other names it has sent as). It's rules, so
+the eval is a replay like Duplicates: labelled senders, the same answer every run. The global set
+(`eval_seeds/senders.json`) is invented from the traps a real store holds: a tracker relaying as whoever
+commented, a person's name on a no-reply address, a `Grp-` list, "Name at Company" marketing, a person whose
+address is an employee number or an old surname. Public services (github.com, linkedin.com) keep their own
+addresses; everything else is on the example domains.
+
+The costs aren't even: a person taken for a bot drops out of People and "waiting on", while a bot taken for a
+person is only clutter. So when nothing decides, it's a person, and every run reports `people_hidden` (labelled
+people it called something else) beside the confusion table. The gate is the usual one: nothing right went wrong.
+
+Directory: "not found" has to mean looked up and not found. An address nobody looked up is unknown (`null`),
+never `false`: treating the two alike once filed 150 colleagues as team mailboxes. Personal labels (your own
+corrections) are still to come.
 
 ### Fact judgments
 

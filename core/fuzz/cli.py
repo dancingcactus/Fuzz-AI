@@ -404,6 +404,13 @@ def _cmd_eval(a):
         if not run["gate_ok"]:
             sys.exit(1)
         return
+    if a.op == "senders":   # who a sender is (person, bot, list, brand): no model, labelled senders
+        from . import senders
+        run = senders.run(core, sets=a.set, against=a.against)
+        _print(senders.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op in ("copy", "copies", "approve", "reject"):   # a real case's invented copy, on its way to the repo
         from . import copies
         if a.op == "copies":
@@ -757,7 +764,7 @@ def parser():
     s.set_defaults(fn=cmd_learn)
 
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "drafts", "executor",
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "senders", "drafts", "executor",
                                   "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
