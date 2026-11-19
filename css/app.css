@@ -789,7 +789,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 .taskid-copy:hover, .taskid-copy:focus-visible { opacity: 1; background: var(--chip); }
 .taskid-copy.done { opacity: 1; color: var(--link); }
 
-/* ---------- New task ---------- */
+/* ---------- New ---------- */
 .capture { display: flex; flex-direction: column; gap: 24px; }
 /* Matches Triage: the same .stage and .perch (css/fuzz.css), the card itself is .card */
 .cap-card { padding-top: 26px; }
@@ -810,12 +810,8 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field label { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
 .field textarea { font-size: 16px; padding: 12px 14px; }
-.actions.cap-actions { grid-template-columns: 1fr auto; align-items: center; }
-.cap-actions .btn.primary { grid-column: auto; } /* Capture and Dictate share a row; the key hint goes underneath */
-.cap-actions .hint { grid-column: 1 / -1; }
+.actions.cap-actions { grid-template-columns: 1fr; align-items: center; } /* Capture, with the key hint underneath (the mic is in the box) */
 #cap-go:disabled { background: var(--line); color: var(--muted); border-color: var(--line); box-shadow: none; opacity: 1; }
-.btn.dictate { padding: 0 16px; }
-.btn.dictate[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 .hint { font-size: 13px; color: var(--muted); }
 .recent { display: flex; flex-direction: column; gap: 14px; }
 .recent h2 { font-family: var(--font-display); font-size: 22px; font-weight: 800; }
@@ -1081,11 +1077,10 @@ p.onb-note { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px
 
 /* The dictation tip on the first New task screen */
 .cap-drop { position: relative; }
-.cap-dropzone { display: none; position: absolute; inset: 26px 0 0; border: 2px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
+.cap-dropzone { display: none; position: absolute; inset: 0; border: 2px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
 .cap-dropzone small { color: var(--muted); }
 .cap-dragging .cap-dropzone { display: flex; }
 .cap-drop.over .cap-dropzone { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
-.cap-add { margin: 2px 0 0; font-size: 14px; }
 .cap-tip { display: flex; gap: 10px; align-items: center; margin: -4px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--chip); font-size: 15px; }
 .tip-fz { width: 32px; flex: none; }
 
@@ -1343,16 +1338,23 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .serpart .meta { margin: 0 0 6px; }
 .partof.serline svg { vertical-align: -2px; margin-right: 4px; }
 /* New task's + */
-.cap-plusrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cap-drop .composer textarea { font-size: 16px; padding: 12px 14px; min-height: 104px; }
+.cap-plusrow { display: contents; }
 .cap-plus .menu.plusmenu { width: 340px; max-width: calc(100vw - 48px); max-height: 60vh; overflow: auto; }
 .cap-plus .opt { flex-direction: row; align-items: flex-start; gap: 12px; min-height: 44px; }
 .cap-plus .opt svg { flex: none; margin-top: 2px; }
 .cap-plus .opt b { display: block; font-weight: 700; color: var(--ink); }
 .cap-plus .opt small { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .cap-series { display: flex; flex-direction: column; gap: 2px; }
-.cap-series .fld { min-height: 40px; margin: 4px 4px 6px; padding: 6px 10px; border: var(--bw) solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font: inherit; }
+.cap-series .fld { width: auto; min-width: 0; min-height: 40px; margin: 4px 4px 6px; padding: 6px 10px; border: var(--bw) solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font: inherit; }
 .cap-series .grp { margin: 8px 12px 2px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .cap-series .meta { margin: 6px 12px; }
+/* A panel's top: Back to the list and its search, kept in view while the panel scrolls */
+.cap-phead { position: sticky; top: -6px; z-index: 1; display: flex; flex-direction: column; margin: -6px -6px 0; padding: 6px 6px 0; background: var(--surface); }
+.menu button.plusback { flex-direction: row; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; color: var(--ink); }
+.plusback svg { flex: none; color: var(--muted); }
+.plusback b { font-weight: 700; }
+.cap-flabel { margin: 4px 12px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .files .serpick svg { flex: none; }
 @media (max-width: 560px) {
   .fact { grid-template-columns: minmax(0, 1fr) auto auto; }

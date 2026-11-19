@@ -78,13 +78,13 @@ test('Lineup names what’s first, with no counts of what’s left', async () =>
   assert.match(await page.locator('#board .decide').textContent(), new RegExp(first.slice(0, 15).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*is first'));
 });
 
-test('New task: the field first, with focus; a document is a small link, and the box takes a drop', async () => {
+test('New: the field first, with focus; + and the mic sit in the box, as on Tell Fuzz, and the box takes a drop', async () => {
   await page.evaluate(() => App.navigate('#/capture'));
   await page.locator('#cap-text').waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'cap-text');
-  const order = await page.evaluate(() => { const a = document.querySelector('#cap-text'), b = document.querySelector('#dropbtn'); return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING; });
-  assert.ok(order, 'Add a document comes after the field');
-  assert.match(await page.locator('#dropbtn').textContent(), /Add a document/);
+  const inBox = await page.evaluate(() => ['#cap-text', '#cap-plus', '#cap-mic'].map(s => !!document.querySelector('.cap-drop .composer ' + s)));
+  assert.deepEqual(inBox, [true, true, true], 'the field, + and the mic share one box');
+  assert.equal(await page.locator('.cap-drop label:not(.sr)').count(), 0, 'no New task heading over the box');
   await page.evaluate(() => {
     const dt = new DataTransfer(); dt.items.add(new File(['x'], 'notes.txt', { type: 'text/plain' }));
     window.__dt = dt;

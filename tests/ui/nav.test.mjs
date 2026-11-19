@@ -216,7 +216,7 @@ test('Settings and New task follow the label pattern', async () => {
   await open('#/settings');
   assert.equal((await label()).text, 'Settings · Back to the Guide');
   await open('#/capture');
-  assert.equal((await label()).text, 'New task · Back to the Guide');
+  assert.equal((await label()).text, 'New · Back to the Guide');
 });
 
 test('Keys and help opens the page’s own key guide, or the short list', async () => {

@@ -13,7 +13,7 @@
     /* the bigger things you're working on (docs/series.md); #/series/<id> opens one's sheet */
     series: { view: window.SeriesView, title: 'Series' },
     artifacts: { view: window.ArtifactsView, title: 'Artifacts' },
-    capture: { view: window.CaptureView, title: 'New task' },
+    capture: { view: window.CaptureView, title: 'New' },
     welcome: { view: window.Onboard.view, title: 'Welcome' },
     settings: { view: window.SettingsView, title: 'Settings' },
     /* a debugging page, not in the menu: Settings, What I've learned, links to it */
@@ -96,7 +96,7 @@
       /* Deep Work's session bar takes the same slot; js/view-deepwork.js shows and paints it */
       '<div class="hprog dwprog" id="dwprog" hidden><div class="dwbar" id="dwbar" aria-hidden="true"></div><span class="dwprog-t" id="dwprog-t"></span></div>' +
       /* On narrow screens these collapse to icons (New task moves to the floating #fab); .lbl stays for screen readers. */
-      '<div class="appbar-right"><a href="#/capture" class="themebtn nav-cta" title="New task (N)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New task</span></a>' +
+      '<div class="appbar-right"><a href="#/capture" class="themebtn nav-cta" title="New (N)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New</span></a>' +
         '<div class="undowrap"><button type="button" class="themebtn undobtn" id="undobtn" aria-expanded="false" aria-controls="undopop" aria-haspopup="dialog" disabled>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Undo</span><span class="navcount" id="undocount"></span></button>' +
         '<div class="themepop undopop" id="undopop" role="dialog" aria-label="Recent actions" hidden></div></div>' +
@@ -113,7 +113,7 @@
           '<button type="button" role="menuitem" data-menu="keys">' + ICON.keys + '<span><b>Keys and help</b></span><kbd aria-hidden="true">?</kbd></button>' +
         '</div></div></div>' +
       '<dialog class="dlg keys-dlg" id="appkeys" aria-labelledby="appkeys-h"><div class="dlg-in"><div class="dlg-top"><h2 id="appkeys-h">Keys and help</h2><button type="button" class="iconbtn" data-close aria-label="Close">' + XSVG + '</button></div>' +
-        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New task</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and My work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
+        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and My work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
         '<section><h3>Getting around</h3><p class="meta">The Fuzz logo opens the Guide, where you pick where to start. The label next to it says where you are; click it to go back. Lineup, Artifacts and Settings are in the menu with Fuzz’s head.</p></section></div></dialog>';
     document.getElementById('undobtn').addEventListener('click', function () { toggleMenu(false); toggleUndo(); });
     if (window.Feedback) Feedback.bind(document.getElementById('fbbtn'));
@@ -198,7 +198,7 @@
   }
 
   /* ---------- The label: where you are, and the way back ---------- */
-  var PLACE = { triage: 'Triage', tasks: 'Lineup', series: 'Series', artifacts: 'Artifacts', capture: 'New task', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
+  var PLACE = { triage: 'Triage', tasks: 'Lineup', series: 'Series', artifacts: 'Artifacts', capture: 'New', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
   var BACK = 'Back to the Guide';
   /* "13:30" (a calendar link's until) as "1:30pm"; null when it isn't a time */
   function fmtUntil(hhmm) {
