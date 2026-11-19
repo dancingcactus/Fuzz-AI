@@ -193,6 +193,28 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
 .choice b { font-size: 14.5px; }
 .choice span { font-size: 12.5px; color: var(--muted); }
 .dabout .btn { flex: none; }
+/* fact rows: the row edits, the x removes; Undo right under the list */
+.facts li.fact-row { display: flex; align-items: stretch; }
+.fact-row .fact { flex: 1; min-width: 0; padding-right: 8px; }
+.fact-row:hover { background: var(--field); }
+.fact-row .fact:hover { background: transparent; }
+.frm { flex: none; width: 44px; border: 0; background: transparent; color: var(--muted); opacity: .55; display: grid; place-items: start center; padding-top: 14px; }
+.fact-row:hover .frm, .frm:focus-visible { opacity: 1; }
+.frm:hover { color: var(--blocked); }
+.undo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--field); font-size: 14px; }
+.undo span { flex: 1 1 240px; }
+/* artifacts from the series' tasks, shaped like the Artifacts page rows */
+.afile { flex: none; width: 36px; height: 44px; border-radius: 7px 12px 7px 7px; display: inline-flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+  font-size: 10px; font-weight: 800; letter-spacing: .04em; background: var(--chip); color: var(--ink); border: 1px solid var(--line); }
+.afile--word { background: color-mix(in srgb, #2B5CC8 16%, var(--surface)); }
+.afile--slides { background: color-mix(in srgb, #C8572B 18%, var(--surface)); }
+.afile--pdf { background: color-mix(in srgb, #B8323A 15%, var(--surface)); }
+.afile--markdown { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.afile--table { background: color-mix(in srgb, var(--done) 18%, var(--surface)); }
+.linkbtn { align-self: flex-start; border: 0; background: none; padding: 4px 2px; min-height: 36px; color: var(--link); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+/* people: the most involved first; past 5 the rest fold, with a filter */
+.av.big { width: 34px; height: 34px; margin: 0; font-size: 12px; border: 0; flex: none; }
+.prow { min-height: 54px; padding-block: 8px; }
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
 .kv > div { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .kv h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); opacity: .75; }
@@ -435,7 +457,8 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     { id: 'page', label: 'B · Series page', render: function (k) { return seriesPage(k); },
       notes: [['What changes', ['Clicking a series opens its own page in place, like an artifact. No dialog over the list.', 'The top bar has a back pill to Series, the name with a short status line, Work on it, and ⋯ for the rarer moves.', 'The top repeats the list card (about, strip, Last, Next), so the page reads as the same thing, opened up.']],
               ['Editing', ['Every line Fuzz knows is a row you click to fix in place, with its source under it. Your fixes say “you”.', 'How Fuzz spots it: remove a chip that catches the wrong work, or type one Fuzz missed.']],
-              ['Adding what’s missing', ['This opens on Acme security review, where Fuzz knows little. Only known facts are rows.', 'The gaps sit underneath as “+ Goal”, “+ Your part” chips. Each opens a form shaped for that fact, with Fuzz’s ideas and one line on how Fuzz uses it.', '“+ Something else” adds rarer facts: Owner, Blocked on, Rhythm, Not part of it.']]] },
+              ['Adding what’s missing', ['This opens on Acme security review, where Fuzz knows little. Only known facts are rows.', 'The gaps sit underneath as “+ Goal”, “+ Your part” chips. Each opens a form shaped for that fact, with Fuzz’s ideas and one line on how Fuzz uses it.', '“+ Something else” adds rarer facts: Owner, Blocked on, Rhythm, Not part of it.']],
+              ['Removing, people, artifacts', ['Each fact has an ×. Removing one sends it back to the gaps, with Undo right under the list.', 'People are ranked by how many tasks they’re in. Past 5, the top 4 show and the rest open with a filter (see Billing platform migration).', 'Artifacts lists what Fuzz wrote for the series’ tasks, like the Artifacts page, newest 4 first.']]] },
     { id: 'sentence', label: 'C · In a sentence', render: sentence,
       notes: [['What changes', ['Fuzz writes one sentence per series: what it is, your part, where it stands, and when it’s done.', '“Next in …” is the one action, like Triage’s single suggestion.', 'Gone quiet cards drop to a dashed outline, with no warning colours.']],
               ['Trade-off', ['The most readable, and the most text. Fine for 5 series; 15 gets long.', 'Needs Fuzz to write a good sentence even when facts are thin.']]] },
@@ -476,7 +499,42 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
       ['Done when', '', '', ''], ['Next milestone', 'Questionnaire due Dec 5', 'Lena Fischer by email', 'Reported']],
     open: [['Reply to Lena with the SOC 2 report', 'In Triage', 't-accent'], ['Answer section 3: data retention', 'With Fuzz', 't-accent'], ['Ask Ben who signs the questionnaire', 'Later', 't-muted']] };
   EXTRA['Report builder launch'] = { open: [['Update the release notes from Marco’s QA pass', 'In Triage', 't-accent'], ['Review the launch email Jen drafted', 'Needs your OK', 't-wait']] };
-  var DC = {}, cur = 1, editing = null, tasksTab = 'open';
+  var DC = {}, cur = 1, editing = null, tasksTab = 'open', removed = null, peopleAll = false;
+  /* people in a series, most involved first: [name, how they're in it, tasks they're in] (made up) */
+  var PEOPLE = {
+    'Billing platform migration': [['Ana Costa', 'Owner · Finance', 22], ['Ben Okafor', 'Platform lead · you’re waiting on them', 15], ['Dana Ortiz', 'Your manager', 9],
+      ['Marco Ruiz', 'QA', 7], ['Lena Park', 'Billing support', 6], ['Raj Mehta', 'Data', 5], ['Sofia Alvarez', 'Customer success', 4], ['Tom Becker', 'Finance', 3],
+      ['Yuki Tanaka', 'Platform', 3], ['Grace Liu', 'Legal', 2], ['Omar Haddad', 'Customer success', 2], ['Nina Petrova', 'Platform', 1], ['Chris Doyle', 'Sales', 1], ['Priya Raman', 'Leadership', 1]],
+    'Acme security review': [['Lena Fischer', 'Acme · sent the questionnaire', 4], ['Ben Okafor', 'Knows who signs it', 1]]
+  };
+  function people(x) { return PEOPLE[x.name] || x.people.map(function (n, i) { return [n, '', Math.max(1, x.open + x.done - i * 3)]; }); }
+  var FILES = {
+    'Billing platform migration': [['Group 5 cutover note.md', 'markdown', 'Draft the Group 5 cutover note to customers', 'Just now'], ['Group 4 invoice check.csv', 'table', 'Check Group 4 invoices match the old system', 'Yesterday'],
+      ['Finance walkthrough.pptx', 'slides', 'Walk Finance through the new reports', '3 days ago'], ['Migration plan v3.docx', 'word', 'Update the migration plan for Groups 5 and 6', 'Last week'],
+      ['Group 3 rounding fix.md', 'markdown', 'Fix the rounding difference on Group 3 invoices', '2 weeks ago'], ['Cutover checklist.md', 'markdown', 'Group 4 cutover', '2 weeks ago'],
+      ['Old export retirement plan.pdf', 'pdf', 'Retire the old invoice export job', '3 weeks ago']],
+    'Acme security review': [['Section 3 answers.docx', 'word', 'Answer section 3: data retention', 'Today'], ['SOC 2 report.pdf', 'pdf', 'Reply to Lena with the SOC 2 report', 'Yesterday']],
+    'Northwind rollout': [['Pilot plan.docx', 'word', 'Send the pilot plan to legal', 'Tue'], ['Friday status note.md', 'markdown', 'Send Priya Friday’s status note', 'Last Fri']]
+  };
+  var BADGE = { markdown: 'MD', word: 'DOC', slides: 'PPT', pdf: 'PDF', table: 'CSV' };
+  function filesHTML(x) {
+    var fs = FILES[x.name] || [], h = '<section class="dsec"><div class="dsec-h"><h2>Artifacts' + (fs.length ? ' <span class="lcount">' + fs.length + '</span>' : '') + '</h2><p class="meta">What Fuzz wrote for this series’ tasks, newest first.</p></div>';
+    if (!fs.length) return h + '<p class="meta">Nothing yet. When Fuzz writes a document, a deck or a checklist for one of these tasks, it shows up here.</p></section>';
+    h += '<ul class="lrows">' + fs.slice(0, 4).map(function (f) {
+      return '<li><button type="button" class="lrow no-tile"><span class="afile afile--' + f[1] + '" aria-hidden="true">' + BADGE[f[1]] + '</span><span class="lrow-main"><span class="rt">' + esc(f[0]) + '</span>' +
+        '<span class="rs">For ' + esc(f[2]) + ' · ' + esc(f[3]) + '</span></span><span class="go">' + I.go + '</span></button></li>'; }).join('') + '</ul>';
+    return h + (fs.length > 4 ? '<button type="button" class="linkbtn">See all ' + fs.length + ' in Artifacts</button>' : '') + '</section>';
+  }
+  function peopleHTML(x) {
+    var ps = people(x), many = ps.length > 5, shown = many && !peopleAll ? ps.slice(0, 4) : ps;
+    var h = '<section class="dsec"><div class="dsec-h"><h2>People <span class="lcount">' + ps.length + '</span></h2><p class="meta">' + (ps.length > 1 ? 'The ones in the most of its tasks first.' : '') + '</p></div>';
+    if (many && peopleAll) h += '<label class="sr" for="d-pq">Find someone</label><input id="d-pq" class="fld" data-1p-ignore autocomplete="off" placeholder="Find someone">';
+    h += '<ul class="lrows" id="d-people">' + shown.map(function (p) {
+      return '<li data-name="' + esc(p[0].toLowerCase() + ' ' + p[1].toLowerCase()) + '"><div class="lrow no-tile prow"><span class="av big" aria-hidden="true">' + initials(p[0]) + '</span><span class="lrow-main"><span class="ra">' + esc(p[0]) + '</span>' +
+        (p[1] ? '<span class="rs">' + esc(p[1]) + '</span>' : '') + '</span><span class="lrow-side"><span class="rs">in ' + p[2] + (p[2] === 1 ? ' task' : ' tasks') + '</span></span></div></li>'; }).join('') + '</ul>';
+    if (many) h += '<button type="button" class="linkbtn" data-people>' + (peopleAll ? 'Show fewer' : 'Show all ' + ps.length + ' people') + '</button>';
+    return h + '</section>';
+  }
   function det(k) {
     if (DC[k]) return DC[k];
     var x = S[k], e = EXTRA[x.name] || {};
@@ -504,7 +562,7 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     var menu = [['Rename', ''], ['Quiet the suggestions', 'It stays a series. Fuzz just stops suggesting.'], ['Split it into parts', 'It’s really a few things. Name each and pick where its tasks go.'],
       null, ['It’s wrapped up', ''], ['Not a series', 'Its tasks stay. They just aren’t grouped.'], ['It’s ongoing, not a series', 'Part of your job with no finish line.']];
     return '<button type="button" class="btn dback" data-back>' + I.back + 'Series</button>' +
-      '<div class="dtitle"><h1>' + esc(x.name) + '</h1><p class="meta">' + (x.role ? PART[x.role] + ' · ' : '') + 'moved ' + esc(x.moved) + ' · with ' + esc(x.people.join(', ')) + '</p></div>' +
+      '<div class="dtitle"><h1>' + esc(x.name) + '</h1><p class="meta">' + (x.role ? PART[x.role] + ' · ' : '') + 'moved ' + esc(x.moved) + ' · with ' + esc(people(x)[0][0]) + (people(x).length > 1 ? ' and ' + (people(x).length - 1) + (people(x).length === 2 ? ' other' : ' others') : '') + '</p></div>' +
       '<div class="dacts"><button type="button" class="btn primary">Work on it</button><details class="dmore"><summary class="btn" aria-label="More for ' + esc(x.name) + '">' + I.dots + '</summary>' +
       '<div class="dmenu" role="menu">' + menu.map(function (m) { return m ? '<button type="button" role="menuitem"><b>' + m[0] + '</b>' + (m[1] ? '<span>' + m[1] + '</span>' : '') + '</button>' : '<hr>'; }).join('') + '</div></details></div>';
   }
@@ -566,8 +624,9 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     var rows = known.map(function (i) {
       var f = d.facts[i];
       if (editing === 'f' + i) return '<li>' + eform('f' + i, f[0], f[1], f[1].length > 60) + '</li>';
-      return '<li><button type="button" class="fact" data-edit="f' + i + '"><span class="fl">' + esc(f[0]) + '</span><span class="fv"><span class="v">' + esc(f[1]) + '</span>' +
-        '<span class="s">' + esc(f[2]) + (f[3] ? ' · ' + esc(f[3]) : '') + '</span></span><span class="pen">' + I.pencil + '</span></button></li>';
+      return '<li class="fact-row"><button type="button" class="fact" data-edit="f' + i + '" aria-label="Edit ' + esc(f[0]) + '"><span class="fl">' + esc(f[0]) + '</span><span class="fv"><span class="v">' + esc(f[1]) + '</span>' +
+        '<span class="s">' + esc(f[2]) + (f[3] ? ' · ' + esc(f[3]) : '') + '</span></span><span class="pen">' + I.pencil + '</span></button>' +
+        '<button type="button" class="frm" data-rmfact="' + i + '" aria-label="Remove ' + esc(f[0]) + '" title="Remove">' + I.x + '</button></li>';
     });
     if (adding) rows.push('<li>' + addForm(x, adding) + '</li>');
     var gaps = missing.map(function (i) { return d.facts[i][0]; }).filter(function (l) { return l !== adding; });
@@ -575,6 +634,7 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     var h = '<section class="dsec"><div class="dsec-h"><h2>What Fuzz knows</h2><p class="meta">' +
       (known.length ? 'Click a line to fix it. Each one says where it came from.' : 'Nothing yet. Add what you know and Fuzz builds on it.') + '</p></div>';
     if (rows.length) h += '<ul class="lrows facts">' + rows.join('') + '</ul>';
+    if (removed && removed.k === cur) h += '<div class="undo" role="status"><span>Removed “' + esc(removed.row[0]) + '”. Fuzz won’t bring it back unless something new says it.</span><button type="button" class="btn" data-undo>Undo</button></div>';
     if (gaps.length || extras.length) h += '<div class="gaps">' + (gaps.length ? '<span class="gaps-l">Fuzz doesn’t know yet</span>' : '<span class="gaps-l">Add more</span>') +
       gaps.map(function (l) { return '<button type="button" class="gchip" data-add="' + esc(l) + '">' + I.plus + esc(l) + '</button>'; }).join('') +
       (extras.length ? '<details class="gmore"><summary class="gchip">' + I.plus + 'Something else</summary><div class="dmenu" role="menu">' +
@@ -601,14 +661,14 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     h += '<section class="dsec"><div class="dsec-h"><h2>Tasks</h2><div class="seg" role="group" aria-label="Show"><button type="button" data-tab="open" aria-pressed="' + (tasksTab === 'open') + '">Open ' + x.open + '</button><button type="button" data-tab="done" aria-pressed="' + (tasksTab === 'done') + '">Done ' + x.done + '</button></div></div>' +
       (tasksTab === 'open' ? '<form class="addrow" data-addtask autocomplete="off"><label class="sr" for="d-add">Add a task</label><input id="d-add" class="fld" data-1p-ignore placeholder="Add a task to ' + esc(x.name) + '"><button class="btn">Add</button></form>' : '') +
       '<ul class="lrows">' + list.join('') + '</ul></section>';
+    h += filesHTML(x) + peopleHTML(x);
     h += '<section class="dsec"><div class="dsec-h"><h2>How Fuzz spots it</h2><p class="meta">New work that touches any of these lands here. Remove one that catches the wrong things; add one Fuzz missed.</p></div><div class="chips">' +
       d.anchors.map(function (a, i) { return '<span class="chip' + (a[1] ? ' yours' : '') + '"' + (a[1] ? ' title="You added this"' : '') + '>' + esc(a[0]) + '<button type="button" data-unanchor="' + i + '" aria-label="Stop using ' + esc(a[0]) + '">' + I.x + '</button></span>'; }).join('') +
       '<form data-anchor autocomplete="off"><label class="sr" for="d-anc">Add a way Fuzz spots it</label><input id="d-anc" class="fld chip-add" data-1p-ignore placeholder="+ A word, channel or ticket"></form></div></section>';
     var kv = '';
     if (d.deliverables.length) kv += '<div><h3>Deliverables</h3>' + d.deliverables.map(function (v) { return '<p>' + esc(v[0]) + '</p><p class="meta">' + esc(v[1]) + '</p>'; }).join('') + '</div>';
     if (d.decided.length) kv += '<div><h3>Decided</h3>' + d.decided.map(function (v) { return '<p>' + esc(v[0]) + ' <span class="meta">· ' + esc(v[1]) + '</span></p>'; }).join('') + '</div>';
-    kv += '<div><h3>People</h3><p>' + esc(x.people.join(', ')) + '</p></div>';
-    return h + '<section class="dsec"><div class="kv">' + kv + '</div></section>';
+    return kv ? h + '<section class="dsec"><div class="kv">' + kv + '</div></section>' : h;
   }
 
   var picker = document.getElementById('picker'), page = document.getElementById('page'), notes = document.getElementById('notes'), bar = document.getElementById('appbar');
@@ -645,6 +705,10 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     if (e.target.closest('[data-confirm]')) { S[cur].guess = false; paint(); return; }
     if (e.target.closest('[data-cancel]')) { editing = null; paint(); return; }
     var t = e.target.closest('[data-tab]'); if (t) { tasksTab = t.dataset.tab; paint(); return; }
+    var rm = e.target.closest('[data-rmfact]');
+    if (rm) { var row = det(cur).facts[+rm.dataset.rmfact]; removed = { k: cur, row: row, prev: row.slice() }; row[1] = ''; editing = null; paint(); return; }
+    if (e.target.closest('[data-undo]') && removed) { var r0 = removed.row; r0[1] = removed.prev[1]; r0[2] = removed.prev[2]; r0[3] = removed.prev[3]; removed = null; paint(); return; }
+    if (e.target.closest('[data-people]')) { peopleAll = !peopleAll; paint(); if (peopleAll) { var q = page.querySelector('#d-pq'); if (q) q.focus(); } return; }
     var u = e.target.closest('[data-unanchor]'); if (u) { det(cur).anchors.splice(+u.dataset.unanchor, 1); paint(); }
   });
   page.addEventListener('keydown', function (e) { if (e.key === 'Escape' && editing) { editing = null; paint(); } });
@@ -661,6 +725,12 @@ textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
     paint();
   });
   /* an open menu closes on a click anywhere else, or on Escape */
+  /* Find someone: filters the people rows as you type, without repainting */
+  page.addEventListener('input', function (e) {
+    if (e.target.id !== 'd-pq') return;
+    var q = e.target.value.trim().toLowerCase();
+    page.querySelectorAll('#d-people > li').forEach(function (li) { li.hidden = q && li.dataset.name.indexOf(q) < 0; });
+  });
   function closeMenus(keep) { document.querySelectorAll('details.dmore[open], details.gmore[open]').forEach(function (m) { if (m !== keep) m.removeAttribute('open'); }); }
   document.addEventListener('click', function (e) { closeMenus(e.target.closest('details.dmore, details.gmore')); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenus(null); });

@@ -37,8 +37,15 @@ One centered column:
   Goal and Done when offer Fuzz's ideas to fill the field, For / Owner / Blocked on offer the series' people.
   Every form has one line on how Fuzz uses the fact. "+ Something else" adds Owner, Blocked on, Rhythm
   or Not part of it. A guessed about line gets a "Looks right" button.
+  Each fact row also has an ×: removing one sends it back to the gaps, with an Undo line under the list
+  ("Fuzz won't bring it back unless something new says it").
 - Tasks: Open / Done, with Add a task
+- Artifacts: what Fuzz wrote for the series' tasks, shaped like the Artifacts page rows (file tile, name,
+  "For <task> · when"), newest 4, then "See all N in Artifacts"; an empty state when there are none
+- People: ranked by how many of its tasks they're in, with how they're involved ("Platform lead · you're
+  waiting on them"). Past 5, the top 4 show and "Show all N people" opens the rest with a Find someone
+  filter (matches names and roles). The top bar says "with Ana Costa and 13 others", not the whole list.
 - How Fuzz spots it: chips you remove, and a field to add one
-- Deliverables, Decided and People
+- Deliverables and Decided
 
 `#page-0` … `#page-5` open each demo series; `#page-3` (Acme) shows a sparse one.
