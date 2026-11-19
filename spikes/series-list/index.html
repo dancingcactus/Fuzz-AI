@@ -13,15 +13,15 @@
   --bg: #FBF3E8; --surface: #FFFBF4; --field: #F6EBDB; --ink: #3A2A20; --muted: #7A6454; --line: #E8D9C5; --chip: #F0E1CC;
   --done: #3E7B4F; --wait: #A86B12; --blocked: #B23A32;
   --accent: #B94E28; --on-accent: #FFFFFF; --link: #A23F1B;
-  --note: #EFE4D3;
+  --note: #EFE4D3; --on-done: #3A2A20;
   --shadow: 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent), 0 14px 30px -14px color-mix(in srgb, var(--ink) 38%, transparent);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #1E1612; --surface: #2A201A; --field: #352920; --ink: #F4E8DB; --muted: #C2AB98; --line: #43352B; --chip: #3B2D23;
-  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; color-scheme: dark } }
+  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; --on-done: #1E1612; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #1E1612; --surface: #2A201A; --field: #352920; --ink: #F4E8DB; --muted: #C2AB98; --line: #43352B; --chip: #3B2D23;
-  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; color-scheme: dark }
+  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; --on-done: #1E1612; color-scheme: dark }
 
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
@@ -116,8 +116,8 @@ h1, h2, h3, p { margin: 0; }
 .ep-edit { display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 10px; min-height: 30px; font-size: 13px; font-weight: 700; }
 .ep:hover .ep-edit, .ep-edit:focus-visible { color: var(--ink); border-color: var(--line); background: var(--surface); }
 .ep-edit:hover { border-color: var(--accent) !important; }
-.dot.five { width: auto; min-width: 26px; height: 18px; padding: 0 5px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink);
-  background: color-mix(in srgb, var(--done) 24%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--done) 70%, var(--surface)); }
+/* past 20 tasks: the done count in fives, a square just wide enough for three digits, the colour of a done dot */
+.dot.five { width: 22px; height: 22px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--on-done); }
 .more { font-size: 12px; font-weight: 700; color: var(--muted); margin-left: 2px; }
 /* the sheet, opened by clicking a series */
 .sheet { border: 1px solid var(--line); border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow); }
@@ -133,7 +133,7 @@ textarea.fld { resize: vertical; min-height: 64px; }
 .ep-top .rt { flex: 1 1 auto; min-width: 0; }
 .strip { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
 .dot { width: 12px; height: 12px; border-radius: 4px; flex: none; }
-.dot.d { background: color-mix(in srgb, var(--done) 70%, var(--surface)); }
+.dot.d, .dot.five { background: color-mix(in srgb, var(--done) 70%, var(--surface)); }
 .dot.o { border: 2px solid color-mix(in srgb, var(--accent) 70%, var(--surface)); }
 .dot.n { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .strip .meta { margin-left: 8px; font-size: 12.5px; }
@@ -308,7 +308,7 @@ textarea.fld { resize: vertical; min-height: 64px; }
         '<div class="ep-acts"><button class="btn" type="button" data-workon>Work on it</button></div></li>';
     }
     return head() + says(EXPLAIN.replace(' <button', ' Click one to see what I know about it and fix anything I got wrong. <button')) +
-      '<div class="legend"><span><span class="dot d"></span>A task that’s done</span><span><span class="dot five">35</span>Done so far, in fives, once a series passes 20 tasks</span><span><span class="dot n"></span>Up next</span><span><span class="dot o"></span>Still to do</span></div>' +
+      '<div class="legend"><span><span class="dot d"></span>A task that’s done</span><span><span class="dot n"></span>Up next</span><span><span class="dot o"></span>Still to do</span></div>' +
       '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><ul class="lrows">' + going().map(ep).join('') + '</ul></section>' +
       '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><ul class="lrows">' + quiet().map(ep).join('') + '</ul></section>' + folds();
   }
