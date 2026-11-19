@@ -1,4 +1,4 @@
-/* New task. Capture costs nothing (principle 8): type or dictate, no categories, triage happens later.
+/* New (the screen used to be New task). Capture costs nothing (principle 8): type or dictate, no categories, triage happens later.
    Layout comes from the Triage Queue mockup's Capture board. */
 (function () {
   var V = {};
@@ -19,6 +19,9 @@
     ['source', 'Source', 'An email, Slack thread or meeting Fuzz should read'], ['artifact', 'Artifact', 'Something Fuzz already made'],
     ['upload', 'Upload a file', 'Or drop it on the box']];
   function plusIcon(k) { return { series: SeriesView.ICON, person: PERSON_SVG, source: LINK_SVG, artifact: FILE_SVG, upload: UP_SVG }[k]; }
+  /* Back to the + list, at the top of every panel; it stays put while the panel scrolls */
+  var BACK_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
+  function backHTML(what) { return '<button type="button" class="plusback" data-plusback aria-label="Back to the list">' + BACK_SVG + '<b>' + what + '</b></button>'; }
   function roleShort(s) { return s.role_label ? s.role_label.replace(/ it$/, '') : ''; }
   function emptyRefs() { return { people: [], links: [], artifacts: [] }; }
   /* The Series panel: find one, start a new one from this, one Fuzz has been watching, or one of yours */
@@ -28,7 +31,7 @@
     var watching = all.filter(function (s) { return s.section === 'watching' && match(s); });
     var yours = all.filter(function (s) { return ['new', 'going', 'quiet'].indexOf(s.section) > -1 && match(s); });
     var row = function (s, sub) { return '<button type="button" role="menuitem" class="opt" data-serpick="' + s.id + '"><span><b>' + esc(s.name) + '</b><small>' + esc(sub) + '</small></span></button>'; };
-    return '<div class="cap-series" id="cap-series"><label class="sr" for="cap-q">Find a series</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find a series" value="' + esc(panelQ) + '">' +
+    return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Series') + '<label class="sr" for="cap-q">Find a series</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find a series" value="' + esc(panelQ) + '"></div>' +
       '<button type="button" role="menuitem" class="opt" data-serstart><span><b>Start a new series from this</b><small>Fuzz gathers the tasks, people and places that go with it. You check them in Triage.</small></span></button>' +
       (watching.length ? '<p class="grp">Fuzz has been watching</p>' + watching.map(function (s) { return row(s, (s.open + s.done) + ' tasks look like the same thing. Start from these.'); }).join('') : '') +
       (yours.length ? '<p class="grp">Your series</p>' + yours.map(function (s) { return row(s, [roleShort(s), s.section === 'quiet' ? 'quiet' : s.section === 'new' ? 'waiting for your OK' : ''].filter(Boolean).join(' · ')); }).join('') : '') +
@@ -41,13 +44,13 @@
       return '<div class="opt cap-person"><span><b>' + esc(p.name) + '</b>' + (p.email ? '<small>' + esc(p.email) + '</small>' : '') + '</span>' +
         '<span class="scard-acts"><button type="button" class="btn small" data-person="' + i + '" data-role="for">For them</button><button type="button" class="btn small" data-person="' + i + '" data-role="about">About them</button></span></div>';
     };
-    return '<div class="cap-series" id="cap-series"><label class="sr" for="cap-q">Find a person</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="A name or an email" value="' + esc(panelQ) + '">' +
+    return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Person') + '<label class="sr" for="cap-q">Find a person</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="A name or an email" value="' + esc(panelQ) + '"></div>' +
       list.map(row).join('') + (q && !list.some(function (p) { return p.name.toLowerCase() === q.toLowerCase(); }) ? row({ name: q, email: /@/.test(q) ? q : '' }, -1) : '') +
       (!q && !list.length ? '<p class="meta">Type a name. Fuzz suggests the people it knows.</p>' : '') + '</div>';
   }
   /* Source: the link to an email, a Slack thread, a meeting's notes or a page */
   function sourcePanelHTML() {
-    return '<form class="cap-series" id="cap-series" data-form="source"><label for="cap-q">A link Fuzz should read</label><input id="cap-q" class="fld" type="url" autocomplete="off" placeholder="https://… (an email, a Slack thread, a meeting’s notes)" value="' + esc(panelQ) + '">' +
+    return '<form class="cap-series" id="cap-series" data-form="source"><div class="cap-phead">' + backHTML('Source') + '</div><label class="cap-flabel" for="cap-q">A link Fuzz should read</label><input id="cap-q" class="fld" type="url" autocomplete="off" placeholder="https://… (an email, a Slack thread, a meeting’s notes)" value="' + esc(panelQ) + '">' +
       '<p class="meta">Fuzz reads it with your task. Copy the link from Outlook, Slack or the notes.</p><button class="btn small primary">Add it</button></form>';
   }
   /* Artifact: something Fuzz already wrote, for this task to build on */
@@ -57,7 +60,7 @@
       list.filter(function (a) { return !q || (a.name + ' ' + a.task).toLowerCase().indexOf(q) > -1; }).slice(0, 8).map(function (a, i) {
         return '<button type="button" role="menuitem" class="opt" data-artifact="' + esc(a.id) + '"><span><b>' + esc(a.name) + '</b><small>For ' + esc(a.task || 'a task') + '</small></span></button>';
       }).join('');
-    return '<div class="cap-series" id="cap-series"><label class="sr" for="cap-q">Find something Fuzz made</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find something Fuzz made" value="' + esc(panelQ) + '">' + body + '</div>';
+    return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Artifact') + '<label class="sr" for="cap-q">Find something Fuzz made</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find something Fuzz made" value="' + esc(panelQ) + '"></div>' + body + '</div>';
   }
   function plusHTML() {
     var body = panel === 'series' ? seriesPanelHTML() : panel === 'person' ? personPanelHTML() : panel === 'source' ? sourcePanelHTML()
@@ -108,8 +111,11 @@
     }).join('');
   }
 
-  V.mount = function (container) {
+  V.mount = function (container, info) {
     root = container; listening = false; confirm = '';
+    /* The Series page's Start a series: it opens with New series from this already picked */
+    var startSeries = !!(info && info.params && info.params.series === 'start');
+    if (startSeries) serPick = { start: true };
     /* The first New task screen teaches dictation; during the onboarding, Esc leads back to it */
     var ob = Onboard.onCapture();
     /* Same shape as Triage: the full Fuzz on a perch with his speech bubble, then one card.
@@ -119,16 +125,17 @@
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div class="card cap-card">' +
         '<h1 id="cap-h" class="cap-title">What is on your mind?</h1>' +
-        /* The field comes first and has focus. While a file is dragged over the page, the box is the drop zone. */
-        '<div class="field cap-drop" id="drop"><label for="cap-text">New task</label><textarea id="cap-text" rows="4" placeholder="For example: send Sam the slides from Tuesday"' + (ob && ob.tip ? ' aria-describedby="cap-tip"' : '') + '></textarea>' +
-          '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div></div>' +
-        '<div class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</div>' +
-        '<ul class="files" id="files" aria-label="Attached documents and the series"></ul>' +
-        '<p class="cap-add"><button type="button" class="linkbtn inline" id="dropbtn">Add a document</button><span class="meta"> or drop one on the box. Fuzz reads it along with your task.</span>' +
-          '<input type="file" id="file" multiple hidden></p>' +
+        /* The same box as Tell Fuzz on a Triage card: the field, with + and the mic inside it and what you added
+           beside them. The field has focus; while a file is dragged over the page, the box is the drop zone. */
+        '<div class="cap-drop" id="drop"><label class="sr" for="cap-text">New</label>' +
+          '<div class="composer"><textarea id="cap-text" rows="4" placeholder="For example: send Sam the slides from Tuesday"' + (ob && ob.tip ? ' aria-describedby="cap-tip"' : '') + '></textarea>' +
+            '<div class="refs"><div class="composer-bar"><span class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</span>' +
+              Dictate.button('cap-text', 'Dictate', 'plusbtn').replace('<button ', '<button id="cap-mic" ') +
+              '<ul class="files" id="files" aria-label="Attached documents and the series"></ul></div></div></div>' +
+          '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div>' +
+          '<input type="file" id="file" multiple hidden></div>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          '<button type="button" class="btn dictate" id="cap-mic" aria-pressed="false" aria-keyshortcuts="Alt+Space"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="mic-l">Dictate</span></button>' +
           '<span class="hint">Ctrl or Cmd + Enter to capture · Hold ' + Dictate.key + ' to dictate · Esc to go back</span></div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
@@ -139,6 +146,7 @@
     function paintFiles() { $('#files').innerHTML = pickHTML() + attachedHTML(); sync(); }
     function paintPlus() { $('#cap-plusrow').innerHTML = plusHTML(); }
     function closePlus(focus) { plusOpen = false; panel = null; panelQ = ''; paintPlus(); if (focus) $('#cap-plus').focus(); }
+    function backToList() { panel = null; panelQ = ''; paintPlus(); var f = root.querySelector('#cap-plusmenu [data-plus="series"]'); if (f) f.focus(); }
     function picked(say) { closePlus(); paintFiles(); ta.focus(); if (say) Fuzz.say(say, { type: false }); }
     /* People and artifacts come from the core (live) or the demo's own */
     function findPeople() {
@@ -168,6 +176,7 @@
     /* New task's +: Series (pick one, or start one from this), Person, Source, Artifact and Upload a file */
     $('#cap-plusrow').addEventListener('click', function (e) {
       if (e.target.closest('#cap-plus')) { plusOpen = !plusOpen; panel = null; panelQ = ''; paintPlus(); var f = root.querySelector('#cap-plusmenu [role="menuitem"]'); if (plusOpen && f) f.focus(); return; }
+      if (e.target.closest('[data-plusback]')) { backToList(); return; }
       var p = e.target.closest('[data-plus]');
       if (p && p.dataset.plus === 'upload') { closePlus(); $('#file').click(); return; }
       if (p) {
@@ -236,7 +245,6 @@
       nudge(); Fuzz.pAnim('gulp'); moodFor('eager', 1400);
       Fuzz.say(list.length === 1 ? 'Ooh, reading material. I’ll look at it with your task.' : 'A whole stack. I’ll read them with your task.', { type: false });
     }
-    $('#dropbtn').addEventListener('click', function () { $('#file').click(); });
     $('#file').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
     /* Drag a file anywhere over the page and the box turns into a drop zone; it lights up under the file */
     var drop = $('#drop'), depth = 0;
@@ -261,7 +269,7 @@
     var mic = $('#cap-mic');
     function opts() {
       nudge(); clearTimeout(moodTimer);
-      return { done: 'Got all of that. Capture it when you’re ready.', onChange: function (on) { listening = on; mic.setAttribute('aria-pressed', String(on)); $('#mic-l').textContent = on ? 'Listening…' : 'Dictate'; } };
+      return { done: 'Got all of that. Capture it when you’re ready.', onChange: function (on) { listening = on; mic.setAttribute('aria-pressed', String(on)); mic.setAttribute('aria-label', on ? 'Listening… (press to stop)' : 'Dictate'); } };
     }
     mic.addEventListener('click', function () { if (Dictate.active()) Dictate.stop(); else Dictate.start(ta, opts()); });
     unhold = Dictate.hold(function () { return ta; }, opts);
@@ -288,12 +296,14 @@
     go.addEventListener('click', submit);
     Fuzz.mount(root, {});
     paintFiles(); paintList(); paintSay(); nudge();
+    if (startSeries) Fuzz.say('Say what the series is about. I’ll gather what goes with it, and you check it in Triage.', { type: false });
     unsub = Store.on(function () { paintList(); });
     timer = setInterval(paintList, 2000);
     /* Esc goes back to Triage (an open popover takes Escape first, in app.js). */
     escKey = function (e) {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
       e.preventDefault();
+      if (plusOpen && panel) { backToList(); return; }   /* in a panel, Esc goes back to the list first */
       if (plusOpen) { closePlus(true); return; }
       /* Escape stops listening first, keeping what was heard */
       if (Dictate.active()) Dictate.stop(); else App.navigate(ob && ob.back && Onboard.active() ? ob.back : '#/guide');   /* back to the Guide, like the label says */
