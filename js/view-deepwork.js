@@ -353,11 +353,12 @@
     merged: ['Duplicates merged', 'Duplicate merged'],
     let_go: ['Let go', 'Let go'],
     new: ['New tasks', 'New task'],
+    series: ['New series', 'New series'],
     reopened: ['Back with news', 'Back with news'],
     updated: ['Updated', 'Updated']
   };
   /* Each task in the list, by what happened to it */
-  var AWAY_TAG = { closed: 'Complete', sent: 'Sent', drafted: 'Drafted', waiting: 'Waiting', merged: 'Merged', let_go: 'Let go', new: 'New', reopened: 'Back', updated: 'Updated' };
+  var AWAY_TAG = { closed: 'Complete', sent: 'Sent', drafted: 'Drafted', waiting: 'Waiting', merged: 'Merged', let_go: 'Let go', new: 'New', series: 'Series', reopened: 'Back', updated: 'Updated' };
   /* One icon per kind, on the chips and the list's tags, in the stroke style of the activity log's badges */
   var AWAY_ICON = {
     closed: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3',
@@ -367,13 +368,14 @@
     merged: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
     let_go: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
     new: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z',
+    series: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
     reopened: 'M1 4v6h6M3.5 15a9 9 0 1 0 2.1-9.4L1 10',
     updated: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
   };
   function awayIcon(k, size) {
     return '<svg class="g-away-ic" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (AWAY_ICON[k] || '') + '"/></svg>';
   }
-  var AWAY_ORDER = ['closed', 'sent', 'drafted', 'waiting', 'merged', 'let_go', 'new', 'reopened', 'updated'];
+  var AWAY_ORDER = ['closed', 'sent', 'drafted', 'waiting', 'merged', 'let_go', 'new', 'series', 'reopened', 'updated'];
   function demoAway() {
     var at = function (min) { return new Date(Date.now() - min * 60000).toISOString(); };
     var venue = Store.item('venue'), budget = Store.item('budget');
@@ -382,6 +384,8 @@
     if (budget) items.push({ kind: 'waiting', task_id: budget.id, title: budget.title, at: at(95), text: 'You asked Dana Reyes in Email. Fuzz moved this to waiting on Dana Reyes and checks back Friday, sooner if they reply.' });
     var more = Store.inState('triage').slice(0, 2);
     more.forEach(function (it, n) { items.push({ kind: 'new', task_id: it.id, title: it.title, at: at(30 + n * 20), text: 'Created from ' + (it.source || 'Email') + (it.who ? ' (' + it.who + ')' : '') }); });
+    var ser = Store.seriesList().filter(function (x) { return x.state === 'inferred'; })[0];
+    if (ser) items.push({ kind: 'series', series_id: ser.id, task_id: null, title: ser.name, at: at(70), text: 'Fuzz grouped ' + (ser.open + ser.done) + ' tasks that go together into a new series.' });
     var counts = {}; items.forEach(function (i) { counts[i.kind] = (counts[i.kind] || 0) + 1; });
     return { since: at(150), last_here: at(150), counts: counts, items: items };
   }

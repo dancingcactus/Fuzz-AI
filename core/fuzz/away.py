@@ -20,6 +20,7 @@ KINDS = [
     ("merged", ("task.merged",)),
     ("let_go", ("task.let_go",)),
     ("new", ("task.extracted",)),
+    ("series", ()),   # a series Fuzz started: from series events, not task ones (see _series)
     ("reopened", ("task.reopened", "task.came_back")),
     ("updated", ("task.reply_in",)),
 ]
@@ -29,6 +30,9 @@ KIND_OF = {t: k for k, types in KINDS for t in types}
 FUZZ = ("fuzz:extractor", "fuzz:executor", "fuzz:sender", "system")
 CLOSED = ("done", "dropped", "letgo", "resolved")
 MAX_ITEMS = 100   # the expand lists every task; this only guards a very long time away
+# Where a series Fuzz started shows up: made visible at once or promoted from forming (inferred), or a part of
+# a cluster the judge split. Forming ones aren't on your screen yet; they count when they're promoted.
+SERIES_EVENTS = ("series.inferred", "series.split")
 
 
 def window(core):
@@ -68,6 +72,9 @@ def summary(core):
         cur = best.get(r["task_id"])
         if cur is None or ORDER.index(kind) < ORDER.index(cur["kind"]):
             best[r["task_id"]] = {"kind": kind, "task_id": r["task_id"], "title": r["title"], "text": text, "at": r["ts"]}
+    for i in _series(core, since, now):
+        counts.setdefault("series", set()).add(i["series_id"])
+        best[("series", i["series_id"])] = i
     # most reassuring first, newest first within a kind
     by_kind = {}
     for i in sorted(best.values(), key=lambda i: i["at"], reverse=True):
@@ -79,3 +86,30 @@ def summary(core):
         "counts": {k: len(counts[k]) for k in ORDER if counts.get(k)},
         "items": items,
     }
+
+
+def _series(core, since, now):
+    """The series Fuzz started in the window that are still on your Series page, newest first, once each."""
+    rows = core.all(
+        f"SELECT ts, type, payload FROM events WHERE user_id=? AND ts>=? AND ts<=? AND actor IN ({','.join('?' * len(FUZZ))}) "
+        f"AND type IN ({','.join('?' * len(SERIES_EVENTS))}) ORDER BY id DESC",
+        (core.user_id, iso(since), now, *FUZZ, *SERIES_EVENTS))
+    found = {}
+    for r in rows:
+        p = r["payload"] if isinstance(r["payload"], dict) else json.loads(r["payload"] or "{}")
+        d = p.get("data") or {}
+        sids = [d.get("series_id")] if r["type"] == "series.inferred" else \
+            [m.get("series_id") for m in d.get("parts") or [] if not m.get("area") and m.get("state") == "inferred"]
+        for sid in sids:
+            if sid and sid not in found:
+                found[sid] = r["ts"]
+    out = []
+    for sid, at in found.items():
+        s = core.one("SELECT name, kind, state, origin FROM series WHERE id=? AND user_id=?", (sid, core.user_id))
+        if not s or s["kind"] != "series" or s["origin"] != "inferred" or s["state"] in ("dropped", "forming"):
+            continue   # since dropped or merged away, or one you started
+        n = core.one("SELECT count(*) AS n FROM tasks WHERE series_id=? AND user_id=?", (sid, core.user_id))["n"]
+        text = f"Fuzz grouped {n} task{'' if n == 1 else 's'} that go together into a new series." if n else \
+            "Fuzz started a new series."
+        out.append({"kind": "series", "series_id": sid, "task_id": None, "title": s["name"], "text": text, "at": at})
+    return out
