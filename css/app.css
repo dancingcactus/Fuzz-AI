@@ -1351,7 +1351,7 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .cap-series .meta { margin: 6px 12px; }
 /* A panel's top: Back to the list and its search, kept in view while the panel scrolls */
 .cap-phead { position: sticky; top: -6px; z-index: 1; display: flex; flex-direction: column; margin: -6px -6px 0; padding: 6px 6px 0; background: var(--surface); }
-.menu button.plusback { flex-direction: row; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; color: var(--ink); }
+.menu button.plusback { flex-direction: row; align-items: center; gap: 6px; min-height: 40px; margin-bottom: 6px; padding: 6px 10px; color: var(--ink); }   /* room for the search field's focus ring */
 .plusback svg { flex: none; color: var(--muted); }
 .plusback b { font-weight: 700; }
 .cap-flabel { margin: 4px 12px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
