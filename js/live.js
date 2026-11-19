@@ -641,9 +641,25 @@
     /* Series: the sheet (read when it opens), what you do on it, the preview of an anchor change, starting
        one from New task, and "Part of…" on a task */
     S.seriesSheet = function (coreId) { return api('GET', '/series/' + coreId); };
-    S.seriesAction = function (coreId, what, body) {
+    /* undoLabel: the change, as the header's Undo list names it. With one, the change's undo group is offered
+       there (and to the page, through Say.lastUndo) once its write is in. */
+    S.seriesAction = function (coreId, what, body, undoLabel) {
       gen++;
-      return write(function () { return api('POST', '/series/' + coreId + '/' + what, body || {}); }).then(function (r) { soon(0); return r; });
+      return write(function () { return api('POST', '/series/' + coreId + '/' + what, body || {}); }).then(function (r) {
+        soon(0);
+        if (!undoLabel) return r;
+        return api('GET', '/undo').then(function (u) {
+          var x = (u.recent || []).filter(function (y) { return y.by === 'human'; })[0]; if (!x) return r;
+          undoBlocked[x.group] = x.blocked;
+          Say.offerUndo(undoLabel, function () {
+            if (undoBlocked[x.group]) return undoBlocked[x.group];
+            gen++;
+            write(function () { return api('POST', '/undo', { group: x.group }); }).then(syncThenRefresh, syncThenRefresh);
+            return null;
+          }, null, function () { return undoBlocked[x.group] || null; });
+          return r;
+        }, function () { return r; });
+      });
     };
     S.seriesPreview = function (coreId, body) { return api('POST', '/series/' + coreId + '/preview', body || {}); };
     S.seriesChoices = function (taskCoreId) { return api('GET', '/tasks/' + taskCoreId + '/series').then(function (r) { return r.choices || []; }); };

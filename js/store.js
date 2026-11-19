@@ -18,23 +18,80 @@
   var GONE = ['dropped', 'resolved'];
   /* The demo's Series page, shaped like GET /series (made-up work, as the rest of the demo) */
   var DEMO_SERIES = (function () {
+    var DAY = 864e5, ago = function (d) { return new Date(Date.now() - d * DAY).toISOString(); };
     var nw = { id: 1, name: 'Northwind rollout', state: 'named', origin: 'inferred', section: 'going', role: 'drive', role_label: 'You’re driving it',
+      about: 'Getting Northwind onto always-on testing, starting with a pilot.', about_how: 'goal', about_guess: false,
       status: { value: 'Waiting on Northwind legal’s review of the pilot plan', source: 'Priya Shah on Slack', trust_label: 'Reported' },
       done_when: 'NW-342 is accepted and Northwind confirms the pilot plan in writing', next_milestone: 'Pilot go-live, Jan 15',
       next: { title: 'Send Priya Friday’s status note', why: 'You’ve sent one every Friday for 5 weeks, and this week’s isn’t started.' },
+      last: { title: 'You sent the pilot plan to legal', state: 'done', at: ago(2) }, last_moved: ago(2),
       open: 5, done: 9, people: ['Dana Ortiz', 'Priya Shah', 'Sam Lee'], season: 1 };
+    var bill = { id: 6, name: 'Billing platform migration', state: 'named', origin: 'inferred', section: 'going', role: 'drive', role_label: 'You’re driving it',
+      about: 'Moving invoicing off the old billing system, one customer group at a time.', about_how: 'goal', about_guess: false,
+      status: { value: 'Group 4 of 6 moved over this week', source: 'the migration tracker', trust_label: 'From the owner' },
+      next: { title: 'Confirm the Group 5 customer list with Ana Costa' },
+      last: { title: 'Group 4 cut over cleanly', state: 'done', at: ago(1) }, last_moved: ago(1),
+      open: 6, done: 37, people: ['Ana Costa', 'Ben Okafor', 'Dana Ortiz'], season: 1 };
     var rb = { id: 2, name: 'Report builder launch', state: 'named', origin: 'inferred', section: 'going', role: 'contribute', role_label: 'You’re helping',
+      about: 'From 6 tasks with Marco Ruiz and Jen Wu, like “Update the release notes from Marco’s QA pass”.', about_how: 'tasks', about_guess: true,
       status: { value: 'REP-118 is in QA; release notes are drafted', source: 'the Jira ticket', trust_label: 'From the owner' },
+      next: { title: 'Update the release notes from Marco’s QA pass' },
+      last: { title: 'Fuzz drafted the release notes', state: 'review', at: ago(1) }, last_moved: ago(1),
       open: 2, done: 4, people: ['Marco Ruiz', 'Jen Wu'], season: 1 };
     var hire = { id: 3, name: 'Hiring a staff engineer', state: 'dormant', origin: 'inferred', section: 'quiet', role: 'drive', role_label: 'You’re driving it',
+      about: 'Filling the staff engineer role on your team.', about_how: 'goal', about_guess: true, about_fact_id: 903,
       status: { value: 'Panel interviews done; waiting on feedback', source: 'email', trust_label: 'Reported' },
       next: { title: 'Ask Sam for the two missing panel write-ups', why: 'Nothing has moved for 16 days, and Sam owes you a reply.' },
+      last: { title: 'The last panel interview finished', state: 'done', at: ago(16) }, last_moved: ago(16),
       open: 1, done: 6, people: ['Sam Lee'], season: 1 };
-    var docs = { id: 4, name: 'Onboarding docs refresh', state: 'inferred', origin: 'inferred', section: 'watching', open: 3, done: 1, people: ['Jen Wu'], season: 1 };
-    var deck = { id: 5, name: 'Strategy deck', state: 'wrapped', origin: 'inferred', section: 'wrapped', evidence: 'The deck is in the Strategy folder and Priya replied to the review email', open: 0, done: 7, people: [], season: 1 };
-    var s = { 'new': [], going: [nw, rb], quiet: [hire], watching: [docs], wrapped: [deck] };
-    return { sections: s, counts: { 'new': 0, going: 2, quiet: 1, watching: 1, wrapped: 1 }, demo: true };
+    var docs = { id: 4, name: 'Onboarding docs refresh', state: 'inferred', origin: 'inferred', section: 'watching',
+      about: 'From 4 tasks with Jen Wu, like “Update the laptop setup page”.', about_how: 'tasks', about_guess: true,
+      last: { title: 'Update the laptop setup page', state: 'triage', at: ago(3) }, last_moved: ago(3), open: 3, done: 1, people: ['Jen Wu'], season: 1 };
+    var deck = { id: 5, name: 'Strategy deck', state: 'wrapped', origin: 'inferred', section: 'wrapped', about: 'The strategy deck for the January offsite.', about_how: 'goal', about_guess: false,
+      evidence: 'The deck is in the Strategy folder and Priya replied to the review email', open: 0, done: 7, people: [], season: 1 };
+    var s = { 'new': [], going: [nw, bill, rb], quiet: [hire], watching: [docs], wrapped: [deck] };
+    return { sections: s, counts: { 'new': 0, going: 3, quiet: 1, watching: 1, wrapped: 1 }, demo: true };
   })();
+  /* What each demo series' own page adds to its card: what Fuzz knows, its tasks, people and files */
+  function demoSheet(s) {
+    var known = function (attr, value, source, trust, id) { return { fact_id: id, attr: attr, value: value, source: source, trust_label: trust }; };
+    var art = function (id, task) { var x = (window.Samples || []).filter(function (a) { return a.id === id; })[0]; return x ? { source_id: x.id, name: x.name, kind: x.kind, url: x.url, updated_at: new Date(x.updated).toISOString(), task: { title: task || x.taskTitle } } : null; };
+    var EXTRA = {
+      1: { knows: [known('goal', 'Get Northwind onto always-on testing', 'you', 'Confirmed', 101), known('your_role', 'drive', 'you', 'Confirmed', 102),
+        known('for', 'Northwind', 'its tasks', 'Fuzz noticed', 103), known('status', 'Waiting on Northwind legal’s review of the pilot plan', 'Priya Shah on Slack', 'Reported', 104),
+        known('done_when', 'NW-342 is accepted and Northwind confirms the pilot plan in writing', 'Priya Shah by email', 'Reported', 105)],
+        open_tasks: [['Send Priya Friday’s status note', 'triage'], ['Chase Northwind legal on the pilot plan', 'waiting'], ['Draft the pilot kickoff agenda', 'working'], ['Set up the checkout team’s test accounts', 'scheduled'], ['Write the pilot success criteria', 'mine']],
+        done_tasks: ['You sent the pilot plan to legal', 'Booked the pilot kickoff', 'Shared the test data plan'],
+        people: [{ name: 'Priya Shah', tasks: 9, how: 'Owner · Sent 6 of its asks' }, { name: 'Dana Ortiz', tasks: 5, how: 'Sent 2 of its asks' }, { name: 'Sam Lee', tasks: 3, how: 'You’re waiting on them' }],
+        artifacts: [art('retro-docx', 'Send the pilot plan to legal'), art('feedback-md', 'Summarize Northwind’s pilot feedback')],
+        anchors: [{ key: 'proj:NW', label: 'NW tickets', tasks: 8 }, { key: 'chan:northwind', label: '#northwind-pilot', tasks: 5 }, { key: 'word:northwind', label: 'northwind', tasks: 11, yours: true }],
+        decided: [{ what: 'Pilot starts with the checkout team only', at: '2026-11-04' }] },
+      6: { knows: [known('goal', 'Every customer group bills from the new system by the end of Q1', 'Ana Costa by email', 'From the owner', 601), known('your_role', 'drive', 'you', 'Confirmed', 602),
+        known('status', 'Group 4 of 6 moved over this week', 'the migration tracker', 'From the owner', 603), known('next_milestone', 'Group 5 cutover, Dec 12', 'the Billing cutover sync', 'Reported', 604)],
+        open_tasks: [['Confirm the Group 5 customer list with Ana Costa', 'triage'], ['Draft the Group 5 cutover note to customers', 'working'], ['Check Group 4 invoices match the old system', 'review'],
+          ['Ask Ben about the tax-rule edge cases', 'waiting'], ['Book the Group 6 dry run', 'scheduled'], ['Retire the old invoice export job', 'parked']],
+        done_tasks: ['Group 4 cut over cleanly', 'Sent the Group 4 customer note', 'Fixed the rounding difference on Group 3 invoices', 'Walked Finance through the new reports'],
+        people: [['Ana Costa', 22, 'Owner · Sent 14 of its asks'], ['Ben Okafor', 15, 'You’re waiting on them'], ['Dana Ortiz', 9, 'Sent 3 of its asks'], ['Marco Ruiz', 7, ''], ['Lena Park', 6, ''], ['Raj Mehta', 5, ''],
+          ['Sofia Alvarez', 4, ''], ['Tom Becker', 3, 'Sent one of its asks'], ['Yuki Tanaka', 3, ''], ['Grace Liu', 2, ''], ['Omar Haddad', 2, ''], ['Nina Petrova', 1, ''], ['Chris Doyle', 1, ''], ['Priya Raman', 1, '']]
+          .map(function (p) { return { name: p[0], tasks: p[1], how: p[2] }; }),
+        artifacts: [art('budget-csv', 'Check Group 4 invoices match the old system'), art('readout-pptx', 'Walk Finance through the new reports'), art('agenda-pdf', 'Plan the Group 6 dry run'),
+          art('feedback-md', 'Draft the Group 5 cutover note to customers'), art('retro-docx', 'Group 4 cutover retro')],
+        deliverables: [{ title: 'Group 5 cutover', done_when: 'Group 5 bills from the new system', due: '2026-12-12', state: 'open', tier: 'active' }] },
+      2: { knows: [known('your_role', 'contribute', 'you', 'Confirmed', 201), known('status', 'REP-118 is in QA; release notes are drafted', 'the Jira ticket', 'From the owner', 202)],
+        open_tasks: [['Update the release notes from Marco’s QA pass', 'triage'], ['Review the launch email Jen drafted', 'review']],
+        people: [{ name: 'Marco Ruiz', tasks: 4, how: 'Sent 3 of its asks' }, { name: 'Jen Wu', tasks: 2, how: '' }],
+        deliverables: [{ title: 'Report builder release', done_when: 'REP-118 ships and the release notes are published', due: '2026-12-03', state: 'open', tier: 'active' }] },
+      3: { knows: [known('goal', 'Filling the staff engineer role on your team', 'Sam Lee by email', 'Fuzz noticed', 903), known('your_role', 'drive', 'you', 'Confirmed', 301)],
+        open_tasks: [['Ask Sam for the two missing panel write-ups', 'triage']], people: [{ name: 'Sam Lee', tasks: 5, how: 'You’re waiting on them' }] }
+    };
+    var e = EXTRA[s.id] || {};
+    var task = function (t, i) { return { id: s.id * 100 + i, title: t[0] || t, state: t[1] || 'done' }; };
+    return Object.assign({ knows: [], deliverables: [], decided: [], anchors: [], removed_anchors: [], also_touches: [], artifacts: [],
+      suggestions: s.next ? [s.next] : [], people: (s.people || []).map(function (n) { return { name: n, tasks: 0, how: '' }; }) }, s,
+      { knows: e.knows || [], open_tasks: (e.open_tasks || (s.next ? [[s.next.title, 'triage']] : [])).map(task), done_tasks: (e.done_tasks || []).map(task),
+        people: e.people || (s.people || []).map(function (n) { return { name: n, tasks: 0, how: '' }; }), artifacts: (e.artifacts || []).filter(Boolean),
+        anchors: e.anchors || [], decided: e.decided || [], deliverables: e.deliverables || [] });
+  }
   /* Groups Fuzz has already celebrated, so a wrap-up is only cheered once */
   var celebrated = {};
 
@@ -450,9 +507,7 @@
     seriesById: function (coreId) { return S.seriesList().filter(function (x) { return x.id === +coreId; })[0] || null; },
     seriesSheet: function (coreId) {
       var s = S.seriesById(coreId);
-      return s ? Promise.resolve(Object.assign({ knows: [], open_tasks: [], done_tasks: [], deliverables: [], decided: [], anchors: [],
-        removed_anchors: [], also_touches: [], suggestions: s.next ? [s.next] : [], people: s.people || [] }, s))
-        : Promise.reject(new Error('No series ' + coreId));
+      return s ? Promise.resolve(demoSheet(s)) : Promise.reject(new Error('No series ' + coreId));
     },
     seriesAction: function () { return Promise.reject(new Error('Series need Fuzz running: this is the demo.')); },
     seriesPreview: function () { return Promise.resolve({ would_join: [], would_stop_matching: [] }); },

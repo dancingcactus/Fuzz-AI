@@ -646,8 +646,16 @@ class App:
                 raise FuzzError("add, remove and restore are lists", "add")
             record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [])
         elif what == "facts":
-            if body.get("fact_id"):   # "That's wrong": rejected, with Undo
-                facts.reject(core, int(body["fact_id"]))
+            if body.get("fact_id") and body.get("confirm"):   # "Looks right": Fuzz's guess becomes yours, with Undo
+                fid = int(body["fact_id"])
+                if facts.get(core, fid)["entity_id"] not in facts.closure(core, s["entity_id"]):
+                    raise FuzzError("That fact isn't this series'", "fact_id")
+                facts.confirm(core, fid)
+            elif body.get("fact_id"):   # "That's wrong" (the ×): rejected, with Undo
+                fid = int(body["fact_id"])
+                if facts.get(core, fid)["entity_id"] not in facts.closure(core, s["entity_id"]):
+                    raise FuzzError("That fact isn't this series'", "fact_id")
+                facts.reject(core, fid)
             else:
                 facts.edit(core, s["entity_id"], body.get("attr"), body.get("value"))
         elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have

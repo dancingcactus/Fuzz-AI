@@ -182,16 +182,31 @@ Series, Person, Source, Artifact, Upload a file.
 
 ### 8. Surfaces
 
-- **Series page** in the Fuzz-head menu, directly under Lineup ("What you're in the middle of").
-  Sections: New · Going · Gone quiet · Fuzz is watching (inferred, not met yet: Keep it / Not a series) ·
-  Wrapped. Each card: name, your role, status with its source, done-when, next milestone, one "Next in …"
-  suggestion, counts, people, **Work on …**.
-- **Series sheet:** Next in … (suggestions), What Fuzz knows (facts with trust labels, editable), Open work
-  with **Add a task to …** (goes to Triage already in the series; or move one you have), Deliverables,
-  Decided, People, How Fuzz spots it (editable). Its actions are one split button like every other dialog's:
-  **Work on … ▾** (or **Rename ▾** with nothing open), the rest behind the arrow, and Keep it beside it while
-  Fuzz is only watching.
-- **Split it into parts** (in that menu): when one series is really several (one evaluation across three
+- **Series page** (`#/series`) in the Fuzz-head menu, directly under Lineup ("What you're in the middle of"),
+  in Lineup's centered column and row list (redesigned 2026-11-19 from the mocks in `spikes/series-list/` on
+  branch `worktree-series-list-mocks`, direction B "Episodes"). A small Fuzz says what a series is, once.
+  Sections: New · Going · Gone quiet, then Fuzz is watching (inferred, not met yet: Keep it / Not a series) and
+  Wrapped as folds. Each card: name, your part and **Edit** (centred on one line); one line on what it's
+  about (`about`, marked **Fuzz's guess** until you say so); the strip, a dot per task (done, up next, to do),
+  and past 20 tasks one box in the done colour holding the done count in fives (`[35]` for 37) before the
+  leftover dots, open past 9 as "+N more"; **Last** and **Next**; **Work on it**. The card, its name or Edit
+  opens the series.
+- **A series' page** (`#/series/<id>`, replacing the sheet), shaped like the artifact viewer: a **‹ Series**
+  back pill, its name with a short line ("Driving it · moved Monday · with Ana Costa and 13 others"),
+  **Work on it** and **⋯** (Rename, Quiet the suggestions, Split it into parts, It's wrapped up, Check if it's
+  done, Not a series, It's ongoing; Start season 2 when wrapped; Keep it beside them while Fuzz is only
+  watching). Then: the card opened up (about with **Looks right** on a guessed goal and a pencil, strip,
+  Last); Next in … (suggestions); **What Fuzz knows**: each fact is a row you click to fix in place, with its
+  source and trust under it, and an **×** that removes it (rejects the fact) with an Undo line right under the
+  list; the gaps are dashed **+ Goal**-style chips that open a form shaped for that fact (Your part is three
+  choices that save on a click; For / Owner / Blocked on offer its people; Done when and Next milestone offer
+  its deliverables), each with one line on what Fuzz does with it, and **+ Something else** for Owner,
+  Blocked on, Rhythm and Not part of it; **Tasks** (Open / Done, with **Add a task to …**, which goes to
+  Triage already in the series); **Artifacts** (what Fuzz wrote for its tasks, newest 4, then Show all);
+  **People** (ranked by how many of its tasks they're in, with how they're in it; past 5 the top 4, then
+  Show all with a Find someone filter); How Fuzz spots it (editable, with a preview); Deliverables; Decided;
+  Also touches this.
+- **Split it into parts** (in ⋯): when one series is really several (one evaluation across three
   customers), name each part and pick where each task goes; a task whose title says a part's name goes there by
   itself. Each part becomes a named series (origin `split`) with your part copied over, and a name of three
   words or fewer becomes a word anchor so new work that says it lands there. Tasks put in no part stay; if none
@@ -283,12 +298,27 @@ How it's wired:
 - The clock's share (dormant, wake, suggestions) runs from `actions.tick`, so the domain modules never
   import `series` (`tests/test_layers.py`).
 - The UI pieces:
-  - `js/view-series.js`: the page and the sheet.
+  - `js/view-series.js`: the list and a series' own page (`#/series/<id>`); `SeriesView.open(id)` goes there.
   - `js/app.js`: the menu entry and `#/series`.
+  - `js/live.js`: `Store.seriesAction(id, what, body, undoLabel)` offers the change's undo group to the
+    header's Undo (and to the page's inline Undo through `Say.lastUndo()`).
+  - `js/store.js`: the demo series, with the same shapes as `GET /series` and `GET /series/<id>`.
   - `js/view-triage.js`: the four cards, and the "Part of …" line on task cards.
   - `js/view-tasks.js`: the Lineup line, plus task detail's "Part of …", also touches and the picker.
   - `js/view-capture.js`: New task’s +: Series, Person, Source, Artifact, Upload a file.
-- Tests: `core/tests/test_series.py`, `test_series_more.py`, `test_series_extra.py`, `tests/ui/series.test.mjs`.
+- Tests: `core/tests/test_series.py`, `test_series_more.py`, `test_series_extra.py`, `test_series_page.py`,
+  `tests/ui/series.test.mjs`.
+- What the page reads (`views.summary` and `views.sheet`):
+  - `about`, `about_how` (`goal` or `tasks`), `about_guess`, `about_fact_id`: the goal when Fuzz has one, a
+    guess (with the fact to confirm) until you write or confirm it; with no goal, a line from its own tasks
+    ("From 4 tasks with Lena Fischer, like “Reply to Lena …”"), always a guess. Writing a Goal replaces it.
+  - `last`: the member task that changed most recently (`{id, title, state, at}`).
+  - On the sheet, `people` is `[{name, tasks, how}]`, the most involved first; `how` is worked out from the
+    people's contributions to its tasks (Owner from the `owner` fact, You're waiting on them, Sent N of its
+    asks). `artifacts` is `outputs.for_tasks` over its members.
+- `POST /series/<id>/facts`: `{attr, value}` adds or replaces (yours, confirmed); `{fact_id}` rejects it (the
+  ×); `{fact_id, confirm: true}` confirms it (Looks right). A `fact_id` must be this series' (its entity or
+  one merged into it). Each is one event, so one Undo.
 - Replay: `core/fuzz/series/replay.py`, on a copy of the store.
 
 How the build meets the parts above that needed a decision:
@@ -359,11 +389,21 @@ are steps for whoever runs it, in order:
 - **Gone quiet** can't be tested with three weeks of history.
 - **Undecided UI copy:** the trust labels (Reported, From the owner, Fuzz noticed, Confirmed) and the
   Artifacts and Settings sublines in the menu are placeholders.
+- **What some facts do:** For, Owner, Blocked on, Rhythm and Not part of it are kept and shown, but nothing
+  acts on them yet, so their help line only says Fuzz keeps them. Owner shapes People's "Owner" label. Ideas
+  worth building: Blocked on watched like waiting-on, Rhythm feeding the usual-next-step detector, Not part of
+  it as a negative anchor.
+- **The about line without a goal** is built from its tasks, not written by AI. A short AI-written line (a
+  `goal` fact the extractor proposes) would read better; it would arrive as a guess with Looks right.
+- **See all in Artifacts:** the series page shows all of its files in place ("Show all"); the Artifacts page
+  has no series filter yet.
 
 ## Files
 
 - Mockup: `spikes/series-page/project/` (a Design canvas; the published copy is private to its owner at
   https://claude.ai/artifact/JZZ2tvcTNVdMifeK1ynzDn).
+- The list and page redesign (2026-11-19): `spikes/series-list/` on branch `worktree-series-list-mocks`
+  (published, private to its owner, at https://claude.ai/artifact/CTJYdcfBkQ6zvGuukE6hdG).
 - Batch detection: `spikes/series-page/detect.py <copy of fuzz.db> 6 0.10 [--judge]`
 - Streaming replay: `spikes/series-page/stream.py <copy of fuzz.db> [--no-judge]` (judge answers cached
   next to the db copy).
