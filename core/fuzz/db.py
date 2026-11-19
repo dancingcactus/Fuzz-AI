@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS series (   -- a body of work over weeks, or (kind are
   kind TEXT NOT NULL,              -- series | area
   name TEXT NOT NULL,
   state TEXT NOT NULL,             -- forming | inferred | named | dormant | wrapped | dropped; an area: area | dropped
-  origin TEXT NOT NULL,            -- inferred | asked (you started it)
+  origin TEXT NOT NULL,            -- inferred | asked (you started it) | split (you split it out of another)
   entity_id INTEGER,               -- its entity (type series or area): aliases and facts with trust
   muted INTEGER NOT NULL DEFAULT 0,   -- no suggestions, still a series
   met INTEGER NOT NULL DEFAULT 0,     -- you've seen it: kept, named, asked for, or a card about it

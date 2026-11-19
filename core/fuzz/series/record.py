@@ -349,6 +349,65 @@ def merge(core, from_sid, into_sid, actor="system", why=None):
         sync_identifiers(core)
 
 
+def split(core, sid, parts, actor="human"):
+    """You split it: each part ({name, task_ids}) becomes its own series, named and met, with your part in the
+    original copied over. A short name (three words or fewer) is also a way to spot it, so new work that says it
+    lands there. Tasks you put in no part stay in the original; if none stay, the original goes. One Undo.
+    Returns the new series' ids."""
+    from ..memory import facts
+    s = require(core, sid)
+    if s["state"] == "dropped":
+        raise FuzzError(f"“{s['name']}” isn't a series any more", "series_id", 409)
+    if not isinstance(parts, list) or not parts:
+        raise FuzzError("parts lists each part's name and the tasks that go in it", "parts")
+    idx = index_mod.get(core)
+    members = set(idx.members.get(s["id"], ()))
+    seen, clean = set(), []
+    for j, p in enumerate(parts):
+        if not isinstance(p, dict):
+            raise FuzzError("each part is {name, task_ids}", f"parts[{j}]")
+        nm = _clean_name(p.get("name"))
+        tids = p.get("task_ids") or []
+        if not isinstance(tids, list) or not all(isinstance(t, int) for t in tids):
+            raise FuzzError("task_ids is a list of task ids", f"parts[{j}].task_ids")
+        bad = [t for t in tids if t not in members]
+        if bad:
+            raise FuzzError(f"Tasks {bad} aren't part of “{s['name']}”", f"parts[{j}].task_ids")
+        if seen & set(tids):
+            raise FuzzError("A task can go in only one part", f"parts[{j}].task_ids")
+        seen |= set(tids)
+        clean.append((nm, tids))
+    if len(clean) < 2 and not (members - seen):
+        raise FuzzError("Split it into at least two parts, or leave some tasks where they are", "parts")
+    role = (facts.winners(core, s["entity_id"]).get("your_role") if s.get("entity_id") else None)
+    now = core.now_iso()
+    made = []
+    with core.tx(actor):
+        ch = events.Changes()
+        for nm, tids in clean:
+            words = len(nm.split()) <= 3 and index_mod.norm(nm)
+            nid = make(core, ch, nm, state="named", origin="split", why=f"You split it out of {s['name']}.", task_ids=tids)
+            ch.series(nid, met=1, named_at=now)
+            if words:
+                ch.anchor(core.new_id("series_anchors"), series_id=nid, key="word:" + words, label=f"the words “{nm}”",
+                          how="added", removed=0)
+            made.append({"series_id": nid, "name": nm, "tasks": tids})
+        rest = sorted(members - seen)
+        if not rest:
+            ch.series(s["id"], state="dropped")
+            _withdraw_cards(core, ch, s["id"])
+        else:
+            ch.series(s["id"], grown_at=now)
+        events.emit(core, "series.split", changes=ch,
+                    data={"from": s["id"], "parts": made, "kept": rest, "dropped": not rest})
+        if role in ROLES:
+            for m in made:
+                eid = core.one("SELECT entity_id FROM series WHERE id=?", (m["series_id"],))["entity_id"]
+                facts.edit(core, eid, "your_role", role, actor=actor)
+        sync_identifiers(core)
+    return [m["series_id"] for m in made]
+
+
 def check_dormant(core):
     """Gone quiet: a series none of whose tasks moved for dormant_days. Returns how many went quiet."""
     idx = index_mod.get(core)

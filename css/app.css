@@ -1328,10 +1328,24 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ss-preview { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: var(--field); }
 .ss-preview p, .ss-preview ul { margin: 0; }
 .ss-preview ul { padding-left: 18px; }
-.ss-more, .ser-not { position: relative; }
-.ss-more > summary, .ser-not > summary { list-style: none; cursor: pointer; }
-.ss-more > summary::-webkit-details-marker, .ser-not > summary::-webkit-details-marker { display: none; }
-.ss-more .menu, .ser-not .menu { left: 0; right: auto; }
+.ser-not { position: relative; }
+.ser-not > summary { list-style: none; cursor: pointer; }
+.ser-not > summary::-webkit-details-marker { display: none; }
+.ser-not .menu { left: 0; right: auto; }
+/* The sheet's actions: Work on … (or Rename) with the rest behind its arrow; the menu opens from the arrow's
+   right edge, so it stays inside the sheet */
+.series-sheet .dlg-actions .ss-split { flex: 2 1 260px; min-width: 0; }
+.series-sheet .ss-split .split-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.series-sheet .ss-split .menu { left: auto; right: 0; width: 320px; max-width: min(320px, calc(100vw - 64px)); }
+/* Split it into parts */
+.ss-splitter { gap: 12px; }
+.ss-parts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.ss-part { flex: 1 1 170px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 4px; min-width: 0; }
+.ss-part label { grid-column: 1 / -1; font-size: 13px; font-weight: 700; color: var(--muted); }
+.ss-part .iconbtn.small { border: 0; background: transparent; }
+.ss-splitter .fld { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 6px 10px; border: var(--bw) solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font: inherit; }
+.ss-split-tasks .ps-side { max-width: 48%; }
+.ss-split-tasks select.fld { max-width: 100%; font-size: 14px; }
 .ser-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 .ser-chips .chip[aria-pressed="false"] { text-decoration: line-through; opacity: .6; }
 .ser-roles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; }
