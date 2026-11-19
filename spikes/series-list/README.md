@@ -31,8 +31,12 @@ One centered column:
 
 - the list card opened up: the about line with an edit pencil, the strip, Last
 - Next in …
-- What Fuzz knows: each fact is a row you click to fix in place, with its source under it. Your fixes say
-  "you · just now"; missing facts read "Not known yet. Add it."
+- What Fuzz knows: each fact Fuzz has is a row you click to fix in place, with its source under it. Your
+  fixes say "you · just now". The gaps sit underneath as dashed chips ("Fuzz doesn't know yet: + Goal
+  + Your part …"); each opens a form shaped for that fact: Your part is three choices that save on a click,
+  Goal and Done when offer Fuzz's ideas to fill the field, For / Owner / Blocked on offer the series' people.
+  Every form has one line on how Fuzz uses the fact. "+ Something else" adds Owner, Blocked on, Rhythm
+  or Not part of it. A guessed about line gets a "Looks right" button.
 - Tasks: Open / Done, with Add a task
 - How Fuzz spots it: chips you remove, and a field to add one
 - Deliverables, Decided and People
