@@ -1268,6 +1268,9 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ev-detail h2 { margin: 0 0 4px; font-size: 18px; }
 .ev-detail h3 { margin: 18px 0 8px; font-size: 15px; }
 .ev-detail h4 { margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
+.ev-delta { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.ev-delta.up { color: var(--ok); } .ev-delta.down { color: var(--danger); } .ev-delta.level { color: var(--muted); }
+.ev-since { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
 .ev-changed { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ev-cases { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .ev-case summary { cursor: pointer; padding: 6px 0; overflow-wrap: anywhere; }

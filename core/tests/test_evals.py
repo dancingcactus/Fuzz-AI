@@ -621,6 +621,27 @@ class DebugPage(CoreCase):
         self.assertTrue(broke[0]["replies"])
         self.assertIsNone(evals.run_detail(self.core, 999))
 
+    def test_each_run_carries_the_scores_of_the_one_before_it(self):
+        a = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        b = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        got = evals.run_list(self.core)
+        newest, oldest = got["runs"]
+        self.assertIsNone(oldest["prev"])
+        self.assertEqual(newest["prev"]["id"], a["id"])
+        self.assertEqual(newest["prev"]["score"]["global"], {"passed": len(SEEDS), "of": len(SEEDS)})
+        self.assertEqual(newest["score"]["global"], {"passed": len(SEEDS) - 1, "of": len(SEEDS)})
+        self.assertEqual(got["latest"]["extract"]["prev"]["id"], a["id"])
+        # a list cut short still finds the run before its oldest
+        self.assertEqual(evals.run_list(self.core, limit=1)["runs"][0]["prev"]["id"], a["id"])
+        # the previous run is the one just before, even when it failed its gate and isn't the baseline
+        c = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.assertEqual(c["against"], a["id"])
+        d = evals.run_detail(self.core, c["id"])
+        self.assertEqual(d["run"]["prev"]["id"], b["id"])
+        was = {x["origin"]: x["prev_score"] for x in d["cases"]}
+        self.assertEqual(was["seed:dm-direct-ask"], "0/1")
+        self.assertIsNone(evals.run_detail(self.core, a["id"])["run"]["prev"])
+
     def test_over_http(self):
         import threading
         from fuzz import http_api
