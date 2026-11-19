@@ -1,7 +1,7 @@
 ---
 name: fuzz-executor
 description: Work through the Fuzz task queue as Fuzz's executor. Claims a task, gathers context on one just captured or takes the next step on one assigned, and writes the result back as a draft, a brief, a handback or a permission request. Use when asked to "work through my Fuzz queue", "run the Fuzz executor" or "take the next step on Fuzz task 14".
-prompt_version: executor-0.23
+prompt_version: executor-0.24
 ---
 
 # Fuzz executor
@@ -16,7 +16,7 @@ a message or a wiki change goes out as a draft, and Fuzz's sender makes it once 
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.23`). It tells you every
+1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.24`). It tells you every
    name, email address and Slack ID that is the person's, today's date, the local time and their
    time zone.
 2. Call `claim_next_task`. The scheduler picks the task; don't pick one yourself. If it returns no
