@@ -344,7 +344,7 @@
      screen because it closed them or moved them to waiting. The core picks the window (GET /away): back to
      the last thing you did, never less than two hours. */
   var AWAY = null, AWAY_OPEN = false;
-  /* The summary, as one chip per kind, styled like the task's tabs (People 2): what it was [plural, one], then the count */
+  /* The summary, one line per kind: what it was [plural, one], then the count */
   var AWAY_SAY = {
     closed: ['Marked complete', 'Marked complete'],
     sent: ['Sent', 'Sent'],
@@ -406,12 +406,12 @@
     if (d >= y) return 'since yesterday ' + fmt(d);
     return 'since ' + d.toLocaleDateString(undefined, { weekday: 'short' }) + ' ' + fmt(d);
   }
+  function awayKinds(counts) { return AWAY_ORDER.filter(function (k) { return counts[k] > 0; }); }
+  /* What Fuzz did, one per kind: icon, what it was, then the count */
   function awayChips(counts) {
-    var ks = AWAY_ORDER.filter(function (k) { return counts[k] > 0; });
-    if (!ks.length) return '<p class="g-away-line">Nothing needed you. I kept an eye on things.</p>';
-    return '<ul class="g-away-chips" aria-label="What Fuzz did">' + ks.map(function (k) {
+    return '<ul class="g-away-chips" aria-label="What Fuzz did">' + awayKinds(counts).map(function (k) {
       var n = counts[k];
-      return '<li class="g-away-chip" data-kind="' + k + '">' + awayIcon(k, 15) + esc(AWAY_SAY[k][n === 1 ? 1 : 0]) + '<span class="g-away-n">' + n + '</span></li>';
+      return '<li class="g-away-chip" data-kind="' + k + '">' + awayIcon(k, 14) + esc(AWAY_SAY[k][n === 1 ? 1 : 0]) + '<span class="g-away-n">' + n + '</span></li>';
     }).join('') + '</ul>';
   }
   function awayItem(i) {
@@ -424,15 +424,21 @@
     if (old) { if (html) old.outerHTML = html; else old.remove(); }
     else if (html) view.insertAdjacentHTML('beforeend', html);
   }
+  /* Folded to one quiet line under the panel, so it never competes with "Where do you want to start?": a few of
+     the kinds' icons, stacked, and how many things Fuzz did. Opening it shows when, the counts and the list. */
   function awayHTML() {
     var A = AWAY; if (!A || !A.since) return '';
-    var items = A.items || [];
-    return '<aside class="g-away" id="g-away" aria-labelledby="g-away-h">' +
-      '<h2 class="g-away-h" id="g-away-h">While you were away <small>' + esc(sinceLabel(A.since)) + '</small></h2>' +
-      awayChips(A.counts || {}) +
-      (items.length ? '<details class="g-away-more"' + (AWAY_OPEN ? ' open' : '') + '><summary>See what changed (' + items.length + ')</summary>' +
-        '<ul class="g-away-list">' + items.map(awayItem).join('') + '</ul></details>' : '') +
-      '</aside>';
+    var items = A.items || [], counts = A.counts || {}, ks = awayKinds(counts);
+    var total = ks.reduce(function (a, k) { return a + counts[k]; }, 0);
+    if (!total) return '<aside class="g-away" id="g-away" aria-labelledby="g-away-h"><p class="g-away-line"><b id="g-away-h">While you were away</b> · Nothing needed you. I kept an eye on things.</p></aside>';
+    var since = sinceLabel(A.since);
+    return '<aside class="g-away" id="g-away" aria-labelledby="g-away-h"><details class="g-away-fold"' + (AWAY_OPEN ? ' open' : '') + '>' +
+      '<summary><span class="g-away-stack" aria-hidden="true">' + ks.slice(0, 4).map(function (k) { return '<span data-kind="' + k + '">' + awayIcon(k, 12) + '</span>'; }).join('') + '</span>' +
+        '<span class="g-away-h" id="g-away-h"><b>While you were away</b> · ' + total + (total === 1 ? ' update' : ' updates') + '</span>' +
+        '<svg class="g-away-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></summary>' +
+      '<div class="g-away-body"><p class="g-away-since">' + esc(since.charAt(0).toUpperCase() + since.slice(1)) + '</p>' + awayChips(counts) +
+        (items.length ? '<ul class="g-away-list">' + items.map(awayItem).join('') + '</ul>' : '') + '</div>' +
+      '</details></aside>';
   }
   function vGuide() {
     var sug = suggestion(), n = triageN(), tasks = guideTasks();
@@ -1062,8 +1068,8 @@
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div id="dw-view"></div></div>' + footHTML() + '</section>';
     view = root.querySelector('#dw-view');
-    /* the away bubble's "more" stays open as the Guide redraws with Fuzz's sync */
-    view.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('g-away-more')) AWAY_OPEN = e.target.open; }, true);
+    /* While you were away stays open as the Guide redraws with Fuzz's sync */
+    view.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('g-away-fold')) AWAY_OPEN = e.target.open; }, true);
     wireFoot();
     Fuzz.mount(root, {});
     keyFn = onKey; document.addEventListener('keydown', keyFn, true);
