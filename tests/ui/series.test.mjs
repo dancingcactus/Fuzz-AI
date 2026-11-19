@@ -72,7 +72,17 @@ test('New task’s + → Series puts the capture in one', async () => {
   const items = await page.$$eval('#cap-plusmenu [role="menuitem"] b', els => els.map(e => e.textContent));
   assert.deepEqual(items, ['Series', 'Person', 'Source', 'Artifact', 'Upload a file']);
   await page.click('[data-plus="series"]');
+  /* Back goes to the list, and Esc in a panel does too */
+  await page.click('[data-plusback]');
+  assert.equal(await page.locator('#cap-plusmenu [data-plus]').count(), 5);
+  await page.click('[data-plus="series"]');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#cap-plusmenu [data-plus]').count(), 5);
+  assert.equal(await page.isVisible('#cap-plusmenu'), true, 'Esc in a panel keeps the menu open');
+  await page.click('[data-plus="series"]');
   assert.match(await page.textContent('#cap-series'), /Start a new series from this/);
+  const fits = await page.$eval('#cap-q', q => { const m = q.closest('.menu'); return q.getBoundingClientRect().right <= m.getBoundingClientRect().right - 4; });
+  assert.ok(fits, 'the search field fits inside the menu');
   assert.match(await page.textContent('#cap-series'), /Fuzz has been watching/);
   await page.fill('#cap-q', 'north');
   await page.click('[data-serpick="1"]');
@@ -95,6 +105,15 @@ test('New task’s + → Series puts the capture in one', async () => {
   assert.equal(it.line, 'Part of Northwind rollout');
   assert.deepEqual(it.sources, ['Person', 'Link']);
   assert.deepEqual(it.people, ['Dana Ortiz']);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('Start a series on the Series page opens New with New series from this picked', async () => {
+  const page = await newPage(`http://127.0.0.1:${PORT}/#/series`);
+  await page.click('a[href="#/capture?series=start"]');
+  await page.locator('#cap-text').waitFor();
+  assert.match(await page.textContent('#files'), /New series from this/);
   assert.deepEqual(page.errors, []);
   await page.close();
 });

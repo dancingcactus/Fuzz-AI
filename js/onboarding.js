@@ -326,9 +326,9 @@
         '<p class="meta">' + (st.hours_set ? 'That was a card: one question, one answer. ' : '') + (app ? 'I’m working through ' + esc(app) + '. ' : '') + 'Right now I only know what you type here.</p></div></div>' +
       '<div class="onb-ask"><h2>Let’s try it on something real</h2>' +
         '<p>Tell me one thing on your plate. Something I can write or think through works best for now, like a reply to draft or a plan to sketch, since I can’t look things up yet.</p>' +
-        '<p>Press the <b>New task</b> button, or <kbd>N</kbd> from anywhere. It’s always there.</p></div>' +
+        '<p>Press the <b>New</b> button, or <kbd>N</kbd> from anywhere. It’s always there.</p></div>' +
       skipLink() + '</section>' +
-      pointerHTML('New task');
+      pointerHTML('New');
     react('standEager', 'thumb', 2400);
     heading(true);
     spotlight('new');
@@ -525,7 +525,7 @@
     { sel: '.g-row[data-pick="typed"]', title: 'Something else',
       line: 'Not on the list? Tell me what you want to work on, in your own words, and start there.' },
     { sel: '#menubtn', title: 'Everything else',
-      line: 'Lineup shows who has the ball on every task. Artifacts is what I’ve made. Settings is in here too. New task (N) is always at the top.' }
+      line: 'Lineup shows who has the ball on every task. Artifacts is what I’ve made. Settings is in here too. New (N) is always at the top.' }
   ];
   var tourAt = 0, tourTimer = 0;
   function toTour() {

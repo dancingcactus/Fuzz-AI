@@ -72,7 +72,7 @@
     root = container;
     root.innerHTML = '<section class="lineup series-page" aria-labelledby="ser-h"><div class="tasks-head"><h1 id="ser-h">Series</h1>' +
       '<p class="meta">What you’re in the middle of. Fuzz picks these up from your work; you never have to set one up.</p>' +
-      '<a class="btn small linklike" href="#/capture">' + PLUS + 'Start a series</a></div><div class="board" id="ser-board"></div></section>';
+      '<a class="btn small linklike" href="#/capture?series=start">' + PLUS + 'Start a series</a></div><div class="board" id="ser-board"></div></section>';
     root.addEventListener('click', onPageClick);
     render();
     unsub = Store.on(function () { render(); if (sheet && sheetId) loadSheet(sheetId); });

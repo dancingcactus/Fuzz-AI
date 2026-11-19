@@ -187,7 +187,7 @@
       ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['G', 'I’ll do it (yours, and it takes real time: it waits in My work, ready for when you sit down to it)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
       ['On a draft', [['E', 'Ask Fuzz to change it'], ['S', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
       ['Choices on screen', [['1 – 9', 'Every choice on screen: an answer, a time (End of the list and Exact time too) or a mood'], ['E', 'Tell Fuzz: into the card’s box'], ['K', 'It still matters: on a card that comes back (quiet, parked, keeps coming back)'], ['S', 'Later, or Check again later: the same row on every card that comes back'], ['L', 'Let it go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
-      ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New task (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
+      ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
     ];
     return '<section id="keys-card"></section>' +
       '<details class="keys-all"><summary>All keys</summary>' + g.map(function (s) { return '<section><h3>' + s[0] + '</h3>' + keyRows(s[1]) + '</section>'; }).join('') + '</details>' +
@@ -1467,8 +1467,8 @@
       /* Clearing Triage is its own win. If there's deep work waiting, one quiet offer, never a doorway you have to take. */
       var deep = Store.inState('deepwork').length;
       h += '<h2>All clear</h2>' + recap + (deep
-        ? '<p class="meta">Nothing is waiting on you. ' + (deep === 1 ? 'One task is' : deep + ' tasks are') + ' in My work, ready for when you have time.</p><a class="btn primary linklike" href="#/deepwork">Work on something</a> <a class="btn linklike" href="#/capture">New task</a>'
-        : '<p class="meta">Fuzz is on standby. Capture something new to put it to work.</p><a class="btn primary linklike" href="#/capture">New task</a>');
+        ? '<p class="meta">Nothing is waiting on you. ' + (deep === 1 ? 'One task is' : deep + ' tasks are') + ' in My work, ready for when you have time.</p><a class="btn primary linklike" href="#/deepwork">Work on something</a> <a class="btn linklike" href="#/capture">New</a>'
+        : '<p class="meta">Fuzz is on standby. Capture something new to put it to work.</p><a class="btn primary linklike" href="#/capture">New</a>');
     }
     if (s.later) h += '<p class="later">' + s.later + ' scheduled for later</p>';
     e.innerHTML = h;
