@@ -1,0 +1,351 @@
+<meta charset="utf-8">
+<title>Series List Mocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: the app's own centered Lineup column inside a framed "screen", one mock at a time, with design notes above it.
+   Tokens are Fuzz's Warm Theme System, Terracotta (js/themes.js), light and dark. */
+:root {
+  --font-display: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #FBF3E8; --surface: #FFFBF4; --field: #F6EBDB; --ink: #3A2A20; --muted: #7A6454; --line: #E8D9C5; --chip: #F0E1CC;
+  --done: #3E7B4F; --wait: #A86B12; --blocked: #B23A32;
+  --accent: #B94E28; --on-accent: #FFFFFF; --link: #A23F1B;
+  --note: #EFE4D3;
+  --shadow: 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent), 0 14px 30px -14px color-mix(in srgb, var(--ink) 38%, transparent);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1E1612; --surface: #2A201A; --field: #352920; --ink: #F4E8DB; --muted: #C2AB98; --line: #43352B; --chip: #3B2D23;
+  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1E1612; --surface: #2A201A; --field: #352920; --ink: #F4E8DB; --muted: #C2AB98; --line: #43352B; --chip: #3B2D23;
+  --done: #8CC59A; --wait: #E8B65E; --blocked: #F28C80; --accent: #E8855A; --on-accent: #2A140A; --link: #F0A07C; --note: #2E241D; color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+h1, h2, h3, p { margin: 0; }
+.wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* ---- the mock picker and notes (outside the app) ---- */
+.intro h1 { font-family: var(--font-display); font-size: 26px; font-weight: 800; letter-spacing: -.01em; text-wrap: balance; }
+.intro p { color: var(--muted); max-width: 64ch; margin-top: 4px; }
+.picker { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 999px; background: var(--chip); width: fit-content; max-width: 100%; }
+.picker button { border: 0; background: transparent; border-radius: 999px; padding: 7px 14px; min-height: 36px; font-weight: 700; font-size: 14px; color: var(--ink); opacity: .82; }
+.picker button[aria-selected="true"] { opacity: 1; }
+.picker button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent); }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px 24px; padding: 14px 18px; border-radius: 14px; background: var(--note); border: 1.5px dashed var(--line); font-size: 14px; }
+.notes h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); margin-bottom: 4px; }
+.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+
+/* ---- the app frame ---- */
+.screen { border-radius: 18px; border: 1px solid var(--line); background: var(--bg); overflow: hidden; box-shadow: var(--shadow); }
+.appbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.appbar .logo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.appbar .logo svg { width: 26px; height: 23px; }
+.appbar .crumb { color: var(--muted); }
+.appbar .crumb b { color: var(--ink); font-weight: 700; }
+.appbar .newbtn { margin-left: auto; background: var(--accent); color: var(--on-accent); border-radius: 999px; padding: 5px 14px; font-weight: 700; }
+.page { max-width: 620px; margin: 0 auto; padding: 22px 16px 34px; display: flex; flex-direction: column; gap: 20px; }
+.page.wide { max-width: none; }
+
+/* app bits, as in css/app.css */
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.head h1 { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -.01em; }
+.head .meta { flex: 1 1 260px; }
+.meta { color: var(--muted); font-size: 13.5px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; min-height: 34px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pill { --tone: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 999px; font-size: 12px; font-weight: 600; padding: 2px 10px;
+  background: color-mix(in srgb, var(--tone) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--surface)); color: var(--ink); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tone); flex: none; }
+.pill.icon::before { display: none; }
+.pill svg { flex: none; color: var(--tone); }
+.t-accent { --tone: var(--accent); } .t-ok { --tone: var(--done); } .t-wait { --tone: var(--wait); } .t-muted { --tone: var(--muted); }
+.lsec { display: flex; flex-direction: column; gap: 10px; }
+.lsec h2 { font-family: var(--font-display); font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.lcount { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-family: var(--font-body); font-size: 12.5px; font-weight: 600; text-align: center; }
+.lrows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.lrows > li + li { border-top: 1px solid var(--line); }
+.lrow { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 12px 16px; border: 0; background: transparent; text-align: left; color: var(--ink); }
+.lrow:hover { background: var(--field); }
+.lrow:focus-visible { outline-offset: -3px; }
+.lrow-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lrow-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 42%; text-align: right; }
+.rt { font-size: 15.5px; font-weight: 700; line-height: 1.35; }
+.rs { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.ra { font-size: 14px; line-height: 1.4; }
+.go { flex: none; color: var(--muted); display: inline-flex; }
+.lrow:hover .go { color: var(--ink); }
+.fold summary { cursor: pointer; list-style: none; min-height: 40px; display: flex; align-items: center; }
+.fold summary::-webkit-details-marker { display: none; }
+.fold summary h2::before { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); margin-right: 4px; transition: transform .2s; }
+.fold[open] summary h2::before { transform: rotate(45deg); }
+.fold[open] summary { margin-bottom: 10px; }
+.guess { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+.avs { display: inline-flex; padding-left: 6px; }
+.av { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-left: -6px; border-radius: 50%; background: var(--chip); color: var(--ink); border: 2px solid var(--surface); font-size: 10px; font-weight: 800; }
+
+/* Fuzz says (a small Fuzz on other pages) */
+.says { display: flex; gap: 12px; align-items: flex-start; }
+.says svg { flex: none; width: 40px; height: 35px; margin-top: 2px; }
+.says p { background: var(--surface); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; padding: 10px 14px; font-size: 14px; line-height: 1.45; max-width: 60ch; }
+.says .x { color: var(--muted); font-size: 13px; margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; padding: 0; }
+
+/* Now: today's grid */
+.scards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.scard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; min-width: 0; }
+.scard-name { font-family: var(--font-display); font-size: 17px; font-weight: 800; }
+.scard-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
+.scard-foot .btn { margin-left: auto; }
+
+/* A: rows with an icon tile */
+.tile { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.tile.quiet { background: var(--field); color: var(--muted); border-color: var(--line); }
+
+/* B: episodes */
+.ep { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; }
+.ep-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ep-top .rt { flex: 1 1 auto; min-width: 0; }
+.strip { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.dot { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.dot.d { background: color-mix(in srgb, var(--done) 70%, var(--surface)); }
+.dot.o { border: 2px solid color-mix(in srgb, var(--accent) 70%, var(--surface)); }
+.dot.n { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.strip .meta { margin-left: 8px; font-size: 12.5px; }
+.ln { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; font-size: 13.5px; }
+.ln b { color: var(--muted); font-weight: 600; }
+.ln.next span { font-weight: 700; }
+.ep-acts { display: flex; justify-content: flex-end; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* C: in a sentence */
+.scs { display: flex; flex-direction: column; gap: 12px; }
+.sc { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.sc h3 { font-family: var(--font-display); font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sc .prose { font-size: 15px; line-height: 1.55; max-width: 62ch; }
+.sc .prose em { font-style: normal; color: var(--muted); font-size: 13px; }
+.sc .nextbox { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 8px 8px 12px; border-radius: 12px; background: var(--field); font-size: 14px; }
+.sc .nextbox p { flex: 1 1 220px; min-width: 0; }
+.sc.quiet { background: transparent; border-style: dashed; }
+
+/* D: by your part */
+.stat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.stat svg { flex: none; }
+.stat.wait { color: var(--wait); } .stat.move { color: var(--done); } .stat.quiet { color: var(--muted); } .stat.unknown { color: var(--muted); }
+.stat span { color: var(--ink); font-weight: 400; }
+.part-h { display: flex; flex-direction: column; gap: 2px; }
+.part-h .meta { font-size: 13px; }
+
+@media (max-width: 560px) {
+  .lrow { flex-wrap: wrap; }
+  .lrow-side { max-width: none; width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; text-align: left; padding-left: 54px; }
+  .lrow.no-tile .lrow-side { padding-left: 0; }
+  .appbar .crumb { display: none; }
+  .ln { grid-template-columns: 1fr; gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Series page: four directions</h1>
+    <p>Each one is built from the same made-up demo series. They all borrow Lineup's centered column and row list, and each one answers "what is this?" before you click in. Pick one to compare it with the page as it is now.</p>
+  </header>
+  <div class="picker" role="tablist" aria-label="Mocks" id="picker"></div>
+  <section class="notes" id="notes" aria-live="polite"></section>
+  <div class="screen">
+    <div class="appbar"><span class="logo" id="logo"></span><span class="crumb"><b>Series</b> · Back to the Guide</span><span class="newbtn">+ New</span></div>
+    <main class="page" id="page"></main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var FUZZ = '<svg viewBox="0 0 64 56" aria-hidden="true"><path d="M32 15Q26 7 17 3" stroke="#7B6455" stroke-width="2.4" stroke-linecap="round" fill="none"/><circle cx="16.5" cy="3.2" r="2.6" fill="#FFC65C"/><path d="M32 15Q37 10 44 8" stroke="#7B6455" stroke-width="2.4" stroke-linecap="round" fill="none"/><rect x="42" y="5.6" width="4.6" height="4.6" rx="1" transform="rotate(45 44.3 7.9)" fill="#FFC65C"/><rect x="3" y="14" width="58" height="40" rx="9" fill="#C9663C"/><rect x="7" y="17" width="42" height="34" rx="12" fill="#3B2B23"/><rect x="9" y="19" width="38" height="30" rx="10" fill="#241C19"/><circle cx="55" cy="25" r="2.7" fill="#FFF1DC"/><circle cx="55" cy="34" r="2.7" fill="#FFF1DC"/><circle cx="55" cy="43" r="1.7" fill="#5F8F5A"/><path d="M20 34Q23.5 27.5 27 34M31 34Q34.5 27.5 38 34" stroke="#FFC65C" stroke-width="2.6" stroke-linecap="round" fill="none"/><path d="M24 40Q28.5 45.5 33 40" stroke="#FFC65C" stroke-width="2.4" stroke-linecap="round" fill="none"/><circle cx="17" cy="40" r="2.6" fill="#FF8A5C" opacity=".35"/><circle cx="40" cy="40" r="2.6" fill="#FF8A5C" opacity=".35"/></svg>';
+  function ic(d, s) { return '<svg width="' + (s || 16) + '" height="' + (s || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
+  var CLIP = '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/>';
+  var I = {
+    clip: ic(CLIP, 20),
+    go: ic('<path d="M9 6l6 6-6 6"/>', 18),
+    wait: ic('<path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9"/>', 14),
+    move: ic('<path d="M5 12h12M13 6l6 6-6 6"/>', 14),
+    quiet: ic('<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>', 14),
+    unknown: ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.5h.01"/>', 14),
+    plus: ic('<path d="M12 5v14M5 12h14"/>', 14)
+  };
+  var STAT = { wait: 'Waiting', move: 'Moving', quiet: 'Gone quiet', unknown: 'Not sure yet' };
+  var ROLE = { drive: ['Driving it', 't-accent'], help: ['Helping', 't-muted'], follow: ['Keeping up', 't-muted'] };
+
+  /* made-up demo work, extended from js/store.js DEMO_SERIES */
+  var S = [
+    { name: 'Northwind rollout', sec: 'going', role: 'drive', forWho: 'Northwind',
+      about: 'Getting Northwind onto always-on testing, starting with a pilot.',
+      status: { k: 'wait', text: 'Waiting on Northwind legal’s review of the pilot plan', src: 'Priya Shah on Slack' },
+      doneWhen: 'Northwind confirms the pilot plan in writing', milestone: 'Pilot go-live, Jan 15',
+      last: 'You sent the pilot plan to legal', lastWhen: 'Tue', next: 'Send Priya Friday’s status note', open: 5, done: 9,
+      people: ['Dana Ortiz', 'Priya Shah', 'Sam Lee'], moved: '2 days ago' },
+    { name: 'Report builder launch', sec: 'going', role: 'help', forWho: 'the Reporting team',
+      about: 'Shipping the new report builder. Your part is the release notes.',
+      status: { k: 'move', text: 'REP-118 is in QA and the release notes are drafted', src: 'the Jira ticket' },
+      milestone: 'Release, Dec 3', last: 'Fuzz drafted the release notes', lastWhen: 'yesterday',
+      next: 'Update the release notes from Marco’s QA pass', open: 2, done: 4, people: ['Marco Ruiz', 'Jen Wu'], moved: 'yesterday' },
+    { name: 'Acme security review', sec: 'going', role: null, guess: true, forWho: 'Acme',
+      about: 'Answering Acme’s security questionnaire, from 4 emails with Lena Fischer and the SEC-21 ticket.',
+      status: { k: 'unknown', text: 'Fuzz doesn’t know where this stands yet', src: '' },
+      last: 'Lena sent section 3', lastWhen: 'today', next: 'Reply to Lena with the SOC 2 report', open: 3, done: 1, people: ['Lena Fischer'], moved: 'today' },
+    { name: 'Q1 planning', sec: 'going', role: 'follow', forWho: 'your team',
+      about: 'The team’s Q1 plan. You add estimates and keep up with the decisions.',
+      status: { k: 'move', text: 'The draft plan is out for comments', src: 'Priya Raman by email' },
+      milestone: 'Planning review, Dec 9', last: 'Priya shared the draft', lastWhen: 'Mon',
+      next: 'Add your two estimates to the plan doc', open: 1, done: 2, people: ['Priya Raman', 'Dana Ortiz'], moved: 'Monday' },
+    { name: 'Hiring a staff engineer', sec: 'quiet', role: 'drive', forWho: 'your team',
+      about: 'Filling the staff engineer role on your team.',
+      status: { k: 'quiet', text: 'Panel interviews are done; the feedback hasn’t come in', src: 'email' },
+      last: 'The last panel interview finished', lastWhen: '16 days ago', next: 'Ask Sam for the two missing panel write-ups',
+      open: 1, done: 6, people: ['Sam Lee'], moved: '16 days ago' }
+  ];
+  var WATCH = [{ name: 'Onboarding docs refresh', about: '4 asks about the onboarding docs in two weeks, mostly from Jen Wu.' }];
+  var WRAP = [
+    { name: 'Strategy deck', about: 'The deck is in the Strategy folder and Priya replied to the review email.', done: 7 },
+    { name: 'Office move', about: 'Everyone has a desk on 4 and the old lease is closed.', done: 5 }
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function initials(n) { return n.split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase(); }
+  function avs(p) { return '<span class="avs" aria-label="' + esc(p.join(', ')) + '">' + p.slice(0, 3).map(function (x) { return '<span class="av" aria-hidden="true">' + initials(x) + '</span>'; }).join('') + '</span>'; }
+  function rolePill(r) { return r ? '<span class="pill ' + ROLE[r][1] + '">' + ROLE[r][0] + '</span>' : ''; }
+  function stat(s, withText) { return '<span class="stat ' + s.k + '">' + I[s.k] + STAT[s.k] + (withText ? '<span> · ' + esc(s.text) + '</span>' : '') + '</span>'; }
+  function guess(x) { return x.guess ? '<span class="guess" title="Fuzz worked this out from the tasks. Open it to correct it.">Fuzz’s guess</span>' : ''; }
+  function going() { return S.filter(function (x) { return x.sec === 'going'; }); }
+  function quiet() { return S.filter(function (x) { return x.sec === 'quiet'; }); }
+  function says(t) { return '<div class="says">' + FUZZ + '<p>' + t + '</p></div>'; }
+  var EXPLAIN = 'A series is a bigger thing you’re in the middle of, like a launch, a hire or a customer pilot. I keep its tasks together so you can see where it stands and pick it back up. <button class="x" type="button">Got it</button>';
+  function head(sub) { return '<div class="head"><h1>Series</h1>' + (sub ? '<p class="meta">' + sub + '</p>' : '') + '<button class="btn" type="button">' + I.plus + 'Start a series</button></div>'; }
+  function folds() {
+    return '<details class="fold lsec"><summary><h2>Fuzz is watching <span class="lcount">' + WATCH.length + '</span></h2></summary><ul class="lrows">' +
+      WATCH.map(function (w) { return '<li><div class="lrow no-tile"><div class="lrow-main"><span class="rt">' + esc(w.name) + '</span><span class="rs">' + esc(w.about) + '</span></div><div class="lrow-side" style="flex-direction:row;gap:6px"><button class="btn" type="button">Keep it</button><button class="btn" type="button">Not a series</button></div></div></li>'; }).join('') + '</ul></details>' +
+      '<details class="fold lsec"><summary><h2>Wrapped <span class="lcount">' + WRAP.length + '</span></h2></summary><ul class="lrows">' +
+      WRAP.map(function (w) { return '<li><button class="lrow no-tile" type="button"><span class="lrow-main"><span class="rt">' + esc(w.name) + '</span><span class="rs">' + esc(w.about) + '</span></span><span class="lrow-side"><span class="pill t-ok">' + w.done + ' done</span></span></button></li>'; }).join('') + '</ul></details>';
+  }
+
+  /* ---- Now: the page as it is ---- */
+  function now() {
+    function card(x) {
+      return '<li class="scard"><span class="scard-name">' + esc(x.name) + '</span><div class="scard-foot"><span class="meta">' + x.open + ' open · ' + x.done + ' done</span>' + avs(x.people) +
+        '<button class="btn" type="button">Work on ' + esc(x.name) + '</button></div></li>';
+    }
+    return head('What you’re in the middle of. Fuzz picks these up from your work; you never have to set one up.') +
+      '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><ul class="scards">' + going().map(card).join('') + '</ul></section>' +
+      '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><ul class="scards">' + quiet().map(card).join('') + '</ul></section>' +
+      '<section class="lsec"><h2>Fuzz is watching <span class="lcount">1</span></h2><p class="meta">Work that keeps coming back together.</p><ul class="scards"><li class="scard"><span class="scard-name">Onboarding docs refresh</span><p class="meta">4 tasks · Jen Wu</p><div class="scard-foot"><button class="btn" type="button" style="margin-left:0">Keep it</button><button class="btn" type="button" style="margin-left:0">Not a series</button></div></li></ul></section>';
+  }
+
+  /* ---- A: Lineup rows ---- */
+  function rows() {
+    function row(x) {
+      return '<li><button class="lrow" type="button"><span class="tile' + (x.sec === 'quiet' ? ' quiet' : '') + '">' + I.clip + '</span><span class="lrow-main"><span class="rt">' + esc(x.name) + guess(x) + '</span>' +
+        '<span class="rs">' + esc(x.about) + '</span></span><span class="lrow-side">' + (x.role ? rolePill(x.role) : '') +
+        '<span class="rs">' + x.open + ' open · moved ' + esc(x.moved) + '</span></span><span class="go">' + I.go + '</span></button></li>';
+    }
+    return head() + says(EXPLAIN) +
+      '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><ul class="lrows">' + going().map(row).join('') + '</ul></section>' +
+      '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><p class="meta">Nothing moved for a while. New work wakes one up.</p><ul class="lrows">' + quiet().map(row).join('') + '</ul></section>' + folds();
+  }
+
+  /* ---- B: Episodes ---- */
+  function episodes() {
+    function strip(x) {
+      var h = '';
+      for (var i = 0; i < x.done; i++) h += '<span class="dot d"></span>';
+      for (var j = 0; j < x.open; j++) h += '<span class="dot ' + (j === 0 ? 'n' : 'o') + '"></span>';
+      return '<div class="strip" role="img" aria-label="' + x.done + ' tasks done, ' + x.open + ' open">' + h + '<span class="meta">' + x.done + ' done · ' + x.open + ' to go</span></div>';
+    }
+    function ep(x) {
+      return '<li class="ep"><div class="ep-top"><span class="rt">' + esc(x.name) + guess(x) + '</span>' + rolePill(x.role) + '</div>' +
+        '<p class="rs">' + esc(x.about) + '</p>' + strip(x) +
+        '<div class="ln"><b>Last</b><span>' + esc(x.last) + ' · <span class="meta">' + esc(x.lastWhen) + '</span></span></div>' +
+        '<div class="ln next"><b>Next</b><span>' + esc(x.next) + '</span></div>' +
+        '<div class="ep-acts"><button class="btn" type="button">Work on it</button></div></li>';
+    }
+    return head() + says(EXPLAIN) +
+      '<div class="legend"><span><span class="dot d"></span>A task that’s done</span><span><span class="dot n"></span>Up next</span><span><span class="dot o"></span>Still to do</span></div>' +
+      '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><ul class="lrows">' + going().map(ep).join('') + '</ul></section>' +
+      '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><ul class="lrows">' + quiet().map(ep).join('') + '</ul></section>' + folds();
+  }
+
+  /* ---- C: In a sentence ---- */
+  function sentence() {
+    var VERB = { drive: 'You’re driving this', help: 'You’re helping with this', follow: 'You’re keeping up with this' };
+    function prose(x) {
+      var who = x.role ? VERB[x.role] + ' for ' + esc(x.forWho) + '. ' : 'I’m not sure of your part yet. ';
+      var where = x.status.k === 'unknown' ? 'I don’t know where it stands yet.' : esc(x.status.text) + ' <em>(' + esc(x.status.src) + ')</em>.';
+      var end = x.doneWhen ? ' It’s done when ' + esc(x.doneWhen) + '.' : (x.milestone ? ' Next milestone: ' + esc(x.milestone) + '.' : '');
+      return esc(x.about) + ' ' + who + where + end;
+    }
+    function sc(x) {
+      return '<article class="sc' + (x.sec === 'quiet' ? ' quiet' : '') + '"><h3>' + esc(x.name) + guess(x) + '</h3><p class="prose">' + prose(x) + '</p>' +
+        '<div class="nextbox"><p><b>Next in ' + esc(x.name) + ':</b> ' + esc(x.next.charAt(0).toLowerCase() + x.next.slice(1)) + '</p><button class="btn primary" type="button">Work on it</button></div>' +
+        '<p class="meta">' + x.open + ' open · ' + x.done + ' done · with ' + esc(x.people.join(', ')) + '</p></article>';
+    }
+    return head() + says(EXPLAIN) +
+      '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><div class="scs">' + going().map(sc).join('') + '</div></section>' +
+      '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><div class="scs">' + quiet().map(sc).join('') + '</div></section>' + folds();
+  }
+
+  /* ---- D: By your part ---- */
+  function byPart() {
+    var GROUPS = [['drive', 'Driving', 'You own how these turn out.'], ['help', 'Helping', 'Someone else owns these; you have a piece.'],
+      ['follow', 'Keeping up', 'You mostly need to know what happened.'], [null, 'Not sure yet', 'Tell Fuzz your part and it moves.']];
+    function row(x) {
+      return '<li><button class="lrow no-tile" type="button"><span class="lrow-main"><span class="rt">' + esc(x.name) + guess(x) + '</span>' +
+        '<span class="rs">' + esc(x.about) + '</span>' + '<span style="margin-top:4px">' + stat(x.status, x.status.k !== 'unknown') + '</span></span>' +
+        '<span class="lrow-side">' + avs(x.people) + '<span class="rs">' + x.open + ' open</span></span><span class="go">' + I.go + '</span></button></li>';
+    }
+    var live = S.slice();
+    return head() + says(EXPLAIN) + GROUPS.map(function (g) {
+      var list = live.filter(function (x) { return x.role === g[0]; });
+      if (!list.length) return '';
+      return '<section class="lsec"><div class="part-h"><h2>' + g[1] + ' <span class="lcount">' + list.length + '</span></h2><p class="meta">' + g[2] + '</p></div><ul class="lrows">' + list.map(row).join('') + '</ul></section>';
+    }).join('') + folds();
+  }
+
+  var MOCKS = [
+    { id: 'now', label: 'Now', render: now, wide: true,
+      notes: [['What you see today', ['A full-width grid of cards, unlike Lineup’s single column.', 'With few facts, a card is just a name, counts, initials and a long “Work on …” button.', 'Nothing says what a series is, or what this one is about.']]] },
+    { id: 'rows', label: 'A · Rows', render: rows,
+      notes: [['What changes', ['Uses Lineup’s rounded row list, so it looks like the same app.', 'Every row has one plain line saying what the series is about.', 'Your part and when it last moved sit on the right. The row opens the sheet, where Work on lives.']],
+              ['Trade-off', ['The quietest option and the cheapest to build.', 'Status and Next only show in the sheet.']]] },
+    { id: 'episodes', label: 'B · Episodes', render: episodes,
+      notes: [['What changes', ['A strip of dots, one per task, shows that a series is a run of tasks over time.', 'Last and Next tell you where you left off, which helps when you come back after a break.', 'Fits the TV naming: each task is an episode.']],
+              ['Trade-off', ['Rows are taller. A series with 30 tasks needs the strip to wrap or cap.', 'Dots could read as a score; keep them neutral and never red.']]] },
+    { id: 'sentence', label: 'C · In a sentence', render: sentence,
+      notes: [['What changes', ['Fuzz writes one sentence per series: what it is, your part, where it stands, and when it’s done.', '“Next in …” is the one action, like Triage’s single suggestion.', 'Gone quiet cards drop to a dashed outline, with no warning colours.']],
+              ['Trade-off', ['The most readable, and the most text. Fine for 5 series; 15 gets long.', 'Needs Fuzz to write a good sentence even when facts are thin.']]] },
+    { id: 'by-part', label: 'D · By your part', render: byPart,
+      notes: [['What changes', ['Groups by your part (Driving, Helping, Keeping up) rather than by state.', 'Each row has a status with an icon and colour: Waiting, Moving, Gone quiet.', 'Series where your part is unknown collect in “Not sure yet”, which is a cue to correct Fuzz.']],
+              ['Trade-off', ['Answers “what do I own?” first. A quiet series sits among the busy ones.', 'Depends on your_role being filled in; your real data often lacks it.']]] }
+  ];
+
+  var picker = document.getElementById('picker'), page = document.getElementById('page'), notes = document.getElementById('notes');
+  document.getElementById('logo').innerHTML = FUZZ + 'Fuzz';
+  picker.innerHTML = MOCKS.map(function (m) { return '<button type="button" role="tab" data-id="' + m.id + '" aria-selected="false">' + m.label + '</button>'; }).join('');
+  function show(id) {
+    var m = MOCKS.filter(function (x) { return x.id === id; })[0] || MOCKS[1];
+    [].forEach.call(picker.children, function (b) { b.setAttribute('aria-selected', b.dataset.id === m.id ? 'true' : 'false'); });
+    notes.innerHTML = m.notes.map(function (n) { return '<div><h3>' + n[0] + '</h3><ul>' + n[1].map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></div>'; }).join('');
+    page.className = 'page' + (m.wide ? ' wide' : '');
+    page.innerHTML = m.render();
+  }
+  picker.addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) { location.hash = b.dataset.id; show(b.dataset.id); } });
+  page.addEventListener('click', function (e) { if (e.target.closest('.says .x')) e.target.closest('.says').remove(); });
+  window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+  show(location.hash.slice(1) || 'rows');
+})();
+</script>
