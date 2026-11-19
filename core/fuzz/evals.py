@@ -515,6 +515,14 @@ def get_run(core, run_id):
     return r
 
 
+def previous(core, run):
+    """The run just before this one on the same surface, gated or not: what "did this run improve" compares
+    with. The gate compares with the baseline instead, which can be older."""
+    r = core.one("SELECT id FROM eval_runs WHERE user_id=? AND surface=? AND id<? ORDER BY id DESC LIMIT 1",
+                 (core.user_id, run["surface"], run["id"]))
+    return get_run(core, r["id"]) if r else None
+
+
 def baseline(core, surface):
     """The last run on this surface that passed its gate, or None."""
     r = core.one("SELECT id FROM eval_runs WHERE user_id=? AND surface=? AND gate_ok=1 ORDER BY id DESC LIMIT 1",
@@ -587,14 +595,47 @@ def _row(r):
             "seconds": r.get("seconds"), "gate": "pass" if r["gate_ok"] else "fail", "against": r.get("against"),
             "lessons": len(r["lessons"] or []), "commit": r.get("seeds_commit"),
             "passing": {s: _counts(res, s) for s in ("global", "personal")},
+            "score": {s: _tally(res, s) for s in ("global", "personal")}, "metrics": _metrics(r),
             "failing": sum(not x["passed"] for x in res), "cases": len(res)}
+
+
+def _tally(rows, scope):
+    """Passing and scored cases in one set, as numbers: what a run's score is compared on."""
+    rows = [r for r in rows if r.get("scope", "personal") == scope]
+    return {"passed": sum(bool(r["passed"]) for r in rows), "of": len(rows)}
+
+
+def _metrics(r):
+    """The matcher's precision, recall and F1 at the threshold in force, per set; other surfaces have none."""
+    meta = r.get("meta")
+    meta = json.loads(meta) if isinstance(meta, str) else (meta or {})
+    out = {}
+    for scope, rows in (meta.get("sweep") or {}).items():
+        now = next((x for x in rows if x.get("current")), None)
+        if now:
+            out[scope] = {k: now.get(k) for k in ("precision", "recall", "f1")}
+    return out or None
+
+
+def _prev_line(p):
+    """The previous run, as much of it as a comparison needs."""
+    return {"id": p["id"], "ts": p["ts"], "set": p.get("set"), "score": p["score"], "metrics": p["metrics"]}
 
 
 def run_list(core, limit=100):
     """Every run, newest first, and the newest of each surface: the debugging page's list (GET /evals)."""
     ids = [x["id"] for x in core.all("SELECT id FROM eval_runs WHERE user_id=? ORDER BY id DESC LIMIT ?",
                                      (core.user_id, limit))]
-    runs = [_row(get_run(core, i)) for i in ids]
+    full = {i: get_run(core, i) for i in ids}
+    runs = [_row(full[i]) for i in ids]
+    older = {}   # surface -> the run before, walking oldest first
+    for r in reversed(runs):
+        p = older.get(r["surface"])
+        if p is None and len(ids) == limit:   # the list was cut: its previous run may be older than the cut
+            pr = previous(core, full[r["id"]])
+            p = _row(pr) if pr else None
+        r["prev"] = _prev_line(p) if p else None
+        older[r["surface"]] = r
     latest = {}
     for r in runs:
         latest.setdefault(r["surface"], r)
@@ -633,7 +674,15 @@ def run_detail(core, run_id):
                       "passed": bool(x["passed"]), "score": f"{x['passes']}/{x['runs']}", "fp": x.get("fp"),
                       "change": status.get(_key(x)), "why": x.get("why"), "features": x.get("features"),
                       "replies": x.get("replies"), "stripped": "replies" not in x})
-    out = {"run": _row(run), "cases": cases, "lessons": run["lessons"], "meta": meta}
+    prev = previous(core, run)
+    if prev:
+        had = {_key(x): x for x in prev["results"]}
+        for c in cases:
+            p = had.get(c["key"])
+            c["prev_score"] = f"{p['passes']}/{p['runs']}" if p and not (p.get("fp") and c["fp"] and p["fp"] != c["fp"]) else None
+    row = _row(run)
+    row["prev"] = _prev_line(_row(prev)) if prev else None
+    out = {"run": row, "cases": cases, "lessons": run["lessons"], "meta": meta}
     if cmp is not None:
         out["changed"] = {k: len(v) for k, v in cmp.items()}
         out["sign_test_p"] = sign_test(len(cmp["fixed"]), len(cmp["broke"]))

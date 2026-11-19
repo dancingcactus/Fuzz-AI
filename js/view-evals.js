@@ -14,6 +14,46 @@
 
   function when(ts) { return ts ? String(ts).replace('T', ' ').replace(/:\d\dZ$/, '') : ''; }
   function gate(g) { return UI.pill(g === 'pass' ? 'Gate passed' : 'Gate failed', g === 'pass' ? 'ok' : 'danger'); }
+  /* How a score moved since the previous run of the same eval (not the gate's baseline, which can be older):
+     up, down or level. Same number of cases compares counts; a different number compares the share passing. */
+  function delta(cur, prev, prevId) {
+    if (!cur || !prev || !cur.of || !prev.of) return '';
+    var was = 'Run #' + prevId + ': ' + prev.passed + ' of ' + prev.of, d, txt;
+    if (cur.of === prev.of) { d = cur.passed - prev.passed; txt = String(Math.abs(d)); }
+    else { d = Math.round(100 * (cur.passed / cur.of - prev.passed / prev.of)); txt = Math.abs(d) + ' pts'; }
+    return badge(d, txt, was);
+  }
+  function badge(d, txt, was) {
+    var k = d > 0 ? 'up' : d < 0 ? 'down' : 'level';
+    var say = d > 0 ? 'Up ' + txt : d < 0 ? 'Down ' + txt : 'No change';
+    return ' <span class="ev-delta ' + k + '" title="' + esc(was) + '" aria-label="' + esc(say + ', ' + was) + '">' +
+      (d > 0 ? '▲ ' + esc(txt) : d < 0 ? '▼ ' + esc(txt) : '=') + '</span>';
+  }
+  function scoreHTML(r, s) { return esc(r.passing[s]) + (r.prev ? delta(r.score && r.score[s], r.prev.score[s], r.prev.id) : ''); }
+
+  /* The detail's side by side: each score in this run against the one before it */
+  function sinceHTML(r) {
+    var p = r.prev;
+    if (!p) return '<p class="meta">No earlier ' + esc(NAME[r.surface] || r.surface) + ' run to compare scores with.</p>';
+    var parts = [['global', 'Global'], ['personal', 'Yours']].filter(function (s) { return r.score[s[0]].of || p.score[s[0]].of; }).map(function (s) {
+      var a = p.score[s[0]], b = r.score[s[0]];
+      return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + a.passed + ' of ' + a.of + ' →</span> ' + b.passed + ' of ' + b.of +
+        delta(b, a, p.id) + '</span>';
+    });
+    ['global', 'personal'].forEach(function (scope) {
+      var a = (p.metrics || {})[scope], b = (r.metrics || {})[scope];
+      if (!a || !b) return;
+      ['precision', 'recall', 'f1'].forEach(function (m) {
+        if (a[m] == null || b[m] == null) return;
+        var d = Math.round((b[m] - a[m]) * 1000) / 1000;
+        parts.push('<span class="ev-since-item">' + (m === 'f1' ? 'F1' : m[0].toUpperCase() + m.slice(1)) + (scope === 'global' ? '' : ' (yours)') +
+          ' <span class="meta">' + a[m] + ' →</span> ' + b[m] + badge(d, String(Math.abs(d)), 'Run #' + p.id + ': ' + a[m]) + '</span>');
+      });
+    });
+    return '<p class="ev-since"><span>Since the previous run <a href="#/evals/' + p.id + '">#' + p.id + '</a>' +
+      (p.set !== r.set ? ' <span class="meta">(set ' + esc(p.set) + ')</span>' : '') + ':</span>' + parts.join('') + '</p>';
+  }
+
   function pre(x) { return '<pre class="ev-pre">' + esc(typeof x === 'string' ? x : JSON.stringify(x, null, 2)) + '</pre>'; }
 
   function load() {
@@ -37,7 +77,7 @@
     return '<div class="ev-latest">' + ['extract', 'dupes', 'draft', 'executor'].map(function (s) {
       var r = (list.latest || {})[s], job = running(s);
       var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) : UI.pill('No runs yet', 'muted'));
-      var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + esc(r.passing.global) + ' · Yours ' + esc(r.passing.personal) +
+      var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + scoreHTML(r, 'global') + ' · Yours ' + scoreHTML(r, 'personal') +
         ' · Run #' + r.id + ' · ' + esc(when(r.ts)) + '</a>' : '<span class="meta">' + esc(CMD[s]) + '</span>';
       var act = job ? '<span class="meta ev-busy">Running for ' + ago(job.started_at) + '…</span>'
         : '<button type="button" class="btn small" data-start="' + s + '" title="' + esc(COST[s]) + '">Run now</button><span class="meta">' + esc(COST[s]) + '</span>';
@@ -74,7 +114,7 @@
       runs.map(function (r) {
         return '<tr class="ev-row' + (r.id === runId ? ' is-on' : '') + '" data-run="' + r.id + '" tabindex="0"><td>#' + r.id + '</td><td>' + esc(when(r.ts)) + '</td><td>' + esc(NAME[r.surface] || r.surface) + '</td>' +
           '<td>' + esc(r.skill || '') + (r.copy ? ' <span class="meta">' + esc(r.copy) + '</span>' : '') + '</td><td>' + esc(r.model || r.client || '') + '</td>' +
-          '<td>' + esc(r.set) + '</td><td>' + esc(r.passing.global) + '</td><td>' + esc(r.passing.personal) + '</td>' +
+          '<td>' + esc(r.set) + '</td><td>' + scoreHTML(r, 'global') + '</td><td>' + scoreHTML(r, 'personal') + '</td>' +
           '<td>' + gate(r.gate) + '</td><td>' + (r.against ? '#' + r.against : '') + '</td><td>' + (r.seconds == null ? '' : esc(r.seconds)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -95,21 +135,22 @@
     if (!runId) return '';
     if (!detail) return '<section class="ev-detail"><p class="lempty">Loading run #' + esc(runId) + '…</p></section>';
     var r = detail.run;
-    var changed = detail.changed ? '<p class="ev-changed">Against run #' + r.against + ': ' + ['fixed', 'broke', 'flaky', 'unchanged', 'new'].map(function (k) {
+    var changed = detail.changed ? '<p class="ev-changed">Per case, against the gate’s baseline run #' + r.against + ': ' + ['fixed', 'broke', 'flaky', 'unchanged', 'new'].map(function (k) {
       return UI.pill(CHANGE[k][0] + ' ' + detail.changed[k], detail.changed[k] ? CHANGE[k][1] : 'muted');
     }).join(' ') + (detail.sign_test_p != null ? ' <span class="meta">sign test p = ' + detail.sign_test_p + '</span>' : '') + '</p>'
       : '<p class="meta">Nothing to compare with: no earlier run passed its gate.</p>';
-    var cases = detail.cases.filter(function (c) { return !onlyFailing || !c.passed || (c.change && c.change !== 'unchanged'); });
+    var cases = detail.cases.filter(function (c) { return !onlyFailing || !c.passed || (c.change && c.change !== 'unchanged') || moved(c); });
     var rows = cases.length ? cases.map(caseHTML).join('') : '<p class="lempty">Every case passed, and nothing changed.</p>';
     return '<section class="ev-detail" aria-labelledby="ev-run-h"><h2 id="ev-run-h">Run #' + r.id + ': ' + esc(NAME[r.surface] || r.surface) + ' ' + gate(r.gate) + '</h2>' +
       '<p class="meta">' + esc([when(r.ts), r.skill + (r.copy ? ' (' + r.copy + ')' : ''), r.model || r.client, r.repeats + (r.repeats === 1 ? ' repeat' : ' repeats'),
         r.lessons + (r.lessons === 1 ? ' lesson' : ' lessons'), 'set ' + r.set, r.commit ? 'cases at ' + r.commit : '', r.seconds != null ? r.seconds + 's' : ''].filter(Boolean).join(' · ')) + '</p>' +
-      changed + sweepHTML(detail.meta) +
+      sinceHTML(r) + changed + sweepHTML(detail.meta) +
       '<h3>Cases <span class="meta">' + detail.cases.length + ' · global ' + esc(r.passing.global) + ' · yours ' + esc(r.passing.personal) + '</span></h3>' +
       '<label class="check"><input type="checkbox" id="ev-failing"' + (onlyFailing ? ' checked' : '') + '> <span>Only failing or changed</span></label>' +
       '<ul class="ev-cases">' + rows + '</ul></section>';
   }
 
+  function moved(c) { return c.prev_score && c.prev_score !== c.score; }
   function caseHTML(c) {
     var ch = c.change && CHANGE[c.change];
     var body = (c.why || c.note ? '<p class="meta">' + esc(c.why || c.note) + '</p>' : '') +
@@ -120,7 +161,7 @@
         : (c.replies || []).map(function (x, i) { return '<h4>Repeat ' + (i + 1) + ': ' + (x.passed ? 'passed' : 'failed') + '</h4>' + pre(x); }).join('')) +
       '<p class="meta">Fingerprint ' + esc(c.fp || '–') + '</p>';
     return '<li class="ev-case"><details data-k="' + esc(c.key) + '"><summary>' + UI.pill(c.passed ? 'Pass' : 'Fail', c.passed ? 'ok' : 'danger') + ' ' +
-      '<b>' + esc(c.origin) + '</b> <span class="meta">' + esc(c.set === 'global' ? 'global' : 'yours') + ' · ' + esc(c.kind) + ' · ' + esc(c.score) + '</span>' +
+      '<b>' + esc(c.origin) + '</b> <span class="meta">' + esc(c.set === 'global' ? 'global' : 'yours') + ' · ' + esc(c.kind) + ' · ' + esc(c.score) + (moved(c) ? ' (was ' + esc(c.prev_score) + ')' : '') + '</span>' +
       (ch ? ' ' + UI.pill(ch[0], ch[1]) : '') + '</summary>' + body + '</details></li>';
   }
 
