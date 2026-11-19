@@ -13,6 +13,9 @@ DEFAULTS = {
     # near_tie of the best is "also touches", never a judge item
     "attach_score": 6.0,
     "near_tie": 0.6,
+    # A key is a series' anchor only when at least this share of the tasks carrying it are in the series
+    # (the 2026-11-18 replay: without it one series snowballed to 94 of 274 tasks)
+    "anchor_share": 0.5,
     # Seed: an anchor on this many free tasks proposes a candidate
     "seed_min": 3,
     "seed_kinds": ["topic", "ticket", "term", "chan", "meet"],   # documents support a series, never start one

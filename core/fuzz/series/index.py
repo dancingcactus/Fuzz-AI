@@ -204,7 +204,13 @@ class Index:
         for t in self.members.get(sid, ()):
             for k in self.feats.get(t, {}):
                 counts[k] = counts.get(k, 0) + 1
-        out = {k: self.labels.get(k, k) for k, c in counts.items() if c >= 2 and self.weight(k) > 0 and k not in removed}
+        # a key is its anchor only where it's concentrated: at least anchor_share of the tasks carrying it are in
+        # the series. Otherwise every task that joins brings broad keys along, and the series snowballs.
+        # (Tasks another series already holds don't count against it.)
+        share = self.cfg["anchor_share"]
+        open_to = lambda k: sum(1 for t in self.index.get(k, ()) if self.tasks[t].get("series_id") in (None, sid))
+        out = {k: self.labels.get(k, k) for k, c in counts.items() if c >= 2 and self.weight(k) > 0 and k not in removed
+               and c >= share * open_to(k)}
         for a in rows:
             if a["how"] == "added" and not a["removed"]:
                 out[a["key"]] = a["label"] or self.labels.get(a["key"], a["key"])
@@ -216,14 +222,17 @@ class Index:
     def score(self, tid, sid, anchors=None):
         anchors = self.anchors(sid) if anchors is None else anchors
         mine = self.added(sid)
-        total = 0.0
+        total, strong = 0.0, False
         for k in self.feats.get(tid, {}):
             if k in anchors:
                 w = self.weight(k, added=k in mine)
                 if k in self.area_keys and not self.yours(sid):
                     w *= self.cfg["area_weight"]
+                elif kind_of(k) not in ("person", "dm") and w > 0:
+                    strong = True
                 total += w
-        return total
+        # people and an area's anchors only add to a match: alone they'd pull in the area's whole work
+        return total if strong else 0.0
 
     def scores(self, tid, sids=None):
         """[(score, sid)] best first, for the series (not areas) given or every one."""

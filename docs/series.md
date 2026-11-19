@@ -279,41 +279,64 @@ How it's wired:
   - `js/app.js`: the menu entry and `#/series`.
   - `js/view-triage.js`: the four cards, and the "Part of …" line on task cards.
   - `js/view-tasks.js`: the Lineup line, plus task detail's "Part of …", also touches and the picker.
-  - `js/view-capture.js`: New task's + → Series.
-- Tests: `core/tests/test_series.py`, `core/tests/test_series_more.py`, `tests/ui/series.test.mjs`.
+  - `js/view-capture.js`: New task’s +: Series, Person, Source, Artifact, Upload a file.
+- Tests: `core/tests/test_series.py`, `test_series_more.py`, `test_series_extra.py`, `tests/ui/series.test.mjs`.
+- Replay: `core/fuzz/series/replay.py`, on a copy of the store.
 
-Where the build departs from the text above, and why:
+How the build meets the parts above that needed a decision:
 
-- **Anchors are a projected `series_anchors` table, not the entity's identifiers.** `identifiers` is
-  derived and maps one value to one entity, while anchors need Undo and replay. A series still has its
-  entity (`type 'series'`, or `'area'`), which holds its aliases and facts. A series' anchors are worked out
-  when read: what at least 2 of its tasks carry, plus yours, minus the ones you removed. The table only
-  holds the seed keys, the ones you added and the ones you removed.
-- **Judge items live in `series_items`** (derived, like `fact_judgments`), and "wait" memory lives in
-  `series_waits`.
-- **Recurring meetings** are anchored by a meeting's title (`meet:`). **Email lists aren't anchors yet**:
-  signals don't carry list addresses.
-- **"Not needed" feeds `feedback`, not `lessons`.** Every suggestion's outcome is a `series_suggestion`
-  feedback row with its detector and key, ready to become eval cases. No lesson learner reads them yet.
+- **Anchors** are the series entity's identifiers (`identifiers`, type `anchor`, value `<key>#s<series>`,
+  since one anchor can belong to several series). The source of truth behind them is a projected
+  `series_anchors` table (the seed keys, the ones you added, the ones you removed), because `identifiers` is
+  derived and anchors need Undo and replay; the identifiers are rewritten from it after every change and
+  detection run. A series' anchors are worked out when read: what at least 2 of its tasks carry **and** where
+  the key is concentrated (at least `anchor_share`, 50%, of the free tasks carrying it are in the series),
+  plus yours, minus the ones you removed. Attach also needs one matching anchor that isn't an area's, a person
+  or a DM.
+- **Judge items** live in `series_items` (derived, like `fact_judgments`), and "wait" memory in `series_waits`.
+- **Recurring meetings** are anchored by a meeting's title (`meet:`). **Email lists** are a recipient address
+  shaped like a list (`northwind-all@`, `dl-…@`, `…-team@`) that never sends mail, or one you type; like
+  documents, they support a series but never start one.
+- **Not needed** feeds lessons (`learning/learners/series.py`): twice in a row for one kind of suggestion in a
+  series, and Fuzz stops suggesting that kind there (shown in Settings, where you can turn it off). Every
+  outcome is also an eval case (`eval_cases`, surface `series_suggest`).
+- **Usual next step** is mined from the series' history: a step it repeats (the same title once dates are
+  dropped) at least 3 times, about the same days apart, due again with nothing open for it.
+- **Ranking:** among cards otherwise level, a task in a series that moved this week (not muted, quiet or
+  wrapped) comes first. Work on … and a focus phrase naming a series put its tasks, and the ones that also
+  touch it, in Focus.
+- **Cross-series hints:** a task card says "Helps Northwind too" when its task also touches another series,
+  and the stall detector counts a reply owed on a task filed elsewhere that touches it.
+- **New task's +:** Series, Person (someone Fuzz knows or a name you type, for them or about them), Source (a
+  link to an email, a thread, notes or a page), Artifact (something Fuzz made) and Upload a file. The picks
+  become the task's sources (`POST /tasks/{id}/refs`), and a person shows in its People.
 - **Tasks the judge leaves out of a split** don't attach to its parts afterwards (a `series_left_out`
   feedback row). Without that, the very next run put them straight back.
-- **New task's + has Series and Upload a file.** Person, Source and Artifact aren't built: nothing yet says
-  what they do.
-- **Usual next step** isn't built (it needs evals first, as planned).
-- **Ranking** uses series only through Focus: Work on …, or a focus phrase that names one. The queue's own
-  order doesn't weigh series yet. Also touches feeds Work on … and the stall detector. Cross-series hints
-  ("This unblocks Northwind too") and grouping orphans by area aren't built.
+- **Grouping orphans by area** for Fuzz's own reasoning isn't used by anything yet: areas exist with their
+  anchors, ready for it.
 - The trust labels use the placeholders: Confirmed, From the owner, Reported, Fuzz noticed, Out of date.
+
+### Replay on real data (2026-11-18)
+
+`python -m fuzz.series.replay <copy>` replays detection day by day on a copy of the store, through the core's
+own code, with the configured client as judge (cached next to the copy). Run on a copy of the live store (274
+tasks, 18 days), against the spike's batch pass (15 series after its judge):
+
+- **First run:** 7 series, 6 areas, 3 waits, nothing refused, 11 judge calls. One series snowballed to 94
+  tasks: every task that attached brought its broad keys (the product's name) along as new anchors. →
+  `anchor_share`, and attach needs a strong anchor.
+- **After the fix:** 8 series of 5-15 tasks (73 of 274 tasks in one), 8 areas, 15 judge runs over 22 items
+  (7 new, 8 area, 5 wait, 1 split, 1 merge), nothing refused, 21 tasks attached without AI. The customer
+  engagement the streaming spike fragmented into forming pieces formed whole (15 tasks), and the judge chose
+  `wait` five times. The batch pass's spec, prototype, evaluation and goals series all appear. Fewer tasks are
+  in a series than in the batch pass: the rest sit in areas or in no cluster, which is the safer side to err on.
 
 ## Next
 
-1. Forming series as join targets, re-checking a forming series that stalls, and "prefer `wait`": built
-   (the 2026-11-18 recommendations 1-3).
-2. Rerun `stream.py`'s replay through the core's detection on a copy of the store, and compare with the
-   batch result, before turning detection loose on the live queue. Turn it off with
+1. Look at the replay's series with the person whose store it is before turning detection on for the live
+   queue; tune `settings.py` (or `{"series": {...}}` in config.json) from what they say. Turn detection off with
    `{"series": {"detect": false}}`, and suggestions with `{"series": {"suggest": false}}`.
-3. Usual next step, once suggestion outcomes have built up eval cases.
-4. Person, Source and Artifact in New task's +.
+2. Score the detectors on the `series_suggest` eval cases once there are enough of them.
 
 ## Open questions
 
