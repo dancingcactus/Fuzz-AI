@@ -173,7 +173,7 @@ html.calm .dw-take, html.calm .dw-check, html.calm .dw-step.enter, html.calm .dw
 /* like the task's tabs (.tabbtn, People 2): an outlined pill, the label, then a small muted count */
 .g-away-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: var(--bw) solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; color: var(--ink); }
 .g-away-chip .g-away-ic { flex: none; color: var(--muted); }
-.g-away-chip[data-kind="closed"] .g-away-ic { color: var(--done); }
+.g-away-chip[data-kind="closed"] .g-away-ic, .g-away-chip[data-kind="wrapped"] .g-away-ic { color: var(--done); }
 .g-away-chip[data-kind="waiting"] .g-away-ic { color: var(--wait); }
 .g-away-n { margin-left: 1px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .g-away-tag .g-away-ic { flex: none; }
@@ -182,7 +182,7 @@ html.calm .dw-take, html.calm .dw-check, html.calm .dw-step.enter, html.calm .dw
 .g-away-item:first-child { padding-top: 0; border-top: 0; }
 .g-away-item b { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
 .g-away-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.g-away-item[data-kind="closed"] .g-away-tag { color: var(--done); }
+.g-away-item[data-kind="closed"] .g-away-tag, .g-away-item[data-kind="wrapped"] .g-away-tag { color: var(--done); }
 .g-away-item[data-kind="waiting"] .g-away-tag { color: var(--wait); }
 .g-away-item .g-away-why { font-size: 13px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .g-away-more { margin-top: 12px; font-size: 13.5px; color: var(--muted); }

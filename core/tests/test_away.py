@@ -99,6 +99,51 @@ class Away(CoreCase):
             events.emit(self.core, "series.split", data={"parts": [{"series_id": theirs, "state": "inferred"}]})
         self.assertNotIn("series", away.summary(self.core)["counts"])
 
+    def emit_series(self, type, data, actor="fuzz:extractor"):
+        with self.core.tx(actor):
+            events.emit(self.core, type, data=data)
+
+    def test_a_series_fuzz_found_finished_shows_with_its_evidence(self):
+        a = tasks.capture(self.core, "Ship the deck")
+        self.clock.advance(hours=3)
+        sid = self.series("Strategy deck", [a], state="wrapped")
+        self.emit_series("series.inferred", {"series_id": sid})   # started and finished while you were away
+        self.emit_series("series.wrapped", {"series_id": sid, "evidence": "Priya replied to the review email"},
+                         actor="fuzz:executor")
+        s = away.summary(self.core)
+        self.assertEqual(s["counts"], {"wrapped": 1})
+        [i] = s["items"]
+        self.assertEqual((i["kind"], i["title"]), ("wrapped", "Strategy deck"))
+        self.assertIn("Priya replied", i["text"])
+
+    def test_a_finish_you_undid_or_reopened_is_left_out(self):
+        self.clock.advance(hours=3)
+        sid = self.series("Strategy deck", [], state="named")   # season 2 since
+        self.emit_series("series.wrapped", {"series_id": sid, "evidence": "Done"}, actor="fuzz:executor")
+        self.assertEqual(away.summary(self.core)["counts"], {})
+
+    def test_a_split_is_one_line_and_its_parts_are_not_new_again(self):
+        a, b, c = (tasks.capture(self.core, t) for t in ("Pilot plan", "Kickoff", "Hiring loop"))
+        self.clock.advance(hours=3)
+        p1 = self.series("Northwind rollout", [a, b])
+        p2 = self.series("Hiring a staff engineer", [c])
+        self.emit_series("series.split", {"parts": [{"series_id": p1, "state": "inferred"},
+                                                     {"series_id": p2, "state": "forming"}]})
+        self.emit_series("series.inferred", {"series_id": p2, "from": "forming"}, actor="system")
+        s = away.summary(self.core)
+        self.assertEqual(s["counts"], {"split": 1})
+        [i] = s["items"]
+        self.assertEqual(i["title"], "Northwind rollout and Hiring a staff engineer")
+        self.assertIn("3 tasks were 2 separate pieces of work", i["text"])
+
+    def test_an_existing_series_fuzz_split_names_where_it_came_from(self):
+        self.clock.advance(hours=3)
+        src = self.series("Q4 everything", [], state="named")
+        p1, p2 = self.series("Budget", [], origin="split"), self.series("Offsite", [], origin="split")
+        self.emit_series("series.split", {"from": src, "parts": [{"series_id": p1}, {"series_id": p2}]}, actor="system")
+        [i] = away.summary(self.core)["items"]
+        self.assertEqual((i["kind"], i["title"], i["text"]), ("split", "Q4 everything", "Fuzz split it into Budget and Offsite."))
+
     def test_series_sit_alongside_task_kinds(self):
         a = tasks.capture(self.core, "Send Priya the deck")
         self.clock.advance(hours=3)
