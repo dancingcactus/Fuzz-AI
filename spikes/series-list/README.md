@@ -8,7 +8,10 @@ The problem: the page is a full-width card grid while Lineup is a centered row l
 real data most cards are just a name, counts and a "Work on …" button. Nothing says what a series is.
 
 - **A · Rows**: Lineup's row list, a one-line "what it is", your part, last moved. Work on moves to the sheet.
-- **B · Episodes**: rows plus one dot per task (done / up next / to do) and Last / Next lines.
+- **B · Episodes** (picked 2026-11-19): rows plus one dot per task (done / up next / to do) and Last / Next lines.
+  Past 20 tasks, every 5 done fold into one box numbered with the running count (5, 10, 15…); open
+  tasks past 9 show as "+N more". Each card has an Edit button and lights up on hover; the card, its
+  name or Edit opens a stand-in for the sheet with the fields you can correct. Work on it goes to Triage.
 - **C · In a sentence**: Fuzz describes each series in a sentence, with one "Next in …" action.
 - **D · By your part**: grouped Driving / Helping / Keeping up / Not sure yet, with icon status.
 

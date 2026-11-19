@@ -109,7 +109,26 @@ h1, h2, h3, p { margin: 0; }
 .tile.quiet { background: var(--field); color: var(--muted); border-color: var(--line); }
 
 /* B: episodes */
-.ep { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; }
+.ep { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; cursor: pointer; transition: background-color .15s; }
+.ep:hover { background: var(--field); }
+.ep-name { background: none; border: 0; padding: 0; text-align: left; color: var(--ink); font: inherit; font-size: 15.5px; font-weight: 700; line-height: 1.35; }
+.ep:hover .ep-name, .ep-name:focus-visible { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
+.ep-edit { display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 10px; min-height: 30px; font-size: 13px; font-weight: 700; }
+.ep:hover .ep-edit, .ep-edit:focus-visible { color: var(--ink); border-color: var(--line); background: var(--surface); }
+.ep-edit:hover { border-color: var(--accent) !important; }
+.dot.five { width: auto; min-width: 26px; height: 18px; padding: 0 5px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink);
+  background: color-mix(in srgb, var(--done) 24%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--done) 70%, var(--surface)); }
+.more { font-size: 12px; font-weight: 700; color: var(--muted); margin-left: 2px; }
+/* the sheet, opened by clicking a series */
+.sheet { border: 1px solid var(--line); border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow); }
+.sheet::backdrop { background: color-mix(in srgb, #000 40%, transparent); }
+.sheet form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
+.sheet h2 { font-family: var(--font-display); font-size: 21px; font-weight: 800; }
+.fld-l { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.fld { font: inherit; font-size: 15px; font-weight: 400; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-height: 40px; width: 100%; }
+.fld:focus { outline: 3px solid var(--link); outline-offset: 1px; }
+textarea.fld { resize: vertical; min-height: 64px; }
+.sheet .acts { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .ep-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .ep-top .rt { flex: 1 1 auto; min-width: 0; }
 .strip { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
@@ -178,7 +197,8 @@ h1, h2, h3, p { margin: 0; }
     move: ic('<path d="M5 12h12M13 6l6 6-6 6"/>', 14),
     quiet: ic('<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>', 14),
     unknown: ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.5h.01"/>', 14),
-    plus: ic('<path d="M12 5v14M5 12h14"/>', 14)
+    plus: ic('<path d="M12 5v14M5 12h14"/>', 14),
+    pencil: ic('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>', 14)
   };
   var STAT = { wait: 'Waiting', move: 'Moving', quiet: 'Gone quiet', unknown: 'Not sure yet' };
   var ROLE = { drive: ['Driving it', 't-accent'], help: ['Helping', 't-muted'], follow: ['Keeping up', 't-muted'] };
@@ -191,6 +211,12 @@ h1, h2, h3, p { margin: 0; }
       doneWhen: 'Northwind confirms the pilot plan in writing', milestone: 'Pilot go-live, Jan 15',
       last: 'You sent the pilot plan to legal', lastWhen: 'Tue', next: 'Send Priya Friday’s status note', open: 5, done: 9,
       people: ['Dana Ortiz', 'Priya Shah', 'Sam Lee'], moved: '2 days ago' },
+    { name: 'Billing platform migration', sec: 'going', role: 'drive', forWho: 'Finance and Platform',
+      about: 'Moving invoicing off the old billing system, one customer group at a time.',
+      status: { k: 'move', text: 'Group 4 of 6 moved over this week', src: 'the migration tracker' },
+      doneWhen: 'Every customer group bills from the new system', milestone: 'Group 5 cutover, Dec 12',
+      last: 'Group 4 cut over cleanly', lastWhen: 'Wed', next: 'Confirm the Group 5 customer list with Ana Costa', open: 6, done: 37,
+      people: ['Ana Costa', 'Ben Okafor', 'Dana Ortiz'], moved: 'Wednesday' },
     { name: 'Report builder launch', sec: 'going', role: 'help', forWho: 'the Reporting team',
       about: 'Shipping the new report builder. Your part is the release notes.',
       status: { k: 'move', text: 'REP-118 is in QA and the release notes are drafted', src: 'the Jira ticket' },
@@ -261,21 +287,28 @@ h1, h2, h3, p { margin: 0; }
 
   /* ---- B: Episodes ---- */
   function episodes() {
+    /* up to 20 tasks: one dot each. Past 20, every 5 done fold into one box numbered with the running count,
+       and open tasks past 9 show as "+N more" */
     function strip(x) {
-      var h = '';
-      for (var i = 0; i < x.done; i++) h += '<span class="dot d"></span>';
-      for (var j = 0; j < x.open; j++) h += '<span class="dot ' + (j === 0 ? 'n' : 'o') + '"></span>';
+      var h = '', big = x.done + x.open > 20, d = x.done, i;
+      if (big) { var fives = Math.floor(d / 5); for (i = 1; i <= fives; i++) h += '<span class="dot five">' + (i * 5) + '</span>'; d -= fives * 5; }
+      for (i = 0; i < d; i++) h += '<span class="dot d"></span>';
+      var shown = big ? Math.min(x.open, 9) : x.open;
+      for (var j = 0; j < shown; j++) h += '<span class="dot ' + (j === 0 ? 'n' : 'o') + '"></span>';
+      if (shown < x.open) h += '<span class="more">+' + (x.open - shown) + ' more</span>';
       return '<div class="strip" role="img" aria-label="' + x.done + ' tasks done, ' + x.open + ' open">' + h + '<span class="meta">' + x.done + ' done · ' + x.open + ' to go</span></div>';
     }
     function ep(x) {
-      return '<li class="ep"><div class="ep-top"><span class="rt">' + esc(x.name) + guess(x) + '</span>' + rolePill(x.role) + '</div>' +
+      var k = S.indexOf(x);
+      return '<li class="ep" data-open="' + k + '"><div class="ep-top"><span class="rt"><button type="button" class="ep-name" data-open="' + k + '">' + esc(x.name) + '</button>' + guess(x) + '</span>' + rolePill(x.role) +
+        '<button type="button" class="ep-edit" data-open="' + k + '" aria-label="Edit ' + esc(x.name) + '">' + I.pencil + 'Edit</button></div>' +
         '<p class="rs">' + esc(x.about) + '</p>' + strip(x) +
         '<div class="ln"><b>Last</b><span>' + esc(x.last) + ' · <span class="meta">' + esc(x.lastWhen) + '</span></span></div>' +
         '<div class="ln next"><b>Next</b><span>' + esc(x.next) + '</span></div>' +
-        '<div class="ep-acts"><button class="btn" type="button">Work on it</button></div></li>';
+        '<div class="ep-acts"><button class="btn" type="button" data-workon>Work on it</button></div></li>';
     }
-    return head() + says(EXPLAIN) +
-      '<div class="legend"><span><span class="dot d"></span>A task that’s done</span><span><span class="dot n"></span>Up next</span><span><span class="dot o"></span>Still to do</span></div>' +
+    return head() + says(EXPLAIN.replace(' <button', ' Click one to see what I know about it and fix anything I got wrong. <button')) +
+      '<div class="legend"><span><span class="dot d"></span>A task that’s done</span><span><span class="dot five">5</span>Every 5 done, once a series passes 20 tasks</span><span><span class="dot n"></span>Up next</span><span><span class="dot o"></span>Still to do</span></div>' +
       '<section class="lsec"><h2>Going <span class="lcount">' + going().length + '</span></h2><ul class="lrows">' + going().map(ep).join('') + '</ul></section>' +
       '<section class="lsec"><h2>Gone quiet <span class="lcount">1</span></h2><ul class="lrows">' + quiet().map(ep).join('') + '</ul></section>' + folds();
   }
@@ -323,8 +356,8 @@ h1, h2, h3, p { margin: 0; }
       notes: [['What changes', ['Uses Lineup’s rounded row list, so it looks like the same app.', 'Every row has one plain line saying what the series is about.', 'Your part and when it last moved sit on the right. The row opens the sheet, where Work on lives.']],
               ['Trade-off', ['The quietest option and the cheapest to build.', 'Status and Next only show in the sheet.']]] },
     { id: 'episodes', label: 'B · Episodes', render: episodes,
-      notes: [['What changes', ['A strip of dots, one per task, shows that a series is a run of tasks over time.', 'Last and Next tell you where you left off, which helps when you come back after a break.', 'Fits the TV naming: each task is an episode.']],
-              ['Trade-off', ['Rows are taller. A series with 30 tasks needs the strip to wrap or cap.', 'Dots could read as a score; keep them neutral and never red.']]] },
+      notes: [['What changes', ['A strip of dots, one per task, shows that a series is a run of tasks over time.', 'Past 20 tasks, every 5 done fold into one numbered box (5, 10, 15…). See Billing platform migration.', 'Last and Next tell you where you left off, which helps when you come back after a break.']],
+              ['Editing', ['Each card has an Edit button by its name, and the whole card lights up on hover.', 'Clicking the card, its name or Edit opens what Fuzz knows, ready to correct. Work on it still goes straight to Triage.', 'Fuzz’s note at the top says you can click one to fix it.']]] },
     { id: 'sentence', label: 'C · In a sentence', render: sentence,
       notes: [['What changes', ['Fuzz writes one sentence per series: what it is, your part, where it stands, and when it’s done.', '“Next in …” is the one action, like Triage’s single suggestion.', 'Gone quiet cards drop to a dashed outline, with no warning colours.']],
               ['Trade-off', ['The most readable, and the most text. Fine for 5 series; 15 gets long.', 'Needs Fuzz to write a good sentence even when facts are thin.']]] },
@@ -344,7 +377,26 @@ h1, h2, h3, p { margin: 0; }
     page.innerHTML = m.render();
   }
   picker.addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) { location.hash = b.dataset.id; show(b.dataset.id); } });
-  page.addEventListener('click', function (e) { if (e.target.closest('.says .x')) e.target.closest('.says').remove(); });
+  page.addEventListener('click', function (e) {
+    if (e.target.closest('.says .x')) { e.target.closest('.says').remove(); return; }
+    if (e.target.closest('[data-workon]')) return;
+    var o = e.target.closest('[data-open]'); if (o) openSheet(S[+o.dataset.open], o.closest('.ep').querySelector('.ep-name'));
+  });
+  /* a stand-in for the series sheet: the fields you can correct */
+  function openSheet(x, back) {
+    var g = document.createElement('dialog'); g.className = 'sheet'; g.setAttribute('aria-labelledby', 'sh-t');
+    var parts = [['drive', 'Driving it'], ['help', 'Helping'], ['follow', 'Keeping up'], ['', 'Not sure yet']];
+    g.innerHTML = '<form method="dialog" autocomplete="off" data-1p-ignore data-lpignore="true"><h2 id="sh-t">Edit ' + esc(x.name) + '</h2>' +
+      '<label class="fld-l" for="sh-name">Name<input id="sh-name" class="fld" autocomplete="off" data-1p-ignore value="' + esc(x.name) + '"></label>' +
+      '<label class="fld-l" for="sh-about">What it’s about' + (x.guess ? ' <span class="guess">Fuzz’s guess</span>' : '') + '<textarea id="sh-about" class="fld">' + esc(x.about) + '</textarea></label>' +
+      '<label class="fld-l" for="sh-part">Your part<select id="sh-part" class="fld">' + parts.map(function (p) { return '<option value="' + p[0] + '"' + ((x.role || '') === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="fld-l" for="sh-done">Done when<input id="sh-done" class="fld" value="' + esc(x.doneWhen || '') + '" placeholder="How you’ll know it’s finished"></label>' +
+      '<p class="meta">' + x.open + ' open · ' + x.done + ' done. The full sheet also lists its tasks, people and how Fuzz spots new work for it.</p>' +
+      '<div class="acts"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="save">Save</button></div></form>';
+    document.body.appendChild(g);
+    g.addEventListener('close', function () { g.remove(); if (back) back.focus(); });
+    g.showModal();
+  }
   window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
   show(location.hash.slice(1) || 'rows');
 })();
