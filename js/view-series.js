@@ -2,11 +2,12 @@
    Sections: New · Going · Gone quiet · Fuzz is watching · Wrapped. Each card: name, your part, status with its
    source, done-when, next milestone, one "Next in …" suggestion, counts, people, Work on …
    The sheet: Next in …, What Fuzz knows (editable), Open work with Add a task to …, Deliverables, Decided,
-   People, How Fuzz spots it (editable, with a preview before it saves), Also touches this. */
+   People, How Fuzz spots it (editable, with a preview before it saves), Also touches this.
+   Split it into parts (in the sheet's menu): name each part, pick where each task goes, one Undo. */
 (function () {
   var V = {};
   var esc = UI.esc;
-  var root = null, unsub = null, sheet = null, sheetId = null, sheetData = null, edit = null, pend = null;
+  var root = null, unsub = null, sheet = null, sheetId = null, sheetData = null, edit = null, pend = null, split = null;
   var SECTIONS = [
     ['new', 'New', 'Ones you asked Fuzz to start. Check what it gathered, here or in Triage.'],
     ['going', 'Going', ''],
@@ -19,6 +20,8 @@
   var ROLE = { drive: 'Driving it', contribute: 'Helping', follow: 'Keeping up' };
   var STATE = { triage: 'In Triage', queued: 'With Fuzz', working: 'With Fuzz', review: 'Needs your OK', sending: 'Sending', mine: 'With you',
     session: 'Open in Claude', deepwork: 'My work', scheduled: 'Later', waiting: 'Waiting on others', parked: 'Parked', done: 'Done', letgo: 'Let go' };
+  var PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  var ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var XSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   /* A series is a clipboard with two list lines, wherever one shows */
   V.ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></svg>';
@@ -36,7 +39,7 @@
     if ((s.season || 1) > 1) h += UI.pill('Season ' + s.season, 'muted');
     h += '</div>';
     if (sec === 'new') return h + '<p class="meta">Fuzz put this together from your note: ' + s.open + (s.open === 1 ? ' task' : ' tasks') + '. It’s waiting in Triage too. Approve it in either place.</p>' +
-      '<div class="scard-acts"><a class="btn small" href="#/triage">Check it</a><button type="button" class="btn small" data-open="' + s.id + '">Adjust it</button></div></li>';
+      '<div class="scard-acts"><a class="btn small linklike" href="#/triage">Check it</a><button type="button" class="btn small" data-open="' + s.id + '">Adjust it</button></div></li>';
     if (sec === 'wrapped') return h + (s.evidence ? '<p class="meta">' + esc(s.evidence) + '</p>' : '') + '</li>';
     if (sec === 'watching') return h + '<p class="meta">' + (s.open + s.done) + ' tasks' + ((s.people || []).length ? ' · ' + esc(s.people.slice(0, 2).join(', ')) : '') + '</p>' +
       '<div class="scard-acts"><button type="button" class="btn small" data-keep="' + s.id + '">Keep it</button><button type="button" class="btn small" data-notseries="' + s.id + '">Not a series</button></div></li>';
@@ -69,7 +72,7 @@
     root = container;
     root.innerHTML = '<section class="lineup series-page" aria-labelledby="ser-h"><div class="tasks-head"><h1 id="ser-h">Series</h1>' +
       '<p class="meta">What you’re in the middle of. Fuzz picks these up from your work; you never have to set one up.</p>' +
-      '<a class="btn small" href="#/capture">Start a series</a></div><div class="board" id="ser-board"></div></section>';
+      '<a class="btn small linklike" href="#/capture">' + PLUS + 'Start a series</a></div><div class="board" id="ser-board"></div></section>';
     root.addEventListener('click', onPageClick);
     render();
     unsub = Store.on(function () { render(); if (sheet && sheetId) loadSheet(sheetId); });
@@ -98,7 +101,7 @@
   /* ---------- the sheet ---------- */
   V.open = function (id, trigger) {
     if (sheet) sheet.close();
-    sheetId = +id; sheetData = null; edit = null; pend = null;
+    sheetId = +id; sheetData = null; edit = null; pend = null; split = null;
     var g = document.createElement('dialog');
     g.className = 'dlg series-sheet'; g.setAttribute('aria-labelledby', 'ss-title');
     g.innerHTML = '<div class="dlg-in" id="ss-in"><p class="meta">Loading…</p></div>';
@@ -106,6 +109,9 @@
     g.addEventListener('close', function () { g.remove(); if (sheet === g) { sheet = null; sheetId = null; } if (trigger && document.body.contains(trigger)) trigger.focus(); });
     g.addEventListener('click', onSheetClick);
     g.addEventListener('submit', onSheetSubmit);
+    g.addEventListener('input', onSheetInput);
+    g.addEventListener('change', onSheetChange);
+    g.addEventListener('cancel', function (e) { if (closeMenu()) e.preventDefault(); });   /* Escape closes the menu first */
     g.showModal();
     loadSheet(sheetId);
   };
@@ -128,17 +134,23 @@
         : '<h2 id="ss-title">' + esc(d.name) + '</h2>') +
       (goal(d) ? '<p class="meta">' + esc(goal(d)) + '</p>' : '') + '</div>' +
       '<button type="button" class="iconbtn" data-close aria-label="Close">' + XSVG + '</button></div>';
-    /* the actions: Work on … first, then Rename and More (quiet the suggestions, wrapped, not a series) */
-    h += '<div class="dlg-actions">' + (d.open ? '<button type="button" class="btn primary" data-workon="' + d.id + '">Work on ' + esc(d.name) + '</button>' : '') +
-      (d.section === 'watching' ? '<button type="button" class="btn" data-act="keep">Keep it</button>' : '') +
-      '<button type="button" class="btn" data-act="rename">Rename</button>' +
-      '<details class="ss-more"><summary class="btn">More</summary><div class="menu" role="menu">' +
+    /* the actions, shaped like every other dialog's: the main one with the rest behind its arrow (Work on …, or
+       Rename when nothing is open), and Keep it beside it while Fuzz is only watching */
+    var work = d.open && d.section !== 'wrapped', menu = (work ? '<button type="button" role="menuitem" data-act="rename"><b>Rename</b></button>' : '') +
       (d.section === 'wrapped' ? '<button type="button" role="menuitem" data-act="reopen"><b>Start season 2</b></button>'
         : '<button type="button" role="menuitem" data-act="' + (d.muted ? 'unmute' : 'mute') + '"><b>' + (d.muted ? 'Suggest next steps again' : 'Quiet the suggestions') + '</b><span>It stays a series. Fuzz just stops suggesting.</span></button>' +
           '<button type="button" role="menuitem" data-act="wrap"><b>It’s wrapped up</b></button>' +
           '<button type="button" role="menuitem" data-act="check"><b>Check if it’s done</b><span>Fuzz looks for its done-when on its next run.</span></button>') +
+      (d.open + d.done > 1 ? '<button type="button" role="menuitem" data-act="split"><b>Split it into parts</b><span>It’s really a few things. Name each one and pick where its tasks go.</span></button>' : '') +
       '<button type="button" role="menuitem" data-act="drop"><b>Not a series</b><span>Its tasks stay. They just aren’t grouped.</span></button>' +
-      '<button type="button" role="menuitem" data-act="ongoing"><b>It’s ongoing, not a series</b><span>Part of your job with no finish line. Fuzz stops grouping it.</span></button></div></details></div>';
+      '<button type="button" role="menuitem" data-act="ongoing"><b>It’s ongoing, not a series</b><span>Part of your job with no finish line. Fuzz stops grouping it.</span></button>';
+    if (edit !== 'split') h += '<div class="dlg-actions"><div class="split ss-split">' +
+      (work ? '<button type="button" class="btn primary split-main" data-workon="' + d.id + '">Work on ' + esc(d.name) + '</button>'
+        : '<button type="button" class="btn split-main" data-act="rename">Rename</button>') +
+      '<button type="button" class="btn more-btn' + (work ? ' primary' : '') + '" data-ssmore aria-haspopup="menu" aria-expanded="false" aria-controls="ss-menu" aria-label="More for ' + esc(d.name) + '" title="More">' + ARROW + '</button>' +
+      '<div class="menu" role="menu" id="ss-menu" hidden aria-label="More for ' + esc(d.name) + '">' + menu + '</div></div>' +
+      (d.section === 'watching' ? '<button type="button" class="btn" data-act="keep">Keep it</button>' : '') + '</div>';
+    if (edit === 'split') return h + splitHTML(d);
     if (d.evidence) h += '<p class="meta">' + esc(d.evidence) + '</p>';
     var sug = d.suggestions || [];
     if (sug.length) h += sectionHTML('Next in ' + esc(d.name), '<ul class="ss-next">' + sug.map(function (x) {
@@ -166,6 +178,95 @@
     }).join('') + '</ul>', 'Tasks filed elsewhere that touch this too. Fuzz counts them when it looks for what’s next.');
     return h;
   }
+  /* ---------- Split it into parts ---------- */
+  function splitTasks(d) { return (d.open_tasks || []).concat(d.done_tasks || []); }
+  function partLabel(i) { return (split.names[i] || '').trim() || 'Part ' + (i + 1); }
+  function splitHTML(d) {
+    var tasks = splitTasks(d);
+    var opts = function (tid) {
+      var v = split.pick[tid] == null ? -1 : split.pick[tid];
+      return '<option value="-1"' + (v === -1 ? ' selected' : '') + '>Stays in ' + esc(d.name) + '</option>' + split.names.map(function (_, i) {
+        return '<option value="' + i + '"' + (v === i ? ' selected' : '') + '>' + esc(partLabel(i)) + '</option>';
+      }).join('');
+    };
+    return '<section class="ss-sec ss-splitter" aria-labelledby="ss-split-h"><h3 id="ss-split-h">Split ' + esc(d.name) + ' into parts</h3>' +
+      '<p class="meta">Name each part, then pick where each task goes. A task whose title says a part’s name goes there by itself. Each part becomes its own series, and a short name becomes a way Fuzz spots it.</p>' +
+      '<div class="ss-parts">' + split.names.map(function (n, i) {
+        return '<div class="ss-part"><label for="ss-part-' + i + '">Part ' + (i + 1) + '</label><input id="ss-part-' + i + '" class="fld" type="text" maxlength="80" autocomplete="off" data-part="' + i + '" value="' + esc(n) + '" placeholder="A short name, like a customer">' +
+          (split.names.length > 2 ? '<button type="button" class="iconbtn small" data-part-rm="' + i + '" aria-label="Remove part ' + (i + 1) + '" title="Remove">' + XSVG + '</button>' : '') + '</div>';
+      }).join('') + (split.names.length < 8 ? '<button type="button" class="btn small linklike" data-part-add>' + PLUS + 'Add a part</button>' : '') + '</div>' +
+      '<ul class="ps-tasks ss-split-tasks">' + tasks.map(function (t) {
+        return '<li><span class="ps-main"><span class="ps-name">' + esc(t.title) + '</span>' + (t.state === 'done' || t.state === 'letgo' ? '<span class="ps-dw">Done</span>' : '') + '</span>' +
+          '<span class="ps-side"><label class="sr" for="ss-pick-' + t.id + '">Where “' + esc(t.title) + '” goes</label><select id="ss-pick-' + t.id + '" class="fld" data-pick="' + t.id + '">' + opts(t.id) + '</select></span></li>';
+      }).join('') + '</ul>' +
+      '<p class="meta" id="ss-split-sum" aria-live="polite">' + splitSummary(d) + '</p>' +
+      '<div class="dlg-actions"><button type="button" class="btn primary" data-split-ok>Split it</button><button type="button" class="btn" data-cancel>Cancel</button></div></section>';
+  }
+  function splitSummary(d) {
+    var tasks = splitTasks(d), stay = tasks.filter(function (t) { return split.pick[t.id] == null || split.pick[t.id] < 0; }).length;
+    var counts = split.names.map(function (_, i) { return tasks.filter(function (t) { return split.pick[t.id] === i; }).length; });
+    var parts = counts.map(function (c, i) { return c ? esc(partLabel(i)) + ' gets ' + c : ''; }).filter(Boolean);
+    return (parts.length ? parts.join(' · ') + '. ' : 'No tasks picked yet. ') +
+      (stay ? (stay === 1 ? 'One task stays' : stay + ' tasks stay') + ' in ' + esc(d.name) + '.' : 'Nothing stays, so ' + esc(d.name) + ' goes away.');
+  }
+  /* A task whose title says a part's name goes to that part, unless you picked for it yourself */
+  function autoPick(d) {
+    splitTasks(d).forEach(function (t) {
+      if (split.mine[t.id]) return;
+      var title = t.title.toLowerCase(), hit = -1;
+      split.names.forEach(function (n, i) { var w = n.trim().toLowerCase(); if (hit < 0 && w.length > 1 && title.indexOf(w) >= 0) hit = i; });
+      if (hit >= 0) split.pick[t.id] = hit; else delete split.pick[t.id];
+    });
+  }
+  /* While you type a part's name, only the pickers and the summary change: the field keeps its focus */
+  function refreshSplit() {
+    var d = sheetData; if (!sheet || !d || !split) return;
+    autoPick(d);
+    sheet.querySelectorAll('select[data-pick]').forEach(function (sel) {
+      var tid = +sel.dataset.pick;
+      split.names.forEach(function (_, i) { var o = sel.querySelector('option[value="' + i + '"]'); if (o) o.textContent = partLabel(i); });
+      sel.value = String(split.pick[tid] == null ? -1 : split.pick[tid]);
+    });
+    var sum = sheet.querySelector('#ss-split-sum'); if (sum) sum.innerHTML = splitSummary(d);
+  }
+  function doSplit() {
+    var d = sheetData, tasks = splitTasks(d), parts = [], problem = null;
+    split.names.forEach(function (n, i) {
+      var ids = tasks.filter(function (t) { return split.pick[t.id] === i; }).map(function (t) { return t.id; });
+      if (!n.trim() && ids.length) problem = problem || 'Name part ' + (i + 1) + ' first.';
+      else if (n.trim() && !ids.length) problem = problem || 'Pick at least one task for ' + n.trim() + '.';
+      else if (n.trim()) parts.push({ name: n.trim(), task_ids: ids });
+    });
+    if (!problem && !parts.length) problem = 'Name a part and pick its tasks.';
+    if (problem) { Say.tell(problem); return; }
+    Store.seriesAction(d.id, 'split', { parts: parts }).then(function (r) {
+      var names = parts.map(function (p) { return p.name; }).join(', ');
+      split = null; edit = null;
+      if (r && r.state === 'dropped' && (r.split_into || []).length) {
+        V.open(r.split_into[0]);
+        Say.tell('Split into ' + parts.length + ': ' + names + '. Undo puts it back together.');
+      } else {
+        if (r && r.id === d.id) { sheetData = r; paintSheet(true); }
+        Say.tell('Split out ' + names + '. The rest stays in ' + d.name + '. Undo puts it back together.');
+      }
+    }, said);
+  }
+  function onSheetInput(e) {
+    var p = e.target.closest('[data-part]'); if (!p || !split) return;
+    split.names[+p.dataset.part] = p.value; refreshSplit();
+  }
+  function onSheetChange(e) {
+    var sel = e.target.closest('[data-pick]'); if (!sel || !split) return;
+    var tid = +sel.dataset.pick;
+    split.mine[tid] = true; split.pick[tid] = +sel.value;
+    var sum = sheet.querySelector('#ss-split-sum'); if (sum) sum.innerHTML = splitSummary(sheetData);
+  }
+  function closeMenu() {
+    var m = sheet && sheet.querySelector('#ss-menu'); if (!m || m.hidden) return false;
+    m.hidden = true; var b = sheet.querySelector('[data-ssmore]'); if (b) { b.setAttribute('aria-expanded', 'false'); b.focus(); }
+    return true;
+  }
+
   function goal(d) { var g = (d.knows || []).filter(function (f) { return f.attr === 'goal'; })[0]; return g && g.value; }
   function knowsHTML(d) {
     var rows = (d.knows || []).map(function (f) {
@@ -226,8 +327,21 @@
     var g = sheet; if (!g) return;
     if (e.target === g || e.target.closest('[data-close]')) { g.close(); return; }
     var d = sheetData; if (!d) return;
+    var mb = e.target.closest('[data-ssmore]'), mm = g.querySelector('#ss-menu');
+    if (mb && mm) { mm.hidden = !mm.hidden; mb.setAttribute('aria-expanded', String(!mm.hidden)); if (!mm.hidden) { var f0 = mm.querySelector('button'); if (f0) f0.focus(); } return; }
+    if (mm && !mm.hidden && !e.target.closest('#ss-menu')) { mm.hidden = true; g.querySelector('[data-ssmore]').setAttribute('aria-expanded', 'false'); }
+    if (split) {
+      if (e.target.closest('[data-part-add]')) { split.names.push(''); paintSheet(true); var nf = g.querySelector('#ss-part-' + (split.names.length - 1)); if (nf) nf.focus(); return; }
+      var pr = e.target.closest('[data-part-rm]');
+      if (pr) {
+        var i = +pr.dataset.partRm; split.names.splice(i, 1);
+        Object.keys(split.pick).forEach(function (t) { var v = split.pick[t]; if (v === i) { delete split.pick[t]; delete split.mine[t]; } else if (v > i) split.pick[t] = v - 1; });
+        autoPick(d); paintSheet(true); return;
+      }
+      if (e.target.closest('[data-split-ok]')) { doSplit(); return; }
+    }
     var w = e.target.closest('[data-workon]'); if (w) { workOn(+w.dataset.workon); return; }
-    if (e.target.closest('[data-cancel]')) { edit = null; pend = null; paintSheet(true); return; }
+    if (e.target.closest('[data-cancel]')) { edit = null; pend = null; split = null; paintSheet(true); return; }
     var ed = e.target.closest('[data-edit]');
     if (ed) { edit = 'fact:' + ed.dataset.edit; paintSheet(true); var f = g.querySelector('#ss-val'); if (f) f.focus(); return; }
     var wr = e.target.closest('[data-wrong]'); if (wr) { act('facts', { fact_id: +wr.dataset.wrong }, 'Fuzz won’t use that any more.'); return; }
@@ -251,7 +365,8 @@
     var mv = e.target.closest('[data-move]');
     if (mv) { Live.on() ? act('add_task', { task_id: +mv.dataset.move }, 'Moved here.') : said('Moving tasks needs Fuzz running.'); return; }
     var a = e.target.closest('[data-act]'); if (!a) return;
-    var what = a.dataset.act, det = g.querySelector('.ss-more'); if (det) det.open = false;
+    var what = a.dataset.act; if (mm) { mm.hidden = true; var mb2 = g.querySelector('[data-ssmore]'); if (mb2) mb2.setAttribute('aria-expanded', 'false'); }
+    if (what === 'split') { edit = 'split'; split = { names: ['', ''], pick: {}, mine: {} }; paintSheet(true); var p0 = g.querySelector('#ss-part-0'); if (p0) p0.focus(); return; }
     if (what === 'rename') { edit = 'name'; paintSheet(true); var n = g.querySelector('#ss-name'); if (n) { n.focus(); n.select(); } return; }
     if (what === 'keep') { act('keep', {}, 'Kept. Fuzz asks your part in Triage.'); return; }
     if (what === 'mute' || what === 'unmute') { act(what, {}, what === 'mute' ? 'Quiet. No more suggestions for it.' : 'Fuzz will suggest next steps again.'); return; }

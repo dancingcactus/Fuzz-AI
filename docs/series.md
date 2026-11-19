@@ -188,7 +188,15 @@ Series, Person, Source, Artifact, Upload a file.
   suggestion, counts, people, **Work on …**.
 - **Series sheet:** Next in … (suggestions), What Fuzz knows (facts with trust labels, editable), Open work
   with **Add a task to …** (goes to Triage already in the series; or move one you have), Deliverables,
-  Decided, People, How Fuzz spots it (editable).
+  Decided, People, How Fuzz spots it (editable). Its actions are one split button like every other dialog's:
+  **Work on … ▾** (or **Rename ▾** with nothing open), the rest behind the arrow, and Keep it beside it while
+  Fuzz is only watching.
+- **Split it into parts** (in that menu): when one series is really several (one evaluation across three
+  customers), name each part and pick where each task goes; a task whose title says a part's name goes there by
+  itself. Each part becomes a named series (origin `split`) with your part copied over, and a name of three
+  words or fewer becomes a word anchor so new work that says it lands there. Tasks put in no part stay; if none
+  stay, the original is dropped. One `series.split` event (data `from`, `parts`, `kept`), so one Undo.
+  `record.split`, `POST /series/<id>/split {parts: [{name, task_ids}]}`.
 - **Work on …** sets Focus to the series.
 
 ### 9. Suggesting new tasks

@@ -126,6 +126,20 @@ test('live: a series you start waits for your OK in Triage, then it’s going, w
   await page.waitForFunction(() => /Write the Northwind pilot success criteria/.test(document.querySelector('.series-sheet').textContent), null, { timeout: 15000 });
   const sheet = await api('GET', '/series/' + out.series_id);
   assert.equal(sheet.open_tasks.length, 4);
+  /* its menu opens from the arrow and stays inside the sheet */
+  await page.click('[data-ssmore]');
+  const box = await page.evaluate(() => { const m = document.querySelector('#ss-menu').getBoundingClientRect(), d = document.querySelector('.series-sheet').getBoundingClientRect(); return { ml: m.left, mr: m.right, dl: d.left, dr: d.right }; });
+  assert.ok(box.ml >= box.dl && box.mr <= box.dr, 'the menu fits in the sheet: ' + JSON.stringify(box));
+  /* Split it into parts: a task whose title says a part's name goes there by itself */
+  await page.click('[data-act="split"]');
+  await page.fill('#ss-part-0', 'kickoff');
+  await page.fill('#ss-part-1', 'test data');
+  await page.waitForFunction(() => /kickoff gets 1 · test data gets 1/.test(document.querySelector('#ss-split-sum').textContent), null, { timeout: 5000 });
+  await page.click('[data-split-ok]');
+  for (let i = 0; i < 50; i++) { if ((await api('GET', '/series')).counts.going === 3) break; await new Promise(r => setTimeout(r, 200)); }
+  const names = (await api('GET', '/series')).sections.going.map(s => s.name).sort();
+  assert.deepEqual(names, ['Northwind pilot', 'kickoff', 'test data']);
+  assert.equal((await api('GET', '/series/' + out.series_id)).open_tasks.length, 2, 'the rest stays');
   assert.deepEqual(page.errors, []);
   await page.close();
 });

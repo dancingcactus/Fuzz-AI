@@ -213,3 +213,54 @@ class Api(Server, SeriesCase):
         self.assertEqual(self.req("POST", f"/tasks/{tid}/series", {"series_id": None})[0], 200)
         self.assertEqual(self.req("POST", "/series", {"note": "Northwind pilot"})[0], 201)
         self.assertEqual(self.req("GET", "/series/999")[0], 404)
+
+
+class Splitting(SeriesCase):
+    def test_split_makes_named_parts_and_drops_the_original_when_nothing_stays(self):
+        from fuzz.memory import facts
+        sid = self.make_series(n=6)
+        record.set_role(self.core, sid, "drive")
+        m = self.members(sid)
+        made = record.split(self.core, sid, [{"name": "OEO", "task_ids": m[:2]}, {"name": "Home Depot", "task_ids": m[2:4]},
+                                             {"name": "Unipol", "task_ids": m[4:]}])
+        self.assertEqual(len(made), 3)
+        self.assertEqual(record.get(self.core, sid)["state"], "dropped")
+        for nid, want in zip(made, (m[:2], m[2:4], m[4:])):
+            s = record.get(self.core, nid)
+            self.assertEqual((s["state"], s["origin"], s["met"]), ("named", "split", 1))
+            self.assertEqual(self.members(nid), want)
+            self.assertEqual(facts.winners(self.core, s["entity_id"])["your_role"], "drive")
+            self.assertEqual(views.section(s), "going")
+        sh = views.sheet(self.core, made[1])
+        self.assertIn("word:home depot", [a["key"] for a in sh["anchors"]])
+        actions.undo(self.core)   # one Undo puts it back together
+        self.assertNotEqual(record.get(self.core, sid)["state"], "dropped")
+        self.assertEqual(self.members(sid), m)
+
+    def test_tasks_left_out_stay_and_bad_parts_are_refused(self):
+        sid = self.make_series(n=5)
+        m = self.members(sid)
+        made = record.split(self.core, sid, [{"name": "Unipol renewal and its follow-ups", "task_ids": m[:2]}])
+        self.assertNotEqual(record.get(self.core, sid)["state"], "dropped")
+        self.assertEqual(self.members(sid), m[2:])
+        self.assertFalse([a for a in views.sheet(self.core, made[0])["anchors"] if a["yours"]])   # a long name isn't a word to spot
+        with self.assertRaises(FuzzError):   # a task in two parts
+            record.split(self.core, sid, [{"name": "A", "task_ids": m[2:4]}, {"name": "B", "task_ids": m[3:]}])
+        with self.assertRaises(FuzzError):   # a task that isn't in it
+            record.split(self.core, sid, [{"name": "A", "task_ids": [m[0]]}])
+        with self.assertRaises(FuzzError):   # one part with everything is a rename
+            record.split(self.core, sid, [{"name": "A", "task_ids": m[2:]}])
+        with self.assertRaises(FuzzError):
+            record.split(self.core, sid, [{"name": " ", "task_ids": m[2:3]}])
+
+
+class SplitApi(Server, SeriesCase):
+    def test_split_over_http(self):
+        sid = self.make_series(n=4)
+        m = self.members(sid)
+        self.assertEqual(self.req("POST", f"/series/{sid}/split", {"parts": "nope"})[0], 400)
+        status, sh = self.req("POST", f"/series/{sid}/split", {"parts": [{"name": "OEO", "task_ids": m[:2]},
+                                                                          {"name": "Unipol", "task_ids": m[2:]}]})
+        self.assertEqual(status, 200)
+        self.assertEqual((sh["state"], len(sh["split_into"])), ("dropped", 2))
+        self.assertEqual(self.req("POST", f"/series/{sid}/split", {"parts": [{"name": "A", "task_ids": m[:1]}]})[0], 409)

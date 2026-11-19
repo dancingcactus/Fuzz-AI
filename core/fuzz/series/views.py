@@ -137,7 +137,7 @@ def sheet(core, sid):
     removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"]}
     anchors = idx.anchors(s["id"])
     mine = idx.added(s["id"])
-    out["anchors"] = [{"key": k, "label": v, "yours": k in mine, "tasks": len(idx.index.get(k, ()) & set(members))}
+    out["anchors"] = [{"key": k, "label": v, "yours": k in mine, "tasks": len(set(idx.index.get(k, ())) & set(members))}
                       for k, v in sorted(anchors.items(), key=lambda kv: (kv[0] not in mine, -len(idx.index.get(kv[0], ()))))]
     out["removed_anchors"] = [{"key": k, "label": a["label"] or idx.labels.get(k, k)} for k, a in removed.items()]
     touching = idx.touching(s["id"])

@@ -176,7 +176,7 @@ class App:
             ("GET", r"/series", self.list_series),
             ("POST", r"/series", self.start_series),
             ("GET", r"/series/(\d+)", self.get_series),
-            ("POST", r"/series/(\d+)/(keep|name|role|mute|unmute|drop|wrap|reopen|anchors|preview|facts|add_task|work_on|check)",
+            ("POST", r"/series/(\d+)/(keep|name|role|mute|unmute|drop|wrap|reopen|anchors|preview|facts|add_task|work_on|check|split)",
              self.series_action),
             ("GET", r"/tasks/(\d+)/series", self.series_choices),
             ("POST", r"/tasks/(\d+)/refs", self.task_refs),
@@ -662,6 +662,10 @@ class App:
                 ids = views.focus_ids(core, s)
             cur = focus.set_focus(core, s["name"], ids, source="series")
             return {"focus": cur}
+        elif what == "split":   # Split it: {parts: [{name, task_ids}]}. The sheet says split_into, and state dropped if none stayed
+            made = record.split(core, sid, body.get("parts"))
+            with core.reading():
+                return dict(views.sheet(core, sid), split_into=made)
         elif what == "check":   # Fuzz checks its done-when on its next run
             with core.tx("human"):
                 ch = events.Changes()
