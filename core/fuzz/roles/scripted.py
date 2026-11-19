@@ -104,6 +104,15 @@ def _scripted_verdict(item):
             "reason": "scripted: nothing close enough"}
 
 
+def _scripted_series(item):
+    """A script can't tell a series from an area: every candidate becomes a series named for its first
+    anchor, and a forming one that stalled waits."""
+    if item["kind"] == "series_stall":
+        return {"series_item": item["series_item"], "action": "wait", "why": "scripted"}
+    name = (item.get("anchors") or ["New series"])[0].split("“")[-1].rstrip("”") or "New series"
+    return {"series_item": item["series_item"], "action": "new", "name": name[:80], "bounded": True, "why": "scripted"}
+
+
 async def _extractor(core, signals, say):
     # signals: a list, or {"signals", "facts", "knowledge"} for memory's second pass too
     extra = signals if isinstance(signals, dict) else {}
@@ -117,9 +126,9 @@ async def _extractor(core, signals, say):
             say(f"Submitted {len(signals)} signals: {out['submitted']['outcomes']}")
         while True:
             page = await _call(c, "get_pending_judgments", {"page": 1})
-            if not page["items"]:
+            if not page["items"] and not page.get("series_items"):
                 break
-            verdicts = [_scripted_verdict(i) for i in page["items"]]
+            verdicts = [_scripted_verdict(i) for i in page["items"]] + [_scripted_series(i) for i in page.get("series_items") or []]
             r = await _call(c, "submit_verdicts", {"verdicts": verdicts})
             out["verdicts"] += len(verdicts)
             say(f"Judged {len(verdicts)}: {r['outcomes']}")

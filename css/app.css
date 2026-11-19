@@ -1284,3 +1284,78 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ev-joblist { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
 .ev-job { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ev-job details { flex-basis: 100%; }
+
+/* ---------- Series (js/view-series.js): the page, its cards and the sheet ---------- */
+.series-page .tasks-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.series-page .tasks-head h1 { flex: none; }
+.series-page .tasks-head .meta { flex: 1 1 260px; margin: 0; }
+.scards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.scard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; min-width: 0; }
+.scard-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scard-name { background: none; border: 0; padding: 0; min-height: 32px; font: inherit; font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--ink); text-align: left; cursor: pointer; }
+.scard-name:hover { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.scard p { margin: 0; }
+.scard-status .meta { white-space: nowrap; }
+.scard-dl { margin: 0; display: grid; gap: 2px; font-size: 14px; }
+.scard-dl div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; }
+.scard-dl dt { color: var(--muted); font-weight: 600; }
+.scard-dl dd { margin: 0; }
+.scard-next { padding: 8px 10px; border-radius: 10px; background: var(--field); font-size: 14px; }
+.scard-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: auto; }
+.scard-foot .btn { margin-left: auto; }
+.scard-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.avs { display: inline-flex; padding-left: 6px; }
+.avs .av { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: -6px; border-radius: 50%; background: var(--chip); color: var(--ink); border: 2px solid var(--surface); font-size: 11px; font-weight: 800; }
+.demo-note { margin: 0; }
+.series-sheet .dlg-actions { flex-wrap: wrap; }
+.ss-sec { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.ss-sec > h3 { font-family: var(--font-display); font-size: 16px; font-weight: 800; }
+.ss-sec > .meta { margin: 0; }
+.ss-next { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ss-next li { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--field); }
+.facts { margin: 0; }
+.fact { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: baseline; padding: 8px 0; border-top: var(--bw) solid var(--line); }
+.fact dt { font-weight: 700; color: var(--muted); font-size: 14px; }
+.fact dd { margin: 0; display: flex; flex-direction: column; min-width: 0; }
+.fact .fact-v { padding: 0; min-height: 28px; color: var(--ink); text-align: left; font-size: 15px; font-weight: 400; text-decoration: none; }
+.fact .fact-v:hover { text-decoration: underline; }
+.fact .ss-inline { grid-column: 1 / -1; }
+.trust { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.trust.conf { color: var(--ok); }
+.iconbtn.small { width: 32px; height: 32px; }
+.ss-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ss-inline .fld { flex: 1 1 200px; min-height: 40px; padding: 6px 10px; border: var(--bw) solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font: inherit; min-width: 0; }
+.ss-inline .fact-k { font-weight: 700; color: var(--muted); }
+.ss-anchors { list-style: none; margin: 0; padding: 0; border: var(--bw) solid var(--line); border-radius: 16px; overflow: hidden; }
+.ss-anchors > li { display: flex; align-items: center; gap: 12px; padding: 8px 14px; }
+.ss-anchors > li + li { border-top: var(--bw) solid var(--line); }
+.ss-anchors > li.removed .ps-name { color: var(--muted); text-decoration: line-through; }
+.ss-preview { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: var(--field); }
+.ss-preview p, .ss-preview ul { margin: 0; }
+.ss-preview ul { padding-left: 18px; }
+.ss-more, .ser-not { position: relative; }
+.ss-more > summary, .ser-not > summary { list-style: none; cursor: pointer; }
+.ss-more > summary::-webkit-details-marker, .ser-not > summary::-webkit-details-marker { display: none; }
+.ss-more .menu, .ser-not .menu { left: 0; right: auto; }
+.ser-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.ser-chips .chip[aria-pressed="false"] { text-decoration: line-through; opacity: .6; }
+.ser-roles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; }
+.serpart .meta { margin: 0 0 6px; }
+.partof.serline svg { vertical-align: -2px; margin-right: 4px; }
+/* New task's + */
+.cap-plusrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cap-plus .menu.plusmenu { width: 340px; max-width: calc(100vw - 48px); max-height: 60vh; overflow: auto; }
+.cap-plus .opt { flex-direction: row; align-items: flex-start; gap: 12px; min-height: 44px; }
+.cap-plus .opt svg { flex: none; margin-top: 2px; }
+.cap-plus .opt b { display: block; font-weight: 700; color: var(--ink); }
+.cap-plus .opt small { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.cap-series { display: flex; flex-direction: column; gap: 2px; }
+.cap-series .fld { min-height: 40px; margin: 4px 4px 6px; padding: 6px 10px; border: var(--bw) solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font: inherit; }
+.cap-series .grp { margin: 8px 12px 2px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.cap-series .meta { margin: 6px 12px; }
+.files .serpick svg { flex: none; }
+@media (max-width: 560px) {
+  .fact { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .fact dt { grid-column: 1 / -1; }
+  .scard-foot .btn { margin-left: 0; }
+}

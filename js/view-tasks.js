@@ -38,7 +38,7 @@
 
   function rowHTML(it, status, tone, sub, cls) {
     return '<li><button type="button" class="lrow' + (cls ? ' ' + cls : '') + '" data-open="' + it.id + '">' +
-      '<span class="lrow-main"><span class="rt">' + esc(it.title) + '</span><span class="rs">' + esc(it.source) + (it.updated ? ' · Updated' : '') + (Store.partOf(it) ? ' · ' + esc(Store.partOf(it)) : '') + '</span></span>' +
+      '<span class="lrow-main"><span class="rt">' + esc(it.title) + '</span><span class="rs">' + esc(it.source) + (it.updated ? ' · Updated' : '') + (Store.partOf(it) ? ' · ' + esc(Store.partOf(it)) : '') + (it.series ? ' · ' + esc(Store.seriesLine(it)) : '') + '</span></span>' +
       '<span class="lrow-side">' + UI.pill(status, tone) + (sub ? '<span class="lrow-sub">' + esc(sub) + '</span>' : '') + '</span></button></li>';
   }
   /* What's in Triage, closed until you ask. Picking one opens it first in Triage. */
@@ -322,7 +322,8 @@
     var tab = keyFor(it) || 'current', c = cells(it, tab), acts = actionsFor(it);
     var draft = (it.state === 'review' || (it.state === 'waiting' && it.nudge)) && it.draft;
     var h = '<div class="dlg-top"><div class="dlg-titles"><div class="dlg-chips">' + UI.pill(c.c2, c.tone) + '<span class="meta">' + esc(it.source) + ' · ' + esc(TABS[tab].cols[1]) + ': ' + esc(c.c3) + '</span></div>' +
-      '<h2 id="dlg-title">' + esc(it.title) + '</h2>' + (Store.partOf(it) ? '<button type="button" class="partof" data-group="' + it.group + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="13" width="18" height="5" rx="1.5"/></svg>' + esc(Store.partOf(it, true)) + '</button>' : '') + (it.deliverable ? '<button type="button" class="partof forline" data-forline="' + it.deliverable.id + '">For ' + esc(it.deliverable.title) + '</button>' : '') + '</div><button type="button" class="iconbtn" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
+      '<h2 id="dlg-title">' + esc(it.title) + '</h2>' + (Store.partOf(it) ? '<button type="button" class="partof" data-group="' + it.group + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="13" width="18" height="5" rx="1.5"/></svg>' + esc(Store.partOf(it, true)) + '</button>' : '') + (it.deliverable ? '<button type="button" class="partof forline" data-forline="' + it.deliverable.id + '">For ' + esc(it.deliverable.title) + '</button>' : '') +
+        (it.series ? '<button type="button" class="partof serline" data-serline="' + it.series.id + '">' + SeriesView.ICON.replace(/width="20" height="20"/, 'width="14" height="14"') + esc(Store.seriesLine(it)) + '</button>' : '') + '</div><button type="button" class="iconbtn" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
       (draft ? draftHTML(it, acts) : '') +
       '<p class="dlg-what">' + esc(it.incoming) + '</p>';
     if (it.doneWhen) h += '<section class="donewhen"><h3>Done when</h3><p>' + esc(it.doneWhen.charAt(0).toUpperCase() + it.doneWhen.slice(1)) + '</p></section>';
@@ -331,9 +332,28 @@
     if (it.log.length) h += '<section><h3>Done so far</h3>' + UI.logHTML(it.log) + '</section>';
     if (it.people && it.people.length) h += '<section><h3>People</h3>' + UI.peopleHTML(it.people) + '</section>';
     if (it.sources.length) h += '<section><h3>Sources</h3>' + UI.sourcesHTML(it.sources) + '</section>';
+    h += seriesHTML(it, tab);
     h += sameAsHTML(it, tab);
     if (!draft) h += actionsRow(acts, false);
     return h + UI.idTag(it);
+  }
+  /* Its series: "Part of …" (take it out), the others it also touches (make one its series: the correction for a
+     near tie), or put it in one. Live only, like Same as… */
+  var serPick = { id: null, state: 'closed', choices: [] };
+  function seriesHTML(it, tab) {
+    if (!Live.on() || !it.coreId || ['current', 'parked', 'waiting'].indexOf(tab) < 0) return '';
+    var h = '<section class="sameas serpart">', touches = it.alsoTouches || [];
+    if (it.series) h += '<p class="meta">Part of <button type="button" class="linkbtn" data-serline="' + it.series.id + '">' + esc(it.series.name) + '</button> · <button type="button" class="linkbtn" data-serout>Take it out</button></p>';
+    if (touches.length) h += '<p class="meta">Also touches ' + touches.map(function (s) {
+      return esc(s.name) + ' (<button type="button" class="linkbtn" data-serset="' + s.id + '">make it the main one</button>)';
+    }).join(', ') + '</p>';
+    var s = serPick.id === it.id ? serPick : { state: 'closed', choices: [] };
+    if (s.state === 'closed') return h + (it.series ? '' : '<button type="button" class="btn small" data-serpick>Part of a series…</button>') + '</section>';
+    if (s.state === 'loading') return h + '<p class="meta">Fuzz is looking for the likely ones…</p></section>';
+    if (!s.choices.length) return h + '<p class="meta">There aren’t any series yet. Start one from New task’s +.</p><button type="button" class="btn small" data-serpick-close>Never mind</button></section>';
+    return h + '<ul class="ps-tasks">' + s.choices.slice(0, 6).map(function (c) {
+      return '<li><span class="ps-main"><span class="ps-name">' + esc(c.name) + '</span></span><span class="ps-side"><button type="button" class="btn small" data-serset="' + c.series_id + '">This one</button></span></li>';
+    }).join('') + '</ul><button type="button" class="btn small" data-serpick-close>Never mind</button></section>';
   }
   /* The same task twice (one you captured, one from Slack): say so, and this one merges into the one you pick */
   function sameAsHTML(it, tab) {
@@ -376,6 +396,19 @@
       if (gp) { openGroup(gp.dataset.group, gp); return; }
       var fl = e.target.closest('[data-forline]');
       if (fl) { V.openDeliverable(fl.dataset.forline, fl); return; }
+      var sl = e.target.closest('[data-serline]');
+      if (sl) { d.close(); SeriesView.open(+sl.dataset.serline); return; }
+      var sme = Store.item(openId);
+      if (e.target.closest('[data-serpick]')) {
+        serPick = { id: sme.id, state: 'loading', choices: [] }; renderDialog();
+        Store.seriesChoices(sme.coreId).then(function (cs) { if (serPick.id === sme.id) { serPick.state = 'open'; serPick.choices = cs; renderDialog(); } },
+          function () { serPick = { id: null, state: 'closed', choices: [] }; renderDialog(); });
+        return;
+      }
+      if (e.target.closest('[data-serpick-close]')) { serPick = { id: null, state: 'closed', choices: [] }; renderDialog(); return; }
+      var sset = e.target.closest('[data-serset]');
+      if (sset) { serPick = { id: null, state: 'closed', choices: [] }; Store.taskSeries(sme.id, +sset.dataset.serset).then(function () { Say.tell('It’s part of that series now.'); }); return; }
+      if (e.target.closest('[data-serout]')) { Store.taskSeries(sme.id, null).then(function () { Say.tell('Taken out. Fuzz won’t put it back there by itself.'); }); return; }
       var dm = d.querySelector('#dlg-menu'), mb = e.target.closest('[data-dmore]');
       if (mb) { dm.hidden = !dm.hidden; mb.setAttribute('aria-expanded', String(!dm.hidden)); if (!dm.hidden) dm.querySelector('button').focus(); return; }
       if (dm && !dm.hidden && !e.target.closest('#dlg-menu')) { dm.hidden = true; d.querySelector('[data-dmore]').setAttribute('aria-expanded', 'false'); }

@@ -10,6 +10,8 @@
     deepwork: { view: window.DeepWorkView, title: 'Guide', place: 'guide' },
     triage: { view: window.TriageView, title: 'Triage' },
     tasks: { view: window.TasksView, title: 'Lineup' },
+    /* the bigger things you're working on (docs/series.md); #/series/<id> opens one's sheet */
+    series: { view: window.SeriesView, title: 'Series' },
     artifacts: { view: window.ArtifactsView, title: 'Artifacts' },
     capture: { view: window.CaptureView, title: 'New task' },
     welcome: { view: window.Onboard.view, title: 'Welcome' },
@@ -101,9 +103,10 @@
         /* Feedback: a new GitHub issue with this page's details filled in (js/feedback.js) */
         '<button type="button" class="themebtn iconbtn fbbtn" id="fbbtn" aria-label="Report a problem or idea (opens GitHub)" title="Report a problem or idea: opens a GitHub issue with this page’s details">' + ICON.note + '</button>' +
         /* The menu: the same small round button Settings used to be, with Fuzz's head on it */
-        '<div class="menuwrap"><button type="button" class="themebtn iconbtn" id="menubtn" aria-haspopup="menu" aria-expanded="false" aria-controls="navmenu" aria-label="Lineup, Artifacts and Settings" title="Lineup, Artifacts and Settings">' + ICON.fuzz + '</button>' +
-        '<div class="navmenu" id="navmenu" role="menu" aria-label="Lineup, Artifacts and Settings" hidden>' +
+        '<div class="menuwrap"><button type="button" class="themebtn iconbtn" id="menubtn" aria-haspopup="menu" aria-expanded="false" aria-controls="navmenu" aria-label="Lineup, Series, Artifacts and Settings" title="Lineup, Series, Artifacts and Settings">' + ICON.fuzz + '</button>' +
+        '<div class="navmenu" id="navmenu" role="menu" aria-label="Lineup, Series, Artifacts and Settings" hidden>' +
           '<a role="menuitem" href="#/tasks" data-menu="tasks">' + ICON.list + '<span><b>Lineup</b><small id="menu-lineup">Who has the ball</small></span></a>' +
+          '<a role="menuitem" href="#/series" data-menu="series">' + SeriesView.ICON + '<span><b>Series</b><small id="menu-series">What you’re in the middle of</small></span></a>' +
           '<a role="menuitem" href="#/artifacts" data-menu="artifacts">' + ICON.file + '<span><b>Artifacts</b><small id="menu-artifacts">What Fuzz made</small></span></a>' +
           '<hr>' +
           '<a role="menuitem" href="#/settings" data-menu="settings">' + ICON.gear + '<span><b>Settings</b><small>Themes, connections, how Fuzz works</small></span></a>' +
@@ -178,6 +181,14 @@
     document.getElementById('menu-lineup').textContent = 'Who has the ball' + (bits.length ? ': ' + bits.join(', ') : '');
     var files = (window.ArtifactsView && ArtifactsView.count) ? ArtifactsView.count() : 0;
     document.getElementById('menu-artifacts').textContent = 'What Fuzz made' + (files ? ': ' + files + (files === 1 ? ' file' : ' files') : '');
+    /* Series: what needs you there, in words ("1 new to check, Hiring’s quiet") */
+    var ser = Store.series(), sc = ser.counts || {}, sb = [];
+    if (!ser.demo) {
+      if (sc['new']) sb.push(sc['new'] + ' new to check');
+      var quiet = (ser.sections || {}).quiet || [];
+      if (quiet.length === 1) sb.push(quiet[0].name + '’s quiet'); else if (quiet.length) sb.push(quiet.length + ' gone quiet');
+    }
+    document.getElementById('menu-series').textContent = 'What you’re in the middle of' + (sb.length ? ': ' + sb.join(', ') : '');
   }
   /* Keys and help: the page's own key guide where it has one (Triage, the Guide, Deep Work), else the short list */
   function openKeys() {
@@ -187,7 +198,7 @@
   }
 
   /* ---------- The label: where you are, and the way back ---------- */
-  var PLACE = { triage: 'Triage', tasks: 'Lineup', artifacts: 'Artifacts', capture: 'New task', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
+  var PLACE = { triage: 'Triage', tasks: 'Lineup', series: 'Series', artifacts: 'Artifacts', capture: 'New task', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
   var BACK = 'Back to the Guide';
   /* "13:30" (a calendar link's until) as "1:30pm"; null when it isn't a time */
   function fmtUntil(hhmm) {

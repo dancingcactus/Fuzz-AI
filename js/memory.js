@@ -125,6 +125,10 @@
       if (d.follows_to.length) h += '<p class="meta">Merged into #' + d.follows_to.join(' → #') + '</p>';
       if (d.merged_in.length) h += '<p class="meta">Holds the facts of #' + d.merged_in.join(', #') + ' (merged in)</p>';
       h += '<p class="meta">Aliases: ' + esc(d.aliases.join(', ') || 'none') + (d.identifiers.length ? ' · ' + d.identifiers.map(function (i) { return esc(i.type + ': ' + i.value); }).join(', ') : '') + '</p>';
+      /* a series or an area (areas show nowhere else): its state, the judge's reason and its anchors */
+      if (d.series) h += '<p class="meta">' + esc(d.series.kind === 'area' ? 'Area' : 'Series #' + d.series.id) + ' · ' + esc(d.series.state) +
+        (d.series.kind === 'area' ? ' · ruled at ' + (d.series.ruled_size || 0) + ' tasks' : ' · ' + d.series.tasks + ' tasks') + (d.series.why ? ' · ' + esc(d.series.why) : '') + '</p>' +
+        ((d.series.anchors || []).length ? '<p class="meta">Anchors: ' + d.series.anchors.map(function (a) { return esc((a.label || a.key) + (a.removed ? ' (removed)' : a.how === 'added' ? ' (yours)' : '')); }).join(', ') + '</p>' : '');
       if (d.entity_links.length) h += '<p class="meta">Kept separate from #' + d.entity_links.map(function (l) { return l.a === e.id ? l.b : l.a; }).join(', #') + '</p>';
       h += '<h3>Facts</h3>' + (d.facts.length ? '<div class="insp-table" role="table">' + d.facts.map(factHTML).join('') + '</div>' : '<p class="meta">None yet.</p>');
       if (!demo()) h += '<form class="insp-form" data-edit="' + e.id + '"><label>Edit: attribute <input name="attr" required placeholder="role, team, definition…"></label><label>value <input name="value" required></label>' +

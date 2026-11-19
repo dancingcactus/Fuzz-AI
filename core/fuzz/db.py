@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   missed_blocks INTEGER,           -- booked blocks for it that went by unused, since it last asked
   deliverable_id INTEGER,          -- the deliverable it serves (deliverables.py)
   maybe_deliverable_id INTEGER,    -- a deliverable it might serve, waiting on a part_of card
+  series_id INTEGER,               -- its primary series (series/): sticky, event-sourced; also touches is worked out when read
   title_history TEXT,              -- json list
   created_at TEXT,
   state_changed_at TEXT,
@@ -125,6 +126,34 @@ CREATE TABLE IF NOT EXISTS deliverables (   -- a named outcome served by tasks f
   check_due INTEGER,               -- 1: Fuzz checks the done-when on its next run
   reviewed_at TEXT,
   created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS series (   -- a body of work over weeks, or (kind area) an ongoing area: internal, never shown
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- series | area
+  name TEXT NOT NULL,
+  state TEXT NOT NULL,             -- forming | inferred | named | dormant | wrapped | dropped; an area: area | dropped
+  origin TEXT NOT NULL,            -- inferred | asked (you started it)
+  entity_id INTEGER,               -- its entity (type series or area): aliases and facts with trust
+  muted INTEGER NOT NULL DEFAULT 0,   -- no suggestions, still a series
+  met INTEGER NOT NULL DEFAULT 0,     -- you've seen it: kept, named, asked for, or a card about it
+  named_at TEXT,                   -- you accepted or renamed it: a dormant one wakes up named
+  why TEXT,                        -- the judge's reason: its implied end, or why it's an area
+  ruled_size INTEGER,              -- an area: its cluster's size when ruled, for the second look
+  season INTEGER NOT NULL DEFAULT 1,
+  evidence TEXT,                   -- what Fuzz saw when it wrapped
+  check_due INTEGER,               -- 1: Fuzz checks its done-when on its next run
+  grown_at TEXT,                   -- the last time it gained a task (a forming one that stalls is re-checked)
+  created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS series_anchors (   -- how Fuzz spots a series beyond what its tasks share: seeds, yours, removed
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  series_id INTEGER NOT NULL,
+  key TEXT NOT NULL,               -- topic:<words> | ticket:<entity> | proj:<KEY> | chan:<id> | term:<entity> | word:<text> ...
+  label TEXT,
+  how TEXT NOT NULL,               -- seed (the cluster it formed from) | added (you) | removed (you; never suggested again)
+  removed INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS groups (
   id INTEGER PRIMARY KEY,
@@ -319,6 +348,23 @@ CREATE TABLE IF NOT EXISTS decisions (
   matcher_version TEXT,
   ts TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS series_items (   -- judge items waiting for the extractor (series/detect.py); derived
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- candidate | stall
+  item TEXT NOT NULL,              -- json: what the judge sees, and the ids it may use
+  status TEXT NOT NULL,            -- pending | decided
+  verdict TEXT,                    -- json, once decided
+  created_at TEXT NOT NULL,
+  decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS series_waits (   -- "not yet": a cluster the judge waited on, split or left, by its seed keys; derived
+  user_id INTEGER NOT NULL,
+  keys TEXT NOT NULL,              -- sorted json list, or area:<id> for an area's second look
+  size INTEGER NOT NULL,           -- asked again once it has grown past this
+  ts TEXT NOT NULL,
+  PRIMARY KEY (user_id, keys)
+);
 CREATE TABLE IF NOT EXISTS screen_times (   -- when each card was on screen and how long you were away; for tuning, not events
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,
@@ -386,8 +432,8 @@ CREATE TABLE IF NOT EXISTS memory_links (
   user_id INTEGER NOT NULL,
   item_type TEXT NOT NULL,         -- knowledge | decision
   item_id INTEGER NOT NULL,
-  kind TEXT NOT NULL,              -- about | attendee | decided_by | involves | task | group (later: workstream)
-  target_type TEXT NOT NULL,       -- entity | task | group
+  kind TEXT NOT NULL,              -- about | attendee | decided_by | involves | task | group | series
+  target_type TEXT NOT NULL,       -- entity | task | group | series
   target_id INTEGER NOT NULL,
   removed INTEGER NOT NULL DEFAULT 0
 );
@@ -584,7 +630,7 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                         ("pushes", "INTEGER"), ("missed_blocks", "INTEGER"),
                         ("deliverable_id", "INTEGER"), ("maybe_deliverable_id", "INTEGER"),
                         ("next_step", "TEXT"), ("session_id", "TEXT"), ("session_launch", "TEXT"), ("session_at", "TEXT"),
-                        ("expires_at", "TEXT")],
+                        ("expires_at", "TEXT"), ("series_id", "INTEGER")],
               # the first eval tables went out without these (2026-11-11)
               "eval_cases": [("signal_key", "TEXT"), ("offers", "INTEGER NOT NULL DEFAULT 0"), ("offered_at", "TEXT"),
                              ("quote", "TEXT"), ("withdrawn", "INTEGER NOT NULL DEFAULT 0"),

@@ -117,7 +117,16 @@ def entity_detail(core, eid, at=None):
         if touched & set(ids) or d.get("fact_id") in fact_ids:
             evs.append({"id": r["id"], "ts": r["ts"], "actor": r["actor"], "type": r["type"], "data": d, "run_id": r["run_id"]})
     kn, ds = knowledge.for_entity(core, head)
+    # a series' or an area's record (areas are internal: this inspector is the one place they show), with the
+    # judge's reason and the anchors it keeps
+    srow = core.one("SELECT * FROM series WHERE user_id=? AND entity_id=?", (core.user_id, head)) \
+        if e["type"] in ("series", "area") else None
+    if srow:
+        srow["anchors"] = core.all("SELECT key, label, how, removed FROM series_anchors WHERE user_id=? AND series_id=? ORDER BY id",
+                                   (core.user_id, srow["id"]))
+        srow["tasks"] = core.one("SELECT COUNT(*) n FROM tasks WHERE user_id=? AND series_id=?", (core.user_id, srow["id"]))["n"]
     return {"entity": dict(e, display_name=entities.display_name(core.conn, e)), "follows_to": _chain(core, eid),
+            "series": srow,
             "merged_in": merged_in, "aliases": _aliases(core, eid), "identifiers": _ident(core, eid),
             "entity_links": links, "facts": all_facts, "mentions": mentions, "sightings": sightings,
             "cards": [{"id": c["id"], "kind": c["kind"], "status": c["status"], "answer": c.get("answer"),

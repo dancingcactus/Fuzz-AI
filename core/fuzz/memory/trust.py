@@ -21,6 +21,10 @@ HALF_LIFE = {"role": 120, "team": 120, "manager": 120, "company": 180, "projects
              "definition": 365, "stands_for": 730, "used_for": 180, "what_it_is": 365, "owner": 120,
              "relationship": 180, "contacts": 120}
 DEFAULT_HALF_LIFE = 180
+# a series' facts age at their own rates (docs/series.md); next_milestone and scope_out hold until changed:
+# a milestone whose date passed is dropped when read (series/views.py)
+TYPE_HALF_LIFE = {"series": {"goal": 90, "your_role": 60, "owner": 60, "for": 120, "status": 7, "blocked_on": 7,
+                             "next_milestone": 3650, "cadence": 30, "scope_out": 3650, "done_when": 180}}
 EXPOSURE_DAYS = 3
 
 
@@ -28,9 +32,11 @@ def _cfg(core):
     return (core.config.get("memory") or {}) if core is not None else {}
 
 
-def half_life(core, attr):
+def half_life(core, attr, etype=None):
     over = _cfg(core).get("half_life") or {}
-    return float(over.get(attr) or HALF_LIFE.get(attr) or DEFAULT_HALF_LIFE)
+    typed = TYPE_HALF_LIFE.get(etype or "", {})
+    return float(over.get(f"{etype}.{attr}") or (typed.get(attr) if attr in typed else None) or over.get(attr)
+                 or HALF_LIFE.get(attr) or DEFAULT_HALF_LIFE)
 
 
 def base_level(f):

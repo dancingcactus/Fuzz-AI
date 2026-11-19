@@ -42,7 +42,9 @@ MESSAGE_FIELDS = ("source", "ts", "link", "title", "from", "people", "channel")
 FORMATS = {1}            # the global case file shapes this harness reads
 # a case's kind, by surface: extraction's keep or skip; a draft's reference (what you sent) or rules (global);
 # an executor case's behaviour to check
-KINDS = {"extract": ("keep", "skip"), "draft": ("reference", "rules"), "executor": ("behaviour",)}
+KINDS = {"extract": ("keep", "skip"), "draft": ("reference", "rules"), "executor": ("behaviour",),
+         # a series suggestion's outcome (series/ask.py): wanted (Add it, I'll do it) or not_needed
+         "series_suggest": ("wanted", "not_needed")}
 SETS = ("all", "global", "personal")
 
 

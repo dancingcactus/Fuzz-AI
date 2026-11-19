@@ -16,6 +16,25 @@
   var state, subs = [], timer = 0, captureN = 0, sentN = 0;
   /* Not part of any group count: cleared cards and dropped tasks */
   var GONE = ['dropped', 'resolved'];
+  /* The demo's Series page, shaped like GET /series (made-up work, as the rest of the demo) */
+  var DEMO_SERIES = (function () {
+    var nw = { id: 1, name: 'Northwind rollout', state: 'named', origin: 'inferred', section: 'going', role: 'drive', role_label: 'You’re driving it',
+      status: { value: 'Waiting on Northwind legal’s review of the pilot plan', source: 'Priya Shah on Slack', trust_label: 'Reported' },
+      done_when: 'NW-342 is accepted and Northwind confirms the pilot plan in writing', next_milestone: 'Pilot go-live, Jan 15',
+      next: { title: 'Send Priya Friday’s status note', why: 'You’ve sent one every Friday for 5 weeks, and this week’s isn’t started.' },
+      open: 5, done: 9, people: ['Dana Ortiz', 'Priya Shah', 'Sam Lee'], season: 1 };
+    var rb = { id: 2, name: 'Report builder launch', state: 'named', origin: 'inferred', section: 'going', role: 'contribute', role_label: 'You’re helping',
+      status: { value: 'REP-118 is in QA; release notes are drafted', source: 'the Jira ticket', trust_label: 'From the owner' },
+      open: 2, done: 4, people: ['Marco Ruiz', 'Jen Wu'], season: 1 };
+    var hire = { id: 3, name: 'Hiring a staff engineer', state: 'dormant', origin: 'inferred', section: 'quiet', role: 'drive', role_label: 'You’re driving it',
+      status: { value: 'Panel interviews done; waiting on feedback', source: 'email', trust_label: 'Reported' },
+      next: { title: 'Ask Sam for the two missing panel write-ups', why: 'Nothing has moved for 16 days, and Sam owes you a reply.' },
+      open: 1, done: 6, people: ['Sam Lee'], season: 1 };
+    var docs = { id: 4, name: 'Onboarding docs refresh', state: 'inferred', origin: 'inferred', section: 'watching', open: 3, done: 1, people: ['Jen Wu'], season: 1 };
+    var deck = { id: 5, name: 'Strategy deck', state: 'wrapped', origin: 'inferred', section: 'wrapped', evidence: 'The deck is in the Strategy folder and Priya replied to the review email', open: 0, done: 7, people: [], season: 1 };
+    var s = { 'new': [], going: [nw, rb], quiet: [hire], watching: [docs], wrapped: [deck] };
+    return { sections: s, counts: { 'new': 0, going: 2, quiet: 1, watching: 1, wrapped: 1 }, demo: true };
+  })();
   /* Groups Fuzz has already celebrated, so a wrap-up is only cheered once */
   var celebrated = {};
 
@@ -419,6 +438,27 @@
     /* A deliverable card's answer (last week, this week's pick or steps, track a new one, part of …) */
     answerCard: function (id, opt) { var it = S.item(id); if (!it) return; S.leave(id); if (it.kind === 'deliv') it.state = 'resolved'; else it.cardKind = null; },
     deliverableAction: function () { return Promise.resolve(); },
+    /* ---- series (docs/series.md) ----
+       The bigger things you're working on. Live mode keeps the core's page in state.series; the demo has a
+       small made-up one so the page isn't empty. */
+    series: function () { return (state && state.series) || DEMO_SERIES; },
+    seriesList: function () {
+      var s = S.series().sections || {}, out = [];
+      ['new', 'going', 'quiet', 'watching', 'wrapped'].forEach(function (k) { (s[k] || []).forEach(function (x) { out.push(x); }); });
+      return out;
+    },
+    seriesById: function (coreId) { return S.seriesList().filter(function (x) { return x.id === +coreId; })[0] || null; },
+    seriesSheet: function (coreId) {
+      var s = S.seriesById(coreId);
+      return s ? Promise.resolve(Object.assign({ knows: [], open_tasks: [], done_tasks: [], deliverables: [], decided: [], anchors: [],
+        removed_anchors: [], also_touches: [], suggestions: s.next ? [s.next] : [], people: s.people || [] }, s))
+        : Promise.reject(new Error('No series ' + coreId));
+    },
+    seriesAction: function () { return Promise.reject(new Error('Series need Fuzz running: this is the demo.')); },
+    seriesPreview: function () { return Promise.resolve({ would_join: [], would_stop_matching: [] }); },
+    seriesChoices: function () { return Promise.resolve(S.seriesList().map(function (x) { return { series_id: x.id, name: x.name }; })); },
+    taskSeries: function () { return Promise.resolve(); },
+    answerSeriesCard: function () { return Promise.resolve(); },
     /* The end of a booked block: Keep going (the block runs on, if the calendar is free) */
     keepGoing: function (id) { var it = S.item(id); if (!it) return; it.blockEnd = false; S.log(it, 'status', 'You kept going.'); S.pick(id); },
     /* A hold on your calendar for booked time: approve, always allow, or skip (still booked in Fuzz) */
@@ -469,6 +509,8 @@
       return { done: all.filter(function (i) { return i.state === 'done'; }).length, total: all.length };
     },
     groupFinished: function (g) { var c = S.groupCount(g); return g.closed || (c.total > 0 && c.done === c.total); },
+    /* A task's series, as its "Part of …" line (the noun stays out of sight) */
+    seriesLine: function (it) { return it && it.series ? 'Part of ' + it.series.name : ''; },
     /* The line a card or row shows: "From Staff sync · 1 of 3 done" */
     partOf: function (it, withCount) {
       var g = S.groupOf(it); if (!g) return '';
@@ -554,7 +596,7 @@
     reopen: function (id) { var it = S.item(id); S.log(it, 'status', 'You brought this back.'); S.enqueue(it, 'front'); },
 
     /* ---- capture ---- */
-    capture: function (text, docs) {
+    capture: function (text, docs, picked, series, refs) {
       docs = docs || [];
       var t = (text || '').trim();
       var title = t || docs[0];
@@ -569,6 +611,13 @@
         firstStep: 'Write one sentence about what “done” looks like.',
         log: [], sources: docs.map(function (d) { return { type: 'Doc', title: d }; }), context: [], conversation: []
       };
+      if (series && !series.start) it.series = { id: series.id, name: series.name };   /* New task's + → Series */
+      if (refs) {   /* ...Person, Source, Artifact: they join its sources, and a person its People */
+        refs.people.forEach(function (p) { it.sources.push({ type: 'Person', title: (p.role === 'about' ? 'About ' : 'For ') + p.name }); });
+        refs.links.forEach(function (l) { it.sources.push({ type: 'Link', title: l, url: l }); });
+        refs.artifacts.forEach(function (a) { it.sources.push({ type: 'Fuzz made', title: a.name }); });
+        it.people = refs.people.map(function (p) { return { name: p.name, email: p.email || '', did: [{ text: p.role === 'about' ? 'You said it’s about them' : 'You said it’s for them' }] }; });
+      }
       state.items.push(it);
       S.log(it, 'status', 'You captured this task.');
       S.enqueue(it, 'back');

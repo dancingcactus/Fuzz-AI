@@ -42,6 +42,10 @@ def for_task(core, t):
         for p in cand.get("people") or []:
             if not entities._is_me(p, me):
                 book.add(p, kind="named", text="Named in the ask", **here)
+    for s in core.all("SELECT title, link, added_run FROM sources WHERE task_id=? AND user_id=? AND role='person' AND withdrawn=0",
+                      (t["id"], core.user_id)):   # New task's + → Person: who you said it's for or about
+        who = s["title"].split(" ", 1)[1] if " " in s["title"] else s["title"]
+        book.add_name(who, kind="yours", text="You said it’s " + ("for them" if s["title"].startswith("For ") else "about them"))
     if t.get("waiting_on") and t["state"] in ("waiting", "queued"):
         book.add_name(t["waiting_on"], kind="waiting", text="You’re waiting on them", ts=t["state_changed_at"])
     if (t.get("owner") or "").strip() not in NOT_A_NAME:
@@ -51,6 +55,28 @@ def for_task(core, t):
         # a draft goes to a person, a channel or a thread; only one to someone already here is theirs
         book.add_name(d["target"], kind="sent_to", text=_sent_text(d["kind"]), ts=d["approved_at"], known_only=True)
     return book.people()
+
+
+def search(core, q, limit=8):
+    """People Fuzz knows, for New task's + → Person: [{entity_id, name, email}], by name, alias or email, most seen
+    first. Never you."""
+    me = core.config.get("me", {})
+    q = (q or "").strip().lower()
+    rows = core.all("SELECT e.id, e.name, (SELECT value FROM identifiers i WHERE i.entity_id=e.id AND i.type='email' LIMIT 1) email, "
+                    "(SELECT COUNT(*) FROM sightings s WHERE s.entity_id=e.id) seen FROM entities e "
+                    "WHERE e.user_id=? AND e.type='person' AND e.redirect_to IS NULL ORDER BY seen DESC, e.id DESC", (core.user_id,))
+    out = []
+    for r in rows:
+        name = r["name"] or entities.display_name(core.conn, {"id": r["id"], "name": r["name"], "type": "person"})
+        if entities._is_me({"name": name, "email": r["email"]}, me):
+            continue
+        hay = f"{name} {r['email'] or ''}".lower()
+        if q and q not in hay and not core.one("SELECT 1 x FROM aliases WHERE entity_id=? AND alias LIKE ?", (r["id"], f"%{q}%")):
+            continue
+        out.append({"entity_id": r["id"], "name": name, "email": r["email"]})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _sent_text(kind):

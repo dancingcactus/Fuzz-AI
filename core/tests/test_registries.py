@@ -44,7 +44,7 @@ class Tables(CoreCase):
     def test_every_table_has_a_changes_helper(self):
         ch = events.Changes()
         for name in ("task", "group", "card", "draft", "grant", "deliverable", "fact", "knowledge", "lesson",
-                     "decision", "mlink"):
+                     "decision", "mlink", "series", "anchor"):
             getattr(ch, name)(1, x=1)
         ch.state("k", 1)
         self.assertEqual(set(ch.to_json()), set(events.TABLES))
