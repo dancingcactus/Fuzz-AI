@@ -708,7 +708,9 @@
           /* ...and the person, links and things Fuzz made you added with the + */
           var more = refs && (refs.people.length || refs.links.length || refs.artifacts.length) ? api('POST', '/tasks/' + r.task_id + '/refs',
             { people: refs.people, links: refs.links, artifacts: refs.artifacts.map(function (a) { return a.id; }) }) : null;
-          return Promise.all([into, more]).then(function () { return upload(r.task_id, picked || []); });
+          /* ...and Artifact → Make something new: a note every later run reads */
+          var note = refs && refs.note ? api('POST', '/tasks/' + r.task_id + '/note', { text: refs.note }) : null;
+          return Promise.all([into, more, note]).then(function () { return upload(r.task_id, picked || []); });
         });
       });
       return it;

@@ -109,6 +109,27 @@ test('New task’s + → Series puts the capture in one', async () => {
   await page.close();
 });
 
+test('New’s + → Artifact → Make something new: a chip, then a note on the task every run reads', async () => {
+  const page = await newPage(`http://127.0.0.1:${PORT}/#/capture`);
+  await page.fill('#cap-text', 'Pilot readout for Northwind');
+  await page.click('#cap-plus');
+  assert.match(await page.textContent('#cap-plusmenu'), /something new to make/);
+  await page.click('[data-plus="artifact"]');
+  await page.click('[data-make="slides"]');
+  assert.match(await page.textContent('#files'), /Fuzz makes a new slide deck/);
+  await page.click('#cap-go');
+  const notes = await page.evaluate(() => Store.get().items.filter(x => x.title === 'Pilot readout for Northwind')[0].notes);
+  assert.equal(notes, 'You said: Make a new slide deck for this and save it in Artifacts.');
+  /* Person: one row each, For and About as pills on the same line as the name */
+  await page.click('#cap-plus');
+  await page.click('[data-plus="person"]');
+  await page.fill('#cap-q', 'Zed Quinn');
+  const row = await page.$eval('.cap-person', r => { const n = r.querySelector('.cap-who').getBoundingClientRect(), f = r.querySelector('[data-role="for"]').getBoundingClientRect(); return { same: Math.abs((n.top + n.bottom) / 2 - (f.top + f.bottom) / 2) < 8, sub: r.querySelector('small').textContent }; });
+  assert.deepEqual(row, { same: true, sub: 'Someone new' });
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
 test('Start a series on the Series page opens New with New series from this picked', async () => {
   const page = await newPage(`http://127.0.0.1:${PORT}/#/series`);
   await page.click('a[href="#/capture?series=start"]');

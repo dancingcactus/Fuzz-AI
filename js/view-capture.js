@@ -7,7 +7,7 @@
   /* New task's +: Series, Person, Source, Artifact and Upload a file (docs/series.md, "Starting one yourself").
      serPick: the series this goes into ({id, name}), or {start: true} to start a new one from it. refs: who it's for
      or about, a message or page Fuzz should read, something Fuzz already made: they join the task's sources. */
-  var serPick = null, refs = { people: [], links: [], artifacts: [] }, plusOpen = false, panel = null, panelQ = '', outsideClick = null;
+  var serPick = null, refs = { people: [], links: [], artifacts: [], make: null }, plusOpen = false, panel = null, panelQ = '', outsideClick = null;
   var found = { people: [], artifacts: null }, findAsk = 0;
   var PLUS_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
   var UP_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>';
@@ -16,14 +16,17 @@
   var FILE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>';
   var X_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var PLUS_ITEMS = [['series', 'Series', 'Put it in one, or start a new one from this'], ['person', 'Person', 'Who it’s for, or who it’s about'],
-    ['source', 'Source', 'An email, Slack thread or meeting Fuzz should read'], ['artifact', 'Artifact', 'Something Fuzz already made'],
+    ['source', 'Source', 'An email, Slack thread or meeting Fuzz should read'], ['artifact', 'Artifact', 'Something Fuzz made, or something new to make'],
     ['upload', 'Upload a file', 'Or drop it on the box']];
   function plusIcon(k) { return { series: SeriesView.ICON, person: PERSON_SVG, source: LINK_SVG, artifact: FILE_SVG, upload: UP_SVG }[k]; }
   /* Back to the + list, at the top of every panel; it stays put while the panel scrolls */
   var BACK_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
   function backHTML(what) { return '<button type="button" class="plusback" data-plusback aria-label="Back to the list">' + BACK_SVG + '<b>' + what + '</b></button>'; }
   function roleShort(s) { return s.role_label ? s.role_label.replace(/ it$/, '') : ''; }
-  function emptyRefs() { return { people: [], links: [], artifacts: [] }; }
+  function emptyRefs() { return { people: [], links: [], artifacts: [], make: null }; }
+  /* Artifact → Make something new: what Fuzz should make. It reaches the task as a note every run reads. */
+  var MAKE = { document: 'document', slides: 'slide deck', spreadsheet: 'spreadsheet' };
+  function makeNote(k) { return 'Make a new ' + MAKE[k] + ' for this and save it in Artifacts.'; }
   /* The Series panel: find one, start a new one from this, one Fuzz has been watching, or one of yours */
   function seriesPanelHTML() {
     var all = Store.seriesList(), q = panelQ.trim().toLowerCase();
@@ -37,15 +40,19 @@
       (yours.length ? '<p class="grp">Your series</p>' + yours.map(function (s) { return row(s, [roleShort(s), s.section === 'quiet' ? 'quiet' : s.section === 'new' ? 'waiting for your OK' : ''].filter(Boolean).join(' · ')); }).join('') : '') +
       (q && !watching.length && !yours.length ? '<p class="meta">No series called that. Start a new one from this?</p>' : '') + '</div>';
   }
-  /* Person: someone Fuzz knows (or a name you type), and whether it's for them or about them */
+  /* Person: someone Fuzz knows (or a name you type), and whether it's for them or about them. One tidy row each:
+     who on the left, For and About as two small pills on the right. */
   function personPanelHTML() {
     var q = panelQ.trim(), list = found.people || [];
-    var row = function (p, i) {
-      return '<div class="opt cap-person"><span><b>' + esc(p.name) + '</b>' + (p.email ? '<small>' + esc(p.email) + '</small>' : '') + '</span>' +
-        '<span class="scard-acts"><button type="button" class="btn small" data-person="' + i + '" data-role="for">For them</button><button type="button" class="btn small" data-person="' + i + '" data-role="about">About them</button></span></div>';
+    var row = function (p, i, sub) {
+      return '<div class="cap-person"><span class="cap-who"><b>' + esc(p.name) + '</b>' + (sub || p.email ? '<small>' + esc(sub || p.email) + '</small>' : '') + '</span>' +
+        '<span class="cap-role" role="group" aria-label="' + esc(p.name) + '"><button type="button" data-person="' + i + '" data-role="for" aria-label="For ' + esc(p.name) + '">For</button>' +
+        '<button type="button" data-person="' + i + '" data-role="about" aria-label="About ' + esc(p.name) + '">About</button></span></div>';
     };
+    var known = q && list.some(function (p) { return p.name.toLowerCase() === q.toLowerCase(); });
     return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Person') + '<label class="sr" for="cap-q">Find a person</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="A name or an email" value="' + esc(panelQ) + '"></div>' +
-      list.map(row).join('') + (q && !list.some(function (p) { return p.name.toLowerCase() === q.toLowerCase(); }) ? row({ name: q, email: /@/.test(q) ? q : '' }, -1) : '') +
+      '<p class="cap-hint">Is it for them, or about them?</p>' +
+      list.map(function (p, i) { return row(p, i); }).join('') + (q && !known ? row({ name: q, email: '' }, -1, /@/.test(q) ? 'An email Fuzz doesn’t know yet' : 'Someone new') : '') +
       (!q && !list.length ? '<p class="meta">Type a name. Fuzz suggests the people it knows.</p>' : '') + '</div>';
   }
   /* Source: the link to an email, a Slack thread, a meeting's notes or a page */
@@ -60,7 +67,12 @@
       list.filter(function (a) { return !q || (a.name + ' ' + a.task).toLowerCase().indexOf(q) > -1; }).slice(0, 8).map(function (a, i) {
         return '<button type="button" role="menuitem" class="opt" data-artifact="' + esc(a.id) + '"><span><b>' + esc(a.name) + '</b><small>For ' + esc(a.task || 'a task') + '</small></span></button>';
       }).join('');
-    return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Artifact') + '<label class="sr" for="cap-q">Find something Fuzz made</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find something Fuzz made" value="' + esc(panelQ) + '"></div>' + body + '</div>';
+    var make = '<div class="cap-make"><span class="cap-who"><b>Make something new</b><small>Fuzz makes it for this task and saves it in Artifacts.</small></span>' +
+      '<span class="cap-role" role="group" aria-label="Make something new">' + [['document', 'Document'], ['slides', 'Slides'], ['spreadsheet', 'Spreadsheet']].map(function (m) {
+        return '<button type="button" data-make="' + m[0] + '" aria-pressed="' + (refs.make === m[0]) + '">' + m[1] + '</button>';
+      }).join('') + '</span></div>';
+    return '<div class="cap-series" id="cap-series"><div class="cap-phead">' + backHTML('Artifact') + '<label class="sr" for="cap-q">Find something Fuzz made</label><input id="cap-q" class="fld" type="search" autocomplete="off" placeholder="Find something Fuzz made" value="' + esc(panelQ) + '"></div>' +
+      make + '<p class="grp">Fuzz already made</p>' + body + '</div>';
   }
   function plusHTML() {
     var body = panel === 'series' ? seriesPanelHTML() : panel === 'person' ? personPanelHTML() : panel === 'source' ? sourcePanelHTML()
@@ -79,6 +91,7 @@
     refs.people.forEach(function (p, i) { h += chip(PERSON_SVG, (p.role === 'about' ? 'About ' : 'For ') + p.name, 'people', i); });
     refs.links.forEach(function (l, i) { h += chip(LINK_SVG, l.replace(/^https?:\/\//, '').slice(0, 60), 'links', i); });
     refs.artifacts.forEach(function (a, i) { h += chip(FILE_SVG, a.name, 'artifacts', i); });
+    if (refs.make) h += chip(FILE_SVG, 'Fuzz makes a new ' + MAKE[refs.make], 'make', 0);
     return h;
   }
   var IDLE_LINE = 'Get it out of your head. I’ll sort it later.';
@@ -194,6 +207,8 @@
         if (who && who.name) refs.people.push({ name: who.name, email: who.email || '', role: pp.dataset.role });
         picked(); return;
       }
+      var mk = e.target.closest('[data-make]');
+      if (mk) { refs.make = mk.dataset.make; picked('I’ll make a new ' + MAKE[refs.make] + ' for it.'); return; }
       var ap = e.target.closest('[data-artifact]');
       if (ap) {
         var a = (found.artifacts || []).filter(function (x) { return String(x.id) === ap.dataset.artifact; })[0];
@@ -217,7 +232,7 @@
     });
     $('#files').addEventListener('click', function (e) {
       var u = e.target.closest('[data-unpick]'); if (!u) return;
-      if (u.dataset.unpick === 'series') serPick = null; else refs[u.dataset.unpick].splice(+u.dataset.i, 1);
+      if (u.dataset.unpick === 'series') serPick = null; else if (u.dataset.unpick === 'make') refs.make = null; else refs[u.dataset.unpick].splice(+u.dataset.i, 1);
       paintFiles(); ta.focus();
     });
     outsideClick = function (e) { if (plusOpen && !e.target.closest('.cap-plus')) closePlus(); };
@@ -279,6 +294,7 @@
       if (!text && !attached.length) return;
       var picked = attached.slice(), docs = picked.map(function (f) { return f.name; }), into = serPick, extra = refs;
       if (into && into.start && !text) { Fuzz.say('Say what the series is about first: that note is where Fuzz starts.', { type: false }); ta.focus(); return; }
+      if (extra.make) extra.note = makeNote(extra.make);
       var it = Store.capture(text, docs, picked, into, extra);
       serPick = null; refs = emptyRefs();
       Dictate.abort();

@@ -1361,3 +1361,17 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
   .fact dt { grid-column: 1 / -1; }
   .scard-foot .btn { margin-left: 0; }
 }
+/* New's + → Person and Artifact → Make something new: who (or what) on the left, small pills on the right */
+.cap-hint { margin: 2px 12px 4px; font-size: 13px; color: var(--muted); }
+.cap-person, .cap-make { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px 6px 12px; border-radius: 12px; }
+.cap-person:hover { background: var(--field); }
+.cap-make { flex-wrap: wrap; padding: 8px 12px; margin-bottom: 4px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.cap-who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.cap-who b { font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-who small { color: var(--muted); font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-make .cap-who small { white-space: normal; }
+.cap-role { flex: none; display: inline-flex; gap: 4px; }
+.cap-make .cap-role { flex-wrap: wrap; }
+.menu .cap-role button { flex-direction: row; align-items: center; min-height: 32px; padding: 4px 12px; border: var(--bw) solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; }
+.menu .cap-role button:hover, .menu .cap-role button:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.menu .cap-role button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }

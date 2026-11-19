@@ -620,6 +620,7 @@
       }
       state.items.push(it);
       S.log(it, 'status', 'You captured this task.');
+      if (refs && refs.note) { it.notes = 'You said: ' + refs.note; S.log(it, 'guidance', 'You said: ' + refs.note); }   /* Artifact → Make something new */
       S.enqueue(it, 'back');
       state.captured.unshift({ text: title, ref: id, doc: !t && docs.length > 0, time: 'Just now' });
       emit({ type: 'capture', item: it });
