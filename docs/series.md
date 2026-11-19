@@ -331,12 +331,19 @@ tasks, 18 days), against the spike's batch pass (15 series after its judge):
   `wait` five times. The batch pass's spec, prototype, evaluation and goals series all appear. Fewer tasks are
   in a series than in the batch pass: the rest sit in areas or in no cluster, which is the safer side to err on.
 
-## Next
+## Rolling it out
 
-1. Look at the replay's series with the person whose store it is before turning detection on for the live
-   queue; tune `settings.py` (or `{"series": {...}}` in config.json) from what they say. Turn detection off with
-   `{"series": {"detect": false}}`, and suggestions with `{"series": {"suggest": false}}`.
-2. Score the detectors on the `series_suggest` eval cases once there are enough of them.
+Every requirement above is built, tested (core and UI suites) and replayed on a copy of real data. What's left
+are steps for whoever runs it, in order:
+
+1. **Merge** the branch. Until then the live core (main) doesn't know series items, so don't install the new
+   skill text early: an extractor reading it would send verdicts main refuses.
+2. **Update the installed skills** (`fuzz doctor` offers it; installed skills are copies of `core/skills/`):
+   the extractor judges series items and sends series facts, the executor checks series' done-whens.
+3. **Look at the replay's series** (`python -m fuzz.series.replay <copy>`) before detection runs on the live
+   queue, and tune `{"series": {...}}` in config.json from what looks wrong. `{"series": {"detect": false}}`
+   turns detection off, `{"series": {"suggest": false}}` suggestions.
+4. Once suggestion outcomes have piled up, score the detectors on the `series_suggest` eval cases.
 
 ## Open questions
 
