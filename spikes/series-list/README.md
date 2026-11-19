@@ -11,7 +11,7 @@ real data most cards are just a name, counts and a "Work on …" button. Nothing
 - **B · Episodes** (picked 2026-11-19): rows plus one dot per task (done / up next / to do) and Last / Next lines.
   Past 20 tasks, the done ones fold into one box with their count in fives ([35] for 37), then the leftover dots; open
   tasks past 9 show as "+N more". Each card has an Edit button and lights up on hover; the card, its
-  name or Edit opens a stand-in for the sheet with the fields you can correct. Work on it goes to Triage.
+  name or Edit opens the series page (below). Work on it goes to Triage.
 - **C · In a sentence**: Fuzz describes each series in a sentence, with one "Next in …" action.
 - **D · By your part**: grouped Driving / Helping / Keeping up / Not sure yet, with icon status.
 
@@ -21,3 +21,20 @@ Fuzz is watching and Wrapped, like Lineup's folds.
 Data need common to every direction: a one-line `about` per series that is always filled. The
 `goal` fact is usually missing on real series, so Fuzz should write the line from member tasks
 when it has no goal, marked "Fuzz's guess" (see Acme security review in the mocks).
+
+## The series page (B · Series page, `#page-1`)
+
+Clicking a series in B opens its own page in place, following the artifact viewer (`artifact.html`), not a
+dialog. Top bar: a "‹ Series" back pill, the name with a short status line, Work on it, and ⋯ for the rarer
+moves (Rename, Quiet the suggestions, Split it into parts, It's wrapped up, Not a series, It's ongoing).
+One centered column:
+
+- the list card opened up: the about line with an edit pencil, the strip, Last
+- Next in …
+- What Fuzz knows: each fact is a row you click to fix in place, with its source under it. Your fixes say
+  "you · just now"; missing facts read "Not known yet. Add it."
+- Tasks: Open / Done, with Add a task
+- How Fuzz spots it: chips you remove, and a field to add one
+- Deliverables, Decided and People
+
+`#page-0` … `#page-5` open each demo series; `#page-3` (Acme) shows a sparse one.

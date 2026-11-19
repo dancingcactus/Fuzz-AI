@@ -119,16 +119,73 @@ h1, h2, h3, p { margin: 0; }
 /* past 20 tasks: the done count in fives, a square just wide enough for three digits, the colour of a done dot */
 .dot.five { width: 22px; height: 22px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--on-done); }
 .more { font-size: 12px; font-weight: 700; color: var(--muted); margin-left: 2px; }
-/* the sheet, opened by clicking a series */
-.sheet { border: 1px solid var(--line); border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow); }
-.sheet::backdrop { background: color-mix(in srgb, #000 40%, transparent); }
-.sheet form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
-.sheet h2 { font-family: var(--font-display); font-size: 21px; font-weight: 800; }
-.fld-l { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.fld { font: inherit; font-size: 15px; font-weight: 400; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-height: 40px; width: 100%; }
+/* ---- the series page, opened in place like an artifact (artifact.html): back pill, title, actions; one column ---- */
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.fld { font: inherit; font-size: 15px; font-weight: 400; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-height: 40px; width: 100%; min-width: 0; }
 .fld:focus { outline: 3px solid var(--link); outline-offset: 1px; }
-textarea.fld { resize: vertical; min-height: 64px; }
-.sheet .acts { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+textarea.fld { resize: vertical; min-height: 64px; line-height: 1.45; }
+.appbar.dbar { gap: 12px; padding: 10px 16px; }
+.dback { flex: none; padding-left: 8px; }
+.dtitle { flex: 1; min-width: 0; }
+.dtitle h1 { font-family: var(--font-display); font-weight: 800; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+.dtitle .meta { font-size: 13px; }
+.dacts { flex: none; display: flex; gap: 6px; align-items: center; position: relative; }
+.dmore summary { list-style: none; padding: 6px 10px; }
+.dmore summary::-webkit-details-marker { display: none; }
+.dmenu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: min(300px, calc(100vw - 48px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; }
+.dmenu button { text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 1px; }
+.dmenu button:hover { background: var(--field); }
+.dmenu b { font-weight: 700; font-size: 14px; }
+.dmenu span { font-size: 12.5px; color: var(--muted); }
+.dmenu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.page.dpage { max-width: 720px; gap: 26px; }
+.dhero { display: flex; flex-direction: column; gap: 8px; }
+.dabout { display: flex; gap: 8px; align-items: flex-start; }
+.dabout p { flex: 1; font-size: 17px; line-height: 1.5; text-wrap: pretty; }
+.dpen { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; }
+.dpen:hover { color: var(--ink); border-color: var(--accent); }
+.dsec { display: flex; flex-direction: column; gap: 10px; }
+.dsec-h { display: flex; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; }
+.dsec-h h2 { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+.dsec-h .meta { flex: 1 1 240px; }
+.dnext { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.dnext b { font-size: 15.5px; }
+.dnext .acts, .eform .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.facts li { display: block; }
+.fact { width: 100%; display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 2px 14px; align-items: start; padding: 12px 16px; border: 0; background: transparent; text-align: left; color: var(--ink); }
+.fact:hover { background: var(--field); }
+.fact:focus-visible { outline-offset: -3px; }
+.fl { color: var(--muted); font-weight: 600; font-size: 14px; padding-top: 1px; }
+.fv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fv .v { font-size: 15px; }
+.fv .s { font-size: 12.5px; color: var(--muted); }
+.fv .none { color: var(--muted); font-style: italic; }
+.fact .pen { color: var(--muted); opacity: .55; padding-top: 2px; }
+.fact:hover .pen, .fact:focus-visible .pen { opacity: 1; color: var(--accent); }
+.eform { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 16px; background: var(--field); }
+.eform label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.eform .fld { background: var(--surface); }
+.seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--chip); }
+.seg button { border: 0; background: transparent; border-radius: 999px; padding: 4px 12px; min-height: 30px; font-size: 13px; font-weight: 700; color: var(--ink); opacity: .8; }
+.seg button[aria-pressed="true"] { background: var(--surface); opacity: 1; box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent); }
+.addrow { display: flex; gap: 8px; }
+.addrow .fld { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; }
+.chip.yours { border-style: dashed; }
+.chip button { border: 0; background: transparent; color: var(--muted); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; }
+.chip button:hover { background: var(--field); color: var(--ink); }
+.chip-add { width: 200px; min-height: 34px; padding: 4px 12px; border-radius: 999px; font-size: 13.5px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.kv > div { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kv h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); opacity: .75; }
+.kv p { font-size: 14px; }
+.kv .meta { font-size: 12.5px; }
+@media (max-width: 560px) {
+  .fact { grid-template-columns: minmax(0, 1fr) auto; }
+  .fact .fl { grid-column: 1 / -1; }
+  .dtitle .meta { display: none; }
+}
 .ep-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .ep-top .rt { flex: 1 1 auto; min-width: 0; }
 .strip { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
@@ -180,7 +237,7 @@ textarea.fld { resize: vertical; min-height: 64px; }
   <div class="picker" role="tablist" aria-label="Mocks" id="picker"></div>
   <section class="notes" id="notes" aria-live="polite"></section>
   <div class="screen">
-    <div class="appbar"><span class="logo" id="logo"></span><span class="crumb"><b>Series</b> · Back to the Guide</span><span class="newbtn">+ New</span></div>
+    <div class="appbar" id="appbar"></div>
     <main class="page" id="page"></main>
   </div>
 </div>
@@ -358,6 +415,9 @@ textarea.fld { resize: vertical; min-height: 64px; }
     { id: 'episodes', label: 'B · Episodes', render: episodes,
       notes: [['What changes', ['A strip of dots, one per task, shows that a series is a run of tasks over time.', 'Past 20 tasks, the done ones fold into one box with their count in fives, like [35], then the leftover dots. See Billing platform migration.', 'Last and Next tell you where you left off, which helps when you come back after a break.']],
               ['Editing', ['Each card has an Edit button by its name, and the whole card lights up on hover.', 'Clicking the card, its name or Edit opens what Fuzz knows, ready to correct. Work on it still goes straight to Triage.', 'Fuzz’s note at the top says you can click one to fix it.']]] },
+    { id: 'page', label: 'B · Series page', render: function (k) { return seriesPage(k); },
+      notes: [['What changes', ['Clicking a series opens its own page in place, like an artifact. No dialog over the list.', 'The top bar has a back pill to Series, the name with a short status line, Work on it, and ⋯ for the rarer moves.', 'The top repeats the list card (about, strip, Last, Next), so the page reads as the same thing, opened up.']],
+              ['Editing', ['Every line Fuzz knows is a row you click to fix in place, with its source under it. Your fixes say “you”.', 'Missing facts read “Not known yet. Add it.”, so the gaps are visible and quick to fill.', 'How Fuzz spots it: remove a chip that catches the wrong work, or type one Fuzz missed.']]] },
     { id: 'sentence', label: 'C · In a sentence', render: sentence,
       notes: [['What changes', ['Fuzz writes one sentence per series: what it is, your part, where it stands, and when it’s done.', '“Next in …” is the one action, like Triage’s single suggestion.', 'Gone quiet cards drop to a dashed outline, with no warning colours.']],
               ['Trade-off', ['The most readable, and the most text. Fine for 5 series; 15 gets long.', 'Needs Fuzz to write a good sentence even when facts are thin.']]] },
@@ -366,37 +426,146 @@ textarea.fld { resize: vertical; min-height: 64px; }
               ['Trade-off', ['Answers “what do I own?” first. A quiet series sits among the busy ones.', 'Depends on your_role being filled in; your real data often lacks it.']]] }
   ];
 
-  var picker = document.getElementById('picker'), page = document.getElementById('page'), notes = document.getElementById('notes');
-  document.getElementById('logo').innerHTML = FUZZ + 'Fuzz';
+  /* ---------- the series page (opened from B's cards) ---------- */
+  I.back = ic('<path d="M15 18l-6-6 6-6"/>', 16);
+  I.dots = ic('<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>', 18);
+  I.x = ic('<path d="M6 6l12 12M18 6L6 18"/>', 14);
+  var PART = { drive: 'Driving it', help: 'Helping', follow: 'Keeping up' };
+  /* richer made-up detail for two series; the rest are filled from their list card */
+  var EXTRA = {
+    'Billing platform migration': {
+      facts: [['Goal', 'Every customer group bills from the new system by the end of Q1', 'Ana Costa by email', 'From the owner'],
+        ['Your part', 'Driving it', 'you', 'You said'], ['For', 'Finance and Platform', 'the kickoff deck', 'Reported'],
+        ['Status', 'Group 4 of 6 moved over this week', 'the migration tracker', 'From the owner'],
+        ['Done when', 'Every customer group bills from the new system', 'Ana Costa by email', 'Reported'],
+        ['Next milestone', 'Group 5 cutover, Dec 12', 'the Billing cutover sync', 'Reported']],
+      why: 'Group 5 cuts over Dec 12, and the last two groups needed their customer list a week ahead.',
+      open: [['Confirm the Group 5 customer list with Ana Costa', 'In Triage', 't-accent'], ['Draft the Group 5 cutover note to customers', 'With Fuzz', 't-accent'],
+        ['Check Group 4 invoices match the old system', 'Needs your OK', 't-wait'], ['Ask Ben about the tax-rule edge cases', 'Waiting on others', 't-muted'],
+        ['Book the Group 6 dry run', 'Later', 't-muted'], ['Retire the old invoice export job', 'Parked', 't-muted']],
+      done: ['Group 4 cut over cleanly', 'Sent the Group 4 customer note', 'Fixed the rounding difference on Group 3 invoices', 'Walked Finance through the new reports'],
+      anchors: [['BILL tickets', 0], ['#billing-migration', 0], ['Billing cutover sync (weekly)', 0], ['Migration tracker sheet', 0], ['“new billing”', 1]],
+      deliverables: [['Group 5 cutover', 'Done when Group 5 bills from the new system · Dec 12']],
+      decided: [['Move Group 5 before the holiday freeze', 'Nov 12'], ['Keep the old export running until Group 6', 'Oct 30']] },
+    'Northwind rollout': {
+      open: [['Send Priya Friday’s status note', 'In Triage', 't-accent'], ['Chase Northwind legal on the pilot plan', 'Waiting on others', 't-muted'], ['Draft the pilot kickoff agenda', 'With Fuzz', 't-accent'],
+        ['Set up the checkout team’s test accounts', 'Later', 't-muted'], ['Write the pilot success criteria', 'With you', 't-muted']],
+      anchors: [['NW tickets', 0], ['#northwind-pilot', 0], ['Northwind weekly', 0], ['priya@northwind.example', 0]],
+      decided: [['Pilot starts with the checkout team only', 'Nov 4']] }
+  };
+  EXTRA['Acme security review'] = { open: [['Reply to Lena with the SOC 2 report', 'In Triage', 't-accent'], ['Answer section 3: data retention', 'With Fuzz', 't-accent'], ['Ask Ben who signs the questionnaire', 'Later', 't-muted']] };
+  EXTRA['Report builder launch'] = { open: [['Update the release notes from Marco’s QA pass', 'In Triage', 't-accent'], ['Review the launch email Jen drafted', 'Needs your OK', 't-wait']] };
+  var DC = {}, cur = 1, editing = null, tasksTab = 'open';
+  function det(k) {
+    if (DC[k]) return DC[k];
+    var x = S[k], e = EXTRA[x.name] || {};
+    var d = { about: x.about,
+      facts: e.facts || [['Goal', '', '', ''], ['Your part', x.role ? PART[x.role] : '', x.role ? 'you' : '', x.role ? 'You said' : ''],
+        ['For', x.guess ? '' : x.forWho, x.guess ? '' : 'its tasks', 'Fuzz worked it out'],
+        ['Status', x.status.k === 'unknown' ? '' : x.status.text, x.status.src, 'Reported'],
+        ['Done when', x.doneWhen || '', x.doneWhen ? 'email' : '', 'Reported'], ['Next milestone', x.milestone || '', x.milestone ? 'the calendar' : '', 'Reported']],
+      why: e.why || 'It’s the oldest open ask in ' + x.name + '.',
+      open: e.open || [[x.next, 'In Triage', 't-accent']], done: e.done || [x.last],
+      anchors: e.anchors || [], deliverables: e.deliverables || [], decided: e.decided || [] };
+    return (DC[k] = d);
+  }
+  function dstrip(x) {
+    var h = '', big = x.done + x.open > 20, d = x.done, i;
+    if (big) { var f = Math.floor(d / 5) * 5; if (f) h += '<span class="dot five">' + f + '</span>'; d -= f; }
+    for (i = 0; i < d; i++) h += '<span class="dot d"></span>';
+    var shown = big ? Math.min(x.open, 9) : x.open;
+    for (var j = 0; j < shown; j++) h += '<span class="dot ' + (j === 0 ? 'n' : 'o') + '"></span>';
+    if (shown < x.open) h += '<span class="more">+' + (x.open - shown) + ' more</span>';
+    return '<div class="strip" role="img" aria-label="' + x.done + ' tasks done, ' + x.open + ' open">' + h + '<span class="meta">' + x.done + ' done · ' + x.open + ' to go</span></div>';
+  }
+  function dbar(k) {
+    var x = S[k];
+    var menu = [['Rename', ''], ['Quiet the suggestions', 'It stays a series. Fuzz just stops suggesting.'], ['Split it into parts', 'It’s really a few things. Name each and pick where its tasks go.'],
+      null, ['It’s wrapped up', ''], ['Not a series', 'Its tasks stay. They just aren’t grouped.'], ['It’s ongoing, not a series', 'Part of your job with no finish line.']];
+    return '<button type="button" class="btn dback" data-back>' + I.back + 'Series</button>' +
+      '<div class="dtitle"><h1>' + esc(x.name) + '</h1><p class="meta">' + (x.role ? PART[x.role] + ' · ' : '') + 'moved ' + esc(x.moved) + ' · with ' + esc(x.people.join(', ')) + '</p></div>' +
+      '<div class="dacts"><button type="button" class="btn primary">Work on it</button><details class="dmore"><summary class="btn" aria-label="More for ' + esc(x.name) + '">' + I.dots + '</summary>' +
+      '<div class="dmenu" role="menu">' + menu.map(function (m) { return m ? '<button type="button" role="menuitem"><b>' + m[0] + '</b>' + (m[1] ? '<span>' + m[1] + '</span>' : '') + '</button>' : '<hr>'; }).join('') + '</div></details></div>';
+  }
+  function eform(id, label, val, area) {
+    return '<form class="eform" data-save="' + id + '" autocomplete="off" data-1p-ignore><label for="ed-' + id + '">' + label + '</label>' +
+      (area ? '<textarea id="ed-' + id + '" class="fld" data-1p-ignore>' + esc(val) + '</textarea>' : '<input id="ed-' + id + '" class="fld" data-1p-ignore value="' + esc(val) + '">') +
+      '<div class="acts"><button class="btn primary">Save</button><button type="button" class="btn" data-cancel>Cancel</button></div></form>';
+  }
+  function seriesPage(k) {
+    var x = S[k], d = det(k), h = '';
+    /* the top: the list card, opened up */
+    h += '<section class="dhero">' + (editing === 'about' ? eform('about', 'What it’s about', d.about, true)
+      : '<div class="dabout"><p>' + esc(d.about) + guess(x) + '</p><button type="button" class="dpen" data-edit="about" aria-label="Edit what it’s about" title="Edit">' + I.pencil + '</button></div>') +
+      dstrip(x) + '<div class="ln"><b>Last</b><span>' + esc(x.last) + ' · <span class="meta">' + esc(x.lastWhen) + '</span></span></div></section>';
+    h += '<section class="dsec"><div class="dsec-h"><h2>Next in ' + esc(x.name) + '</h2></div><div class="dnext"><b>' + esc(x.next) + '</b><p class="meta">' + esc(d.why) + '</p>' +
+      '<div class="acts"><button type="button" class="btn primary">Add it</button><button type="button" class="btn">I’ll do it</button><button type="button" class="btn">Not needed</button></div></div></section>';
+    h += '<section class="dsec"><div class="dsec-h"><h2>What Fuzz knows</h2><p class="meta">Click a line to fix it. Each one says where it came from.</p></div><ul class="lrows facts">' +
+      d.facts.map(function (f, i) {
+        if (editing === 'f' + i) return '<li>' + eform('f' + i, f[0], f[1], f[1].length > 60) + '</li>';
+        return '<li><button type="button" class="fact" data-edit="f' + i + '"><span class="fl">' + f[0] + '</span><span class="fv">' +
+          (f[1] ? '<span class="v">' + esc(f[1]) + '</span><span class="s">' + esc(f[2]) + (f[3] ? ' · ' + esc(f[3]) : '') + '</span>' : '<span class="none">Not known yet. Add it.</span>') +
+          '</span><span class="pen">' + I.pencil + '</span></button></li>';
+      }).join('') + '</ul></section>';
+    var list = tasksTab === 'open' ? d.open.map(function (t) { return '<li><div class="lrow no-tile"><span class="lrow-main"><span class="ra">' + esc(t[0]) + '</span></span><span class="lrow-side"><span class="pill ' + t[2] + '">' + t[1] + '</span></span></div></li>'; })
+      : d.done.map(function (t) { return '<li><div class="lrow no-tile"><span class="lrow-main"><span class="ra">' + esc(t) + '</span></span><span class="lrow-side"><span class="pill t-ok">Done</span></span></div></li>'; });
+    if (tasksTab === 'done' && x.done > d.done.length) list.push('<li><div class="lrow no-tile"><span class="rs">and ' + (x.done - d.done.length) + ' more</span></div></li>');
+    h += '<section class="dsec"><div class="dsec-h"><h2>Tasks</h2><div class="seg" role="group" aria-label="Show"><button type="button" data-tab="open" aria-pressed="' + (tasksTab === 'open') + '">Open ' + x.open + '</button><button type="button" data-tab="done" aria-pressed="' + (tasksTab === 'done') + '">Done ' + x.done + '</button></div></div>' +
+      (tasksTab === 'open' ? '<form class="addrow" data-addtask autocomplete="off"><label class="sr" for="d-add">Add a task</label><input id="d-add" class="fld" data-1p-ignore placeholder="Add a task to ' + esc(x.name) + '"><button class="btn">Add</button></form>' : '') +
+      '<ul class="lrows">' + list.join('') + '</ul></section>';
+    h += '<section class="dsec"><div class="dsec-h"><h2>How Fuzz spots it</h2><p class="meta">New work that touches any of these lands here. Remove one that catches the wrong things; add one Fuzz missed.</p></div><div class="chips">' +
+      d.anchors.map(function (a, i) { return '<span class="chip' + (a[1] ? ' yours' : '') + '"' + (a[1] ? ' title="You added this"' : '') + '>' + esc(a[0]) + '<button type="button" data-unanchor="' + i + '" aria-label="Stop using ' + esc(a[0]) + '">' + I.x + '</button></span>'; }).join('') +
+      '<form data-anchor autocomplete="off"><label class="sr" for="d-anc">Add a way Fuzz spots it</label><input id="d-anc" class="fld chip-add" data-1p-ignore placeholder="+ A word, channel or ticket"></form></div></section>';
+    var kv = '';
+    if (d.deliverables.length) kv += '<div><h3>Deliverables</h3>' + d.deliverables.map(function (v) { return '<p>' + esc(v[0]) + '</p><p class="meta">' + esc(v[1]) + '</p>'; }).join('') + '</div>';
+    if (d.decided.length) kv += '<div><h3>Decided</h3>' + d.decided.map(function (v) { return '<p>' + esc(v[0]) + ' <span class="meta">· ' + esc(v[1]) + '</span></p>'; }).join('') + '</div>';
+    kv += '<div><h3>People</h3><p>' + esc(x.people.join(', ')) + '</p></div>';
+    return h + '<section class="dsec"><div class="kv">' + kv + '</div></section>';
+  }
+
+  var picker = document.getElementById('picker'), page = document.getElementById('page'), notes = document.getElementById('notes'), bar = document.getElementById('appbar');
+  var BAR = '<span class="logo">' + FUZZ + 'Fuzz</span><span class="crumb"><b>Series</b> · Back to the Guide</span><span class="newbtn">+ New</span>';
   picker.innerHTML = MOCKS.map(function (m) { return '<button type="button" role="tab" data-id="' + m.id + '" aria-selected="false">' + m.label + '</button>'; }).join('');
   function show(id) {
+    var pm = /^page(?:-(\d+))?$/.exec(id || '');
+    if (pm) { var k = pm[1] ? +pm[1] : 1; if (k !== cur) { editing = null; tasksTab = 'open'; } cur = S[k] ? k : 1; id = 'page'; }
     var m = MOCKS.filter(function (x) { return x.id === id; })[0] || MOCKS[1];
     [].forEach.call(picker.children, function (b) { b.setAttribute('aria-selected', b.dataset.id === m.id ? 'true' : 'false'); });
     notes.innerHTML = m.notes.map(function (n) { return '<div><h3>' + n[0] + '</h3><ul>' + n[1].map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></div>'; }).join('');
-    page.className = 'page' + (m.wide ? ' wide' : '');
-    page.innerHTML = m.render();
+    paint(m);
   }
-  picker.addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) { location.hash = b.dataset.id; show(b.dataset.id); } });
+  function paint(m) {
+    m = m || MOCKS.filter(function (x) { return x.id === 'page'; })[0];
+    var isPage = m.id === 'page';
+    bar.className = 'appbar' + (isPage ? ' dbar' : ''); bar.innerHTML = isPage ? dbar(cur) : BAR;
+    page.className = 'page' + (m.wide ? ' wide' : '') + (isPage ? ' dpage' : '');
+    page.innerHTML = m.render(cur);
+    if (isPage && editing) { var f = page.querySelector('.eform .fld'); if (f) { f.focus(); f.setSelectionRange && f.setSelectionRange(f.value.length, f.value.length); } }
+  }
+  picker.addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) location.hash = b.dataset.id; });
+  bar.addEventListener('click', function (e) { if (e.target.closest('[data-back]')) location.hash = 'episodes'; });
   page.addEventListener('click', function (e) {
     if (e.target.closest('.says .x')) { e.target.closest('.says').remove(); return; }
     if (e.target.closest('[data-workon]')) return;
-    var o = e.target.closest('[data-open]'); if (o) openSheet(S[+o.dataset.open], o.closest('.ep').querySelector('.ep-name'));
+    var o = e.target.closest('[data-open]');
+    if (o) { location.hash = 'page-' + o.dataset.open; document.querySelector('.screen').scrollIntoView(); return; }
+    var ed = e.target.closest('[data-edit]'); if (ed) { editing = ed.dataset.edit; paint(); return; }
+    if (e.target.closest('[data-cancel]')) { editing = null; paint(); return; }
+    var t = e.target.closest('[data-tab]'); if (t) { tasksTab = t.dataset.tab; paint(); return; }
+    var u = e.target.closest('[data-unanchor]'); if (u) { det(cur).anchors.splice(+u.dataset.unanchor, 1); paint(); }
   });
-  /* a stand-in for the series sheet: the fields you can correct */
-  function openSheet(x, back) {
-    var g = document.createElement('dialog'); g.className = 'sheet'; g.setAttribute('aria-labelledby', 'sh-t');
-    var parts = [['drive', 'Driving it'], ['help', 'Helping'], ['follow', 'Keeping up'], ['', 'Not sure yet']];
-    g.innerHTML = '<form method="dialog" autocomplete="off" data-1p-ignore data-lpignore="true"><h2 id="sh-t">Edit ' + esc(x.name) + '</h2>' +
-      '<label class="fld-l" for="sh-name">Name<input id="sh-name" class="fld" autocomplete="off" data-1p-ignore value="' + esc(x.name) + '"></label>' +
-      '<label class="fld-l" for="sh-about">What it’s about' + (x.guess ? ' <span class="guess">Fuzz’s guess</span>' : '') + '<textarea id="sh-about" class="fld">' + esc(x.about) + '</textarea></label>' +
-      '<label class="fld-l" for="sh-part">Your part<select id="sh-part" class="fld">' + parts.map(function (p) { return '<option value="' + p[0] + '"' + ((x.role || '') === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label class="fld-l" for="sh-done">Done when<input id="sh-done" class="fld" value="' + esc(x.doneWhen || '') + '" placeholder="How you’ll know it’s finished"></label>' +
-      '<p class="meta">' + x.open + ' open · ' + x.done + ' done. The full sheet also lists its tasks, people and how Fuzz spots new work for it.</p>' +
-      '<div class="acts"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="save">Save</button></div></form>';
-    document.body.appendChild(g);
-    g.addEventListener('close', function () { g.remove(); if (back) back.focus(); });
-    g.showModal();
-  }
+  page.addEventListener('keydown', function (e) { if (e.key === 'Escape' && editing) { editing = null; paint(); } });
+  page.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.target, d = det(cur), inp = f.querySelector('.fld'), v = inp ? inp.value.trim() : '';
+    if (f.dataset.save) {
+      if (f.dataset.save === 'about') { if (v) { d.about = v; S[cur].guess = false; } }
+      else { var r = d.facts[+f.dataset.save.slice(1)]; r[1] = v; r[2] = 'you'; r[3] = 'just now'; }
+      editing = null;
+    } else if (f.hasAttribute('data-addtask') && v) { d.open.unshift([v, 'In Triage', 't-accent']); S[cur].open++; }
+    else if (f.hasAttribute('data-anchor') && v) d.anchors.push([v, 1]);
+    paint();
+  });
   window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
   show(location.hash.slice(1) || 'rows');
 })();
