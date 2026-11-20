@@ -1,0 +1,131 @@
+{
+  "format": 1,
+  "about": "The global series set: an invented series as it stands on one day, and which next steps Fuzz should suggest in it (docs/series.md, \"Suggesting new tasks\"). Each kind of suggestion has a case where it comes out and a reverse where it mustn't: a stall with a reply owed and one without, a decision nobody acted on and one somebody did, a milestone nothing is getting ready for and one something is. Your part, mute, the weekly limit and a Not needed lesson each have a case too. Scored by `fuzz eval series` with no model, through series/suggest.py itself. Every case's \"now\" is a Tuesday in October 2026. Invented: nothing here may come from a real store.",
+  "cases": [
+    {
+      "name": "stall-with-a-reply-owed-nudges",
+      "kind": "behaviour",
+      "why": "Nothing moved for over a week and someone owes a reply: suggest a nudge to them",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Harbor pilot"},
+                "tasks": [{"title": "Send Harbor the pilot plan", "days_ago": 14, "state": "done"},
+                          {"title": "Book the Harbor kickoff", "days_ago": 13, "state": "done"},
+                          {"title": "Get Harbor's security answers", "days_ago": 10, "state": "waiting", "waiting_on": "Dana Ito"}]},
+      "expected": {"checks": [{"suggests": "stall"}, {"title_has": ["Dana Ito"]}]}
+    },
+    {
+      "name": "stall-with-nobody-owing-stays-quiet",
+      "kind": "behaviour",
+      "why": "Quiet for over a week, but nobody owes you anything: a nudge would be to no one",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Harbor pilot"},
+                "tasks": [{"title": "Send Harbor the pilot plan", "days_ago": 14, "state": "done"},
+                          {"title": "Draft the Harbor rollout notes", "days_ago": 10}]},
+      "expected": {"checks": [{"not_suggests": "stall"}]}
+    },
+    {
+      "name": "a-reply-owed-but-recent-movement-isnt-a-stall",
+      "kind": "behaviour",
+      "why": "Someone owes a reply, but the series moved two days ago: it hasn't stalled",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Harbor pilot"},
+                "tasks": [{"title": "Send Harbor the pilot plan", "days_ago": 14, "state": "done"},
+                          {"title": "Get Harbor's security answers", "days_ago": 2, "state": "waiting", "waiting_on": "Dana Ito"}]},
+      "expected": {"checks": [{"not_suggests": "stall"}]}
+    },
+    {
+      "name": "a-muted-series-gets-nothing",
+      "kind": "behaviour",
+      "why": "You muted it: no suggestions at all, however stalled",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Harbor pilot", "muted": true},
+                "tasks": [{"title": "Send Harbor the pilot plan", "days_ago": 14, "state": "done"},
+                          {"title": "Get Harbor's security answers", "days_ago": 10, "state": "waiting", "waiting_on": "Dana Ito"}]},
+      "expected": {"checks": [{"count": 0}]}
+    },
+    {
+      "name": "driving-a-series-gets-follow-through",
+      "kind": "behaviour",
+      "why": "You drive it, a decision was logged three days ago, and nothing has acted on it since",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Ledger migration", "role": "drive"},
+                "tasks": [{"title": "Compare the two ledger vendors", "days_ago": 8, "state": "done"},
+                          {"title": "Write up the vendor trade-offs", "days_ago": 6, "state": "done"}],
+                "decisions": [{"what": "Go with the hosted ledger", "days_ago": 3}]},
+      "expected": {"checks": [{"suggests": "follow_through"}, {"title_has": ["hosted ledger"]}]}
+    },
+    {
+      "name": "a-decision-already-acted-on-needs-no-follow-through",
+      "kind": "behaviour",
+      "why": "A task came after the decision: someone is already on it",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Ledger migration", "role": "drive"},
+                "tasks": [{"title": "Compare the two ledger vendors", "days_ago": 8, "state": "done"},
+                          {"title": "Order the hosted ledger trial", "days_ago": 2}],
+                "decisions": [{"what": "Go with the hosted ledger", "days_ago": 5}]},
+      "expected": {"checks": [{"not_suggests": "follow_through"}]}
+    },
+    {
+      "name": "keeping-up-gets-only-what-lands-on-you",
+      "kind": "behaviour",
+      "why": "You only follow it: the reply owed to you lands on you, a decision's follow-through doesn't",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Ledger migration", "role": "follow"},
+                "tasks": [{"title": "Compare the two ledger vendors", "days_ago": 12, "state": "done"},
+                          {"title": "Get the ledger quote from Teo", "days_ago": 9, "state": "waiting", "waiting_on": "Teo Quillfeather"}],
+                "decisions": [{"what": "Go with the hosted ledger", "days_ago": 10}]},
+      "expected": {"checks": [{"suggests": "stall"}, {"not_suggests": "follow_through"}]}
+    },
+    {
+      "name": "a-milestone-nothing-is-getting-ready-for",
+      "kind": "behaviour",
+      "why": "Its go-live is in two days and nothing new in it is getting ready",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Atlas launch", "next_milestone": "Atlas go-live, 2026-10-22"},
+                "tasks": [{"title": "Finish the Atlas release notes", "days_ago": 9, "state": "done"},
+                          {"title": "Brief support on Atlas", "days_ago": 8, "state": "done"}]},
+      "expected": {"checks": [{"suggests": "prep"}, {"title_has": ["Atlas go-live"]}]}
+    },
+    {
+      "name": "a-milestone-already-being-prepared-for",
+      "kind": "behaviour",
+      "why": "Its go-live is close, but a task from yesterday is getting ready for it",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Atlas launch", "next_milestone": "Atlas go-live, 2026-10-22"},
+                "tasks": [{"title": "Finish the Atlas release notes", "days_ago": 9, "state": "done"},
+                          {"title": "Run the Atlas go-live checklist", "days_ago": 1}]},
+      "expected": {"checks": [{"not_suggests": "prep"}]}
+    },
+    {
+      "name": "a-deliverable-due-soon-with-work-open",
+      "kind": "behaviour",
+      "why": "Its deliverable is due in three days and two of its tasks are still open",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Q4 board pack"},
+                "tasks": [{"title": "Pull the Q4 revenue numbers", "days_ago": 6, "deliverable": 0},
+                          {"title": "Write the Q4 hiring page", "days_ago": 5, "deliverable": 0},
+                          {"title": "Agree the board pack outline", "days_ago": 9, "state": "done", "deliverable": 0}],
+                "deliverables": [{"title": "The Q4 board pack", "due_in_days": 3}]},
+      "expected": {"checks": [{"suggests": "at_risk"}]}
+    },
+    {
+      "name": "not-needed-twice-hides-that-kind-here",
+      "kind": "behaviour",
+      "why": "You said Not needed to nudges in this series (a live lesson): a stall with a reply owed stays quiet",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Harbor pilot"}, "quiet": ["stall"],
+                "tasks": [{"title": "Send Harbor the pilot plan", "days_ago": 14, "state": "done"},
+                          {"title": "Get Harbor's security answers", "days_ago": 10, "state": "waiting", "waiting_on": "Dana Ito"}]},
+      "expected": {"checks": [{"not_suggests": "stall"}]}
+    },
+    {
+      "name": "no-more-than-the-weekly-limit",
+      "kind": "behaviour",
+      "why": "A stall, a decision and a milestone all at once: still only two suggestions a week in one series",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Atlas launch", "role": "drive", "next_milestone": "Atlas go-live, 2026-10-22"},
+                "tasks": [{"title": "Finish the Atlas release notes", "days_ago": 12, "state": "done"},
+                          {"title": "Get legal's sign-off on Atlas", "days_ago": 10, "state": "waiting", "waiting_on": "Noor Haddad"}],
+                "decisions": [{"what": "Ship Atlas without the beta flag", "days_ago": 4}]},
+      "expected": {"checks": [{"count": 2}]}
+    },
+    {
+      "name": "a-step-on-a-rhythm-comes-round-again",
+      "kind": "behaviour",
+      "why": "The same status note every week, three times, and this week's isn't started",
+      "input": {"now": "2026-10-20T09:00:00Z", "series": {"name": "Ledger migration"},
+                "tasks": [{"title": "Send the ledger status note, Sep 29", "days_ago": 21, "state": "done"},
+                          {"title": "Send the ledger status note, Oct 6", "days_ago": 14, "state": "done"},
+                          {"title": "Send the ledger status note, Oct 13", "days_ago": 7, "state": "done"}]},
+      "expected": {"checks": [{"suggests": "usual_next"}]}
+    }
+  ]
+}

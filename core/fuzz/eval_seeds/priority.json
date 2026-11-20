@@ -1,0 +1,162 @@
+{
+  "format": 1,
+  "about": "The global priority set: a day's queue and a check-in answer, and what docs/energy-and-priority.md says the answer does to it: which cards are in today's set, and which comes before which. Scored by `fuzz eval priority` with no model, through priority.py itself, so the answer is the same every run. Checks are pairwise (before), in/out and categories, never a whole order, so a tie-break can't break a case. Invented: names and addresses are on the example domains. A task with no effort_mins counts as 15 minutes.",
+  "cases": [
+    {
+      "name": "urgent-is-never-left-out",
+      "kind": "order",
+      "why": "Overloaded keeps only urgent and quick VIP or returned cards, but urgent stays however long it is",
+      "input": {"energy": "overloaded", "cards": [
+        {"id": "contract", "task": {"deadline_level": 1, "effort_mins": 45}},
+        {"id": "deck", "task": {"effort_mins": 60, "energy": "high"}}
+      ]},
+      "expected": {"checks": [{"in": "contract"}, {"out": "deck"}]}
+    },
+    {
+      "name": "overloaded-keeps-quick-vip-or-returned-only",
+      "kind": "order",
+      "why": "Overloaded: a quick card stays only if it's from a VIP or Fuzz handed it back",
+      "input": {"energy": "overloaded", "vips": ["mara.lind@acme.example"], "cards": [
+        {"id": "reply-manager", "task": {"effort_mins": 3}, "from": {"name": "Mara Lind", "email": "mara.lind@acme.example"}},
+        {"id": "quick-plain", "task": {"effort_mins": 3}},
+        {"id": "approve-draft", "kind": "draft", "task": {"effort_mins": 20}}
+      ]},
+      "expected": {"checks": [{"in": "reply-manager"}, {"out": "quick-plain"}, {"in": "approve-draft"},
+                              {"cats": ["approve-draft", ["returned", "quick"]]}]}
+    },
+    {
+      "name": "due-within-the-hour-goes-ahead-of-the-warm-up",
+      "kind": "order",
+      "why": "Tired starts with a warm-up, but a card due within the hour goes first",
+      "input": {"energy": "tired", "cards": [
+        {"id": "quick-thanks", "task": {"effort_mins": 2}},
+        {"id": "standup-notes", "task": {"deadline_level": 3, "effort_mins": 20}}
+      ]},
+      "expected": {"checks": [{"first": "standup-notes"}, {"before": ["standup-notes", "quick-thanks"]}]}
+    },
+    {
+      "name": "tired-warms-up-before-urgent",
+      "kind": "order",
+      "why": "Tired: the warm-up (quick or low energy) comes before urgent work that isn't due within the hour",
+      "input": {"energy": "tired", "cards": [
+        {"id": "urgent-report", "task": {"deadline_level": 1, "effort_mins": 20}},
+        {"id": "rsvp", "task": {"effort_mins": 2, "energy": "low"}}
+      ]},
+      "expected": {"checks": [{"in": "urgent-report"}, {"in": "rsvp"}, {"before": ["rsvp", "urgent-report"]}]}
+    },
+    {
+      "name": "tired-leaves-coming-back-out",
+      "kind": "order",
+      "why": "Coming back is the hardest kind of card: left out when tired, even a quick one",
+      "input": {"energy": "tired", "vips": ["Oskar"], "cards": [
+        {"id": "old-expense", "task": {"effort_mins": 5, "variant_tags": ["put_off"]}},
+        {"id": "oskar-question", "task": {"effort_mins": 10}, "from": {"name": "Oskar Brandt", "email": "oskar@northwind.example"}}
+      ]},
+      "expected": {"checks": [{"out": "old-expense"}, {"in": "oskar-question"}, {"cats": ["old-expense", ["coming_back"]]}]}
+    },
+    {
+      "name": "tired-keeps-coming-back-when-urgent",
+      "kind": "order",
+      "why": "Coming back is left out when tired, unless it's urgent: urgent is never left out",
+      "input": {"energy": "tired", "cards": [
+        {"id": "stale-invoice", "task": {"deadline_level": 1, "effort_mins": 15, "variant_tags": ["stale"]}}
+      ]},
+      "expected": {"checks": [{"in": "stale-invoice"}]}
+    },
+    {
+      "name": "good-day-coming-back-early",
+      "kind": "order",
+      "why": "Good: coming back comes early, before this week's goal and the rest",
+      "input": {"energy": "good", "cards": [
+        {"id": "plain", "task": {}},
+        {"id": "goal-work", "task": {}, "goal": true},
+        {"id": "put-off", "task": {"reschedules": 2}}
+      ]},
+      "expected": {"checks": [{"before": ["put-off", "goal-work"]}, {"before": ["goal-work", "plain"]}]}
+    },
+    {
+      "name": "okay-day-coming-back-late-whatever-else-it-is",
+      "kind": "order",
+      "why": "Okay: coming back goes late even from a VIP, after waiting, ahead of only the rest",
+      "input": {"energy": "okay", "vips": ["ines.prado@acme.example"], "cards": [
+        {"id": "plain", "task": {}},
+        {"id": "put-off-vip", "task": {"reschedules": 1}, "from": {"name": "Ines Prado", "email": "ines.prado@acme.example"}},
+        {"id": "owed-reply", "task": {}, "nudged": true}
+      ]},
+      "expected": {"checks": [{"before": ["owed-reply", "put-off-vip"]}, {"before": ["put-off-vip", "plain"]},
+                              {"cats": ["put-off-vip", ["vip", "coming_back"]]}]}
+    },
+    {
+      "name": "okay-day-deep-work-last",
+      "kind": "order",
+      "why": "Okay: deep work comes after the rest",
+      "input": {"energy": "okay", "cards": [
+        {"id": "design-doc", "task": {"effort_mins": 90}},
+        {"id": "plain", "task": {}}
+      ]},
+      "expected": {"checks": [{"before": ["plain", "design-doc"]}, {"cats": ["design-doc", ["deep"]]}]}
+    },
+    {
+      "name": "good-day-deep-work-after-waiting",
+      "kind": "order",
+      "why": "Good: deep work comes right after waiting, ahead of this week's goal",
+      "input": {"energy": "good", "cards": [
+        {"id": "goal-work", "task": {}, "goal": true},
+        {"id": "deep", "task": {"energy": "high"}},
+        {"id": "owed-reply", "task": {}, "nudged": true}
+      ]},
+      "expected": {"checks": [{"before": ["owed-reply", "deep"]}, {"before": ["deep", "goal-work"]}]}
+    },
+    {
+      "name": "vip-by-first-name-only-matches-that-name",
+      "kind": "order",
+      "why": "A one-word VIP entry matches a first name, not a name that starts with it",
+      "input": {"energy": "okay", "vips": ["Priya"], "cards": [
+        {"id": "from-priya", "task": {}, "from": {"name": "Priya Navarro", "email": "pnavarro@acme.example"}},
+        {"id": "from-priyanka", "task": {}, "from": {"name": "Priyanka Rao", "email": "prao@acme.example"}}
+      ]},
+      "expected": {"checks": [{"cats": ["from-priya", ["vip"]]}, {"not_cats": ["from-priyanka", ["vip"]]},
+                              {"before": ["from-priya", "from-priyanka"]}]}
+    },
+    {
+      "name": "expiring-today-is-urgent",
+      "kind": "order",
+      "why": "A card that expires today is urgent, so it survives an overloaded day",
+      "input": {"energy": "overloaded", "cards": [
+        {"id": "early-bird", "task": {"effort_mins": 20, "expires_today": true}}
+      ]},
+      "expected": {"checks": [{"in": "early-bird"}, {"cats": ["early-bird", ["urgent"]]}]}
+    },
+    {
+      "name": "a-question-fuzz-handed-back-is-returned",
+      "kind": "order",
+      "why": "A permission request is Fuzz handing work back: returned, and it takes seconds",
+      "input": {"energy": "good", "cards": [
+        {"id": "plain", "task": {}},
+        {"id": "permission", "kind": "permission", "task": {"effort_mins": 15}}
+      ]},
+      "expected": {"checks": [{"cats": ["permission", ["returned", "quick"]]}, {"before": ["permission", "plain"]}]}
+    },
+    {
+      "name": "overloaded-urgent-quickest-first",
+      "kind": "order",
+      "why": "Overloaded: urgent work, quickest first",
+      "input": {"energy": "overloaded", "cards": [
+        {"id": "u25", "task": {"deadline_level": 1, "effort_mins": 25}},
+        {"id": "u10", "task": {"deadline_level": 1, "effort_mins": 10}},
+        {"id": "u40", "task": {"deadline_level": 1, "effort_mins": 40}}
+      ]},
+      "expected": {"checks": [{"before": ["u10", "u25"]}, {"before": ["u25", "u40"]}]}
+    },
+    {
+      "name": "a-reply-draft-means-someone-is-waiting",
+      "kind": "order",
+      "why": "A card with a reply drafted is someone waiting on you",
+      "input": {"energy": "okay", "cards": [
+        {"id": "plain", "task": {}},
+        {"id": "reply", "task": {}, "reply_draft": true}
+      ]},
+      "expected": {"checks": [{"cats": ["reply", ["waiting"]]}, {"before": ["reply", "plain"]}]}
+    }
+  ]
+}

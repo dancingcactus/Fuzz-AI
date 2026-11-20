@@ -412,6 +412,20 @@ def _cmd_eval(a):
         if not run["gate_ok"]:
             sys.exit(1)
         return
+    if a.op == "series":   # next steps in a series: your answers through the lessons, and invented series; no model
+        from . import series_evals
+        run = series_evals.run(core, sets=a.set, against=a.against, trying=a.trying)
+        _print(series_evals.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
+    if a.op == "priority":   # what a check-in's answer does to the queue: no model, invented days
+        from . import priority_evals
+        run = priority_evals.run(core, sets=a.set, against=a.against)
+        _print(priority_evals.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op in ("copy", "copies", "approve", "reject"):   # a real case's invented copy, on its way to the repo
         from . import copies
         if a.op == "copies":
@@ -772,7 +786,7 @@ def parser():
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, rebaseline after "
                                     "changing the cases, or show a run")
     s.add_argument("op", choices=["seed", "cases", "run", "compare", "rebaseline", "show", "spots", "dupes", "senders", "drafts", "executor",
-                                  "copy", "copies", "approve", "reject"])
+                                  "send", "recall", "series", "priority", "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
     s.add_argument("id", nargs="?", type=int, help="copy: the personal case; approve, reject: the proposed copy")
@@ -788,7 +802,8 @@ def parser():
     s.add_argument("--status", default="active", choices=["active", "pending", "retired"], help="cases: which ones")
     s.add_argument("--repeats", type=int, default=None, help="run: how many times each case runs (3; drafts 1)")
     s.add_argument("--lessons", help="run: a JSON file of lessons to score with (default: the active ones)")
-    s.add_argument("--try", dest="trying", type=int, help="run: score the active lessons plus this one; only it takes the result")
+    s.add_argument("--try", dest="trying", type=int, help="run, drafts, series: score the active lessons plus this one; "
+                                                           "only it takes the result (the lesson gate starts these)")
     s.add_argument("--installed", action="store_true", help="run: score the installed skill, not the repo's")
     s.add_argument("--client", choices=["claude-code", "copilot"])
     s.add_argument("--model")
