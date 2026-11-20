@@ -157,7 +157,9 @@ textarea { resize: vertical; }
 .seg { min-height: 40px; padding: 0 14px; border: var(--bw) solid var(--line); border-radius: 999px; background: transparent; font-weight: 600; font-size: 14px; }
 .seg[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; cursor: pointer; }
-.check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); }
+.check input { flex: none; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); }
+/* the radio in a pick card (Who it could be) wears the theme, like every other check */
+.pick-in { flex: none; width: 18px; height: 18px; margin: 0 6px 0 0; vertical-align: -3px; accent-color: var(--accent); }
 .check small { display: block; font-weight: 400; color: var(--muted); }
 
 /* ---------- Shell ---------- */
@@ -1439,6 +1441,8 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ser-not > summary { list-style: none; cursor: pointer; }
 .ser-not > summary::-webkit-details-marker { display: none; }
 .ser-not .menu { left: 0; right: auto; }
+.ser-not > summary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+.ser-not[open] > summary .chev { transform: rotate(180deg); }
 /* Split it into parts */
 .ss-splitter { gap: 12px; }
 .ss-parts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }

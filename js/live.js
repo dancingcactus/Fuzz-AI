@@ -478,7 +478,7 @@
       var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
       items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory, series: series,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: check ? 'Fuzz checking its work' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: check ? 'Fuzz’s spot check' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
