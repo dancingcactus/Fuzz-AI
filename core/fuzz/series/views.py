@@ -195,7 +195,7 @@ def sheet(core, sid):
     out["people"] = _people_detail(core, sorted(members), owner)
     from .. import outputs
     out["artifacts"] = outputs.for_tasks(core, members)
-    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"] and a["how"] not in ("exclude", "unexcluded")}
+    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"] and a["how"] not in index_mod.NOT_REMOVALS}
     anchors = idx.anchors(s["id"])
     mine = idx.added(s["id"])
     out["anchors"] = [{"key": k, "label": v, "yours": k in mine, "tasks": len(set(idx.index.get(k, ())) & set(members))}

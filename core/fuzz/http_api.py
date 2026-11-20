@@ -68,6 +68,18 @@ def ensure_token(home, user_id=1):
     return t
 
 
+def _last_event_id(core):
+    r = core.one("SELECT MAX(id) m FROM events WHERE user_id=?", (core.user_id,))
+    return (r and r["m"]) or 0
+
+
+def _undo_group_since(core, since):
+    """The Undo group (GET /undo's group) of the first change you made after event `since`, or None if none."""
+    r = core.one("SELECT id, caused_by FROM events WHERE user_id=? AND id>? AND actor='human' ORDER BY id LIMIT 1",
+                 (core.user_id, since))
+    return (r["caused_by"] or r["id"]) if r else None
+
+
 def task_view(core, t, full=False):
     out = cards.task_summary(t)
     out["log_head"] = (events.task_log(core, t["id"], 1) or [None])[0]
@@ -619,6 +631,15 @@ class App:
         return ask.start(core, body.get("note"), tid, body.get("name")), 201
 
     def series_action(self, core, m, body, q):
+        """What you do on a series' sheet. The answer says which Undo group the change made (undo_group), or null
+        when it changed nothing, so the page offers Undo for this change and never for an earlier one."""
+        since = _last_event_id(core)
+        out = self._series_action(core, m, body, q)
+        if isinstance(out, dict):
+            out = dict(out, undo_group=_undo_group_since(core, since))
+        return out
+
+    def _series_action(self, core, m, body, q):
         from . import tasks as tasks_mod
         from .memory import facts
         from .series import record, views
@@ -678,9 +699,10 @@ class App:
         elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have
             if body.get("task_id"):
                 record.link(core, int(body["task_id"]), sid)
-            else:
-                tid = tasks_mod.capture(core, body.get("text"))
-                record.link(core, tid, sid)
+            else:   # one transaction, so one Undo takes the new task back too, not just its "Part of"
+                with core.tx("human"):
+                    tid = tasks_mod.capture(core, body.get("text"))
+                    record.link(core, tid, sid)
         elif what == "work_on":   # Work on …: Focus is the series
             from . import focus
             with core.reading():
@@ -724,13 +746,14 @@ class App:
         """{series_id}: "Part of…" from task detail (or swapping in an also-touches one); null takes it out."""
         from .series import record
         tid = int(m.group(1))
+        since = _last_event_id(core)
         if body.get("series_id") is None:
             record.unlink(core, tid)
         elif isinstance(body["series_id"], int):
             record.link(core, tid, body["series_id"])
         else:
             raise FuzzError("series_id is the series this task is part of, or null", "series_id")
-        return task_view(core, tasks.require(core, tid), full=True)
+        return dict(task_view(core, tasks.require(core, tid), full=True), undo_group=_undo_group_since(core, since))
 
     def part_of_choices(self, core, m, body, q):
         from . import deliverables

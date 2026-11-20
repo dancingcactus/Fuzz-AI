@@ -201,3 +201,57 @@ class ExcludeApi(Server, SeriesCase):
         self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
         self.assertEqual(self.req("GET", f"/series/{sid}")[1]["excluded_anchors"], [])
         self.assertEqual(self.req("POST", f"/series/{sid}/anchors", {"exclude": "login bug"})[0], 400)
+
+
+class EditsUndo(Server, SeriesCase):
+    """Every edit on a series' page is one Undo, and the answer names it, so the page never offers an older one."""
+
+    def undo(self, group):
+        self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
+
+    def test_the_answer_names_the_changes_undo_group_and_none_when_nothing_changed(self):
+        sid = self.make_series()
+        status, sh = self.req("POST", f"/series/{sid}/facts", {"attr": "for", "value": "Acme"})
+        top = [u for u in self.req("GET", "/undo")[1]["recent"] if u["by"] == "human"][0]["group"]
+        self.assertEqual((status, sh["undo_group"]), (200, top))
+        status, sh = self.req("POST", f"/series/{sid}/facts", {"attr": "for", "value": "acme"})
+        self.assertEqual((status, sh["undo_group"]), (200, None), "a repeat changed nothing, so there's nothing to undo")
+        self.assertIsNone(self.req("POST", f"/series/{sid}/preview", {"add": ["login bug"]})[1].get("undo_group"))
+
+    def test_a_task_you_type_in_goes_with_one_undo(self):
+        sid = self.make_series()
+        before = self.members(sid)
+        status, sh = self.req("POST", f"/series/{sid}/add_task", {"text": "Call Lena about the pilot"})
+        tid = (set(self.members(sid)) - set(before)).pop()
+        self.undo(sh["undo_group"])
+        self.assertEqual(self.members(sid), before)
+        self.assertEqual(self.core.one("SELECT state FROM tasks WHERE id=?", (tid,))["state"], "letgo", "not left in Triage")
+
+    def test_undoing_an_anchor_you_added_isnt_a_removal(self):
+        sid = self.make_series()
+        status, sh = self.req("POST", f"/series/{sid}/anchors", {"add": ["northwind pilot"]})
+        self.undo(sh["undo_group"])
+        self.assertEqual(self.req("GET", f"/series/{sid}")[1]["removed_anchors"], [], "not listed as one you took out")
+
+    def test_rename_role_goal_done_when_and_quiet_each_undo(self):
+        sid = self.make_series()
+        knows = lambda sh: sorted((k["attr"], k["value"]) for k in sh["knows"])
+        for what, body, check in (
+                ("name", {"name": "Renamed"}, lambda sh: sh["name"]),
+                ("role", {"role": "drive"}, knows),
+                ("facts", {"attr": "goal", "value": "Pilot live"}, knows),
+                ("facts", {"attr": "done_when", "value": "Signed"}, knows),
+                ("mute", {}, lambda sh: sh.get("muted"))):
+            before = check(self.req("GET", f"/series/{sid}")[1])
+            status, sh = self.req("POST", f"/series/{sid}/{what}", body)
+            self.assertEqual(status, 200, what)
+            self.undo(sh["undo_group"])
+            self.assertEqual(check(self.req("GET", f"/series/{sid}")[1]), before, what)
+
+    def test_part_of_from_a_task_names_its_undo_group(self):
+        sid = self.make_series()
+        tid = self.members(sid)[0]
+        status, t = self.req("POST", f"/tasks/{tid}/series", {"series_id": None})
+        self.assertEqual((status, "series" in t), (200, False))
+        self.undo(t["undo_group"])
+        self.assertIn(tid, self.members(sid))
