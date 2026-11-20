@@ -324,12 +324,22 @@ def _git(*args):
 
 
 def app_commit():
-    """The app a run ran: the repo commit, with +dirty when code or a skill differs from it. A change to the cases
-    alone isn't one (seeds_commit says that); with this, two runs say which side moved."""
+    """The app a run ran: the repo commit, with +dirty.<hash of the edits> when code or a skill differs from it,
+    so two runs on the same uncommitted edits still read as the same app. A change to the cases alone isn't one
+    (seeds_commit says that); with this, two runs say which side moved."""
     head = _git("rev-parse", "--short", "HEAD")
     if not head:
         return None
-    return head + ("+dirty" if _git("status", "--porcelain", "--", *APP_PATHS) else "")
+    if not _git("status", "--porcelain", "--", *APP_PATHS):
+        return head
+    h = hashlib.sha256((_git("diff", "HEAD", "--", *APP_PATHS) or "").encode())
+    for name in sorted((_git("ls-files", "--others", "--exclude-standard", "--", *APP_PATHS) or "").splitlines()):
+        h.update(name.encode())
+        try:
+            h.update((REPO / name).read_bytes())
+        except OSError:
+            pass
+    return f"{head}+dirty.{h.hexdigest()[:8]}"
 
 
 def resolve(ref):
@@ -660,7 +670,7 @@ def _app_changes(before, after):
     ca, cb = before.get("app_commit"), after.get("app_commit")
     if ca is None or cb is None:
         unknown.append("code")
-    elif ca != cb or ca.endswith("+dirty"):   # two runs on uncommitted edits may have run different code
+    elif ca != cb:   # uncommitted edits carry their own hash: the same edits are the same app
         changes.append({"what": "code", "was": ca, "now": cb})
     return changes, unknown
 
@@ -731,6 +741,8 @@ def _row(r):
             "client": r["client"], "model": r["model"], "repeats": r["repeats"], "set": r.get("sets") or "all",
             "seconds": r.get("seconds"), "gate": "pass" if r["gate_ok"] else "fail", "against": r.get("against"),
             "lessons": len(r["lessons"] or []), "commit": r.get("seeds_commit"),
+            "app_commit": r.get("app_commit"), "set_hash": r.get("set_hash") or set_hash(res), "judge": r.get("judge"),
+            "rebaseline_of": _meta(r).get("rebaseline_of"),
             "passing": {s: _counts(res, s) for s in ("global", "personal")},
             "score": {s: _tally(res, s) for s in ("global", "personal")}, "metrics": _metrics(r),
             "failing": sum(not x["passed"] for x in res), "cases": len(res)}
@@ -742,10 +754,14 @@ def _tally(rows, scope):
     return {"passed": sum(bool(r["passed"]) for r in rows), "of": len(rows)}
 
 
+def _meta(r):
+    meta = r.get("meta")
+    return (json.loads(meta) if isinstance(meta, str) else meta) or {}
+
+
 def _metrics(r):
     """The matcher's precision, recall and F1 at the threshold in force, per set; other surfaces have none."""
-    meta = r.get("meta")
-    meta = json.loads(meta) if isinstance(meta, str) else (meta or {})
+    meta = _meta(r)
     out = {}
     for scope, rows in (meta.get("sweep") or {}).items():
         now = next((x for x in rows if x.get("current")), None)
@@ -769,22 +785,29 @@ def run_list(core, limit=100):
     for r in reversed(runs):
         p = older.get(r["surface"])
         if p is None and len(ids) == limit:   # the list was cut: its previous run may be older than the cut
-            pr = previous(core, full[r["id"]])
-            p = _row(pr) if pr else None
-        r["prev"] = _prev_line(p) if p else None
-        older[r["surface"]] = r
+            p = previous(core, full[r["id"]])
+        r["prev"] = _prev_line(_row(p)) if p else None
+        # which side moved since it, and the app's score on the cases both scored (issue 45)
+        r["vs_prev"] = attribution(p, full[r["id"]]) if p else None
+        older[r["surface"]] = full[r["id"]]
     latest = {}
     for r in runs:
         latest.setdefault(r["surface"], r)
     return {"runs": runs, "latest": latest}
 
 
-def run_detail(core, run_id):
+def run_detail(core, run_id, vs=None):
     """One run in full for the debugging page (GET /evals/<id>): its line, what changed against the run it was
-    gated on, every case with its replies, and the surface's own extras (the matcher's sweep)."""
+    gated on, every case with its replies, and the surface's own extras (the matcher's sweep). Scores are set
+    side by side with vs (a run id of the same eval) or else the run before it, split by which side moved."""
     run = get_run(core, run_id)
     if not run:
         return None
+    other = get_run(core, vs) if vs else previous(core, run)
+    if vs and not other:
+        raise FuzzError(f"no eval run {vs}", "vs", 404)
+    if other and other["surface"] != run["surface"]:
+        raise FuzzError("compare runs of the same eval", "vs")
     before = get_run(core, run["against"]) if run.get("against") else None
     cmp = compare(before, run) if before else None
     status = {}
@@ -811,15 +834,18 @@ def run_detail(core, run_id):
                       "passed": bool(x["passed"]), "score": f"{x['passes']}/{x['runs']}", "fp": x.get("fp"),
                       "change": status.get(_key(x)), "why": x.get("why"), "features": x.get("features"),
                       "replies": x.get("replies"), "stripped": "replies" not in x})
-    prev = previous(core, run)
-    if prev:
-        had = {_key(x): x for x in prev["results"]}
+    if other:
+        had = {_key(x): x for x in other["results"]}
         for c in cases:
             p = had.get(c["key"])
             c["prev_score"] = f"{p['passes']}/{p['runs']}" if p and not (p.get("fp") and c["fp"] and p["fp"] != c["fp"]) else None
     row = _row(run)
-    row["prev"] = _prev_line(_row(prev)) if prev else None
-    out = {"run": row, "cases": cases, "lessons": run["lessons"], "meta": meta}
+    row["prev"] = _prev_line(_row(other)) if other else None
+    others = core.all("SELECT id, ts FROM eval_runs WHERE user_id=? AND surface=? AND id!=? "
+                      "ORDER BY id DESC LIMIT 60", (core.user_id, run["surface"], run["id"]))
+    out = {"run": row, "cases": cases, "lessons": run["lessons"], "meta": meta,
+           "attribution": attribution(other, run) if other else None, "vs": other["id"] if other else None,
+           "vs_chosen": bool(vs), "others": [{"id": o["id"], "ts": o["ts"]} for o in others]}
     if cmp is not None:
         out["changed"] = {k: len(v) for k, v in cmp.items()}
         out["sign_test_p"] = sign_test(len(cmp["fixed"]), len(cmp["broke"]))

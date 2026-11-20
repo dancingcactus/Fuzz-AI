@@ -189,7 +189,7 @@ def summary(core, run):
     meta = json.loads(run["meta"]) if isinstance(run.get("meta"), str) else (run.get("meta") or {})
     base = evals.summary(core, run)
     out = {k: base[k] for k in ("run", "set", "passing", "against", "gate", "regressions", "seconds",
-                                "changed", "fixed", "broke") if k in base}
+                                "changed", "fixed", "broke", "attribution") if k in base}
     out["people_hidden"] = meta.get("people_hidden")
     out["confusion"] = meta.get("confusion")
     out["wrong"] = [{"case": r["origin"], "should_be": r["kind"], "got": r["got"], "because": r["why"]}

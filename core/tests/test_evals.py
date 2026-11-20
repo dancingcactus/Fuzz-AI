@@ -273,7 +273,7 @@ class Attribution(CoreCase):
 
     def test_a_run_records_the_apps_commit_the_sets_hash_and_the_judge(self):
         run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
-        self.assertRegex(run["app_commit"], r"^[0-9a-f]{4,}(\+dirty)?$")
+        self.assertRegex(run["app_commit"], r"^[0-9a-f]{4,}(\+dirty\.[0-9a-f]{8})?$")
         self.assertEqual(run["set_hash"], evals.set_hash(run["results"]))
         self.assertEqual(run["judge"], evals.judge_version(evals.judge))
         again = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
@@ -332,16 +332,50 @@ class Attribution(CoreCase):
         self.assertEqual(att["app"], [{"what": "lessons", "was": 0, "now": 1}])
         self.assertEqual(sorted(att["unknown"]), ["code", "judge"])
 
-    def test_uncommitted_edits_count_as_a_change(self):
-        before = a_run(1, [res("a", True)], app_commit="abc1234+dirty")
-        after = a_run(2, [res("a", True)], app_commit="abc1234+dirty")
-        self.assertEqual([c["what"] for c in evals.attribution(before, after)["app"]], ["code"])
+    def test_uncommitted_edits_are_the_same_app_only_when_they_are_the_same_edits(self):
+        before = a_run(1, [res("a", True)], app_commit="abc1234+dirty.0000aaaa")
+        same = a_run(2, [res("a", True)], app_commit="abc1234+dirty.0000aaaa")
+        other = a_run(3, [res("a", True)], app_commit="abc1234+dirty.1111bbbb")
+        self.assertEqual(evals.attribution(before, same)["app"], [])
+        self.assertEqual([c["what"] for c in evals.attribution(before, other)["app"]], ["code"])
 
     def test_the_summary_says_which_side_moved(self):
         evals.run(self.core, lessons=[], repeats=1, runner=Stub())
         s = evals.summary(self.core, evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub()))
         self.assertIn("app changed: lessons 0 → 1", s["attribution"])
         self.assertIn("cases changed: none", s["attribution"])
+
+    def test_the_list_says_which_side_moved_since_the_run_before(self):
+        a = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        evals.add_case(self.core, "extract", "keep", {"text": "Can you send it?"}, {"has_my_ask": True}, "feedback:22")
+        SEEDS.append({"input": {"text": "Can you send it?"}, "expected": {"has_my_ask": True}})
+        self.addCleanup(SEEDS.pop)
+        b = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        newest, oldest = evals.run_list(self.core)["runs"]
+        self.assertIsNone(oldest["vs_prev"])
+        att = newest["vs_prev"]
+        self.assertTrue(att["confounded"], "a lesson and a case, both since run a")
+        self.assertEqual(att["scopes"]["global"]["shared"], {"before": len(SEEDS) - 1, "after": len(SEEDS) - 2,
+                                                             "of": len(SEEDS) - 1})
+        self.assertEqual(att["scopes"]["personal"]["added"], {"passed": 1, "of": 1})
+        self.assertEqual(newest["set_hash"], b["set_hash"])
+
+    def test_a_run_in_full_can_be_set_against_any_run_of_the_same_eval(self):
+        a = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        b = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        c = evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub())
+        d = evals.run_detail(self.core, c["id"])
+        self.assertEqual((d["vs"], d["vs_chosen"]), (b["id"], False))
+        self.assertEqual(d["attribution"]["app"], [], "the same app twice: nothing moved")
+        d = evals.run_detail(self.core, c["id"], vs=a["id"])
+        self.assertEqual((d["vs"], d["vs_chosen"], d["run"]["prev"]["id"]), (a["id"], True, a["id"]))
+        self.assertEqual([x["what"] for x in d["attribution"]["app"]], ["lessons"])
+        self.assertEqual([o["id"] for o in d["others"]], [b["id"], a["id"]])
+        with self.assertRaises(FuzzError):
+            evals.run_detail(self.core, c["id"], vs=999)
+        from fuzz import senders
+        with self.assertRaises(FuzzError):
+            evals.run_detail(self.core, c["id"], vs=senders.run(self.core)["id"])
 
 
 class FromNotTask(CoreCase):
@@ -756,3 +790,6 @@ class DebugPage(CoreCase):
         status, body = get(f"/evals/{run['id']}")
         self.assertEqual((status, len(body["cases"])), (200, len(SEEDS)))
         self.assertEqual(get("/evals/999")[0], 404)
+        again = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        status, body = get(f"/evals/{again['id']}?vs={run['id']}")
+        self.assertEqual((status, body["vs"], body["vs_chosen"]), (200, run["id"], True))

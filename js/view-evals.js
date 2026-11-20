@@ -5,7 +5,7 @@
 (function () {
   var V = {};
   var esc = UI.esc;
-  var root = null, list = null, detail = null, failed = null, surface = 'all', onlyFailing = true, runId = null;
+  var root = null, list = null, detail = null, failed = null, surface = 'all', onlyFailing = true, runId = null, vs = null;
 
   var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['senders', 'Senders'], ['draft', 'Drafts'], ['executor', 'Executor']];
   var NAME = { extract: 'Extraction', dupes: 'Duplicates', senders: 'Senders', draft: 'Drafts', executor: 'Executor' };
@@ -14,14 +14,36 @@
 
   function when(ts) { return ts ? String(ts).replace('T', ' ').replace(/:\d\dZ$/, '') : ''; }
   function gate(g) { return UI.pill(g === 'pass' ? 'Gate passed' : 'Gate failed', g === 'pass' ? 'ok' : 'danger'); }
-  /* How a score moved since the previous run of the same eval (not the gate's baseline, which can be older):
-     up, down or level. Same number of cases compares counts; a different number compares the share passing. */
-  function delta(cur, prev, prevId) {
-    if (!cur || !prev || !cur.of || !prev.of) return '';
-    var was = 'Run #' + prevId + ': ' + prev.passed + ' of ' + prev.of, d, txt;
-    if (cur.of === prev.of) { d = cur.passed - prev.passed; txt = String(Math.abs(d)); }
-    else { d = Math.round(100 * (cur.passed / cur.of - prev.passed / prev.of)); txt = Math.abs(d) + ' pts'; }
-    return badge(d, txt, was);
+  /* Two runs split by which side moved (issue 45, docs/evals.md "Changing the evals and the app"): the app's
+     effect is its score on the cases both runs scored with the same fingerprint; a case added, relabelled or
+     gone moves the whole score without the app doing anything, so it's said apart. */
+  var SCOPES = [['global', 'Global'], ['personal', 'Yours']];
+  function shared(a, s) { return a && a.scopes[s] && a.scopes[s].shared; }
+  function appDelta(a, s) {
+    var sh = shared(a, s);
+    if (!sh || !sh.of) return '';
+    var d = sh.after - sh.before;
+    return badge(d, String(Math.abs(d)), 'On the ' + sh.of + ' cases run #' + a.before + ' also scored: ' + sh.before + ' → ' + sh.after + ' passing');
+  }
+  function setMoved(sc) { return sc && (sc.added.of || sc.removed.of || sc.relabelled.of); }
+  function casesShort(sc) {
+    return [sc.added.of ? '+' + sc.added.of : '', sc.removed.of ? '−' + sc.removed.of : '', sc.relabelled.of ? '~' + sc.relabelled.of : ''].filter(Boolean).join(' ');
+  }
+  function casesSaid(sc) {
+    return [sc.added.of ? sc.added.of + ' added (' + sc.added.passed + ' pass)' : '',
+      sc.relabelled.of ? sc.relabelled.of + ' relabelled (' + sc.relabelled.passed + ' pass)' : '',
+      sc.removed.of ? sc.removed.of + ' gone (' + sc.removed.passed + ' passed then)' : ''].filter(Boolean).join(', ');
+  }
+  function short(v) { v = v == null ? '–' : String(v); return v.length > 40 ? v.slice(0, 39) + '…' : v; }
+  function appSaid(a) { return a.app.map(function (c) { return c.what + ': ' + short(c.was) + ' → ' + short(c.now); }).join('; '); }
+  /* One pill for which side moved since the run before: what to read the score as */
+  function movedPill(a) {
+    if (!a) return '';
+    if (a.confounded) return '<span title="' + esc('The app (' + appSaid(a) + ') and the cases both changed: read the arrows, the score on the cases both runs scored') + '">' + UI.pill('Both changed', 'warn') + '</span>';
+    if (a.app.length) return '<span title="' + esc(appSaid(a)) + '">' + UI.pill('App changed', 'accent') + '</span>';
+    if (a.set_changed) return '<span title="' + esc(casesSaid(a.scopes.all)) + '">' + UI.pill('Cases changed', 'muted') + '</span>';
+    if (a.unknown.indexOf('code') >= 0) return '<span title="' + esc('Run #' + a.before + ' predates recording its code: the same cases, but no way to say the app was the same') + '">' + UI.pill('Not recorded', 'muted') + '</span>';
+    return '<span title="Same app, same cases: any change is noise">' + UI.pill('No change', 'muted') + '</span>';
   }
   function badge(d, txt, was) {
     var k = d > 0 ? 'up' : d < 0 ? 'down' : 'level';
@@ -29,16 +51,40 @@
     return ' <span class="ev-delta ' + k + '" title="' + esc(was) + '" aria-label="' + esc(say + ', ' + was) + '">' +
       (d > 0 ? '▲ ' + esc(txt) : d < 0 ? '▼ ' + esc(txt) : '=') + '</span>';
   }
-  function scoreHTML(r, s) { return esc(r.passing[s]) + (r.prev ? delta(r.score && r.score[s], r.prev.score[s], r.prev.id) : ''); }
+  /* A score, its arrow (the app's effect since the run before) and how its cases moved, if they did */
+  function scoreHTML(r, s) {
+    var a = r.vs_prev, sc = a && a.scopes[s];
+    return esc(r.passing[s]) + appDelta(a, s) +
+      (setMoved(sc) ? ' <span class="meta ev-setmark" title="' + esc('Cases since run #' + a.before + ': ' + casesSaid(sc)) + '">' + esc(casesShort(sc)) + '</span>' : '');
+  }
 
-  /* The detail's side by side: each score in this run against the one before it */
+  /* The detail's side by side, against the run before or one you pick: which side moved, the app's score on
+     the cases both scored, and how the cases changed */
   function sinceHTML(r) {
-    var p = r.prev;
-    if (!p) return '<p class="meta">No earlier ' + esc(NAME[r.surface] || r.surface) + ' run to compare scores with.</p>';
-    var parts = [['global', 'Global'], ['personal', 'Yours']].filter(function (s) { return r.score[s[0]].of || p.score[s[0]].of; }).map(function (s) {
-      var a = p.score[s[0]], b = r.score[s[0]];
-      return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + a.passed + ' of ' + a.of + ' →</span> ' + b.passed + ' of ' + b.of +
-        delta(b, a, p.id) + '</span>';
+    var p = r.prev, a = detail.attribution;
+    if (!p || !a) return '<p class="meta">No earlier ' + esc(NAME[r.surface] || r.surface) + ' run to compare scores with.</p>';
+    var pick = '<label class="ev-vs">Compared with <select id="ev-vs">' + detail.others.map(function (o) {
+      return '<option value="' + o.id + '"' + (o.id === detail.vs ? ' selected' : '') + '>#' + o.id + ' · ' + esc(when(o.ts)) + '</option>';
+    }).join('') + '</select></label>' + (detail.vs_chosen ? ' <button type="button" class="btn small" data-vs-reset>The run before</button>' : ' <span class="meta">the run before</span>') +
+      ' <a class="meta" href="#/evals/' + p.id + '">open #' + p.id + '</a>' + (p.set !== r.set ? ' <span class="meta">(set ' + esc(p.set) + ')</span>' : '');
+    var warn = a.confounded ? '<p class="ev-warn">' + UI.pill('Both changed', 'warn') + ' The app and the cases both changed, so the whole score can’t say how the app did. ' +
+      'The score on the cases both runs scored can. To keep them apart, see “Changing the evals and the app” in docs/evals.md.</p>' : '';
+    var app = '<p class="ev-since"><span><b>App</b></span>' + (a.app.length ? a.app.map(function (c) {
+      return '<span class="ev-since-item">' + esc(c.what) + ' <span class="meta">' + esc(short(c.was)) + ' →</span> ' + esc(short(c.now)) + '</span>';
+    }).join('') : '<span class="meta">' + (a.unknown.length ? 'No change recorded.' : 'Same code, skill, model, lessons and judge.') + '</span>') +
+      (a.unknown.length ? ' <span class="meta">(not recorded on one run: ' + esc(a.unknown.join(', ')) + ')</span>' : '') + '</p>';
+    var effect = SCOPES.filter(function (s) { return shared(a, s[0]).of; }).map(function (s) {
+      var sh = shared(a, s[0]);
+      return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + sh.before + ' of ' + sh.of + ' →</span> ' + sh.after + ' of ' + sh.of + appDelta(a, s[0]) + '</span>';
+    });
+    var shareLine = '<p class="ev-since"><span><b>On the cases both scored</b> <span class="meta">(the app’s effect)</span></span>' +
+      (effect.length ? effect.join('') : '<span class="meta">None: the two runs share no case.</span>') + '</p>';
+    var cases = '<p class="ev-since"><span><b>Cases</b></span>' + (a.set_changed ? SCOPES.filter(function (s) { return setMoved(a.scopes[s[0]]); }).map(function (s) {
+      return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + esc(casesSaid(a.scopes[s[0]])) + '</span></span>';
+    }).join('') : '<span class="meta">The same cases, with the same fingerprints.</span>') + '</p>';
+    var parts = SCOPES.filter(function (s) { return r.score[s[0]].of || p.score[s[0]].of; }).map(function (s) {
+      var x = p.score[s[0]], y = r.score[s[0]];
+      return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + x.passed + ' of ' + x.of + ' →</span> ' + y.passed + ' of ' + y.of + '</span>';
     });
     ['global', 'personal'].forEach(function (scope) {
       var a = (p.metrics || {})[scope], b = (r.metrics || {})[scope];
@@ -50,8 +96,8 @@
           ' <span class="meta">' + a[m] + ' →</span> ' + b[m] + badge(d, String(Math.abs(d)), 'Run #' + p.id + ': ' + a[m]) + '</span>');
       });
     });
-    return '<p class="ev-since"><span>Since the previous run <a href="#/evals/' + p.id + '">#' + p.id + '</a>' +
-      (p.set !== r.set ? ' <span class="meta">(set ' + esc(p.set) + ')</span>' : '') + ':</span>' + parts.join('') + '</p>';
+    return '<section class="ev-attr" aria-label="Against another run"><p>' + pick + ' ' + movedPill(a) + '</p>' + warn + app + shareLine + cases +
+      '<p class="ev-since"><span><b>Whole score</b> <span class="meta">(both sides)</span></span>' + parts.join('') + '</p></section>';
   }
 
   function pre(x) { return '<pre class="ev-pre">' + esc(typeof x === 'string' ? x : JSON.stringify(x, null, 2)) + '</pre>'; }
@@ -59,7 +105,7 @@
   function load() {
     if (!Live.on()) { failed = 'Evals live in the core’s store. Start Fuzz (fuzz start) to see them.'; return paint(); }
     var p = [Live.evals()];
-    if (runId) p.push(Live.evalRun(runId));
+    if (runId) p.push(Live.evalRun(runId, vs));
     Promise.all(p).then(function (r) { failed = null; list = r[0]; detail = r[1] || null; })
       .catch(function (e) { failed = e.message; }).then(function () { if (root) { paint(); poll(); } });
   }
@@ -76,7 +122,7 @@
   function latestHTML() {
     return '<div class="ev-latest">' + ['extract', 'dupes', 'senders', 'draft', 'executor'].map(function (s) {
       var r = (list.latest || {})[s], job = running(s);
-      var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) : UI.pill('No runs yet', 'muted'));
+      var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) + ' ' + movedPill(r.vs_prev) : UI.pill('No runs yet', 'muted'));
       var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + scoreHTML(r, 'global') + ' · Yours ' + scoreHTML(r, 'personal') +
         ' · Run #' + r.id + ' · ' + esc(when(r.ts)) + '</a>' : '<span class="meta">' + esc(CMD[s]) + '</span>';
       var act = job ? '<span class="meta ev-busy">Running for ' + ago(job.started_at) + '…</span>'
@@ -110,11 +156,11 @@
     if (!runs.length) return chips + '<p class="lempty">No runs' + (surface === 'all' ? '' : ' of this kind') + ' yet. Run one from the terminal: ' +
       esc(surface === 'all' ? 'fuzz eval run' : CMD[surface]) + '.</p>';
     return chips + '<div class="ev-scroll"><table class="ev-table"><thead><tr><th>Run</th><th>When</th><th>Eval</th><th>Version</th><th>Model</th>' +
-      '<th>Set</th><th>Global</th><th>Yours</th><th>Gate</th><th>Against</th><th>Seconds</th></tr></thead><tbody>' +
+      '<th>Set</th><th>Global</th><th>Yours</th><th>Since the run before</th><th>Gate</th><th>Against</th><th>Seconds</th></tr></thead><tbody>' +
       runs.map(function (r) {
-        return '<tr class="ev-row' + (r.id === runId ? ' is-on' : '') + '" data-run="' + r.id + '" tabindex="0"><td>#' + r.id + '</td><td>' + esc(when(r.ts)) + '</td><td>' + esc(NAME[r.surface] || r.surface) + '</td>' +
+        return '<tr class="ev-row' + (r.id === runId ? ' is-on' : '') + '" data-run="' + r.id + '" tabindex="0"><td>#' + r.id + '</td><td>' + esc(when(r.ts)) + '</td><td>' + esc(NAME[r.surface] || r.surface) + rebaselined(r) + '</td>' +
           '<td>' + esc(r.skill || '') + (r.copy ? ' <span class="meta">' + esc(r.copy) + '</span>' : '') + '</td><td>' + esc(r.model || r.client || '') + '</td>' +
-          '<td>' + esc(r.set) + '</td><td>' + scoreHTML(r, 'global') + '</td><td>' + scoreHTML(r, 'personal') + '</td>' +
+          '<td>' + esc(r.set) + '</td><td>' + scoreHTML(r, 'global') + '</td><td>' + scoreHTML(r, 'personal') + '</td><td>' + movedPill(r.vs_prev) + '</td>' +
           '<td>' + gate(r.gate) + '</td><td>' + (r.against ? '#' + r.against : '') + '</td><td>' + (r.seconds == null ? '' : esc(r.seconds)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -141,14 +187,18 @@
       : '<p class="meta">Nothing to compare with: no earlier run passed its gate.</p>';
     var cases = detail.cases.filter(function (c) { return !onlyFailing || !c.passed || (c.change && c.change !== 'unchanged') || moved(c); });
     var rows = cases.length ? cases.map(caseHTML).join('') : '<p class="lempty">Every case passed, and nothing changed.</p>';
-    return '<section class="ev-detail" aria-labelledby="ev-run-h"><h2 id="ev-run-h">Run #' + r.id + ': ' + esc(NAME[r.surface] || r.surface) + ' ' + gate(r.gate) + '</h2>' +
+    return '<section class="ev-detail" aria-labelledby="ev-run-h"><h2 id="ev-run-h">Run #' + r.id + ': ' + esc(NAME[r.surface] || r.surface) + ' ' + gate(r.gate) + rebaselined(r) + '</h2>' +
       '<p class="meta">' + esc([when(r.ts), r.skill + (r.copy ? ' (' + r.copy + ')' : ''), r.model || r.client, r.repeats + (r.repeats === 1 ? ' repeat' : ' repeats'),
-        r.lessons + (r.lessons === 1 ? ' lesson' : ' lessons'), 'set ' + r.set, r.commit ? 'cases at ' + r.commit : '', r.seconds != null ? r.seconds + 's' : ''].filter(Boolean).join(' · ')) + '</p>' +
+        r.lessons + (r.lessons === 1 ? ' lesson' : ' lessons'), 'set ' + r.set, r.app_commit ? 'app at ' + r.app_commit : '', r.commit ? 'cases at ' + r.commit : '',
+        r.set_hash ? 'case set ' + r.set_hash : '', r.judge ? 'judge ' + r.judge : '', r.seconds != null ? r.seconds + 's' : ''].filter(Boolean).join(' · ')) + '</p>' +
       sinceHTML(r) + changed + sweepHTML(detail.meta) +
       '<h3>Cases <span class="meta">' + detail.cases.length + ' · global ' + esc(r.passing.global) + ' · yours ' + esc(r.passing.personal) + '</span></h3>' +
       '<label class="check"><input type="checkbox" id="ev-failing"' + (onlyFailing ? ' checked' : '') + '> <span>Only failing or changed</span></label>' +
       '<ul class="ev-cases">' + rows + '</ul></section>';
   }
+
+  /* A rebaseline: the baseline's app on today's cases, so its result is the cases' change alone */
+  function rebaselined(r) { return r.rebaseline_of ? ' <span class="meta" title="The app run #' + r.rebaseline_of + ' scored, on today’s cases">rebaseline of #' + r.rebaseline_of + '</span>' : ''; }
 
   function moved(c) { return c.prev_score && c.prev_score !== c.score; }
   function caseHTML(c) {
@@ -208,6 +258,7 @@
     if (st) { st.disabled = true; return stop(+st.dataset.stop); }
     var s = e.target.closest('[data-surface]');
     if (s) { surface = s.dataset.surface; return paint(); }
+    if (e.target.closest('[data-vs-reset]')) { vs = null; return load(); }
     var row = e.target.closest('[data-run]');
     if (row) return open(row.dataset.run);
   }
@@ -215,12 +266,15 @@
     var row = e.target.closest && e.target.closest('[data-run]');
     if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(row.dataset.run); }
   }
-  function onChange(e) { if (e.target.id === 'ev-failing') { onlyFailing = e.target.checked; paint(); } }
+  function onChange(e) {
+    if (e.target.id === 'ev-failing') { onlyFailing = e.target.checked; paint(); }
+    if (e.target.id === 'ev-vs') { vs = +e.target.value; load(); }
+  }
 
   V.mount = function (el, info) {
     root = document.createElement('section'); root.className = 'lineup evals'; el.appendChild(root);
     runId = info && info.arg && /^\d+$/.test(info.arg) ? +info.arg : null;
-    list = null; detail = null; failed = null;
+    list = null; detail = null; failed = null; vs = null;
     root.addEventListener('click', onClick);
     root.addEventListener('keydown', onKey);
     root.addEventListener('change', onChange);

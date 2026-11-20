@@ -258,7 +258,7 @@ def summary(core, run):
     meta = json.loads(run["meta"]) if isinstance(run.get("meta"), str) else (run.get("meta") or {})
     base = evals.summary(core, run)
     out = {k: base[k] for k in ("run", "set", "passing", "against", "gate", "regressions", "seconds") if k in base}
-    for k in ("changed", "fixed", "broke"):
+    for k in ("changed", "fixed", "broke", "attribution"):
         if k in base:
             out[k] = base[k]
     out["thresholds"] = meta.get("thresholds")
