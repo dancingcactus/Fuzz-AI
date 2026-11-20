@@ -74,8 +74,8 @@ class ClaudeCode(Adapter):
                 argv += ["--add-dir", str(d)]
         if model:
             argv += ["--model", model]
-        if verbose:
-            argv += ["--output-format", "stream-json", "--verbose"]
+        # both end with a result object carrying what the run used (usage.py); plain text says nothing about it
+        argv += ["--output-format", "stream-json", "--verbose"] if verbose else ["--output-format", "json"]
         return argv
 
     def session_command(self, exe, prompt, dirs=(), mcp_config=None, session_id=None, resume=False):

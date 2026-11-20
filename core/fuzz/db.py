@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS runs (
   started_at TEXT NOT NULL,
   finished_at TEXT,
   outcome TEXT,                    -- ok | error | nothing_to_do
-  detail TEXT NOT NULL DEFAULT '{}'
+  detail TEXT NOT NULL DEFAULT '{}',
+  usage TEXT                       -- JSON: what the client said it used (usage.py); {"none": true} when it said nothing
 );
 
 -- projection
@@ -625,7 +626,8 @@ def connect(home):
     return conn
 
 
-MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"), ("link", "TEXT")],
+MIGRATIONS = {"runs": [("usage", "TEXT")],
+              "sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"), ("link", "TEXT")],
               "drafts": [("final", "INTEGER"), ("attachments", "TEXT"), ("reply_to", "INTEGER"), ("covers", "TEXT"),
                          ("meta", "TEXT")],
               "tasks": [("summary", "TEXT"), ("group_id", "INTEGER"), ("reviewed_at", "TEXT"), ("reviews", "INTEGER"),

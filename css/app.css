@@ -1484,3 +1484,20 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .labels .lb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .labels .lb-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
 .labels .lb-ask-in { width: 100%; }
+
+/* Usage: what the role runs used, per day (js/view-usage.js) */
+.usage .tasks-head .segrow { margin-top: 8px; }
+.us-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 12px 0 20px; }
+.us-tile { display: grid; gap: 4px; padding: 12px 14px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 12px; }
+.us-big { font-family: var(--font-display); font-size: 28px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.us-chart { margin: 0 0 20px; }
+.us-chart figcaption { margin-bottom: 8px; }
+.us-plot { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 2px; align-items: end; height: 140px; border-bottom: 1px solid var(--line); }
+.us-col { height: 100%; display: flex; align-items: flex-end; cursor: default; outline: none; }
+.us-bar { display: block; width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
+.us-col:hover .us-bar, .us-col:focus-visible .us-bar { opacity: .75; }
+.us-col:focus-visible { box-shadow: inset 0 0 0 2px var(--link); border-radius: 4px; }
+.us-tip { position: absolute; top: -6px; transform: translateY(-100%); padding: 6px 10px; background: var(--ink); color: var(--bg); border-radius: 8px; font-size: 12px; white-space: nowrap; pointer-events: none; z-index: 2; }
+.us-axis { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; }
+.us-table td small.us-roles { display: block; color: var(--muted); font-size: 11px; }
+.us-table tr.us-quiet td { color: var(--muted); }

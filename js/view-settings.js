@@ -127,7 +127,8 @@
         ' ' + UI.pill(tag[0], tag[1]) + (c.first_fix && c.installed && c.summary !== 'ready' && !b ? '<small>' + esc(c.first_fix) + '</small>' : '') + '</div><div class="segrow">' + acts + '</div></li>';
     }).join('');
     return section('app', 'App', 'The app I do my work inside, with what you’ve connected there.', '<ul class="set-apps">' + rows + '</ul>' +
-      '<div class="set-actions"><button type="button" class="btn small" data-app="check"' + (busy.check ? ' disabled' : '') + '>' + (busy.check ? 'Checking…' : 'Check again') + '</button><span class="meta set-said" id="said-app" role="status"></span></div>' + slotsHTML());
+      '<div class="set-actions"><button type="button" class="btn small" data-app="check"' + (busy.check ? ' disabled' : '') + '>' + (busy.check ? 'Checking…' : 'Check again') + '</button><span class="meta set-said" id="said-app" role="status"></span></div>' +
+      (Live.on() ? '<p class="meta"><a href="#/usage">What my runs have used</a>: Copilot’s AI credits and Claude Code’s tokens, day by day.</p>' : '') + slotsHTML());
   }
   /* Installing reloads launchd's jobs, `fuzz serve` among them: wait for a new server, or a quiet few seconds */
   function restarted(before) {

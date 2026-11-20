@@ -887,6 +887,8 @@
     /* What Fuzz learned from your corrections: use one, or turn it off (Undo takes either back) */
     lessons: function () { return api('GET', '/lessons'); },
     lessonAction: function (id, what) { return api('POST', '/lessons/' + id + '/' + what, {}); },
+    /* What the role runs used, per day (core/fuzz/usage.py); a 404 means the core predates it */
+    usage: function (days) { return api('GET', '/usage?days=' + (days || 30)); },
     evals: function () { return api('GET', '/evals'); },
     evalRun: function (id, vs) { return api('GET', '/evals/' + id + (vs ? '?vs=' + vs : '')); },
     startEval: function (surface, set) { return api('POST', '/evals/run', { surface: surface, set: set || 'all' }); },
