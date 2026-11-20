@@ -223,7 +223,7 @@ class Harness(CoreCase):
 
     def test_the_skill_at_a_git_ref_can_be_scored(self):
         text, version, copy = evals.skill_text("extract", ref="HEAD")
-        self.assertEqual(copy, "git:HEAD")
+        self.assertTrue(copy.startswith("git:HEAD"))
         self.assertTrue(version.startswith("extract-"))
         with self.assertRaises(FuzzError):
             evals.skill_text("extract", ref="no-such-ref-anywhere")
@@ -253,6 +253,95 @@ class Harness(CoreCase):
         evals.add_case(self.core, "extract", "keep", msg, {"has_my_ask": True}, "feedback:9")
         after = evals.run(self.core, lessons=[], repeats=1, runner=lambda argv, p: json.dumps({"candidates": []}))
         self.assertNotIn("feedback:9", [r["origin"] for r in evals.regressions(before, after)])
+
+
+def res(key, passed, fp="x", scope="global"):
+    return {"key": key, "origin": key, "fp": fp, "scope": scope, "passes": int(passed), "runs": 1, "passed": passed}
+
+
+def a_run(rid, results, **cols):
+    return dict({"id": rid, "results": results, "lessons": [], "skill_version": "extract-0.19", "skill_copy": "repo",
+                 "client": "stub", "model": None, "judge": "j1", "app_commit": "abc1234"}, **cols)
+
+
+class Attribution(CoreCase):
+    """Issue 45: a run says which side moved, the app or the cases, and the score on each side apart."""
+
+    def setUp(self):
+        super().setUp()
+        evals.seed(self.core)
+
+    def test_a_run_records_the_apps_commit_the_sets_hash_and_the_judge(self):
+        run = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.assertRegex(run["app_commit"], r"^[0-9a-f]{4,}(\+dirty)?$")
+        self.assertEqual(run["set_hash"], evals.set_hash(run["results"]))
+        self.assertEqual(run["judge"], evals.judge_version(evals.judge))
+        again = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.assertEqual(again["set_hash"], run["set_hash"], "the same cases hash the same")
+        evals.add_case(self.core, "extract", "skip", {"text": "Thanks all!"}, {"has_my_ask": False}, "feedback:21")
+        SEEDS.append({"input": {"text": "Thanks all!"}, "expected": {"has_my_ask": False}})
+        self.addCleanup(SEEDS.pop)
+        self.assertNotEqual(evals.run(self.core, lessons=[], repeats=1, runner=Stub())["set_hash"], run["set_hash"])
+
+    def test_every_surface_records_the_same_provenance(self):
+        from fuzz import senders
+        run = senders.run(self.core)
+        self.assertEqual(run["set_hash"], evals.set_hash(run["results"]))
+        self.assertIsNotNone(run["app_commit"])
+
+    def test_a_skill_at_a_moving_ref_records_the_commit_it_was(self):
+        _, _, copy = evals.skill_text("extract", ref="HEAD")
+        self.assertRegex(copy, r"^git:HEAD@[0-9a-f]{4,}$")
+        sha = evals.resolve("HEAD")
+        self.assertEqual(evals.skill_text("extract", ref=sha)[2], f"git:{sha}", "a commit needs no second name")
+
+    def test_only_the_app_moved(self):
+        before = a_run(1, [res("a", False), res("b", True)])
+        after = a_run(2, [res("a", True), res("b", True)], skill_version="extract-0.20")
+        att = evals.attribution(before, after)
+        self.assertEqual(att["app"], [{"what": "skill", "was": "extract-0.19", "now": "extract-0.20"}])
+        self.assertFalse(att["set_changed"])
+        self.assertFalse(att["confounded"])
+        self.assertEqual(att["scopes"]["all"]["shared"], {"before": 1, "after": 2, "of": 2})
+
+    def test_only_the_cases_moved(self):
+        before = a_run(1, [res("a", True), res("b", True), res("gone", True, scope="personal")])
+        after = a_run(2, [res("a", True), res("b", False, fp="relabelled"), res("c", False)])
+        att = evals.attribution(before, after)
+        self.assertEqual(att["app"], [])
+        self.assertTrue(att["set_changed"])
+        self.assertFalse(att["confounded"], "the app didn't move: the drop is the cases'")
+        s = att["scopes"]["all"]
+        self.assertEqual(s["shared"], {"before": 1, "after": 1, "of": 1})
+        self.assertEqual((s["added"]["of"], s["relabelled"]["of"], s["removed"]["of"]), (1, 1, 1))
+        self.assertEqual(att["scopes"]["personal"]["removed"], {"passed": 1, "of": 1})
+
+    def test_both_moved_is_confounded_and_the_shared_cases_still_say_how_the_app_did(self):
+        before = a_run(1, [res("a", True), res("b", False)])
+        after = a_run(2, [res("a", True), res("b", True), res("c", False), res("d", False)], app_commit="def5678")
+        att = evals.attribution(before, after)
+        self.assertTrue(att["confounded"])
+        self.assertEqual(att["app"], [{"what": "code", "was": "abc1234", "now": "def5678"}])
+        self.assertEqual(att["scopes"]["all"]["shared"], {"before": 1, "after": 2, "of": 2})
+        self.assertIn("BOTH", evals.attribution_line(att))
+
+    def test_lessons_are_the_apps_side_and_an_older_run_is_unknown_not_changed(self):
+        before = a_run(1, [res("a", True)], app_commit=None, judge=None)
+        after = a_run(2, [res("a", True)], lessons=[{"id": 4, "rule": "r"}])
+        att = evals.attribution(before, after)
+        self.assertEqual(att["app"], [{"what": "lessons", "was": 0, "now": 1}])
+        self.assertEqual(sorted(att["unknown"]), ["code", "judge"])
+
+    def test_uncommitted_edits_count_as_a_change(self):
+        before = a_run(1, [res("a", True)], app_commit="abc1234+dirty")
+        after = a_run(2, [res("a", True)], app_commit="abc1234+dirty")
+        self.assertEqual([c["what"] for c in evals.attribution(before, after)["app"]], ["code"])
+
+    def test_the_summary_says_which_side_moved(self):
+        evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        s = evals.summary(self.core, evals.run(self.core, lessons=[BAD], repeats=1, runner=Stub()))
+        self.assertIn("app changed: lessons 0 → 1", s["attribution"])
+        self.assertIn("cases changed: none", s["attribution"])
 
 
 class FromNotTask(CoreCase):

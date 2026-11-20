@@ -286,10 +286,7 @@ def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref
         r["passed"] = r["passes"] * 2 > r["runs"]
     results = list(results.values())
     base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    reg = evals.regressions(base, {"results": results})
-    cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                 (core.user_id, core.now_iso(), SURFACE, version, copy, client if runner is None else "stub", model,
-                  repeats, "[]", json.dumps(results), base["id"] if base else None, 0 if reg else 1, "global",
-                  evals.commit(), round(time.monotonic() - started, 1)))
-    return evals.get_run(core, cur.lastrowid)
+    rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy=copy,
+                       client=client if runner is None else "stub", model=model, repeats=repeats, lessons=[],
+                       sets="global", seconds=round(time.monotonic() - started, 1), judge=evals.judge_version(check))
+    return evals.get_run(core, rid)

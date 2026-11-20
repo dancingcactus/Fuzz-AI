@@ -179,15 +179,10 @@ def run(core, sets="all", against=None, path=None):
     hidden = sum(1 for r in scored if r["kind"] == "human" and r["got"] != "human")
     meta = {"confusion": {"global": table}, "people_hidden": {"global": hidden}}
     base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    reg = evals.regressions(base, {"results": results})
-    cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds, meta) "
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                 (core.user_id, core.now_iso(), SURFACE, "rules", "senders", "rules", None, 1,
-                  json.dumps(learning.lessons_for(core, SURFACE)), json.dumps(results),
-                  base["id"] if base else None, 0 if reg else 1, sets, evals.commit(),
-                  round(time.monotonic() - started, 1), json.dumps(meta)))
-    return evals.get_run(core, cur.lastrowid)
+    rid = evals.record(core, SURFACE, results, base, skill_version="rules", skill_copy="senders", client="rules",
+                       model=None, repeats=1, lessons=learning.lessons_for(core, SURFACE), sets=sets,
+                       seconds=round(time.monotonic() - started, 1), meta=meta)
+    return evals.get_run(core, rid)
 
 
 def summary(core, run):

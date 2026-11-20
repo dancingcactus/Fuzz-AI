@@ -308,6 +308,69 @@ def commit():
     return (head + ("+dirty" if dirty else "")) or None
 
 
+# ---- what a run ran: the app on one side, the cases on the other (docs/evals.md, "Changing the evals and the app")
+
+REPO = SEEDS.parents[2]
+# the app is everything under core/ a run reads: the code, the skills and the judges, not the cases or the tests
+APP_PATHS = ("core", ":(exclude)core/fuzz/eval_seeds", ":(exclude)core/tests")
+
+
+def _git(*args):
+    try:
+        r = subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def app_commit():
+    """The app a run ran: the repo commit, with +dirty when code or a skill differs from it. A change to the cases
+    alone isn't one (seeds_commit says that); with this, two runs say which side moved."""
+    head = _git("rev-parse", "--short", "HEAD")
+    if not head:
+        return None
+    return head + ("+dirty" if _git("status", "--porcelain", "--", *APP_PATHS) else "")
+
+
+def resolve(ref):
+    """A git ref as the commit it names now: "main" moves, a run must say what it scored."""
+    return _git("rev-parse", "--short", f"{ref}^{{commit}}") if ref else None
+
+
+def ref_copy(ref):
+    """skill_copy for a skill read at a git ref: the ref as given, and the commit it was."""
+    sha = resolve(ref)
+    return f"git:{ref}" if not sha or str(ref).startswith(sha) or sha.startswith(str(ref)) else f"git:{ref}@{sha}"
+
+
+def set_hash(results):
+    """The cases a run scored, as one id: the same cases with the same fingerprints hash the same, so two runs on
+    an unchanged set say so at a glance. Derived from results, so an older run's can be worked out too."""
+    body = "\n".join(sorted(f"{_key(r)}={r.get('fp') or ''}" for r in results))
+    return hashlib.sha256(body.encode()).hexdigest()[:12]
+
+
+def judge_version(*fns):
+    """A judge as the source of the code and prompts that grade: edit one and the version moves, nothing to bump."""
+    import inspect
+    body = "\n".join(inspect.getsource(f) for f in fns)
+    return hashlib.sha256(body.encode()).hexdigest()[:8]
+
+
+def record(core, surface, results, base, **cols):
+    """Store a run, gated against base. Every surface records the same provenance: the cases' commit, the app's
+    commit and the set's hash. cols: the surface's own columns (skill_version, client, lessons, meta, ...).
+    Returns the run's id."""
+    row = {"user_id": core.user_id, "ts": core.now_iso(), "surface": surface, "results": json.dumps(results),
+           "against": base["id"] if base else None, "gate_ok": 0 if regressions(base, {"results": results}) else 1,
+           "seeds_commit": commit(), "app_commit": app_commit(), "set_hash": set_hash(results)}
+    for k, v in cols.items():
+        row[k] = json.dumps(v) if k in ("lessons", "meta") and v is not None and not isinstance(v, str) else v
+    cur = core.q(f"INSERT INTO eval_runs ({', '.join(row)}) VALUES ({', '.join('?' * len(row))})",
+                 tuple(row.values()))
+    return cur.lastrowid
+
+
 # ---- the prompt
 
 def _version_of(text):
@@ -331,7 +394,7 @@ def skill_text(surface, installed=False, adapter=None, ref=None):
             raise FuzzError(f"couldn't read the skill at {ref}: {e}", "ref")
         if r.returncode != 0:
             raise FuzzError(f"no {name} skill at {ref}: {r.stderr.strip()[:200]}", "ref")
-        return r.stdout, _version_of(r.stdout), f"git:{ref}"
+        return r.stdout, _version_of(r.stdout), ref_copy(ref)
     if installed:
         if adapter is None:
             raise FuzzError("scoring the installed skill needs a client", "client")
@@ -451,7 +514,7 @@ def score(core, todo, rules, lessons, repeats=3, adapter=None, model=None, runne
 
 
 def run(core, surface="extract", lessons=None, repeats=3, installed=False, client=None, model=None, runner=None,
-        workers=4, against=None, trying=None, sets="all", ref=None):
+        workers=4, against=None, trying=None, sets="all", ref=None, meta=None):
     """Score every active case `repeats` times, gate it and record the run. The gate compares with `against`
     (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
     must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
@@ -479,16 +542,13 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
     base = get_run(core, against) if against else baseline(core, surface)
     if against and not base:
         raise FuzzError(f"no eval run {against}", "against")
-    reg = regressions(base, {"results": results})
-    cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds) "
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                 (core.user_id, core.now_iso(), surface, version, copy, client if runner is None else "stub",
-                  model, repeats, json.dumps(lessons or []), json.dumps(results),
-                  base["id"] if base else None, 0 if reg else 1, sets, commit(), seconds))
+    rid = record(core, surface, results, base, skill_version=version, skill_copy=copy,
+                 client=client if runner is None else "stub", model=model, repeats=repeats, lessons=lessons or [],
+                 sets=sets, seconds=seconds, judge=judge_version(judge), meta=meta)
+    out = get_run(core, rid)
     if trying is not None:   # only the lesson tried takes the result: the others ran before it without failing
-        learning.scored(core, [trying], cur.lastrowid, not reg)
-    return get_run(core, cur.lastrowid)
+        learning.scored(core, [trying], rid, bool(out["gate_ok"]))
+    return out
 
 
 def head_to_head(core, surface="extract", base=None, new=None, repeats=3, client=None, model=None, runner=None,
@@ -570,6 +630,83 @@ def regressions(before, after):
     if not before or not after:
         return []
     return compare(before, after)["broke"]
+
+
+# the app's side of a run, as recorded: (column, what to call it)
+APP_FIELDS = (("skill_version", "skill"), ("skill_copy", "copy"), ("client", "client"), ("model", "model"),
+              ("judge", "judge"))
+
+
+def _lesson_set(lessons):
+    lessons = json.loads(lessons) if isinstance(lessons, str) else (lessons or [])
+    return sorted(json.dumps({k: x.get(k) for k in ("id", "rule", "scope", "kind")}, sort_keys=True) for x in lessons)
+
+
+def _app_changes(before, after):
+    """What changed on the app's side between two runs: each {what, was, now}. unknown: what an older run
+    didn't record, so can't be said either way."""
+    changes, unknown = [], []
+    for col, name in APP_FIELDS:
+        a, b = before.get(col), after.get(col)
+        if a == b:
+            continue
+        if col == "judge" and (a is None or b is None):   # runs before judges were versioned
+            unknown.append(name)
+            continue
+        changes.append({"what": name, "was": a, "now": b})
+    la, lb = _lesson_set(before.get("lessons")), _lesson_set(after.get("lessons"))
+    if la != lb:
+        changes.append({"what": "lessons", "was": len(la), "now": len(lb)})
+    ca, cb = before.get("app_commit"), after.get("app_commit")
+    if ca is None or cb is None:
+        unknown.append("code")
+    elif ca != cb or ca.endswith("+dirty"):   # two runs on uncommitted edits may have run different code
+        changes.append({"what": "code", "was": ca, "now": cb})
+    return changes, unknown
+
+
+def attribution(before, after):
+    """Two runs, split by which side moved: the app (code, skill, model, lessons, judge) or the cases.
+    Per set (global, personal, all):
+      shared: the cases both scored with the same fingerprint, passing before and after: the app's effect
+      added / relabelled: cases only `after` scored, or scored with a new fingerprint, and how many pass
+      removed: cases only `before` scored (expired, retired, a different set), and how many passed then
+    confounded: both sides moved, so the whole score says nothing on its own; the shared one still does."""
+    was = {_key(r): r for r in before["results"]}
+    now = {_key(r): r for r in after["results"]}
+
+    def bucket(rows):
+        out = {}
+        for scope in ("global", "personal", "all"):
+            got = [r for r in rows if scope == "all" or r.get("scope", "personal") == scope]
+            out[scope] = {"passed": sum(bool(r["passed"]) for r in got), "of": len(got)}
+        return out
+
+    same = [k for k in now if k in was and (was[k].get("fp") or None) == (now[k].get("fp") or None)]
+    relabelled = [k for k in now if k in was and k not in same]
+    added = [k for k in now if k not in was]
+    removed = [k for k in was if k not in now]
+    b_shared, a_shared = bucket([was[k] for k in same]), bucket([now[k] for k in same])
+    b_add, b_rel, b_rem = bucket([now[k] for k in added]), bucket([now[k] for k in relabelled]), \
+        bucket([was[k] for k in removed])
+    scopes = {s: {"shared": {"before": b_shared[s]["passed"], "after": a_shared[s]["passed"], "of": b_shared[s]["of"]},
+                  "added": b_add[s], "relabelled": b_rel[s], "removed": b_rem[s]} for s in ("global", "personal", "all")}
+    app, unknown = _app_changes(before, after)
+    set_changed = bool(added or relabelled or removed)
+    return {"before": before["id"], "after": after["id"], "app": app, "unknown": unknown,
+            "set_changed": set_changed, "confounded": bool(app) and set_changed, "scopes": scopes}
+
+
+def attribution_line(att):
+    """attribution() in a sentence, for the terminal."""
+    s = att["scopes"]["all"]
+    app = ", ".join(f"{c['what']} {c['was']} → {c['now']}" for c in att["app"]) or "nothing"
+    cases = [f"{s[k]['of']} {k}" for k in ("added", "relabelled", "removed") if s[k]["of"]]
+    parts = [f"app changed: {app}", "cases changed: " + (", ".join(cases) if cases else "none"),
+             f"on the {s['shared']['of']} cases both scored: {s['shared']['before']} → {s['shared']['after']} passing"]
+    if att["confounded"]:
+        parts.insert(0, "BOTH the app and the cases changed: only the shared cases say how the app did")
+    return "; ".join(parts)
 
 
 def sign_test(fixed, broke):
@@ -724,4 +861,6 @@ def summary(core, run):
         p = sign_test(len(cmp["fixed"]), len(cmp["broke"]))
         if p is not None:
             out["sign_test_p"] = p
+        out["attribution"] = attribution_line(attribution(before, run))
+    out["app_commit"], out["set_hash"] = run.get("app_commit"), run.get("set_hash")
     return out
