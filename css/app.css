@@ -1504,3 +1504,13 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .us-axis { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; }
 .us-table td small.us-roles { display: block; color: var(--muted); font-size: 11px; }
 .us-table tr.us-quiet td { color: var(--muted); }
+
+/* All clear: the next few in My work (js/view-triage.js upNextHTML), as the Guide lists them */
+.empty .ac-h { margin: 14px 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.empty .ac-next { width: 100%; text-align: left; }
+.empty .ac-next li { animation: chipin .45s cubic-bezier(.3,1.7,.5,1) backwards; animation-delay: calc(var(--i, 0) * 90ms); }
+.empty .ac-next .g-row { text-decoration: none; min-height: 52px; }
+.empty .ac-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.empty .ac-wait .linkbtn { font-size: inherit; }
+html.calm .empty .ac-next li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .empty .ac-next li { animation: none; } }
