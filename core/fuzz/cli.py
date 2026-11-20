@@ -395,7 +395,8 @@ def _cmd_eval(a):
             return _print(draft_evals.score_history(core, client=a.client, model=a.model))
         draft_evals.collect(core)
         if a.voice:   # each case drafted with and without your own messages as examples
-            return _print(draft_evals.voice_compare(core, client=a.client, model=a.model, ref=a.base_ref))
+            from . import voice_evals
+            return _print(voice_evals.voice_compare(core, client=a.client, model=a.model, ref=a.base_ref))
 
         def lessons_file(path):
             if not path:

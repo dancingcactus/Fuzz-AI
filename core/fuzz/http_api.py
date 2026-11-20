@@ -256,6 +256,9 @@ class App:
             ("GET", r"/events", self.events_since),
             ("POST", r"/checkin", self.checkin),
             ("POST", r"/checkin/more", self.checkin_more),
+            ("GET", r"/voice", self.voice_get),
+            ("PUT", r"/voice", self.voice_put),
+            ("POST", r"/voice/forget", self.voice_forget),
             ("GET", r"/vips", self.vips_get),
             ("PUT", r"/vips", self.vips_put),
             ("GET", r"/focus", self.focus_get),
@@ -888,6 +891,24 @@ class App:
         """"Sure, just a few more": one level up, and some of what a check-in held comes back."""
         from . import checkins
         return checkins.more(core), 201
+
+    def voice_get(self, core, m, body, q):
+        """Whether drafts get your own messages as examples, how many Fuzz has, and how you write to each audience."""
+        from . import voice
+        return voice.overview(core)
+
+    def voice_put(self, core, m, body, q):
+        """{enabled}: use your own messages as examples for drafts, or not (voice.py)."""
+        if not isinstance(body.get("enabled"), bool):
+            raise FuzzError("enabled is true or false", "enabled")
+        core.update_config(lambda cfg: cfg.setdefault("voice", {}).update(enabled=body["enabled"]))
+        return self.voice_get(core, m, body, q)
+
+    def voice_forget(self, core, m, body, q):
+        """Delete every message of yours Fuzz kept for examples. Drafts you edited stay with their tasks."""
+        from . import voice
+        n = voice.forget(core)
+        return dict(voice.overview(core), forgot=n)
 
     def vips_get(self, core, m, body, q):
         """Your manager and a few more people whose asks come first (docs/energy-and-priority.md)."""

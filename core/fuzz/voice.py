@@ -421,19 +421,19 @@ def style(core, aud, before=None, leave_out=(), pool=None):
         return []
     forms = [form(s["text"]) for s in mine]
     words = int(statistics.median(f["words"] for f in forms))
-    lines = [f"{describe(aud)}, from {m} of their messages: usually about {words} words."]
+    lines = [f"{describe(aud)}, from {m} of their messages.", f"Usually about {words} words."]
     greet = Counter(f["greeting"] for f in forms if f["greeting"])
     n = sum(greet.values())
     if n * 2 >= m:
         lines.append(f"They open with a greeting in {_share(n, m)}, most often “{greet.most_common(1)[0][0].capitalize()}”.")
     else:
-        lines.append(f"They skip the greeting: one in {_share(n, m)}.")
+        lines.append("They never open with a greeting." if not n else f"They rarely open with a greeting ({_share(n, m)}).")
     sign = Counter(f["signoff"] for f in forms if f["signoff"])
     n = sum(sign.values())
     if n * 2 >= m:
         lines.append(f"They sign off in {_share(n, m)}, most often “{sign.most_common(1)[0][0].capitalize()}”.")
     else:
-        lines.append(f"They skip the sign-off: one in {_share(n, m)}.")
+        lines.append("They never sign off." if not n else f"They rarely sign off ({_share(n, m)}).")
     n = sum(f["markup"] for f in forms)
     lines.append(f"Bullets, numbers or bold in {_share(n, m)}." if n * 4 >= m else "Plain sentences: no bullets or bold.")
     n = sum(f["lower_start"] for f in forms)

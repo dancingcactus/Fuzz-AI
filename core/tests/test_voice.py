@@ -186,7 +186,8 @@ class Style(CoreCase):
         got = voice.overview(self.core)
         self.assertEqual((got["enabled"], got["messages"]), (True, 6))
         self.assertEqual(got["profiles"][0]["audience"], "To one person inside the company, by email")
-        self.assertIn("skip the greeting", " ".join(got["profiles"][0]["lines"]))
+        self.assertIn("never open with a greeting", " ".join(got["profiles"][0]["lines"]))
+        self.assertIn("Usually about", got["profiles"][0]["lines"][0])
 
 
 class Backfill(CoreCase):

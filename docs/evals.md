@@ -421,6 +421,13 @@ fewer points per case. The drafts learner (style per person, corrected facts) is
 Global draft cases test only rules that hold for everyone, on invented cases: no invented facts, the right
 recipient and thread, no commitments the context doesn't support.
 
+**With and without your own messages** (`fuzz eval drafts --voice`, built 2026-11-20, `voice_evals.py`, `docs/voice.md`): each
+personal case drafted twice, without `voice_examples` and with it. Both are scored point by point (added points
+are how an example's facts leaking into a draft would show), and each draft sits beside what you sent for a
+blind judge, in both orders, which says which one you wrote. `picked_share` near 0.5 means it can't tell. A
+case's examples were all written before its draft and never include what you sent for it. A report, not a
+recorded run.
+
 ### Executor judgment (global, from spot checks)
 
 **Spot check.** You pick a finished executor run and answer a few questions on a card:

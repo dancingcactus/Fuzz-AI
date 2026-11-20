@@ -5,7 +5,7 @@ import json
 
 from helpers import CoreCase
 
-from fuzz import answers, draft_evals, drafts, scheduler, tasks, voice
+from fuzz import answers, draft_evals, drafts, scheduler, tasks, voice, voice_evals
 
 SENT = "numbers are in the folder, two vendors still owe invoices"
 
@@ -38,7 +38,7 @@ class Compare(CoreCase):
         return json.dumps({"points": ["x"], "missed": [], "added": []})
 
     def test_with_examples_reads_like_them_and_never_sees_its_answer(self):
-        got = draft_evals.voice_compare(self.core, runner=self.model)
+        got = voice_evals.voice_compare(self.core, runner=self.model)
         self.assertEqual((got["cases"], got["with_examples"]), (1, 1))
         self.assertEqual(got["arms"]["without"]["picked_share"], 0.0)
         self.assertEqual(got["arms"]["with"]["picked_share"], 0.5, "lower case like theirs: the judge can't tell")
@@ -54,5 +54,5 @@ class Compare(CoreCase):
         self.clock.advance(days=2)
         voice.submit(self.core, [{"source": "slack", "source_id": "D1:late", "ts": "2026-10-25T10:00:00Z",
                                   "text": "later message, after the draft", "to": [{"name": "Priya Shah"}]}])
-        draft_evals.voice_compare(self.core, runner=self.model)
+        voice_evals.voice_compare(self.core, runner=self.model)
         self.assertFalse(any("later message" in p for p in self.prompts))
