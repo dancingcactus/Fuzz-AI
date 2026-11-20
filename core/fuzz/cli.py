@@ -394,6 +394,8 @@ def _cmd_eval(a):
         if a.history:   # the drafts Fuzz already wrote; the model only judges
             return _print(draft_evals.score_history(core, client=a.client, model=a.model))
         draft_evals.collect(core)
+        if a.voice:   # each case drafted with and without your own messages as examples
+            return _print(draft_evals.voice_compare(core, client=a.client, model=a.model, ref=a.base_ref))
 
         def lessons_file(path):
             if not path:
@@ -797,6 +799,8 @@ def parser():
                                   "send", "recall", "series", "priority", "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
+    s.add_argument("--voice", action="store_true",
+                   help="drafts: write each draft with and without your own messages as examples, and compare")
     s.add_argument("id", nargs="?", type=int, help="copy: the personal case; approve, reject: the proposed copy")
     s.add_argument("--force", action="store_true", help="approve: add it though its trap check failed")
     s.add_argument("--job", type=int, help=argparse.SUPPRESS)   # started from the Evals page (eval_jobs.py)
