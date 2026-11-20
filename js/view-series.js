@@ -14,6 +14,7 @@
   var V = {};
   var esc = UI.esc;
   var root = null, unsub = null, pageId = null, data = null, edit = null, pend = null, split = null;
+  var anchorMode = 'in', anchorDraft = '';   /* How Fuzz spots it: the add field brings work in or keeps it out */
   var removed = null, tasksTab = 'open', peopleAll = false, filesAll = false;
   var SECTIONS = [
     ['new', 'New', 'Ones you asked Fuzz to start. Check what it gathered, here or in Triage.'],
@@ -28,23 +29,25 @@
     next_milestone: 'Next milestone', cadence: 'Rhythm', scope_out: 'Not part of it', done_when: 'Done when' };
   /* the gaps shown as chips, in this order; the rest wait behind "+ Something else" */
   var MAIN = ['goal', 'your_role', 'for', 'status', 'done_when', 'next_milestone'];
-  var MORE = ['owner', 'blocked_on', 'cadence', 'scope_out'];
+  /* "Not part of it" lives in How Fuzz spots it now, as Keeps work out; an old scope_out fact still shows */
+  var MORE = ['owner', 'blocked_on', 'cadence'];
+  var MULTI = { 'for': true };   /* several values, one row of chips: For can be a few people or teams */
   /* One line on what each fact does. Only what Fuzz really does with it today. */
   var HELP = {
     goal: 'It becomes the line under the name on Series, so you can tell what this is at a glance.',
     your_role: 'Fuzz shapes what it suggests next to your part.',
-    'for': 'Fuzz keeps it with the series, so you can see who it’s for.',
+    'for': 'Who the work serves: a customer, a team or people. Add as many as it’s for. Not the same as Owner.',
     status: 'Where it stands. Fuzz also picks this up from new messages.',
     done_when: 'Fuzz looks for this when it checks whether the series is done.',
     next_milestone: 'As the date gets close, Fuzz suggests getting ready for it.',
-    owner: 'Fuzz keeps it with the series, so you know who to ask.',
+    owner: 'The one person accountable for how it turns out, when that isn’t you. People marks them Owner.',
     blocked_on: 'Fuzz keeps it with the series, so you can see what it’s waiting for.',
     cadence: 'Fuzz keeps it with the series, so the regular parts are written down.',
     scope_out: 'Fuzz keeps it with the series, so nearby work has a place to go.'
   };
   var PH = { goal: 'What this is trying to get done', 'for': 'A customer, team or person', status: 'Where it stands right now',
     done_when: 'A state, like “NW-342 is accepted”', next_milestone: 'The next date that matters, like “Pilot go-live, Jan 15”',
-    owner: 'Who owns how it turns out', blocked_on: 'What it’s waiting for', cadence: 'Something that repeats, like “status note every Friday”',
+    owner: 'Who’s accountable for how it turns out', blocked_on: 'What it’s waiting for', cadence: 'Something that repeats, like “status note every Friday”',
     scope_out: 'Nearby work that belongs somewhere else' };
   var ROLE = { drive: 'Driving it', contribute: 'Helping', follow: 'Keeping up' };
   var ROLE_HELP = { drive: 'You own how it turns out.', contribute: 'Someone else owns it; you have a piece.', follow: 'You mostly need to know what happened.' };
@@ -55,6 +58,8 @@
   function svg(d, w, s) { return '<svg width="' + (s || 16) + '" height="' + (s || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2.4) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
   var PLUS = svg('<path d="M12 5v14M5 12h14"/>', 2.6);
   var XSVG = svg('<path d="M6 6l12 12M18 6L6 18"/>');
+  var INSVG = svg('<path d="M4 12h11M11 7l5 5-5 5M20 4v16"/>');            /* brings work in: an arrow to a line */
+  var OUTSVG = svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 18L18 6"/>'); /* keeps work out: a circle struck through */
   var PEN = svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>', 2.2, 15);
   var BACK = svg('<path d="M15 18l-6-6 6-6"/>');
   var DOTS = svg('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>', 2.4, 18);
@@ -149,6 +154,7 @@
     root = container;
     pageId = info && info.arg && /^\d+$/.test(info.arg) ? +info.arg : null;
     edit = null; pend = null; split = null; removed = null; tasksTab = 'open'; peopleAll = false; filesAll = false; data = null;
+    anchorMode = 'in'; anchorDraft = '';
     if (pageId) {
       root.innerHTML = '<section class="series-one" aria-live="off"><p class="meta">Opening…</p></section>';
       loadPage(pageId);
@@ -256,7 +262,7 @@
         '<button type="button" class="btn small" data-sug="not_needed" data-card="' + x.card_id + '">Not needed</button></div>' : '') + '</li>';
     }).join('') + '</ul>');
     h += knowsHTML(d) + tasksHTML(d) + filesHTML(d) + peopleHTML(d);
-    h += sec('How Fuzz spots it', anchorsHTML(d), 'New work that touches any of these lands in ' + esc(d.name) + '. Remove one that catches the wrong things; add one Fuzz missed.');
+    h += sec('How Fuzz spots it', anchorsHTML(d), 'New work that matches what brings work in lands in ' + esc(d.name) + '; work that matches what keeps work out never does.');
     if ((d.deliverables || []).length) h += sec('Deliverables', '<ul class="ps-tasks">' + d.deliverables.map(function (x) {
       return '<li><span class="ps-main"><span class="ps-name">' + esc(x.title) + '</span><span class="ps-dw">Done when ' + esc(first(x.done_when)) + (x.due ? ' · ' + esc(String(x.due).slice(0, 10)) : '') + '</span></span><span class="ps-side">' +
         UI.pill(x.state !== 'open' ? (x.state === 'done' ? 'Done' : 'Let go') : x.tier === 'active' ? 'This week' : 'Background', x.state === 'done' ? 'ok' : x.tier === 'active' ? 'accent' : 'muted') + '</span></li>';
@@ -290,7 +296,20 @@
   function knowsHTML(d) {
     var knows = d.knows || [], have = knows.map(function (f) { return f.attr; });
     var adding = /^add:/.test(edit || '') ? edit.slice(4) : null;
+    var multiDone = {};
     var rows = knows.map(function (f) {
+      if (MULTI[f.attr]) {   /* one row for all of them: a chip each, with its own ×, and + Add someone */
+        if (multiDone[f.attr]) return '';
+        multiDone[f.attr] = true;
+        var all = knows.filter(function (x) { return x.attr === f.attr; });
+        var srcs = all.map(function (x) { return x.source; }).filter(function (s, i, a) { return s && a.indexOf(s) === i; });
+        return '<li class="fact-row fact-multi"><div class="fact"><span class="fl">' + esc(ATTR[f.attr]) + '</span><span class="fv"><span class="fchips">' +
+          all.map(function (x) {
+            return '<span class="fchip" title="' + esc(x.source + (x.trust_label ? ' · ' + x.trust_label : '')) + '">' + esc(x.value) +
+              (x.fact_id ? '<button type="button" data-wrong="' + x.fact_id + '" data-attr="' + x.attr + '" data-who="' + esc(x.value) + '" aria-label="Take ' + esc(x.value) + ' off ' + esc(ATTR[x.attr]) + '" title="Remove">' + XSVG + '</button>' : '') + '</span>';
+          }).join('') + (adding === f.attr ? '' : '<button type="button" class="gchip small" data-edit="add:' + f.attr + '">' + PLUS + 'Add someone</button>') + '</span>' +
+          '<span class="s">' + esc(srcs.join(' · ')) + '</span></span></div></li>';
+      }
       if (edit === 'fact:' + f.attr) return '<li class="fact-edit">' + factForm(d, f.attr, f.value) + '</li>';
       return '<li class="fact-row"><button type="button" class="fact" data-edit="fact:' + f.attr + '" aria-label="Edit ' + esc(ATTR[f.attr] || f.attr) + '">' +
         '<span class="fl">' + esc(ATTR[f.attr] || f.attr) + '</span><span class="fv"><span class="v">' + esc(factValue(f)) + '</span>' +
@@ -311,7 +330,10 @@
   }
   /* Fuzz's ideas for a fact, from what the series already has: its people, its deliverables */
   function ideas(d, attr) {
-    if (attr === 'for' || attr === 'owner' || attr === 'blocked_on') return peopleOf(d).slice(0, 6).map(function (p) { return p.name; });
+    if (attr === 'for' || attr === 'owner' || attr === 'blocked_on') {
+      var taken = (d.knows || []).filter(function (f) { return f.attr === attr; }).map(function (f) { return String(f.value).toLowerCase(); });
+      return peopleOf(d).map(function (p) { return p.name; }).filter(function (n) { return taken.indexOf(n.toLowerCase()) < 0; }).slice(0, 6);
+    }
     if (attr === 'done_when') return (d.deliverables || []).filter(function (x) { return x.done_when && x.state === 'open'; }).map(function (x) { return x.done_when; }).slice(0, 3);
     if (attr === 'next_milestone') return (d.deliverables || []).filter(function (x) { return x.due && x.state === 'open'; }).map(function (x) { return x.title + ', ' + new Date(x.due).toLocaleDateString([], { month: 'short', day: 'numeric' }); }).slice(0, 3);
     return [];
@@ -446,7 +468,28 @@
 
   /* How Fuzz spots it: remove (after a preview of what would stop matching), put back, add (after a preview) */
   function anchorsHTML(d) {
-    var h = '<ul class="ss-anchors">' + (d.anchors || []).map(function (a) {
+    var ins = (d.anchors || []).length || (d.removed_anchors || []).length, outs = d.excluded_anchors || [];
+    var h = '<h3 class="sp-sub">' + INSVG + 'Brings work in</h3>' + (ins ? inListHTML(d) : '<p class="meta">Nothing yet: it’s only the tasks you put in it.</p>');
+    h += '<h3 class="sp-sub">' + OUTSVG + 'Keeps work out</h3>';
+    h += outs.length ? '<ul class="ss-anchors">' + outs.map(function (a) {
+      return '<li class="out"><span class="ps-main"><span class="ps-name">' + esc(a.label) + '</span><span class="ps-dw">' +
+        (a.tasks ? a.tasks + (a.tasks === 1 ? ' task already in it says this. It stays.' : ' tasks already in it say this. They stay.') : 'New work that says this won’t join.') + '</span></span>' +
+        '<span class="ps-side"><button type="button" class="iconbtn small" data-unexclude="' + esc(a.key) + '" aria-label="Stop keeping out ' + esc(a.label) + '" title="Stop keeping it out">' + XSVG + '</button></span></li>';
+    }).join('') + '</ul>' : '<p class="meta">Nothing yet. Add words, a ticket or a #channel whose work belongs somewhere else.</p>';
+    var out = anchorMode === 'out', typed = pend && pend.add || anchorDraft;
+    h += '<div class="sp-anchor-add"><div class="segrow" role="group" aria-label="What it does">' +
+      '<button type="button" class="seg" data-amode="in" aria-pressed="' + !out + '">' + INSVG + 'Bring in</button>' +
+      '<button type="button" class="seg" data-amode="out" aria-pressed="' + out + '">' + OUTSVG + 'Keep out</button></div>' +
+      '<form class="ss-inline" data-form="anchor"><label class="sr" for="ss-anchor">' + (out ? 'Keep work out that says' : 'Add a way to spot it') + '</label>' +
+      '<input id="ss-anchor" class="fld" type="text" autocomplete="off" data-1p-ignore placeholder="A ticket key (NW-342), a #channel or words" value="' + esc(typed) + '">' +
+      '<button class="btn small' + (pend && pend.add && pend.preview ? ' primary' : '') + '">' + (pend && pend.add && pend.preview ? (out ? 'Keep it out' : 'Add it') : 'Check it') + '</button>' +
+      (pend && pend.add ? '<button type="button" class="btn small" data-cancel>Cancel</button>' : '') + '</form></div>';
+    if (pend && pend.add) h += previewHTML(pend.preview, out ? 'exclude' : 'add');
+    else h += '<p class="meta">Before it saves, Fuzz shows what it would have ' + (out ? 'kept out.' : 'caught.') + '</p>';
+    return h;
+  }
+  function inListHTML(d) {
+    return '<ul class="ss-anchors">' + (d.anchors || []).map(function (a) {
       var asking = pend && pend.remove === a.key;
       return '<li><span class="ps-main"><span class="ps-name">' + esc(a.label) + '</span><span class="ps-dw">' + (a.tasks ? 'Caught ' + a.tasks + ' · ' : '') + (a.yours ? 'You added it' : 'Fuzz found it') + '</span>' +
         (asking ? previewHTML(pend.preview, 'remove') : '') + '</span>' +
@@ -455,15 +498,15 @@
       return '<li class="removed"><span class="ps-main"><span class="ps-name">' + esc(a.label) + '</span><span class="ps-dw">Removed. Fuzz stops using it, and won’t suggest it again.</span></span>' +
         '<span class="ps-side"><button type="button" class="btn small" data-anchor-back="' + esc(a.key) + '">Put it back</button></span></li>';
     }).join('') + '</ul>';
-    if (!(d.anchors || []).length && !(d.removed_anchors || []).length) h = '<p class="meta">Nothing yet: it’s only the tasks you put in it.</p>';
-    h += '<form class="ss-inline" data-form="anchor"><label class="sr" for="ss-anchor">Add a way to spot it</label><input id="ss-anchor" class="fld" type="text" autocomplete="off" placeholder="A ticket key (NW-342), a #channel or words" value="' + esc(pend && pend.add || '') + '">' +
-      '<button class="btn small">' + (pend && pend.add ? 'Add it' : 'Check it') + '</button>' + (pend && pend.add ? '<button type="button" class="btn small" data-cancel>Cancel</button>' : '') + '</form>';
-    if (pend && pend.add) h += previewHTML(pend.preview, 'add');
-    else h += '<p class="meta">Before it saves, Fuzz shows what it would have caught.</p>';
-    return h;
   }
   function previewHTML(p, how) {
     if (!p) return '<p class="meta">Checking…</p>';
+    if (how === 'exclude') {
+      var ko = p.would_keep_out || [], ai = p.already_in || [];
+      return '<div class="ss-preview"><p class="meta">' + (ko.length ? 'This would keep out:' : 'Nothing waiting would be kept out by this.') + '</p>' +
+        (ko.length ? '<ul>' + ko.slice(0, 6).map(function (t) { return '<li>' + esc(t.title) + '</li>'; }).join('') + '</ul>' : '') +
+        (ai.length ? '<p class="meta">Already in it, and staying (move them from Tasks if they belong elsewhere):</p><ul>' + ai.slice(0, 6).map(function (t) { return '<li>' + esc(t.title) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    }
     var list = how === 'add' ? p.would_join : p.would_stop_matching;
     var head = how === 'add' ? (list.length ? 'This would bring in:' : 'This wouldn’t bring in any tasks you have now.')
       : (list.length ? 'Without it, these would stop matching:' : 'Removing it wouldn’t change which tasks are in it now.');
@@ -530,7 +573,7 @@
     var cf = e.target.closest('[data-confirm]'); if (cf) { act('facts', { fact_id: +cf.dataset.confirm, confirm: true }, 'Thanks. That’s what it’s about now.', 'Confirmed what ' + d.name + ' is about'); return; }
     var wr = e.target.closest('[data-wrong]');
     if (wr) {
-      var label = ATTR[wr.dataset.attr] || wr.dataset.attr, id = d.id;
+      var label = (ATTR[wr.dataset.attr] || wr.dataset.attr) + (wr.dataset.who ? ': ' + wr.dataset.who : ''), id = d.id;
       act('facts', { fact_id: +wr.dataset.wrong }, null, 'Removed ' + label + ' from ' + d.name).then(function (r) {
         if (!r) return;
         removed = { id: id, label: label, undo: Say.lastUndo() }; paint(true);
@@ -561,6 +604,15 @@
       return;
     }
     if (e.target.closest('[data-anchor-ok]') && pend && pend.remove) { act('anchors', { remove: [pend.remove] }, 'Removed. Undo puts it back.', 'Removed a way Fuzz spots ' + d.name); return; }
+    var am = e.target.closest('[data-amode]');
+    if (am) {   /* Bring in / Keep out: what you typed stays, the preview starts over */
+      var fld = root.querySelector('#ss-anchor'); anchorDraft = fld ? fld.value : anchorDraft;
+      anchorMode = am.dataset.amode; pend = null; paint(true);
+      var f2 = root.querySelector('#ss-anchor'); if (f2) f2.focus();
+      return;
+    }
+    var ux = e.target.closest('[data-unexclude]');
+    if (ux) { act('anchors', { unexclude: [ux.dataset.unexclude] }, 'Taken off. Work like this can join again.', 'Stopped keeping work out of ' + d.name); return; }
     var back = e.target.closest('[data-anchor-back]'); if (back) { act('anchors', { restore: [back.dataset.anchorBack] }, 'It’s back.', 'Put back a way Fuzz spots ' + d.name); return; }
     var mv = e.target.closest('[data-move]');
     if (mv) { Live.on() ? act('add_task', { task_id: +mv.dataset.move }, 'Moved here.', 'Moved a task into ' + d.name) : said('Moving tasks needs Fuzz running.'); return; }
@@ -598,7 +650,7 @@
     if (kind === 'fact') {
       var attr = f.querySelector('[name="attr"]').value, fld = f.querySelector('[name="value"]'), val = fld ? (fld.value || '').trim() : '';
       if (!val) { if (fld) fld.focus(); return; }
-      act('facts', { attr: attr, value: val }, 'Saved. Fuzz takes your word over anything else.', (ATTR[attr] || 'A fact') + ' for ' + d.name);
+      act('facts', { attr: attr, value: val }, MULTI[attr] ? 'Added ' + val + ' to ' + ATTR[attr] + '.' : 'Saved. Fuzz takes your word over anything else.', (ATTR[attr] || 'A fact') + ' for ' + d.name);
       return;
     }
     if (kind === 'task') {
@@ -608,9 +660,15 @@
     }
     if (kind === 'anchor') {
       var text = f.querySelector('#ss-anchor').value.trim(); if (!text) return;
-      if (pend && pend.add === text && pend.preview) { act('anchors', { add: [text] }, 'Added. Undo takes it out.', 'Added a way Fuzz spots ' + d.name); return; }
+      var keepOut = anchorMode === 'out';
+      if (pend && pend.add === text && pend.preview) {
+        anchorDraft = '';
+        if (keepOut) act('anchors', { exclude: [text] }, 'Kept out. Undo lets it back in.', 'Kept work out of ' + d.name);
+        else act('anchors', { add: [text] }, 'Added. Undo takes it out.', 'Added a way Fuzz spots ' + d.name);
+        return;
+      }
       pend = { add: text, preview: null }; paint(true);
-      Store.seriesPreview(d.id, { add: [text] }).then(function (p) { if (pend && pend.add === text) { pend.preview = p; paint(true); } },
+      Store.seriesPreview(d.id, keepOut ? { exclude: [text] } : { add: [text] }).then(function (p) { if (pend && pend.add === text) { pend.preview = p; paint(true); } },
         function (err) { pend = null; paint(true); said(err); });
     }
   }

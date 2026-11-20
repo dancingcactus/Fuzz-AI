@@ -197,7 +197,9 @@ class Index:
         if s is None:
             return {}
         rows = self.rows.get(sid, [])
-        removed = {a["key"] for a in rows if a["removed"]}
+        # removed by you; an exclusion you took back (or undid) isn't a removal, and a live one is never an anchor
+        removed = {a["key"] for a in rows if a["removed"] and a["how"] not in ("exclude", "unexcluded")}
+        removed |= set(self.excluded(sid))
         if s["kind"] == "area":
             return {a["key"]: a["label"] or self.labels.get(a["key"], a["key"]) for a in rows if not a["removed"]}
         counts = {}
@@ -219,11 +221,19 @@ class Index:
     def added(self, sid):
         return {a["key"] for a in self.rows.get(sid, []) if a["how"] == "added" and not a["removed"]}
 
+    def excluded(self, sid):
+        """{key: label}: what keeps work out of it ("Keeps work out" on its page). New work carrying one doesn't join."""
+        return {a["key"]: a["label"] or self.labels.get(a["key"], a["key"])
+                for a in self.rows.get(sid, []) if a["how"] == "exclude" and not a["removed"]}
+
     def score(self, tid, sid, anchors=None):
         anchors = self.anchors(sid) if anchors is None else anchors
         mine = self.added(sid)
+        feats = self.feats.get(tid, {})
+        if any(k in feats for k in self.excluded(sid)):   # you said work like this isn't part of it
+            return 0.0
         total, strong = 0.0, False
-        for k in self.feats.get(tid, {}):
+        for k in feats:
             if k in anchors:
                 w = self.weight(k, added=k in mine)
                 if k in self.area_keys and not self.yours(sid):

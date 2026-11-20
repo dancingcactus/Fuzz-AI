@@ -1378,6 +1378,19 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .gchip.solid { border-style: solid; border-color: var(--line); background: var(--surface); font-weight: 600; text-align: left; }
 .gmore { position: relative; }
 .gmore .menu { left: 0; right: auto; }
+.gchip.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+/* For: one row, a chip per person or team, each with its own × */
+.sp-facts .fact-multi .fact { cursor: default; grid-template-columns: 120px minmax(0, 1fr); padding-right: 16px; }
+.fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 1px 0 3px; }
+.fchip { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 2px 2px 2px 12px; border-radius: 999px; background: var(--surface); border: var(--bw) solid var(--line); font-size: 14px; }
+.fchip button { width: 26px; height: 26px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; }
+.fchip button:hover { background: var(--field); color: var(--blocked); }
+/* How Fuzz spots it: what brings work in, what keeps it out, and one field that adds to either */
+.sp-sub { display: flex; align-items: center; gap: 6px; margin: 6px 0 -2px; font-family: var(--font-body); font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.sp-sub svg { width: 15px; height: 15px; }
+.sp-anchor-add { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.sp-anchor-add .seg { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; }
+.sp-anchor-add .seg svg { width: 15px; height: 15px; }
 .sp-ideas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
 .choice { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 12px; border: var(--bw) solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }

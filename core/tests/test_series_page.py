@@ -88,3 +88,65 @@ class Api(Server, SeriesCase):
         self.assertEqual(self.req("POST", f"/series/{sid}/facts", {"fact_id": fid, "confirm": True})[0], 400)
         self.assertEqual(self.req("POST", f"/series/{sid}/facts", {"fact_id": 999999})[0], 404)
         self.assertIn("goal", [k["attr"] for k in self.req("GET", f"/series/{other}")[1]["knows"]])
+
+
+class KeepsWorkOut(SeriesCase):
+    """How Fuzz spots it, both ways: what brings work in and what keeps it out ("Not part of it")."""
+
+    def test_new_work_that_says_an_excluded_word_does_not_join(self):
+        from fuzz import events
+        sid = self.make_series()
+        record.edit_anchors(self.core, sid, exclude=["login bug"])
+        sh = views.sheet(self.core, sid)
+        self.assertEqual([a["label"] for a in sh["excluded_anchors"]], ["the words “login bug”"])
+        self.assertNotIn("word:login bug", [a["key"] for a in sh["anchors"]], "a word that keeps work out never brings it in")
+        self.northwind(2, start=4)   # "Share the Northwind test results", "Fix the Northwind login bug"
+        titles = [r["title"] for r in self.core.all("SELECT title FROM tasks WHERE series_id=?", (sid,))]
+        self.assertIn("Share the Northwind test results", titles)
+        self.assertNotIn("Fix the Northwind login bug", titles)
+        self.assertEqual(events.check_replay(self.core), [])
+
+    def test_the_preview_says_what_it_would_keep_out_and_what_is_already_in(self):
+        sid = self.make_series()
+        p = record.preview_anchors(self.core, sid, exclude=["kickoff"])
+        self.assertEqual([t["title"] for t in p["already_in"]], ["Book the Northwind kickoff room"])
+        self.assertEqual(p["would_keep_out"], [])
+
+    def test_taking_it_back_lets_that_work_join_again(self):
+        sid = self.make_series()
+        record.edit_anchors(self.core, sid, exclude=["login bug"])
+        record.edit_anchors(self.core, sid, unexclude=["word:login bug"])
+        sh = views.sheet(self.core, sid)
+        self.assertEqual(sh["excluded_anchors"], [])
+        self.assertNotIn("word:login bug", [a["key"] for a in sh["removed_anchors"]], "taking it back isn't a removal")
+        self.northwind(2, start=4)
+        self.assertIn("Fix the Northwind login bug",
+                      [r["title"] for r in self.core.all("SELECT title FROM tasks WHERE series_id=?", (sid,))])
+
+
+class ForMany(Server, SeriesCase):
+    def test_for_takes_several_people_ignores_a_repeat_and_removes_one_with_undo(self):
+        sid = self.make_series()
+        for who in ("Acme", "Lena Fischer", "acme"):
+            self.assertEqual(self.req("POST", f"/series/{sid}/facts", {"attr": "for", "value": who})[0], 200)
+        sh = self.req("GET", f"/series/{sid}")[1]
+        fors = [k for k in sh["knows"] if k["attr"] == "for"]
+        self.assertEqual(sorted(k["value"] for k in fors), ["Acme", "Lena Fischer"])
+        status, sh = self.req("POST", f"/series/{sid}/facts", {"fact_id": fors[0]["fact_id"]})
+        self.assertEqual([k["value"] for k in sh["knows"] if k["attr"] == "for"], [fors[1]["value"]])
+        group = [u for u in self.req("GET", "/undo")[1]["recent"] if u["by"] == "human"][0]["group"]
+        self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
+        self.assertEqual(len([k for k in self.req("GET", f"/series/{sid}")[1]["knows"] if k["attr"] == "for"]), 2)
+
+
+class ExcludeApi(Server, SeriesCase):
+    def test_exclude_through_the_api_with_undo(self):
+        sid = self.make_series()
+        status, p = self.req("POST", f"/series/{sid}/preview", {"exclude": ["login bug"]})
+        self.assertEqual((status, set(p) >= {"would_keep_out", "already_in"}), (200, True))
+        status, sh = self.req("POST", f"/series/{sid}/anchors", {"exclude": ["login bug"]})
+        self.assertEqual((status, [a["key"] for a in sh["excluded_anchors"]]), (200, ["word:login bug"]))
+        group = [u for u in self.req("GET", "/undo")[1]["recent"] if u["by"] == "human"][0]["group"]
+        self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
+        self.assertEqual(self.req("GET", f"/series/{sid}")[1]["excluded_anchors"], [])
+        self.assertEqual(self.req("POST", f"/series/{sid}/anchors", {"exclude": "login bug"})[0], 400)

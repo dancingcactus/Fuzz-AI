@@ -193,12 +193,15 @@ def sheet(core, sid):
     out["people"] = _people_detail(core, sorted(members), owner)
     from .. import outputs
     out["artifacts"] = outputs.for_tasks(core, members)
-    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"]}
+    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"] and a["how"] not in ("exclude", "unexcluded")}
     anchors = idx.anchors(s["id"])
     mine = idx.added(s["id"])
     out["anchors"] = [{"key": k, "label": v, "yours": k in mine, "tasks": len(set(idx.index.get(k, ())) & set(members))}
                       for k, v in sorted(anchors.items(), key=lambda kv: (kv[0] not in mine, -len(idx.index.get(kv[0], ()))))]
     out["removed_anchors"] = [{"key": k, "label": a["label"] or idx.labels.get(k, k)} for k, a in removed.items()]
+    # Keeps work out: new work that says one doesn't join; "tasks" is how many already in it say it (they stay)
+    out["excluded_anchors"] = [{"key": k, "label": v, "tasks": len(set(idx.index.get(k, ())) & set(members))}
+                               for k, v in idx.excluded(s["id"]).items()]
     touching = idx.touching(s["id"])
     out["also_touches"] = [{"id": t, "title": idx.tasks[t]["title"], "series_id": idx.tasks[t].get("series_id"),
                             "series": (idx.series.get(idx.tasks[t].get("series_id")) or {}).get("name")}

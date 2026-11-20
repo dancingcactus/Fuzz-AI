@@ -624,8 +624,8 @@ class App:
         from .series import record, views
         sid, what = int(m.group(1)), m.group(2)
         s = record.require(core, sid)
-        if what == "preview":   # read-only: what the change would have caught
-            return record.preview_anchors(core, sid, body.get("add") or [], body.get("remove") or [])
+        if what == "preview":   # read-only: what the change would have caught (or kept out)
+            return record.preview_anchors(core, sid, body.get("add") or [], body.get("remove") or [], body.get("exclude") or [])
         if what in ("keep", "name"):
             record.name(core, sid, body.get("name") if what == "name" else None)
             if what == "keep":
@@ -642,9 +642,10 @@ class App:
         elif what == "reopen":
             record.reopen(core, sid)
         elif what == "anchors":
-            if not all(isinstance(body.get(k) or [], list) for k in ("add", "remove", "restore")):
-                raise FuzzError("add, remove and restore are lists", "add")
-            record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [])
+            if not all(isinstance(body.get(k) or [], list) for k in ("add", "remove", "restore", "exclude", "unexclude")):
+                raise FuzzError("add, remove, restore, exclude and unexclude are lists", "add")
+            record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [],
+                                exclude=body.get("exclude") or [], unexclude=body.get("unexclude") or [])
         elif what == "facts":
             if body.get("fact_id") and body.get("confirm"):   # "Looks right": Fuzz's guess becomes yours, with Undo
                 fid = int(body["fact_id"])
@@ -657,7 +658,13 @@ class App:
                     raise FuzzError("That fact isn't this series'", "fact_id")
                 facts.reject(core, fid)
             else:
-                facts.edit(core, s["entity_id"], body.get("attr"), body.get("value"))
+                attr, value = body.get("attr"), body.get("value")
+                # a list (For: several people) adds a value; one it already has is left as it is
+                have = attr not in facts.SINGLE and any(
+                    f["attr"] == attr and f["state"] == "winner" and facts.norm(f["value"]) == facts.norm(value or "")
+                    for f in facts.for_entity(core, s["entity_id"]))
+                if not have:
+                    facts.edit(core, s["entity_id"], attr, value)
         elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have
             if body.get("task_id"):
                 record.link(core, int(body["task_id"]), sid)

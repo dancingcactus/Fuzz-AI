@@ -36,7 +36,7 @@ SERIES_ROLES = ("drive", "contribute", "follow")
 ONLY_ON_CHANGE = {"status"}
 # One value at a time: a newer or better-sourced value supersedes the old one. The rest hold several.
 SINGLE = {"role", "team", "company", "manager", "how_met", "works_hours", "definition", "stands_for", "what_it_is",
-          "owner", "relationship", "goal", "your_role", "for", "status", "blocked_on", "next_milestone", "cadence",
+          "owner", "relationship", "goal", "your_role", "status", "blocked_on", "next_milestone", "cadence",
           "done_when"}
 HOW = ("stated", "extracted", "inferred", "edited")
 SOURCE_KINDS = ("email", "slack", "meeting", "calendar", "doc", "directory", "you", "teams")

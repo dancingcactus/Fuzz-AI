@@ -201,11 +201,16 @@ Series, Person, Source, Artifact, Upload a file.
   list; the gaps are dashed **+ Goal**-style chips that open a form shaped for that fact (Your part is three
   choices that save on a click; For / Owner / Blocked on offer its people; Done when and Next milestone offer
   its deliverables), each with one line on what Fuzz does with it, and **+ Something else** for Owner,
-  Blocked on, Rhythm and Not part of it; **Tasks** (Open / Done, with **Add a task to …**, which goes to
+  Blocked on and Rhythm. **For** holds several values (a customer, a team, people): one row with a chip each,
+  each with its own ×, and **+ Add someone**; **Owner** is the one person accountable when it isn't you;
+  **Tasks** (Open / Done, with **Add a task to …**, which goes to
   Triage already in the series); **Artifacts** (what Fuzz wrote for its tasks, newest 4, then Show all);
   **People** (ranked by how many of its tasks they're in, with how they're in it; past 5 the top 4, then
-  Show all with a Find someone filter); How Fuzz spots it (editable, with a preview); Deliverables; Decided;
-  Also touches this.
+  Show all with a Find someone filter); **How Fuzz spots it** in two groups, **Brings work in** (its anchors,
+  removable) and **Keeps work out** (exclusions: new work that says one never joins; the tasks already in it
+  that say it stay, and the row says how many), with one field and a **Bring in / Keep out** switch, each
+  previewed before it saves; Deliverables; Decided; Also touches this. "Not part of it" lives here now as Keeps
+  work out; an old `scope_out` fact still shows in What Fuzz knows.
 - **Split it into parts** (in ⋯): when one series is really several (one evaluation across three
   customers), name each part and pick where each task goes; a task whose title says a part's name goes there by
   itself. Each part becomes a named series (origin `split`) with your part copied over, and a name of three
@@ -318,7 +323,14 @@ How it's wired:
     asks). `artifacts` is `outputs.for_tasks` over its members.
 - `POST /series/<id>/facts`: `{attr, value}` adds or replaces (yours, confirmed); `{fact_id}` rejects it (the
   ×); `{fact_id, confirm: true}` confirms it (Looks right). A `fact_id` must be this series' (its entity or
-  one merged into it). Each is one event, so one Undo.
+  one merged into it). Each is one event, so one Undo. `for` is no longer single-valued (`facts.SINGLE`):
+  `{attr: "for", value}` adds a value, and one it already has (same words) is left as it is.
+- `POST /series/<id>/anchors`: `{exclude: [text]}` keeps new work that says it out (a `series_anchors` row
+  with `how='exclude'`; it replaces whatever that key was, so it can't bring work in too) and
+  `{unexclude: [key]}` takes it back (`how='unexcluded'`, not a removal). `Index.excluded(sid)`;
+  `Index.score` is 0 for a task carrying one. `POST /series/<id>/preview` with `{exclude: [text]}` returns
+  `would_keep_out` (free tasks that would have joined) and `already_in` (members that say it; they stay).
+  The sheet's `excluded_anchors` is `[{key, label, tasks}]`.
 - Replay: `core/fuzz/series/replay.py`, on a copy of the store.
 
 How the build meets the parts above that needed a decision:
@@ -389,10 +401,12 @@ are steps for whoever runs it, in order:
 - **Gone quiet** can't be tested with three weeks of history.
 - **Undecided UI copy:** the trust labels (Reported, From the owner, Fuzz noticed, Confirmed) and the
   Artifacts and Settings sublines in the menu are placeholders.
-- **What some facts do:** For, Owner, Blocked on, Rhythm and Not part of it are kept and shown, but nothing
-  acts on them yet, so their help line only says Fuzz keeps them. Owner shapes People's "Owner" label. Ideas
-  worth building: Blocked on watched like waiting-on, Rhythm feeding the usual-next-step detector, Not part of
-  it as a negative anchor.
+- **What some facts do:** For, Owner, Blocked on and Rhythm are kept and shown, but nothing acts on them yet,
+  so their help lines describe them rather than promise behaviour. Owner shapes People's "Owner" label. Ideas
+  worth building: Blocked on watched like waiting-on, Rhythm feeding the usual-next-step detector. (Not part
+  of it became Keeps work out, which does act: see anchors above.)
+- **Exclusions only stop new work.** Tasks already in a series that say an excluded word stay; the preview
+  lists them so you can move them from Tasks. Removing them automatically was left out on purpose.
 - **The about line without a goal** is built from its tasks, not written by AI. A short AI-written line (a
   `goal` fact the extractor proposes) would read better; it would arrive as a guess with Looks right.
 - **See all in Artifacts:** the series page shows all of its files in place ("Show all"); the Artifacts page
