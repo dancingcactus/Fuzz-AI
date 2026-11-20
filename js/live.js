@@ -364,6 +364,30 @@
   /* ---------- Bringing Store in line with the core ---------- */
   function soon(ms) { clearTimeout(syncTimer); syncTimer = setTimeout(sync, ms == null ? 250 : ms); }
 
+  /* The full tasks in batches (GET /tasks/full?ids=…): the core builds its series index once per request,
+     so a reload of 160 tasks one by one took seconds. A core from before batches answers 404: one by one. */
+  var batchFull = true;
+  function fetchOne(t) {
+    return api('GET', '/tasks/' + t.id).then(function (full) { detail[t.id].full = full; }, function (e) { delete detail[t.id]; throw e; });
+  }
+  function fetchFull(need) {
+    if (!need.length) return Promise.resolve();
+    if (!batchFull) return Promise.all(need.map(fetchOne));
+    var chunks = [];
+    for (var i = 0; i < need.length; i += 100) chunks.push(need.slice(i, i + 100));
+    return Promise.all(chunks.map(function (ts) {
+      return api('GET', '/tasks/full?ids=' + ts.map(function (t) { return t.id; }).join(',')).then(function (r) {
+        var got = {}; (r.tasks || []).forEach(function (full) { got[full.id] = full; });
+        ts.forEach(function (t) { if (got[t.id]) detail[t.id].full = got[t.id]; else delete detail[t.id]; });
+        if (ts.some(function (t) { return !got[t.id]; })) throw new Error('A task left while it loaded');
+      }, function (e) {
+        if (e.status === 404 && /^No route /.test(e.message)) { batchFull = false; return Promise.all(ts.map(fetchOne)); }
+        ts.forEach(function (t) { delete detail[t.id]; });
+        throw e;
+      });
+    }));
+  }
+
   function sync() {
     if (!on) return Promise.resolve();
     if (syncing || pending) { again = true; return Promise.resolve(); }
@@ -383,9 +407,7 @@
       offerFuzzUndo(r[2].recent || []);
       /* The full task (log, sources, drafts) only when something about it changed */
       var need = list.filter(function (t) { var k = JSON.stringify(t); if (detail[t.id] && detail[t.id].key === k) return false; detail[t.id] = { key: k }; return true; });
-      return Promise.all(need.map(function (t) {
-        return api('GET', '/tasks/' + t.id).then(function (full) { detail[t.id].full = full; }, function (e) { delete detail[t.id]; throw e; });
-      })).then(function () {
+      return fetchFull(need).then(function () {
         if (g !== gen || pending) { again = true; return; }
         /* A task that left the list (finished more than two weeks ago) leaves the cache too */
         var listed = {}; list.forEach(function (t) { listed[t.id] = true; });
