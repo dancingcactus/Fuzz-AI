@@ -37,6 +37,7 @@ def whoami(core, role, prompt_version=None, client=None):
         runs.attach(core, rid)
     me = cfg["me"]
     local = core.now().astimezone(timeres.local_tz(core))
+    wanted = _voice_wanted(core) if role == "extractor" else None   # asks at most once a day: call it once
     return {"user_id": core.user_id, "names": me.get("names", []), "emails": me.get("emails", []),
             "slack_ids": me.get("slack_ids", []), "folders": me.get("folders", {}), "role": role,
             "now": core.now_iso(), "today": local.strftime("%A %Y-%m-%d"), "local_time": local.isoformat(timespec="minutes"),
@@ -48,6 +49,7 @@ def whoami(core, role, prompt_version=None, client=None):
             **({"series_to_check": _series_to_check(core)} if role == "executor" else {}),
             **({"messages_to_fetch": _to_fetch(core)} if role == "executor" else {}),
             **({"lessons": _lessons(core, "extract")} if role == "extractor" else {}),
+            **({"writing_samples_wanted": wanted} if wanted else {}),
             **({"draft_lessons": _lessons(core, "draft")} if role == "executor" and _lessons(core, "draft") else {}),
             **({"output_folder": outputs.folder(core)} if role == "executor" and outputs.folder(core) else {})}
 
@@ -55,6 +57,11 @@ def whoami(core, role, prompt_version=None, client=None):
 def _lessons(core, surface):
     from . import learning   # the same text the evals score (learning.render)
     return learning.prompt_section(core, surface)
+
+
+def _voice_wanted(core):
+    from . import voice
+    return voice.wanted(core)
 
 
 def _to_fetch(core):
@@ -596,7 +603,22 @@ def answer_ask(core, ask_id, text, sources=None):
 
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
-            "release", "list_deliverables", "report_deliverable_done", "report_series_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory")
+            "release", "list_deliverables", "report_deliverable_done", "report_series_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory",
+            "voice_examples")
+
+
+def voice_examples(core, to, kind=None, about=None):
+    """The person's own messages to this person or audience, and how they write to it (voice.py)."""
+    from . import voice
+    if not isinstance(to, str) or not to.strip():
+        raise FuzzError("to: who the draft is to, as you'll write it in save_draft's target", "to")
+    return voice.examples(core, to, kind, about)
+
+
+def submit_writing_samples(core, samples, no_more=False):
+    """Messages the person wrote, only their words (voice.py). no_more: you found nothing older to read."""
+    from . import voice
+    return voice.submit(core, samples, no_more)
 
 
 def list_deliverables(core, since=None):
@@ -665,7 +687,7 @@ def report_calendar(core, slots, holds=None):
         raise FuzzError("holds is a list of {event_id, start?, end?, cancelled?}", "holds")
     return booking.report(core, slots, holds)
 EXTRACTOR = ("whoami", "get_cursors", "submit_signals", "get_pending_judgments", "submit_verdicts", "get_lookups",
-             "submit_facts", "submit_knowledge", "get_fact_pairs", "judge_fact_pairs")
+             "submit_facts", "submit_knowledge", "get_fact_pairs", "judge_fact_pairs", "submit_writing_samples")
 SENDER = ("whoami", "claim_next_send", "mark_sent", "send_failed")
 SESSION = ("get_task", "read_source", "log_progress", "set_next_step", "add_source", "end_session")
 RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "correct")
