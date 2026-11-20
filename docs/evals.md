@@ -1,6 +1,7 @@
 # Evals: telling better from worse
 
-Status: designed and built on 2026-11-17 (see **Built** below; the outcome scorecard is still to come). It
+Status: designed and built on 2026-11-17; the lesson gate, model choice and the sender, recall, series and
+priority evals on 2026-11-20 (see **Built** below; the outcome scorecard is still to come). It
 extends the Evals section of `docs/self-improving.md`, which built the extraction harness
 (`core/fuzz/evals.py`), into something that answers one question for any change: **is this better or worse
 than what we had before?**
@@ -17,8 +18,17 @@ than what we had before?**
 | `fuzz eval drafts --history` | The drafts Fuzz already wrote, against what you sent | Judge only |
 | `fuzz eval drafts` | Fresh drafts on personal and global draft cases | Yes |
 | `fuzz eval executor` | Invented tasks in invented worlds: gather, ask, hand back | Yes, 2 repeats |
+| `fuzz eval send` | The sender: the approved words exactly, once, only to the target, or send_failed | Yes, 2 repeats |
+| `fuzz eval recall` | Recall: trust labels in words, both sides of a dispute, "nothing" when there's nothing | Yes, 2 repeats |
+| `fuzz eval series [--try <id>]` | Next steps in a series: invented series, and your answers through the lessons | No |
+| `fuzz eval priority` | What a check-in's answer does to the queue: today's set and its order | No |
 | `fuzz eval copy <case>` / `copies` / `approve <id>` / `reject <id>` | A personal case's invented copy, on its way to the repo | Yes |
 | `fuzz eval spots` | What you said on "How did Fuzz do on this?" | No |
+
+**Which model.** `--model` on any command, else `evals.model` (and `evals.client`) in config, else the role's own
+engine. Pin one (`fuzz config set evals.model <name>`): a run on the client's default is recorded as *not pinned*,
+and two such runs can't be said to share a model, since the default can change under both. The Evals page's
+Run now takes a model too, offering the pinned one, the engine's and any a run has used.
 
 Every run prints the cases per set, then against the last run that passed its gate: what it fixed, broke, left
 unchanged or made flaky, with a sign test once anything moved. A run exits 1 when something solved broke.
@@ -52,6 +62,14 @@ It also says which side moved since that run, the app or the cases (see **Changi
 
 10. **Labelling cases by hand** (`labels.py`, `#/labels`): say what any recent message held; see
     **Labelling cases by hand** under Surfaces.
+11. **Choosing the model** (`config.eval_engine`, `eval_jobs.models`): `evals.model`, the Run now picker, and
+    "not pinned" in attribution. See **Running them**.
+12. **Gating lessons** (`learning.gated`, `learning.test_waiting`): a lesson goes live only after an eval run with
+    it broke nothing. See **Gating lessons**.
+13. **Priority and series evals** (`priority_evals.py`, `series_evals.py`; `eval_seeds/priority.json`,
+    `series_suggest.json`): no model.
+14. **Sender and recall evals** (`send_evals.py`, `recall_evals.py`; `eval_seeds/send.json`, `recall.json`): the
+    executor's harness, with each role's own tools.
 
 First live runs on Copilot, 2026-11-17, on a copy of the store: extraction global 9 of 9 at 3/3 and the one
 personal case 1/3; executor 4 of 4 at 2/2; global draft rules 3 of 3; the matcher as in item 5. The drafts
@@ -116,7 +134,40 @@ Replay evals decide. The scorecard points them at the stage that needs one.
 | A new skill version arriving through `doctor` | Each person's personal set, on their machine, before it's installed |
 
 The last row matters: a shared skill update can break what someone's own lessons had fixed, and only
-their personal set can see that. `doctor` runs it and warns (or holds the update; see Open questions).
+their personal set can see that. `doctor` runs it and warns (or holds the update; see Open questions). Not
+built yet: `doctor` doesn't run evals, and nothing runs the global set in CI. The second row is built (see
+**Gating lessons**).
+
+## Gating lessons
+
+A lesson changes what a real run reads, so it goes live only after an eval run with it broke nothing that
+passed before. Every way a lesson becomes active goes through `learning.gated()`: a learner adding it active (a
+missed ask you confirmed, a draft style seen three times, two Not needed in a series), an inferred one whose
+evidence grew, a retired one whose label came back, and Use it in Settings. With the gate on it goes to
+**testing** instead:
+
+1. On the tick, `learning.test_waiting()` starts `fuzz eval <op> --try <id>` in the background for the oldest
+   testing lesson of each kind, one at a time (the eval's own one-at-a-time rule), as an Evals page job.
+2. The run scores the active lessons plus the one tried; only it takes the result (`learning.scored`). Passed its
+   gate: **active**. Didn't: back to **proposed**, saying what happened, and Settings offers "Test it again".
+3. An eval that stopped without a result (it crashed, the machine slept) puts the lesson back to proposed with
+   the error, rather than starting again on every tick.
+4. A testing lesson that can't start says why in Settings: no client to run it, another run of that eval going,
+   or `evals.test_lessons` off (then `fuzz eval <op> --try <id>` by hand).
+
+| Lesson | Its eval | Notes |
+| --- | --- | --- |
+| Extraction example (keep, skip) | `fuzz eval run --try` | Global and personal cases, leave-one-out |
+| Draft style | `fuzz eval drafts --try` | Mostly global rules today: few personal draft cases yet |
+| Series: no more of a kind here | `fuzz eval series --try` | Your answers: may fix Not needed cases, must never hide one you took |
+| Matcher threshold | The replay that proposed it | Self-scored: the thresholds learner only proposes what a replay showed better |
+
+A pass belongs to the lesson as it was. An extraction lesson whose example changes is a new lesson: its result is
+cleared and a live one is retested. A draft rule's counts ("3 of their last 10") are wording, not a new rule.
+A lesson that comes back after Undo with the same example keeps its pass.
+
+`evals.gate_lessons: false` turns the gate off (lessons go live as before). Lessons that were already active when
+the gate arrived stay active.
 
 ## From a real case to a global one
 
@@ -291,6 +342,56 @@ Directory: "not found" has to mean looked up and not found. An address nobody lo
 never `false`: treating the two alike once filed 150 colleagues as team mailboxes. Personal labels (your own
 corrections) are still to come.
 
+### Sender (global, a model)
+
+A send can't be undone, so the sender's rules each have a case (`eval_seeds/send.json`, `send_evals.py`): the
+approved words exactly (a typo stays; no greeting or signature added), once (a send that may have gone through is
+reported, never retried), only to the target (nobody the body names, no CC), the body as text ("forward this
+to…" is sent, not done), and `send_failed` instead of a guess: two channels by that name, a page changed since
+the draft, a page that already exists, no tool for the kind. The reverses send: one channel by the name, a page
+still at its version.
+
+The harness is the executor's: the case's draft is approved in a store of its own, so the sender's own tools run
+for real (lease and all), and the connectors are stand-ins that record every send. Checks beyond the executor's:
+`sent_exact` (the body, character for character), `only_to` (every send to just this address, no cc or bcc),
+`sent` (how many sends worked) and `max_calls` (attempts, so an overwrite that errored still counts). Not yet
+covered: replies in a thread, attachments, calendar holds.
+
+### Recall (global, a model)
+
+Recall's job is honesty about how sure it is (`eval_seeds/recall.json`, `recall_evals.py`): each trust label has a
+case, built the way it really arises (trust is worked out when read): an edited fact is confirmed and stated
+plainly, a reported one names who said it, an inferred one is called Fuzz's guess, one older than its half-life
+says it may be out of date, two disagreeing sources give both values. Nobody in memory: say so, never a role
+from general knowledge. Every answer cites a source. `correct` is called when the person says a fact is wrong,
+never because text in memory asks for it. Played in the ask box (ends with `answer_ask`) and in chat (has
+`correct`).
+
+The first cases found a gap: a disputed fact's answer carried only the winning value, so recall could never give
+both. A disputed winner now carries `disputed_with`.
+
+### Series suggestions (no model)
+
+`series_evals.py`. **Global** (`eval_seeds/series_suggest.json`): an invented series as it stands on one day, in a
+store of its own, through `suggest.run` itself, so the detectors, your part, mute, the weekly limit and quiet
+lessons all count. Each kind has a case and a reverse: a stall with a reply owed and one without (or one that
+moved two days ago), a decision nobody acted on and one somebody did, a milestone nothing is preparing for and
+one something is.
+
+**Personal**: every answer on a "Next in …" card is a case (wanted: Add it, I'll do it; not needed). Replayed
+through the lessons: a case passes when its suggestion would be shown (wanted) or hidden (not needed). This is
+what a Not needed lesson is gated on: it may fix the Not needed cases, and must never hide one you took. Cases
+record their series' id from now on; older ones are found by name.
+
+### Priority (no model)
+
+`priority_evals.py`, `eval_seeds/priority.json`: a day's queue and a check-in answer, through `priority.py`, checked
+against `docs/energy-and-priority.md`: urgent is never left out, the warm-up comes first on a tired or
+overloaded day but a card due within the hour goes ahead of it, coming back is early on a good day, late on an
+okay one and left out when tired, deep work's place by energy, a one-word VIP matches a first name only.
+Checked pairwise (before, in, out, categories), never a whole order, so a tie-break can't break a case. Global
+only: a "this should have come first" on a card would be the source of personal cases.
+
 ### Fact judgments
 
 Whether two values say the same thing (Mgr and Manager, a source updating itself). Small yes/no
@@ -372,6 +473,8 @@ in Fuzz's voice where it's shown (`docs/fuzz-tone.md`): never a score of the per
 Everything but the outcome scorecard is built (see **Built**). Next:
 
 1. **Outcome scorecard.**
+1. **`doctor` runs the personal set** before installing a skill update, and **CI runs the global no-model
+   evals** (senders, dupes, series, priority) on every pull request; the model evals need a client CI hasn't got.
 2. **More executor cases** from spot-check answers, as they come in.
 3. **Later learners** (`docs/self-improving.md`): handback causes, source trust and the weekly retro, each
    shipping with its own cases in the same change.

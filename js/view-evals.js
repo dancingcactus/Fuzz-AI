@@ -1,5 +1,5 @@
-/* Evals: a debugging view of every eval run (docs/evals.md). Read-only: runs start from the terminal
-   (fuzz eval run | dupes | senders | drafts | executor), since each takes minutes and costs model calls.
+/* Evals: a debugging view of every eval run (docs/evals.md). Runs start from Run now (on the model picked here)
+   or the terminal (fuzz eval run | dupes | senders | drafts | executor | send | recall | series | priority).
    #/evals lists the newest run of each surface and every run; #/evals/<id> opens one: what changed against the
    run it was gated on, every case, and why a case failed. Only what's in this store is shown. */
 (function () {
@@ -238,7 +238,7 @@
 
   function paint() {
     var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
-      'or from the terminal (fuzz eval run, dupes, senders, drafts or executor). Times are UTC. What’s yours stays on this machine. ' +
+      'or from the terminal (fuzz eval run, dupes, senders, drafts, executor, send, recall, series or priority). Times are UTC. What’s yours stays on this machine. ' +
       'Thin spots? <a href="#/labels">Label cases</a> by hand.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
     if (!list) { root.innerHTML = head + '<p class="lempty">Loading runs…</p>'; return; }

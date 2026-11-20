@@ -33,8 +33,10 @@ Three separate pieces, so each grows on its own.
    the text, for a real run and for the evals alike. A new surface is one call where a prompt is built.
 
 A lesson is an example (keep or skip: a message's outline and short quote) or a one-sentence rule, with
-`status` (proposed, active, off, retired), `how` (inferred, confirmed), the `case_id` it came from, and the
-last eval run that tried it. It changes only through `lesson.*` events, so Undo and `rebuild()` cover it.
+`status` (proposed, testing, active, off, retired), `how` (inferred, confirmed), the `case_id` it came from, and
+the last eval run that tried it. It changes only through `lesson.*` events, so Undo and `rebuild()` cover it.
+A lesson that would go live is **testing** until an eval run with it breaks nothing (docs/evals.md, "Gating
+lessons").
 
 The "What I've learned" section groups lessons by kind and knows nothing about any one learner.
 
