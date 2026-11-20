@@ -217,7 +217,8 @@
 
   function paint() {
     var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
-      'or from the terminal (fuzz eval run, dupes, senders, drafts or executor). Times are UTC. What’s yours stays on this machine.</p></div>';
+      'or from the terminal (fuzz eval run, dupes, senders, drafts or executor). Times are UTC. What’s yours stays on this machine. ' +
+      'Thin spots? <a href="#/labels">Label cases</a> by hand.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
     if (!list) { root.innerHTML = head + '<p class="lempty">Loading runs…</p>'; return; }
     /* a <details> you opened stays open across the refresh while something runs */

@@ -17,7 +17,8 @@
     welcome: { view: window.Onboard.view, title: 'Welcome' },
     settings: { view: window.SettingsView, title: 'Settings' },
     /* a debugging page, not in the menu: Settings, What I've learned, links to it */
-    evals: { view: window.EvalsView, title: 'Evals' }
+    evals: { view: window.EvalsView, title: 'Evals' },
+    labels: { view: window.LabelsView, title: 'Label cases' }
   };
   /* Memory's inspector is a developer tool, like the mood lab: only with ?lab, and not in the nav */
   if (window.Memory && Memory.lab && window.InspectView) ROUTES.inspect = { view: window.InspectView, title: 'Inspector' };
@@ -198,7 +199,7 @@
   }
 
   /* ---------- The label: where you are, and the way back ---------- */
-  var PLACE = { triage: 'Triage', tasks: 'Lineup', series: 'Series', artifacts: 'Artifacts', capture: 'New', settings: 'Settings', inspect: 'Inspector', evals: 'Evals' };
+  var PLACE = { triage: 'Triage', tasks: 'Lineup', series: 'Series', artifacts: 'Artifacts', capture: 'New', settings: 'Settings', inspect: 'Inspector', evals: 'Evals', labels: 'Label cases' };
   var BACK = 'Back to the Guide';
   /* "13:30" (a calendar link's until) as "1:30pm"; null when it isn't a time */
   function fmtUntil(hhmm) {

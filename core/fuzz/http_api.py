@@ -179,6 +179,9 @@ class App:
             ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
             ("GET", r"/evals", self.list_eval_runs),
             ("GET", r"/evals/(\d+)", self.get_eval_run),
+            ("GET", r"/evals/labels", self.eval_labels),
+            ("POST", r"/evals/labels", self.eval_label),
+            ("POST", r"/evals/labels/(\d+)/remove", self.eval_label_remove),
             ("POST", r"/evals/run", self.start_eval_run),
             ("POST", r"/evals/jobs/(\d+)/stop", self.stop_eval_job),
             ("GET", r"/deliverables", self.list_deliverables),
@@ -553,6 +556,25 @@ class App:
         limit = q.get("limit") or "100"
         return dict(evals.run_list(core, limit=int(limit) if str(limit).isdigit() else 100),
                     jobs=eval_jobs.listing(core))
+
+    def eval_labels(self, core, m, body, q):
+        """The messages to label for the personal evals, and the cases already made (labels.py)."""
+        from . import labels
+        n = q.get("limit") or ""
+        return {"queue": labels.queue(core, limit=int(n) if n.isdigit() else labels.QUEUE_MAX,
+                                      source=q.get("source") or None, saw=q.get("saw") or None),
+                "cases": labels.mine(core)}
+
+    def eval_label(self, core, m, body, q):
+        from . import labels
+        body = body or {}
+        with core.tx("human"):
+            return labels.label(core, body.get("signal_key"), body.get("label"), body.get("ask")), 201
+
+    def eval_label_remove(self, core, m, body, q):
+        from . import labels
+        with core.tx("human"):
+            return labels.remove(core, int(m.group(1)))
 
     def start_eval_run(self, core, m, body, q):
         """Start one eval in the background (the Evals page's Run button). It costs model calls, so only on a POST."""
