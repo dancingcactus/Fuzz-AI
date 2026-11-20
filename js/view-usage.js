@@ -1,5 +1,5 @@
 /* Usage: what Fuzz's role runs used, per day (core/fuzz/usage.py). Settings › App links here.
-   Each client is said in its own unit and never added to the other: Copilot in AI credits (what GitHub bills),
+   Each client is said in its own unit and never added to the other: Copilot in AI credits (as its CLI reports them),
    Claude Code in dollars (on a subscription, what the same tokens would cost on the API). Tokens for both.
    Only role runs count: evals, the focus pass and setup's connector discovery aren't measured. */
 (function () {
@@ -114,7 +114,7 @@
       return '<button type="button" class="seg" aria-pressed="' + (r[0] === days) + '" data-days="' + r[0] + '">' + r[1] + '</button>';
     }).join('') + '</div>';
     var head = '<div class="tasks-head"><h1>Usage</h1><p class="meta">What my runs used, per day, as each app reports it. ' +
-      'Copilot counts AI credits, what GitHub bills. Claude Code counts dollars: on a subscription, that’s what the same tokens would cost on the API, not your bill. ' +
+      'Copilot counts AI credits, as its CLI reports them. Claude Code counts dollars: on a subscription, that’s what the same tokens would cost on the API, not your bill. ' +
       'Evals, the focus pass and setup’s connector check aren’t counted, so your GitHub or Anthropic billing page can show more.' +
       (data && data.tz ? ' Days are in ' + esc(data.tz) + '.' : '') + '</p>' + seg + '</div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }

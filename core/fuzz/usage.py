@@ -2,7 +2,7 @@
 
 Each client says it differently, and they aren't added together:
 - Copilot ends a text run with a footer: "AI Credits 7.89 (42s)" and "Tokens ↑ 89.9k (61.6k cached, 22.2k
-  written) • ↓ 510 (75 reasoning)". Credits are what GitHub bills. The cached and written tokens are part of ↑.
+  written) • ↓ 510 (75 reasoning)". Credits are as the CLI reports them. The cached and written tokens are part of ↑.
 - Claude Code (with --output-format json or stream-json) ends with a result object: total_cost_usd and usage.
   On a subscription the dollars are what the same tokens would cost on the API, not a bill.
 
