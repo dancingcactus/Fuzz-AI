@@ -232,9 +232,13 @@
   }
   function barHTML(d) {
     var work = d.open && d.section !== 'wrapped';
-    var title = edit === 'name'
-      ? '<form class="ss-inline" data-form="name"><label class="sr" for="ss-name">Name</label><input id="ss-name" class="fld" type="text" value="' + esc(d.name) + '" maxlength="80" autocomplete="off"><button class="btn small primary">Save</button><button type="button" class="btn small" data-cancel>Cancel</button></form>'
-      : '<h1 id="sp-title">' + esc(d.name) + '</h1>';
+    /* Renaming takes the bar to itself: the field sits where the title was, in the title's type, with Save and
+       Cancel at its height; the meta line and the actions step aside until it's done */
+    if (edit === 'name') return '<div class="sp-bar sp-bar--rename"><a class="btn small sp-back" href="#/series">' + BACK + 'Series</a>' +
+      '<form class="sp-rename" data-form="name" autocomplete="off" data-1p-ignore data-lpignore="true"><label class="sr" for="ss-name">Name of this series</label>' +
+      '<input id="ss-name" class="fld" type="text" value="' + esc(d.name) + '" maxlength="80" autocomplete="off" data-1p-ignore data-lpignore="true">' +
+      '<span class="sp-rename-acts"><button class="btn primary">Save</button><button type="button" class="btn" data-cancel>Cancel</button></span></form></div>';
+    var title = '<h1 id="sp-title">' + esc(d.name) + '</h1>';
     return '<div class="sp-bar"><a class="btn small sp-back" href="#/series">' + BACK + 'Series</a><div class="sp-title">' + title + '<p class="meta">' + esc(metaLine(d)) + '</p></div>' +
       '<div class="sp-acts">' + (d.section === 'watching' ? '<button type="button" class="btn small" data-act="keep">Keep it</button>' : '') +
       (work ? '<button type="button" class="btn small primary" data-workon="' + d.id + '">Work on it</button>' : '') +

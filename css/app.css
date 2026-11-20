@@ -1328,6 +1328,13 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .sp-title h1 { font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
 .sp-title .meta { margin: 2px 0 0; font-size: 13px; }
 .sp-acts { flex: none; display: flex; align-items: center; gap: 8px; position: relative; }
+/* Rename: the field takes the title's place and type; field and buttons share one height */
+.sp-rename { flex: 1 1 320px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sp-rename .fld { flex: 1 1 220px; min-width: 0; height: 42px; padding: 0 12px; border: var(--bw2) solid var(--accent); border-radius: 12px;
+  background: var(--surface); color: var(--ink); font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; }
+.sp-rename .fld:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.sp-rename-acts { flex: none; display: flex; gap: 8px; }
+.sp-rename .btn { height: 42px; min-height: 42px; padding: 0 16px; }
 .sp-acts .menu { right: 0; left: auto; width: 320px; max-width: min(320px, calc(100vw - 48px)); }
 .menu .menu-sep { border: 0; border-top: var(--bw) solid var(--line); margin: 4px 8px; }
 .sp-body { display: flex; flex-direction: column; gap: 26px; }
