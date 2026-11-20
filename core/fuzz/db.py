@@ -542,12 +542,13 @@ CREATE TABLE IF NOT EXISTS lessons (   -- what Fuzz learned from your correction
   case_id INTEGER,                 -- the eval case it came from: never scored with it (leave-one-out)
   example TEXT,                    -- the message's outline and short quote, never its text (JSON)
   rule TEXT NOT NULL,              -- one plain sentence, for the page
-  status TEXT NOT NULL,            -- proposed | active | off (you) | retired (its label was taken back)
+  status TEXT NOT NULL,            -- proposed | testing (waiting on its eval) | active | off (you) | retired (its label was taken back)
   how TEXT NOT NULL,               -- inferred | confirmed
   created_at TEXT,
   confirmed_at TEXT,
   eval_run INTEGER,                -- the last eval run that scored it, and whether that run passed its gate
-  eval_ok INTEGER
+  eval_ok INTEGER,
+  eval_note TEXT                   -- why a testing lesson is still waiting, or what its eval said (learning.gate)
 );
 CREATE TABLE IF NOT EXISTS eval_runs (
   id INTEGER PRIMARY KEY,
@@ -584,7 +585,9 @@ CREATE TABLE IF NOT EXISTS eval_jobs (   -- eval runs started from the Evals pag
   after_run INTEGER,               -- the newest eval run when it began: the one it made comes after
   run_id INTEGER,
   gate_ok INTEGER,
-  error TEXT
+  error TEXT,
+  model TEXT,                      -- the model it was asked to run on (None: evals.model, else the role's)
+  lesson_id INTEGER                -- the lesson it's testing (learning.gate), when it was started for one
 );
 """
 
@@ -640,7 +643,9 @@ MIGRATIONS = {"sources": [("path", "TEXT"), ("mime", "TEXT"), ("size", "INTEGER"
                              ("scope", "TEXT NOT NULL DEFAULT 'personal'"), ("checks", "TEXT")],
               "eval_runs": [("against", "INTEGER"), ("gate_ok", "INTEGER NOT NULL DEFAULT 1"), ("sets", "TEXT"),
                             ("seeds_commit", "TEXT"), ("seconds", "REAL"), ("stripped", "INTEGER NOT NULL DEFAULT 0"),
-                            ("meta", "TEXT"), ("app_commit", "TEXT"), ("set_hash", "TEXT"), ("judge", "TEXT")]}
+                            ("meta", "TEXT"), ("app_commit", "TEXT"), ("set_hash", "TEXT"), ("judge", "TEXT")],
+              "eval_jobs": [("model", "TEXT"), ("lesson_id", "INTEGER")],
+              "lessons": [("eval_note", "TEXT")]}
 
 
 def _migrate(conn):

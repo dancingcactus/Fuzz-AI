@@ -251,8 +251,8 @@ def skill_text(ref=None):
 
 def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref=None, path=None, workers=4):
     """Play every executor case `repeats` times; a case passes on a majority. Recorded and gated like any run."""
-    from .config import role_engine
-    client, model = role_engine(core.config, "executor", client, model)
+    from .config import eval_engine
+    client, model = eval_engine(core.config, "executor", client, model)
     adapter = adapters.get(client) if client in adapters.ADAPTERS else None
     if runner is None and adapter is None:
         raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")

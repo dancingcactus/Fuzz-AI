@@ -7,9 +7,16 @@
   var esc = UI.esc;
   var root = null, list = null, detail = null, failed = null, surface = 'all', onlyFailing = true, runId = null, vs = null;
 
-  var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['senders', 'Senders'], ['draft', 'Drafts'], ['executor', 'Executor']];
-  var NAME = { extract: 'Extraction', dupes: 'Duplicates', senders: 'Senders', draft: 'Drafts', executor: 'Executor' };
-  var CMD = { extract: 'fuzz eval run', dupes: 'fuzz eval dupes', senders: 'fuzz eval senders', draft: 'fuzz eval drafts', executor: 'fuzz eval executor' };
+  var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['senders', 'Senders'], ['draft', 'Drafts'], ['executor', 'Executor'],
+    ['send', 'Sender'], ['recall', 'Recall'], ['series_suggest', 'Series'], ['priority', 'Priority']];
+  var NAME = { extract: 'Extraction', dupes: 'Duplicates', senders: 'Senders', draft: 'Drafts', executor: 'Executor',
+    send: 'Sender', recall: 'Recall', series_suggest: 'Series', priority: 'Priority' };
+  var CMD = { extract: 'fuzz eval run', dupes: 'fuzz eval dupes', senders: 'fuzz eval senders', draft: 'fuzz eval drafts', executor: 'fuzz eval executor',
+    send: 'fuzz eval send', recall: 'fuzz eval recall', series_suggest: 'fuzz eval series', priority: 'fuzz eval priority' };
+  var LATEST = ['extract', 'dupes', 'senders', 'draft', 'executor', 'send', 'recall', 'series_suggest', 'priority'];
+  var NO_MODEL = { dupes: 1, senders: 1, series_suggest: 1, priority: 1 };
+  /* The model a run is on: none pinned is the client's default, which can change under it */
+  function modelSaid(r) { return r.model || (r.client === 'stub' ? 'stub' : NO_MODEL[r.surface] ? '' : (r.client ? r.client + ' default (not pinned)' : '')); }
   var CHANGE = { fixed: ['Fixed', 'ok'], broke: ['Broke', 'danger'], flaky: ['Flaky', 'warn'], unchanged: ['Same', 'muted'], 'new': ['New', 'accent'] };
 
   function when(ts) { return ts ? String(ts).replace('T', ' ').replace(/:\d\dZ$/, '') : ''; }
@@ -72,7 +79,7 @@
     var app = '<p class="ev-since"><span><b>App</b></span>' + (a.app.length ? a.app.map(function (c) {
       return '<span class="ev-since-item">' + esc(c.what) + ' <span class="meta">' + esc(short(c.was)) + ' →</span> ' + esc(short(c.now)) + '</span>';
     }).join('') : '<span class="meta">' + (a.unknown.length ? 'No change recorded.' : 'Same code, skill, model, lessons and judge.') + '</span>') +
-      (a.unknown.length ? ' <span class="meta">(not recorded on one run: ' + esc(a.unknown.join(', ')) + ')</span>' : '') + '</p>';
+      (a.unknown.length ? ' <span class="meta">(can’t be told: ' + esc(a.unknown.map(function (u) { return u === 'model' ? 'model, not pinned' : u + ', not recorded on one run'; }).join('; ')) + ')</span>' : '') + '</p>';
     var effect = SCOPES.filter(function (s) { return shared(a, s[0]).of; }).map(function (s) {
       var sh = shared(a, s[0]);
       return '<span class="ev-since-item">' + s[1] + ' <span class="meta">' + sh.before + ' of ' + sh.of + ' →</span> ' + sh.after + ' of ' + sh.of + appDelta(a, s[0]) + '</span>';
@@ -111,7 +118,21 @@
   }
 
   /* What a run costs, said on the button: the matcher needs no model; the rest take minutes of model calls */
-  var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', senders: 'no model, a second', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes' };
+  var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', senders: 'no model, a second', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes',
+    send: 'model calls, a few minutes', recall: 'model calls, a few minutes', series_suggest: 'no model, a few seconds', priority: 'no model, a second' };
+
+  /* Which model Run now uses: the one typed here, else evals.model, else the roles' engine (docs/evals.md) */
+  var pick = null;
+  function modelHTML() {
+    var m = list.models || {};
+    if (pick === null) pick = m.pinned || m.engine || '';
+    var opts = [m.pinned, m.engine].concat(m.seen || []).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+    return '<div class="ev-model"><label for="ev-model">Model for Run now</label> <input id="ev-model" class="input small" list="ev-models" value="' + esc(pick) +
+      '" placeholder="' + esc((m.client || 'client') + ' default (not pinned)') + '" autocomplete="off" spellcheck="false">' +
+      '<datalist id="ev-models">' + opts.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
+      ' <span class="meta">' + (m.pinned ? 'Pinned in config: ' + esc(m.pinned) + '.' : 'Pin one for every run: fuzz config set evals.model &lt;name&gt;.') +
+      ' Comparisons only mean something on the same model.</span></div>';
+  }
 
   function running(s) { return (list.jobs || []).filter(function (j) { return j.status === 'running' && (!s || j.surface === s); })[0]; }
   function ago(ts) {
@@ -120,7 +141,7 @@
   }
 
   function latestHTML() {
-    return '<div class="ev-latest">' + ['extract', 'dupes', 'senders', 'draft', 'executor'].map(function (s) {
+    return modelHTML() + '<div class="ev-latest">' + LATEST.map(function (s) {
       var r = (list.latest || {})[s], job = running(s);
       var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) + ' ' + movedPill(r.vs_prev) : UI.pill('No runs yet', 'muted'));
       var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + scoreHTML(r, 'global') + ' · Yours ' + scoreHTML(r, 'personal') +
@@ -159,7 +180,7 @@
       '<th>Set</th><th>Global</th><th>Yours</th><th>Since the run before</th><th>Gate</th><th>Against</th><th>Seconds</th></tr></thead><tbody>' +
       runs.map(function (r) {
         return '<tr class="ev-row' + (r.id === runId ? ' is-on' : '') + '" data-run="' + r.id + '" tabindex="0"><td>#' + r.id + '</td><td>' + esc(when(r.ts)) + '</td><td>' + esc(NAME[r.surface] || r.surface) + rebaselined(r) + '</td>' +
-          '<td>' + esc(r.skill || '') + (r.copy ? ' <span class="meta">' + esc(r.copy) + '</span>' : '') + '</td><td>' + esc(r.model || r.client || '') + '</td>' +
+          '<td>' + esc(r.skill || '') + (r.copy ? ' <span class="meta">' + esc(r.copy) + '</span>' : '') + '</td><td>' + esc(modelSaid(r)) + '</td>' +
           '<td>' + esc(r.set) + '</td><td>' + scoreHTML(r, 'global') + '</td><td>' + scoreHTML(r, 'personal') + '</td><td>' + movedPill(r.vs_prev) + '</td>' +
           '<td>' + gate(r.gate) + '</td><td>' + (r.against ? '#' + r.against : '') + '</td><td>' + (r.seconds == null ? '' : esc(r.seconds)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -188,7 +209,7 @@
     var cases = detail.cases.filter(function (c) { return !onlyFailing || !c.passed || (c.change && c.change !== 'unchanged') || moved(c); });
     var rows = cases.length ? cases.map(caseHTML).join('') : '<p class="lempty">Every case passed, and nothing changed.</p>';
     return '<section class="ev-detail" aria-labelledby="ev-run-h"><h2 id="ev-run-h">Run #' + r.id + ': ' + esc(NAME[r.surface] || r.surface) + ' ' + gate(r.gate) + rebaselined(r) + '</h2>' +
-      '<p class="meta">' + esc([when(r.ts), r.skill + (r.copy ? ' (' + r.copy + ')' : ''), r.model || r.client, r.repeats + (r.repeats === 1 ? ' repeat' : ' repeats'),
+      '<p class="meta">' + esc([when(r.ts), r.skill + (r.copy ? ' (' + r.copy + ')' : ''), modelSaid(r), r.repeats + (r.repeats === 1 ? ' repeat' : ' repeats'),
         r.lessons + (r.lessons === 1 ? ' lesson' : ' lessons'), 'set ' + r.set, r.app_commit ? 'app at ' + r.app_commit : '', r.commit ? 'cases at ' + r.commit : '',
         r.set_hash ? 'case set ' + r.set_hash : '', r.judge ? 'judge ' + r.judge : '', r.seconds != null ? r.seconds + 's' : ''].filter(Boolean).join(' · ')) + '</p>' +
       sinceHTML(r) + changed + sweepHTML(detail.meta) +
@@ -244,7 +265,7 @@
   }
   function start(surface) {
     said = 'Starting ' + NAME[surface] + '…'; paint();
-    Live.startEval(surface, 'all').then(function () { said = NAME[surface] + ' is running. This page updates when it’s done.'; load(); },
+    Live.startEval(surface, 'all', NO_MODEL[surface] ? null : (pick || '').trim() || null).then(function () { said = NAME[surface] + ' is running. This page updates when it’s done.'; load(); },
       function (e) { said = 'It didn’t start: ' + e.message; paint(); });
   }
   function stop(id) {
@@ -269,6 +290,7 @@
   }
   function onChange(e) {
     if (e.target.id === 'ev-failing') { onlyFailing = e.target.checked; paint(); }
+    if (e.target.id === 'ev-model') pick = e.target.value;
     if (e.target.id === 'ev-vs') { vs = +e.target.value; load(); }
   }
 
@@ -279,11 +301,13 @@
     root.addEventListener('click', onClick);
     root.addEventListener('keydown', onKey);
     root.addEventListener('change', onChange);
+    root.addEventListener('input', onChange);   /* the model typed survives the poll's repaint */
+    pick = null;
     paint(); load();
   };
   V.unmount = function () {
     clearTimeout(timer);
-    if (root) { root.removeEventListener('click', onClick); root.removeEventListener('keydown', onKey); root.removeEventListener('change', onChange); }
+    if (root) { root.removeEventListener('click', onClick); root.removeEventListener('keydown', onKey); root.removeEventListener('change', onChange); root.removeEventListener('input', onChange); }
     root = null;
   };
 

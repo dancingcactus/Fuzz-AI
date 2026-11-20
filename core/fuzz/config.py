@@ -176,3 +176,12 @@ def role_engine(cfg, role, client=None, model=None):
     over = (cfg.get("roles") or {}).get(role) or {}
     eng = cfg.get("engine") or {}
     return client or over.get("client") or eng.get("client"), model or over.get("model") or eng.get("model")
+
+
+def eval_engine(cfg, role, client=None, model=None):
+    """The client and model an eval runs on: --client/--model, then evals.client/evals.model (so evals can be
+    pinned to one model whatever the roles run on), then the role's engine. A model left None is the client's
+    own default, which a run records as not pinned."""
+    ev = cfg.get("evals") or {}
+    c, m = role_engine(cfg, role)
+    return client or ev.get("client") or c, model or ev.get("model") or m

@@ -332,6 +332,21 @@ class Attribution(CoreCase):
         self.assertEqual(att["app"], [{"what": "lessons", "was": 0, "now": 1}])
         self.assertEqual(sorted(att["unknown"]), ["code", "judge"])
 
+    def test_two_runs_on_the_clients_default_model_cant_be_told_apart(self):
+        before = a_run(1, [res("a", True)], client="copilot")
+        after = a_run(2, [res("a", True)], client="copilot")
+        self.assertIn("model", evals.attribution(before, after)["unknown"], "the default can change under both")
+        pinned = a_run(3, [res("a", True)], client="copilot", model="m-1")
+        self.assertNotIn("model", evals.attribution(pinned, dict(pinned, id=4))["unknown"])
+
+    def test_evals_can_be_pinned_to_their_own_model(self):
+        from fuzz.config import eval_engine
+        cfg = {"engine": {"client": "copilot", "model": "eng"}, "roles": {"extractor": {"model": "role"}}}
+        self.assertEqual(eval_engine(cfg, "extractor"), ("copilot", "role"))
+        cfg["evals"] = {"model": "pinned"}
+        self.assertEqual(eval_engine(cfg, "extractor"), ("copilot", "pinned"))
+        self.assertEqual(eval_engine(cfg, "extractor", model="flag"), ("copilot", "flag"), "--model still wins")
+
     def test_uncommitted_edits_are_the_same_app_only_when_they_are_the_same_edits(self):
         before = a_run(1, [res("a", True)], app_commit="abc1234+dirty.0000aaaa")
         same = a_run(2, [res("a", True)], app_commit="abc1234+dirty.0000aaaa")

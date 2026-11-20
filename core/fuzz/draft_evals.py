@@ -203,8 +203,8 @@ def rules_prompt(ctx, draft, expected):
 
 
 def _engine(core, client, model, runner):
-    from .config import role_engine
-    client, model = role_engine(core.config, "executor", client, model)
+    from .config import eval_engine
+    client, model = eval_engine(core.config, "executor", client, model)
     adapter = adapters.get(client) if client in adapters.ADAPTERS else None
     if runner is None and adapter is None:
         raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")

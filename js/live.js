@@ -889,7 +889,7 @@
     lessonAction: function (id, what) { return api('POST', '/lessons/' + id + '/' + what, {}); },
     evals: function () { return api('GET', '/evals'); },
     evalRun: function (id, vs) { return api('GET', '/evals/' + id + (vs ? '?vs=' + vs : '')); },
-    startEval: function (surface, set) { return api('POST', '/evals/run', { surface: surface, set: set || 'all' }); },
+    startEval: function (surface, set, model) { return api('POST', '/evals/run', { surface: surface, set: set || 'all', model: model || null }); },
     evalLabels: function (f) {
       var q = ['source', 'saw'].filter(function (k) { return f && f[k]; }).map(function (k) { return k + '=' + encodeURIComponent(f[k]); }).join('&');
       return api('GET', '/evals/labels' + (q ? '?' + q : ''));

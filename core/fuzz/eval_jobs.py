@@ -7,6 +7,7 @@ slept, it was killed) is marked stopped the next time the list is read.
 """
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -14,6 +15,8 @@ import sys
 from .db import FuzzError
 
 OPS = {"extract": "run", "dupes": "dupes", "senders": "senders", "draft": "drafts", "executor": "executor"}
+NO_MODEL = {"dupes", "senders"}   # replays: no model to pin
+MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,99}$")   # a model id as a client takes it, one argv item
 PKG_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -47,18 +50,28 @@ def settle(core):
                    "AND status='running'", (core.now_iso(), "It stopped before it finished.", j["id"]))
 
 
-def start(core, surface, sets="all", spawn=None):
-    """Start one eval run in the background. spawn(argv, env, log) -> pid stands in for the process in tests."""
+def start(core, surface, sets="all", spawn=None, model=None, trying=None):
+    """Start one eval run in the background. spawn(argv, env, log) -> pid stands in for the process in tests.
+    model: the model to run it on (else evals.model, else the role's); trying: a lesson to score (learning.gate)."""
     if surface not in OPS:
         raise FuzzError(f"surface is one of {', '.join(OPS)}", "surface")
     if sets not in ("all", "global", "personal"):
         raise FuzzError("set is all, global or personal", "set")
+    model = (model or "").strip() or None
+    if model and not MODEL_NAME.match(model):
+        raise FuzzError("That doesn't look like a model name", "model")
+    if surface in NO_MODEL:
+        model = None
     settle(core)
     if core.one("SELECT id FROM eval_jobs WHERE user_id=? AND surface=? AND status='running'", (core.user_id, surface)):
         raise FuzzError("That eval is already running", "surface", 409)
-    jid = core.q("INSERT INTO eval_jobs (user_id, surface, sets, status, started_at) VALUES (?,?,?,?,?)",
-                 (core.user_id, surface, sets, "running", core.now_iso())).lastrowid
+    jid = core.q("INSERT INTO eval_jobs (user_id, surface, sets, status, started_at, model, lesson_id) "
+                 "VALUES (?,?,?,?,?,?,?)", (core.user_id, surface, sets, "running", core.now_iso(), model, trying)).lastrowid
     argv = [sys.executable, "-m", "fuzz", "eval", OPS[surface], "--set", sets, "--job", str(jid)]
+    if model:
+        argv += ["--model", model]
+    if trying is not None:
+        argv += ["--try", str(trying)]
     env = dict(os.environ, FUZZ_HOME=core.home, FUZZ_USER=str(core.user_id),
                PYTHONPATH=PKG_PARENT + os.pathsep + os.environ.get("PYTHONPATH", ""))
     path = log_path(core, jid)
@@ -103,6 +116,17 @@ def finished(core, job_id, error=None):
     core.q("UPDATE eval_jobs SET status=?, ended_at=?, run_id=?, gate_ok=?, error=? WHERE id=? AND status='running'",
            (status, core.now_iso(), r["id"] if r else None, r["gate_ok"] if r else None,
             None if r else (error or "It ended without recording a run.")[:500], job_id))
+
+
+def models(core):
+    """What the Run button offers: the model evals are pinned to (evals.model), the one the roles run on, and
+    every model a run has used. None anywhere means the client's default, which a run records as not pinned."""
+    ev = core.config.get("evals") or {}
+    eng = core.config.get("engine") or {}
+    seen = [r["model"] for r in core.all("SELECT model, MAX(id) m FROM eval_runs WHERE user_id=? AND model IS NOT NULL "
+                                         "GROUP BY model ORDER BY m DESC", (core.user_id,))]
+    return {"pinned": ev.get("model"), "engine": eng.get("model"), "client": ev.get("client") or eng.get("client"),
+            "seen": seen}
 
 
 def get(core, job_id):
