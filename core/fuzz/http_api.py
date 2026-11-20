@@ -13,6 +13,7 @@ import secrets
 import subprocess
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
@@ -27,6 +28,11 @@ STATIC_PAGES = ("index.html", "artifact.html")
 ACTIVE_TYPES = {"text/html", "application/xhtml+xml", "image/svg+xml", "text/xml", "application/xml"}
 SSE_HEARTBEAT = 15
 TICK_SECONDS = 60
+# Routes that run without the store's lock, on a connection of their own (App.side_core): they wait on a person
+# or start other programs (each client's --version, `mcp list`, its MCP servers; an install), which takes seconds
+# to minutes, and every other request for the user would wait behind them. What they write still goes through
+# core.tx, and SQLite keeps it in step with the shared connection.
+UNLOCKED = ("engine_get", "engine_check", "engine_put", "engine_action", "setup_get", "setup_choose_folder")
 
 
 def git_info(root=UI_ROOT):
@@ -132,6 +138,7 @@ class App:
         self.started = time.time()
         self.boot_git = git_info()   # the Python this server runs; the page's JS is read from the tree on each load
         self._mu = threading.Lock()
+        self.installing = threading.Lock()   # one engine change at a time (installs, switches): they run unlocked
         self.changed = threading.Condition()
 
     def core(self, user_id):
@@ -141,6 +148,13 @@ class App:
                 c.on_commit(self._notify)
                 self._cores[user_id] = c
             return self._cores[user_id]
+
+    def side_core(self, user_id):
+        """A Core with its own connection, for an UNLOCKED route: the caller closes it. Its writes tell the
+        event stream like the shared Core's do."""
+        c = Core(self.home, user_id, clock=self.clock)
+        c.on_commit(self._notify)
+        return c
 
     def _notify(self):
         with self.changed:
@@ -273,7 +287,8 @@ class App:
             ("POST", r"/engine/run", self.engine_run),
             ("POST", r"/engine/clients/([\w-]+)/(install|update|repair|uninstall)", self.engine_action),
         ]
-        return [(m, re.compile("^" + p + "$"), h) for m, p, h in R]
+        unlocked = {getattr(self, n) for n in UNLOCKED}
+        return [(m, re.compile("^" + p + "$"), h, h not in unlocked) for m, p, h in R]
 
     def list_tasks(self, core, m, body, q):
         """Done and let-go tasks from the last two weeks only, unless ?all=1. Older ones come from /tasks/search."""
@@ -1017,7 +1032,8 @@ class App:
     def engine_put(self, core, m, body, q):
         if not body.get("client"):
             raise FuzzError("client is required", "client")
-        return {"engine": engine.select(core, body["client"], body.get("model"))}
+        with self.installing:
+            return {"engine": engine.select(core, body["client"], body.get("model"))}
 
     def engine_run(self, core, m, body, q):
         role = body.get("role", "executor")
@@ -1026,7 +1042,8 @@ class App:
         return engine.run_now(core, role, body.get("task_id"), bool(body.get("scripted"))), 202
 
     def engine_action(self, core, m, body, q):
-        return engine.action(core, m.group(1), m.group(2), body.get("roles"), bool(body.get("link")))
+        with self.installing:
+            return engine.action(core, m.group(1), m.group(2), body.get("roles"), bool(body.get("link")))
 
 
 def _memory_view(f):
@@ -1092,7 +1109,7 @@ def make_handler(app):
                                         "server": app.boot_git, "tree": git_info()})
             if method == "GET" and path == "/events/stream":
                 return self._stream(q)
-            for m, rx, h in routes:
+            for m, rx, h, locked in routes:
                 mt = rx.match(path)
                 if mt and m == method:
                     uid = app.user_for(self._token(q))
@@ -1101,11 +1118,15 @@ def make_handler(app):
                     try:
                         core = app.core(uid)
                         body = self._raw_body(core) if h == app.upload else self._body()
-                        if h == app.setup_choose_folder:   # waits on you, and touches no store
-                            res = h(core, mt, body, q)
-                        else:
+                        if locked:
                             with core.lock:
                                 res = h(core, mt, body, q)
+                        else:   # slow work (UNLOCKED): its own connection, so it never holds up the rest of the API
+                            side = app.side_core(uid)
+                            try:
+                                res = h(side, mt, body, q)
+                            finally:
+                                side.close()
                         status = 200
                         if isinstance(res, tuple):
                             res, status = res
@@ -1114,11 +1135,19 @@ def make_handler(app):
                         return self._send(status, res)
                     except FuzzError as e:
                         return self._send(e.status, e.to_dict())
-                    except (ValueError, KeyError, TypeError) as e:
+                    except ValueError as e:
                         return self._send(400, {"error": f"Bad request: {e}"})
+                    except (KeyError, TypeError) as e:
+                        # usually a missing or wrong field in the body, sometimes a bug: say which in the log
+                        traceback.print_exc()
+                        return self._send(400, {"error": f"Bad request: {e!r}"})
+                    except Exception as e:   # noqa: BLE001: anything else is Fuzz's fault, and the page should hear it
+                        traceback.print_exc()
+                        return self._send(500, {"error": f"Something went wrong in Fuzz ({type(e).__name__}: {e}). "
+                                                          "It's in the server's log.", "internal": True})
             if method == "GET":
                 return self._static(path)
-            if any(rx.match(path) for _, rx, _ in routes):
+            if any(rx.match(path) for _, rx, _, _ in routes):
                 return self._send(405, {"error": f"{method} isn't allowed on {path}"})
             return self._send(404, {"error": f"No route {path}"})
 

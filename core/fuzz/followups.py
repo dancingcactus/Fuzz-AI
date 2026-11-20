@@ -37,8 +37,9 @@ def gathers_waiting(core):
 
 
 def executor_running(core):
-    """A run that started within a lease and hasn't finished: it claims gather tasks first, so it gets there."""
-    since = core.now() - timedelta(minutes=core.config["budget"]["lease_minutes"])
+    """A run that started within its time limit and hasn't finished: it claims gather tasks first, so it gets there.
+    One past the limit was stopped (runner), or its process is gone and runs.reap closes it."""
+    since = core.now() - timedelta(minutes=config.run_minutes(core.config, "executor"))
     return bool(core.one("SELECT COUNT(*) n FROM runs WHERE user_id=? AND role='executor' AND finished_at IS NULL "
                          "AND started_at > ?", (core.user_id, iso(since)))["n"])
 

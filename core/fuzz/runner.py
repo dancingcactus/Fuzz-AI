@@ -7,7 +7,10 @@ it writes carries the run id.
 
 import json
 import os
+import signal
 import subprocess
+import threading
+import time
 
 from . import adapters, config, files, outputs, runs, scheduler, usage
 from .db import FuzzError
@@ -104,8 +107,12 @@ def _headless(core, adapter, role, rid, model, task_id, verbose, say, ask=None):
                                     read_tools=read_tools, write_dir=write_dir, ask=ask)
     with open(os.path.join(run_dir, "argv.json"), "w") as f:
         json.dump(argv, f, indent=2)
-    proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    # its own process group, so stopping it at the limit stops whatever it started too
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True,
                             env=adapter.run_env(rid), cwd=files_dir or run_dir)   # its working folder is readable too
+    minutes = config.run_minutes(core.config, role)
+    stopped = threading.Event()
+    threading.Thread(target=watch, args=(proc, minutes * 60, stopped), daemon=True).start()
     out = []
     with open(os.path.join(run_dir, "transcript.log"), "w") as log:
         for line in proc.stdout:
@@ -113,6 +120,8 @@ def _headless(core, adapter, role, rid, model, task_id, verbose, say, ask=None):
             log.write(line)
             if verbose:
                 say(line.rstrip())
+        if stopped.is_set():
+            log.write(f"\n[fuzz] stopped: the run went past its {minutes}-minute limit (budget.run_minutes.{role})\n")
     rc = proc.wait()
     text = "".join(out)
     ok = adapter.run_ok(rc, text)
@@ -120,4 +129,31 @@ def _headless(core, adapter, role, rid, model, task_id, verbose, say, ask=None):
         usage.record(core, rid, usage.parse(adapter.name, text))
     except Exception as e:   # noqa: BLE001
         say(f"(couldn't record what the run used: {e})")
-    return ("ok" if ok else "error"), {"returncode": rc, "transcript": os.path.join(run_dir, "transcript.log")}
+    detail = {"returncode": rc, "transcript": os.path.join(run_dir, "transcript.log")}
+    if stopped.is_set():
+        return "timeout", dict(detail, limit_minutes=minutes)
+    return ("ok" if ok else "error"), detail
+
+
+def watch(proc, seconds, stopped, clock=time.monotonic, poll=5.0, grace=10.0):
+    """Stop proc's process group once it has run `seconds`: SIGTERM, then SIGKILL after `grace`. Sets `stopped`
+    when it does. time.monotonic doesn't count time a Mac spends asleep, so a laptop waking up mid-run doesn't
+    end a run that was going fine."""
+    end = clock() + seconds
+    while proc.poll() is None:
+        left = end - clock()
+        if left > 0:
+            time.sleep(min(poll, left))
+            continue
+        stopped.set()
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(proc.pid, sig)
+            except (ProcessLookupError, PermissionError):
+                return
+            until = clock() + grace
+            while proc.poll() is None and clock() < until:
+                time.sleep(0.2)
+            if proc.poll() is not None:
+                return
+        return
