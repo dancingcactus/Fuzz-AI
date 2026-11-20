@@ -31,7 +31,9 @@
   var MAIN = ['goal', 'your_role', 'for', 'status', 'done_when', 'next_milestone'];
   /* "Not part of it" lives in How Fuzz spots it now, as Keeps work out; an old scope_out fact still shows */
   var MORE = ['owner', 'blocked_on', 'cadence'];
-  var MULTI = { 'for': true };   /* several values, one row of chips: For can be a few people or teams */
+  /* several values, one row of chips: a series can be for, owned by and blocked on more than one */
+  var MULTI = { 'for': true, owner: true, blocked_on: true };
+  var picks = [], pickDraft = '';   /* the people picked in an open multi form, and what's typed but not added */
   /* One line on what each fact does. Only what Fuzz really does with it today. */
   var HELP = {
     goal: 'It becomes the line under the name on Series, so you can tell what this is at a glance.',
@@ -40,7 +42,7 @@
     status: 'Where it stands. Fuzz also picks this up from new messages.',
     done_when: 'Fuzz looks for this when it checks whether the series is done.',
     next_milestone: 'As the date gets close, Fuzz suggests getting ready for it.',
-    owner: 'The one person accountable for how it turns out, when that isn’t you. People marks them Owner.',
+    owner: 'Who’s accountable for how it turns out, when that isn’t you (not who it’s for). People marks them Owner.',
     blocked_on: 'Fuzz keeps it with the series, so you can see what it’s waiting for.',
     cadence: 'Fuzz keeps it with the series, so the regular parts are written down.',
     scope_out: 'Fuzz keeps it with the series, so nearby work has a place to go.'
@@ -58,6 +60,7 @@
   function svg(d, w, s) { return '<svg width="' + (s || 16) + '" height="' + (s || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2.4) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
   var PLUS = svg('<path d="M12 5v14M5 12h14"/>', 2.6);
   var XSVG = svg('<path d="M6 6l12 12M18 6L6 18"/>');
+  var CHECK = svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.6);
   var INSVG = svg('<path d="M4 12h11M11 7l5 5-5 5M20 4v16"/>');            /* brings work in: an arrow to a line */
   var OUTSVG = svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 18L18 6"/>'); /* keeps work out: a circle struck through */
   var PEN = svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>', 2.2, 15);
@@ -307,7 +310,7 @@
           all.map(function (x) {
             return '<span class="fchip" title="' + esc(x.source + (x.trust_label ? ' · ' + x.trust_label : '')) + '">' + esc(x.value) +
               (x.fact_id ? '<button type="button" data-wrong="' + x.fact_id + '" data-attr="' + x.attr + '" data-who="' + esc(x.value) + '" aria-label="Take ' + esc(x.value) + ' off ' + esc(ATTR[x.attr]) + '" title="Remove">' + XSVG + '</button>' : '') + '</span>';
-          }).join('') + (adding === f.attr ? '' : '<button type="button" class="gchip small" data-edit="add:' + f.attr + '">' + PLUS + 'Add someone</button>') + '</span>' +
+          }).join('') + (adding === f.attr ? '' : '<button type="button" class="gchip small" data-edit="add:' + f.attr + '">' + PLUS + (f.attr === 'blocked_on' ? 'Add another' : 'Add someone') + '</button>') + '</span>' +
           '<span class="s">' + esc(srcs.join(' · ')) + '</span></span></div></li>';
       }
       if (edit === 'fact:' + f.attr) return '<li class="fact-edit">' + factForm(d, f.attr, f.value) + '</li>';
@@ -338,7 +341,27 @@
     if (attr === 'next_milestone') return (d.deliverables || []).filter(function (x) { return x.due && x.state === 'open'; }).map(function (x) { return x.title + ', ' + new Date(x.due).toLocaleDateString([], { month: 'short', day: 'numeric' }); }).slice(0, 3);
     return [];
   }
+  /* For, Owner, Blocked on: pick several at once. Click people in it to pick them (again to unpick), or type a
+     name and press Enter; each becomes a chip. Save adds them all, one Undo. Add is the form's first button, so
+     Enter adds what's typed instead of saving. */
+  function multiForm(d, attr) {
+    var ids = ideas(d, attr), low = picks.map(function (p) { return p.toLowerCase(); });
+    var extra = picks.filter(function (p) { return ids.map(function (x) { return x.toLowerCase(); }).indexOf(p.toLowerCase()) < 0; });
+    var n = picks.length + (pickDraft.trim() ? 1 : 0);
+    return '<form class="sp-edit sp-multi" data-form="fact" autocomplete="off" data-1p-ignore><input type="hidden" name="attr" value="' + attr + '">' +
+      '<label class="sp-edit-l" for="sp-val">' + esc(ATTR[attr]) + ' <span class="meta">Add as many as you like</span></label>' +
+      (extra.length ? '<div class="fchips">' + extra.map(function (p) {
+        return '<span class="fchip">' + esc(p) + '<button type="button" data-pick-rm="' + esc(p) + '" aria-label="Unpick ' + esc(p) + '">' + XSVG + '</button></span>'; }).join('') + '</div>' : '') +
+      '<div class="ss-inline"><input id="sp-val" name="value" class="fld" type="text" maxlength="200" autocomplete="off" data-1p-ignore value="' + esc(pickDraft) + '" placeholder="' + esc(PH[attr] || 'A name') + ', then Enter">' +
+      '<button class="btn small" data-addpick>Add</button></div>' +
+      (ids.length ? '<div class="sp-ideas" role="group" aria-label="People in it"><span class="meta">People in it:</span>' + ids.map(function (x) {
+        var on = low.indexOf(x.toLowerCase()) >= 0;
+        return '<button type="button" class="gchip solid pick' + (on ? ' on' : '') + '" data-pick="' + esc(x) + '" aria-pressed="' + on + '">' + (on ? CHECK : PLUS) + esc(x) + '</button>'; }).join('') + '</div>' : '') +
+      '<p class="meta">' + HELP[attr] + '</p><div class="sp-edit-acts"><button class="btn small primary" data-savepicks' + (n ? '' : ' disabled') + '>' +
+      (n > 1 ? 'Add these ' + n : 'Save') + '</button><button type="button" class="btn small" data-cancel>Cancel</button></div></form>';
+  }
   function factForm(d, attr, value) {
+    if (MULTI[attr]) return multiForm(d, attr);
     var h = '<form class="sp-edit" data-form="fact"><input type="hidden" name="attr" value="' + attr + '">';
     if (attr === 'your_role') {
       return h + '<span class="sp-edit-l" id="sp-role-l">' + ATTR.your_role + '</span><div class="choices" role="group" aria-labelledby="sp-role-l">' +
@@ -540,6 +563,7 @@
     m.hidden = !m.hidden; btn.setAttribute('aria-expanded', String(!m.hidden));
     if (!m.hidden) { var f0 = m.querySelector('button'); if (f0) f0.focus(); }
   }
+  function keepDraft() { var f = root && root.querySelector('.sp-multi #sp-val'); if (f) pickDraft = f.value; }
   function focusIn(sel) { var f = root && root.querySelector(sel); if (f) { f.focus(); if (f.setSelectionRange && f.value) f.setSelectionRange(f.value.length, f.value.length); } }
   function onKey(e) {
     if (e.key !== 'Escape' || !pageId) return;
@@ -567,7 +591,16 @@
     }
     if (e.target.closest('[data-cancel]')) { edit = null; pend = null; split = null; paint(true); return; }
     var ed = e.target.closest('[data-edit]');
-    if (ed) { closeMenus(); edit = ed.dataset.edit === 'about' ? 'about' : ed.dataset.edit; paint(true); focusIn(edit === 'about' ? '#sp-about' : '#sp-val'); return; }
+    if (ed) { closeMenus(); edit = ed.dataset.edit === 'about' ? 'about' : ed.dataset.edit; picks = []; pickDraft = ''; paint(true); focusIn(edit === 'about' ? '#sp-about' : '#sp-val'); return; }
+    var pk = e.target.closest('[data-pick]');
+    if (pk) {   /* a person in it: pick or unpick; what's typed stays */
+      keepDraft();
+      var name = pk.dataset.pick, at = picks.map(function (p) { return p.toLowerCase(); }).indexOf(name.toLowerCase());
+      if (at >= 0) picks.splice(at, 1); else picks.push(name);
+      paint(true); focusIn('#sp-val'); return;
+    }
+    var pr = e.target.closest('[data-pick-rm]');
+    if (pr) { keepDraft(); picks = picks.filter(function (p) { return p !== pr.dataset.pickRm; }); paint(true); focusIn('#sp-val'); return; }
     var fi = e.target.closest('[data-fill]'); if (fi) { var inp = root.querySelector('#sp-val'); if (inp) { inp.value = fi.dataset.fill; inp.focus(); } return; }
     var rl = e.target.closest('[data-role]'); if (rl) { act('role', { role: rl.dataset.role }, 'Saved. Fuzz shapes what it suggests to your part.', 'Your part in ' + d.name); return; }
     var cf = e.target.closest('[data-confirm]'); if (cf) { act('facts', { fact_id: +cf.dataset.confirm, confirm: true }, 'Thanks. That’s what it’s about now.', 'Confirmed what ' + d.name + ' is about'); return; }
@@ -647,6 +680,19 @@
     e.preventDefault();
     var kind = f.dataset.form, d = data;
     if (kind === 'name') { var v = f.querySelector('#ss-name').value.trim(); if (v) act('name', { name: v }, 'Renamed.', 'Renamed ' + d.name); return; }
+    if (kind === 'fact' && MULTI[f.querySelector('[name="attr"]').value]) {
+      var mattr = f.querySelector('[name="attr"]').value, mfld = f.querySelector('#sp-val'), typed = (mfld.value || '').trim();
+      var addIt = function (v) { if (v && picks.map(function (p) { return p.toLowerCase(); }).indexOf(v.toLowerCase()) < 0) picks.push(v); };
+      if (!e.submitter || e.submitter.hasAttribute('data-addpick')) {   /* Enter or Add: what's typed becomes a chip */
+        addIt(typed); pickDraft = ''; paint(true); focusIn('#sp-val'); return;
+      }
+      addIt(typed);
+      if (!picks.length) { mfld.focus(); return; }
+      var all = picks.slice(), label = ATTR[mattr];
+      act('facts', { attr: mattr, values: all }, all.length > 1 ? 'Added ' + all.length + ' to ' + label + '.' : 'Added ' + all[0] + ' to ' + label + '.',
+        label + ' for ' + d.name).then(function (r) { if (r) { picks = []; pickDraft = ''; } });
+      return;
+    }
     if (kind === 'fact') {
       var attr = f.querySelector('[name="attr"]').value, fld = f.querySelector('[name="value"]'), val = fld ? (fld.value || '').trim() : '';
       if (!val) { if (fld) fld.focus(); return; }
@@ -673,6 +719,12 @@
     }
   }
   function onInput(e) {
+    if (e.target.id === 'sp-val' && e.target.closest('.sp-multi')) {   /* typing a name: Save counts it, no repaint */
+      pickDraft = e.target.value;
+      var n = picks.length + (pickDraft.trim() ? 1 : 0), sv = root.querySelector('[data-savepicks]');
+      if (sv) { sv.disabled = !n; sv.textContent = n > 1 ? 'Add these ' + n : 'Save'; }
+      return;
+    }
     if (e.target.id === 'sp-pq') {   /* Find someone: filters the rows as you type, without repainting */
       var q = e.target.value.trim().toLowerCase();
       root.querySelectorAll('#sp-people > li').forEach(function (li) { li.hidden = !!q && li.dataset.name.indexOf(q) < 0; });

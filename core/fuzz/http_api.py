@@ -658,13 +658,23 @@ class App:
                     raise FuzzError("That fact isn't this series'", "fact_id")
                 facts.reject(core, fid)
             else:
-                attr, value = body.get("attr"), body.get("value")
-                # a list (For: several people) adds a value; one it already has is left as it is
-                have = attr not in facts.SINGLE and any(
-                    f["attr"] == attr and f["state"] == "winner" and facts.norm(f["value"]) == facts.norm(value or "")
-                    for f in facts.for_entity(core, s["entity_id"]))
-                if not have:
-                    facts.edit(core, s["entity_id"], attr, value)
+                attr = body.get("attr")
+                values = body.get("values") if body.get("values") is not None else [body.get("value")]
+                if not isinstance(values, list) or not values:
+                    raise FuzzError("values is a list with at least one", "values")
+                one = facts.single("series", attr)
+                if one and len(values) > 1:
+                    raise FuzzError(f"{attr} takes one value", "values")
+                # a list (For, Owner, Blocked on: several people) adds each value; one it already has is left as it
+                # is. All of them in one transaction, so one Undo takes the lot back.
+                have = set() if one else {facts.norm(f["value"]) for f in facts.for_entity(core, s["entity_id"])
+                                          if f["attr"] == attr and f["state"] == "winner"}
+                with core.tx("human"):
+                    for v in values:
+                        if facts.norm(v or "") in have:
+                            continue
+                        facts.edit(core, s["entity_id"], attr, v)
+                        have.add(facts.norm(v or ""))
         elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have
             if body.get("task_id"):
                 record.link(core, int(body["task_id"]), sid)

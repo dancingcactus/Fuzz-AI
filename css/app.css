@@ -1379,6 +1379,10 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .gmore { position: relative; }
 .gmore .menu { left: 0; right: auto; }
 .gchip.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+/* a multi form: picked people are chips; people in it toggle */
+.sp-multi .sp-edit-l .meta { font-weight: 400; margin-left: 6px; }
+.gchip.pick.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.gchip.pick.on svg { color: var(--accent); }
 /* For: one row, a chip per person or team, each with its own × */
 .sp-facts .fact-multi .fact { cursor: default; grid-template-columns: 120px minmax(0, 1fr); padding-right: 16px; }
 .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 1px 0 3px; }

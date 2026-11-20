@@ -36,8 +36,17 @@ SERIES_ROLES = ("drive", "contribute", "follow")
 ONLY_ON_CHANGE = {"status"}
 # One value at a time: a newer or better-sourced value supersedes the old one. The rest hold several.
 SINGLE = {"role", "team", "company", "manager", "how_met", "works_hours", "definition", "stands_for", "what_it_is",
-          "owner", "relationship", "goal", "your_role", "status", "blocked_on", "next_milestone", "cadence",
+          "owner", "relationship", "goal", "your_role", "for", "status", "blocked_on", "next_milestone", "cadence",
           "done_when"}
+# Single elsewhere, a list on these types: a series can be for, owned by and blocked on several people at once
+MULTI = {"series": {"for", "owner", "blocked_on"}}
+
+
+def single(etype, attr):
+    """One value wins (the rest are superseded, and a close rival is asked about), or every value stands."""
+    return attr in SINGLE and attr not in MULTI.get(etype, ())
+
+
 HOW = ("stated", "extracted", "inferred", "edited")
 SOURCE_KINDS = ("email", "slack", "meeting", "calendar", "doc", "directory", "you", "teams")
 CONFLICT_DAYS = 30   # two equally trusted sources this close together that disagree: ask, don't pick
@@ -315,12 +324,13 @@ def _judge(core, rows, now):
             vals.sort(key=lambda f: trust_mod.order_key(f, f["trust"]))
             ranked.append(vals)
         ranked.sort(key=lambda vals: trust_mod.order_key(vals[0], vals[0]["trust"]))
-        rival = _rival(ranked, judged) if attr in SINGLE else None
+        one = single(etypes.get(fs[0]["entity_id"]), attr)
+        rival = _rival(ranked, judged) if one else None
         pair = {ranked[0][0]["id"], rival["id"]} if rival else set()
         for i, vals in enumerate(ranked):
             # A group stands for its value by its best fact, or by the one the winner is disputed with.
             best = next((f for f in vals if f["id"] in pair), vals[0])
-            state = "winner" if i == 0 or attr not in SINGLE else "superseded"
+            state = "winner" if i == 0 or not one else "superseded"
             best = dict(best, state=state, disputed=best["id"] in pair,
                         sources=[_source(f) for f in vals], corroborated=len(vals))
             out.append(best)
@@ -463,10 +473,12 @@ def for_entity(core, eid, now=None, include_all=False):
 def winners(core, eid, now=None):
     """{attr: value or [values]}, the record as it stands."""
     out = {}
+    e = entity(core, eid)
+    etype = e["type"] if e else None
     for f in for_entity(core, eid, now):
         if f["state"] != "winner":
             continue
-        if f["attr"] in SINGLE:
+        if single(etype, f["attr"]):
             out[f["attr"]] = f["value"]
         else:
             out.setdefault(f["attr"], []).append(f["value"])

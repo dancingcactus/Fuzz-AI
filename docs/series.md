@@ -201,8 +201,10 @@ Series, Person, Source, Artifact, Upload a file.
   list; the gaps are dashed **+ Goal**-style chips that open a form shaped for that fact (Your part is three
   choices that save on a click; For / Owner / Blocked on offer its people; Done when and Next milestone offer
   its deliverables), each with one line on what Fuzz does with it, and **+ Something else** for Owner,
-  Blocked on and Rhythm. **For** holds several values (a customer, a team, people): one row with a chip each,
-  each with its own ×, and **+ Add someone**; **Owner** is the one person accountable when it isn't you;
+  Blocked on and Rhythm. **For**, **Owner** and **Blocked on** hold several values: one row with a chip each,
+  each with its own ×, and **+ Add someone** (Blocked on: + Add another). Their form picks several at once:
+  "Add as many as you like", people in it toggle on, a typed name becomes a chip on Enter, and Save ("Add
+  these 3") adds them all, one Undo. For is who the work serves; Owner is who's accountable when it isn't you;
   **Tasks** (Open / Done, with **Add a task to …**, which goes to
   Triage already in the series); **Artifacts** (what Fuzz wrote for its tasks, newest 4, then Show all);
   **People** (ranked by how many of its tasks they're in, with how they're in it; past 5 the top 4, then
@@ -323,8 +325,10 @@ How it's wired:
     asks). `artifacts` is `outputs.for_tasks` over its members.
 - `POST /series/<id>/facts`: `{attr, value}` adds or replaces (yours, confirmed); `{fact_id}` rejects it (the
   ×); `{fact_id, confirm: true}` confirms it (Looks right). A `fact_id` must be this series' (its entity or
-  one merged into it). Each is one event, so one Undo. `for` is no longer single-valued (`facts.SINGLE`):
-  `{attr: "for", value}` adds a value, and one it already has (same words) is left as it is.
+  one merged into it). Each is one event, so one Undo. On a series, `for`, `owner` and `blocked_on` are lists
+  (`facts.MULTI`, checked by `facts.single(etype, attr)`; they stay single on orgs, tools, documents, tickets
+  and areas): `{attr, values: [...]}` adds each in one transaction (one Undo), skipping one it already has
+  (same words); `{attr, value}` still works. A single attribute refuses more than one value.
 - `POST /series/<id>/anchors`: `{exclude: [text]}` keeps new work that says it out (a `series_anchors` row
   with `how='exclude'`; it replaces whatever that key was, so it can't bring work in too) and
   `{unexclude: [key]}` takes it back (`how='unexcluded'`, not a removal). `Index.excluded(sid)`;

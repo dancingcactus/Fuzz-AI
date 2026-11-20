@@ -136,9 +136,11 @@ def _people_detail(core, members, owner=None, limit=60):
             b["sent"] += "sent" in kinds
             b["waiting"] += "waiting" in kinds and live
     out = []
+    # owner: one name or several (Owner holds more than one now)
+    owners = {o.strip().lower() for o in ([owner] if isinstance(owner, str) else (owner or [])) if o}
     for b in sorted(book.values(), key=lambda b: (-b["tasks"], b["name"].lower())):
         how = []
-        if owner and owner.strip().lower() == b["name"].lower():
+        if b["name"].lower() in owners:
             how.append("Owner")
         if b["waiting"]:
             how.append("You’re waiting on them")
@@ -189,7 +191,7 @@ def sheet(core, sid):
                        "ORDER BY COALESCE(decided_at, captured_at) DESC LIMIT 10", (core.user_id, *keys)) if keys else []
     out["decided"] = [{"id": d["id"], "what": d["what"], "why": d.get("why"), "at": d.get("decided_at") or d["captured_at"],
                        "link": d.get("link")} for d in decided]
-    owner = next((f["value"] for f in out["knows"] if f["attr"] == "owner"), None)
+    owner = [f["value"] for f in out["knows"] if f["attr"] == "owner"]
     out["people"] = _people_detail(core, sorted(members), owner)
     from .. import outputs
     out["artifacts"] = outputs.for_tasks(core, members)

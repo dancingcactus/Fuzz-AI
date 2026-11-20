@@ -139,6 +139,41 @@ class ForMany(Server, SeriesCase):
         self.assertEqual(len([k for k in self.req("GET", f"/series/{sid}")[1]["knows"] if k["attr"] == "for"]), 2)
 
 
+class SeveralAtOnce(Server, SeriesCase):
+    def test_several_people_in_one_save_are_one_undo(self):
+        sid = self.make_series()
+        status, sh = self.req("POST", f"/series/{sid}/facts", {"attr": "for", "values": ["Acme", "Lena Fischer", "acme"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(sorted(k["value"] for k in sh["knows"] if k["attr"] == "for"), ["Acme", "Lena Fischer"])
+        group = [u for u in self.req("GET", "/undo")[1]["recent"] if u["by"] == "human"][0]["group"]
+        self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
+        self.assertEqual([k for k in self.req("GET", f"/series/{sid}")[1]["knows"] if k["attr"] == "for"], [], "one Undo, all of them")
+
+    def test_owner_and_blocked_on_take_several_on_a_series_and_people_marks_every_owner(self):
+        sid = self.make_series()
+        self.req("POST", f"/series/{sid}/facts", {"attr": "owner", "values": ["Ana Costa", "Ben Okafor"]})
+        self.req("POST", f"/series/{sid}/facts", {"attr": "blocked_on", "values": ["Legal review", "Ben Okafor"]})
+        sh = self.req("GET", f"/series/{sid}")[1]
+        self.assertEqual(sorted(k["value"] for k in sh["knows"] if k["attr"] == "owner"), ["Ana Costa", "Ben Okafor"])
+        self.assertEqual(len([k for k in sh["knows"] if k["attr"] == "blocked_on"]), 2)
+        self.assertEqual(sorted(facts.winners(self.core, record.get(self.core, sid)["entity_id"])["owner"]), ["Ana Costa", "Ben Okafor"])
+
+    def test_a_single_fact_refuses_a_list(self):
+        sid = self.make_series()
+        self.assertEqual(self.req("POST", f"/series/{sid}/facts", {"attr": "goal", "values": ["One", "Two"]})[0], 400)
+        self.assertEqual(self.req("POST", f"/series/{sid}/facts", {"attr": "for", "values": []})[0], 400)
+
+    def test_owner_stays_single_on_other_kinds_of_things(self):
+        from fuzz.matching import entities
+        with self.core.tx():
+            eid, _ = entities.resolve_ticket(self.core, "NW-342")
+        facts.add(self.core, eid, "owner", "Ana Costa", source_ref="a")
+        facts.add(self.core, eid, "owner", "Ben Okafor", source_ref="b")
+        self.assertIsInstance(facts.winners(self.core, eid)["owner"], str)
+        self.assertTrue(facts.single("ticket", "owner"))
+        self.assertFalse(facts.single("series", "owner"))
+
+
 class ExcludeApi(Server, SeriesCase):
     def test_exclude_through_the_api_with_undo(self):
         sid = self.make_series()
