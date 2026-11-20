@@ -605,7 +605,8 @@ def tick(core):
     out["deliverables"] = deliverables.release(core)   # Monday's review, and the weekday cards
     out["memory"] = _memory_tick(core)   # the Knowledge files, memory's cards
     from . import learning
-    out["lessons"] = learning.run(core)   # SQL only: lessons follow your corrections; scoring stays a command
+    out["lessons"] = learning.run(core)   # SQL only: lessons follow your corrections
+    out["lesson_tests"] = learning.test_waiting(core)   # the gate: a lesson waiting to go live gets its eval, in the background
     from . import draft_evals, spotcheck
     out["spot_checks"] = len(spotcheck.raise_cards(core))   # a few a week: Fuzz checking its own work
     out["draft_cases"] = draft_evals.collect(core)   # SQL only: each approved draft is a case for the draft evals

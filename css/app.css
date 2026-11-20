@@ -1254,6 +1254,9 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 
 /* Evals: a debugging page (js/view-evals.js) */
 .evals .ev-h { margin: 24px 0 8px; font-size: 18px; }
+.ev-model { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 12px 0 0; }
+.ev-model label { font-weight: 600; font-size: 14px; }
+.ev-model input { min-width: 0; width: min(260px, 100%); font-family: var(--font-code); font-size: 13px; }
 .ev-latest { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 12px 0 20px; }
 .ev-card { display: grid; gap: 4px; padding: 12px 14px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 12px; color: inherit; text-decoration: none; }
 .ev-card:hover, .ev-card:focus-visible { border-color: var(--accent); }

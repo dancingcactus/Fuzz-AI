@@ -562,7 +562,7 @@ class App:
         from . import eval_jobs
         limit = q.get("limit") or "100"
         return dict(evals.run_list(core, limit=int(limit) if str(limit).isdigit() else 100),
-                    jobs=eval_jobs.listing(core))
+                    jobs=eval_jobs.listing(core), models=eval_jobs.models(core))
 
     def eval_labels(self, core, m, body, q):
         """The messages to label for the personal evals, and the cases already made (labels.py)."""
@@ -587,7 +587,7 @@ class App:
         """Start one eval in the background (the Evals page's Run button). It costs model calls, so only on a POST."""
         from . import eval_jobs
         body = body or {}
-        return eval_jobs.start(core, body.get("surface"), body.get("set") or "all")
+        return eval_jobs.start(core, body.get("surface"), body.get("set") or "all", model=body.get("model"))
 
     def stop_eval_job(self, core, m, body, q):
         from . import eval_jobs

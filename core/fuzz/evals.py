@@ -26,7 +26,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from . import adapters, learning
-from .config import role_engine
+from .config import eval_engine
 from .db import FuzzError, iso
 
 SURFACES = {"extract": "fuzz-extract"}
@@ -44,7 +44,9 @@ FORMATS = {1}            # the global case file shapes this harness reads
 # an executor case's behaviour to check
 KINDS = {"extract": ("keep", "skip"), "draft": ("reference", "rules"), "executor": ("behaviour",),
          # a series suggestion's outcome (series/ask.py): wanted (Add it, I'll do it) or not_needed
-         "series_suggest": ("wanted", "not_needed")}
+         "series_suggest": ("wanted", "not_needed", "behaviour"),
+         # global only, invented: a sender's or recall's behaviour to check, a check-in's order (priority_evals)
+         "send": ("behaviour",), "recall": ("behaviour",), "priority": ("order",)}
 SETS = ("all", "global", "personal")
 
 
@@ -502,7 +504,7 @@ def _call_model(core, adapter, model, runner, workers, prompts):
 
 
 def _engine(core, client, model, runner):
-    client, model = role_engine(core.config, "extractor", client, model)
+    client, model = eval_engine(core.config, "extractor", client, model)
     adapter = adapters.get(client) if client in adapters.ADAPTERS else None
     if runner is None and adapter is None:
         raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
@@ -717,6 +719,11 @@ def _app_changes(before, after):
     changes, unknown = [], []
     for col, name in APP_FIELDS:
         a, b = before.get(col), after.get(col)
+        if col == "model" and (a is None or b is None) and "stub" not in (before.get("client"), after.get("client")):
+            # no model pinned: the client's default, which can change under it. Two unpinned runs aren't "the
+            # same model", so say it can't be told (pin one with --model or evals.model)
+            unknown.append(name)
+            continue
         if a == b or (col == "skill_copy" and _skill_source(before) == _skill_source(after)):
             continue
         if col == "judge" and (a is None or b is None):   # runs before judges were versioned

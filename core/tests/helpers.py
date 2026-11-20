@@ -47,7 +47,8 @@ class CoreCase(unittest.TestCase):
         cfg["embedder"] = "hash"
         cfg["tz"] = "UTC"
         # spot checks would add cards to every ticked queue; test_spotcheck turns them on
-        cfg["evals"] = {"spot_checks_per_week": 0, "run_checks_per_week": 0}
+        # and the lesson gate's evals would start processes from the tick; test_learning turns them on, with a stand-in
+        cfg["evals"] = {"spot_checks_per_week": 0, "run_checks_per_week": 0, "test_lessons": False}
         config.save(self.home, cfg)
         self.clock = Clock()
         self.core = self.make_core()

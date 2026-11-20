@@ -66,11 +66,23 @@ def _interactions(core, eid, limit=6):
 
 def _entity_answer(core, eid, surface="recall", record=True):
     e = facts.entity(core, eid)
-    fs = [f for f in facts.for_entity(core, eid) if f["state"] == "winner"]
+    every = facts.for_entity(core, eid)
+    fs = [f for f in every if f["state"] == "winner"]
+    # a disputed winner carries the value it's disputed with: the skill says to give both, with their sources
+    # (found by the recall evals: a disputed answer could only ever name one side)
+    rivals = {f["attr"]: f for f in every if f["state"] != "winner" and f.get("disputed")}
+
+    def fact(f):
+        out = _fact_out(core, f)
+        r = rivals.get(f["attr"]) if f.get("disputed") else None
+        if r:
+            out["disputed_with"] = {"fact_id": r["id"], "value": r["value"], "trust": _label(r["trust"]["level"]),
+                                    "sources": [_src(core, s) for s in r.get("sources") or []]}
+        return out
     kn, ds = knowledge.for_entity(core, eid)
     out = {"entity_id": eid, "type": e["type"], "name": entities.display_name(core.conn, e),
            "aliases": [a["alias"] for a in core.all("SELECT alias FROM aliases WHERE entity_id=?", (eid,))],
-           "facts": [_fact_out(core, f) for f in fs],
+           "facts": [fact(f) for f in fs],
            "knowledge": [{"knowledge_id": k["id"], "kind": k["kind"], "title": k["title"], "summary": k["summary_md"],
                           "link": k["link"], "when": k["source_ts"]} for k in kn[:5]],
            "decisions": [_decision_out(core, d) for d in ds[:5]]}

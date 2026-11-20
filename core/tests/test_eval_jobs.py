@@ -31,6 +31,26 @@ class Jobs(CoreCase):
         self.assertEqual((env["FUZZ_HOME"], env["FUZZ_USER"]), (self.home, "1"))
         self.assertEqual(j["status"], "running")
 
+    def test_the_model_chosen_goes_on_the_command(self):
+        j = eval_jobs.start(self.core, "extract", spawn=self.fake(), model="gpt-5.2")
+        argv, _ = self.spawned[0]
+        self.assertEqual(argv[-2:], ["--model", "gpt-5.2"])
+        self.assertEqual(eval_jobs.get(self.core, j["id"])["model"], "gpt-5.2")
+        eval_jobs.start(self.core, "dupes", spawn=self.fake(), model="gpt-5.2")   # a replay has no model to pin
+        self.assertNotIn("--model", self.spawned[0][0])
+
+    def test_a_model_that_isnt_a_name_is_refused(self):
+        for bad in ("--help", "a b", "x;rm -rf /", "-m"):
+            with self.assertRaises(FuzzError):
+                eval_jobs.start(self.core, "extract", spawn=self.fake(), model=bad)
+
+    def test_the_run_button_offers_the_pinned_model_first(self):
+        self.core.update_config(lambda c: c.update(evals={"model": "pinned-1"}, engine={"client": "copilot", "model": "eng-1"}))
+        self.core.q("INSERT INTO eval_runs (user_id, ts, surface, repeats, lessons, results, gate_ok, model) "
+                    "VALUES (1, ?, 'extract', 1, '[]', '[]', 1, 'old-1')", (self.core.now_iso(),))
+        m = eval_jobs.models(self.core)
+        self.assertEqual((m["pinned"], m["engine"], m["client"], m["seen"]), ("pinned-1", "eng-1", "copilot", ["old-1"]))
+
     def test_one_at_a_time_per_eval(self):
         eval_jobs.start(self.core, "extract", spawn=self.fake())
         with self.assertRaises(FuzzError) as e:

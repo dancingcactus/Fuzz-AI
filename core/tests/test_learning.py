@@ -1,6 +1,7 @@
 """Lessons from your corrections: the learner makes them, you use or turn them off, real runs and evals read them."""
 
 import json
+import os
 
 from helpers import CoreCase
 from test_evals import SEEDS, Stub, message_of
@@ -39,11 +40,19 @@ class Lessons(CoreCase):
     def lessons(self):
         return {x["kind"]: x for x in learning.listing(self.core)}
 
-    def test_a_missed_message_you_confirmed_is_an_active_keep_example(self):
+    def passes(self, kind, run_id=99):
+        """Its eval run passed: what test_waiting's job does, by hand."""
+        learning.scored(self.core, [self.lessons()[kind]["id"]], run_id, True)
+        return self.lessons()[kind]
+
+    def test_a_missed_message_you_confirmed_is_tested_then_an_active_keep_example(self):
         self.missed_yes()
         self.assertEqual(learning.run(self.core)["added"], 1)
         x = self.lessons()["keep"]
-        self.assertEqual((x["status"], x["how"]), ("active", "confirmed"))
+        self.assertEqual((x["status"], x["how"]), ("testing", "confirmed"))
+        self.assertEqual(tools.whoami(self.core, "extractor")["lessons"], "", "not read until it passed")
+        x = self.passes("keep")
+        self.assertEqual((x["status"], x["eval_ok"]), ("active", 1))
         self.assertEqual(x["example"]["quote"], FOUND["quote"])
         self.assertEqual(x["example"]["ask"], "Send Dana the venue contract")
         self.assertIn("Dana Ortiz", x["rule"])
@@ -60,9 +69,12 @@ class Lessons(CoreCase):
         self.assertEqual(x["status"], "proposed")
         self.assertEqual(tools.whoami(self.core, "extractor")["lessons"], "")
         learning.use(self.core, x["id"])
-        self.assertIn("Weekly digest", tools.whoami(self.core, "extractor")["lessons"])
-        actions.undo(self.core)
+        self.assertEqual(self.lessons()["skip"]["status"], "testing")
+        actions.undo(self.core)   # your yes, before its eval ran
         self.assertEqual(self.lessons()["skip"]["status"], "proposed")
+        learning.use(self.core, x["id"])
+        self.passes("skip")
+        self.assertIn("Weekly digest", tools.whoami(self.core, "extractor")["lessons"])
         self.assertEqual(events.check_replay(self.core), [])
 
     def test_a_lesson_you_turned_off_stays_off(self):
@@ -76,12 +88,19 @@ class Lessons(CoreCase):
     def test_undoing_the_label_retires_the_lesson_and_a_new_yes_brings_it_back(self):
         tid = self.missed_yes()
         learning.run(self.core)
-        actions.undo(self.core)
+        self.passes("keep")
+        actions.undo(self.core, next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")["group"])
         self.assertEqual(learning.run(self.core)["retired"], 1)
         self.assertEqual(self.lessons(), {})
         answers.answer(self.core, self.card_for(tid, "missed")["id"], "yes")
         self.assertEqual(learning.run(self.core)["restored"], 1)
-        self.assertEqual(self.lessons()["keep"]["status"], "active")
+        self.assertEqual(self.lessons()["keep"]["status"], "active", "the same lesson: its pass still counts")
+
+    def test_a_testing_lesson_is_retired_with_its_label(self):
+        self.missed_yes()
+        learning.run(self.core)
+        actions.undo(self.core, next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")["group"])
+        self.assertEqual(learning.run(self.core)["retired"], 1)
 
     def test_undoing_not_a_task_retires_its_example(self):
         self.not_task()
@@ -93,6 +112,7 @@ class Lessons(CoreCase):
     def test_an_expired_case_keeps_its_lesson(self):
         self.missed_yes()
         learning.run(self.core)
+        self.passes("keep")
         self.clock.advance(days=evals.KEEP_DAYS + 1)
         evals.sweep(self.core)
         learning.run(self.core)
@@ -107,6 +127,7 @@ class Lessons(CoreCase):
         self.missed_yes()
         self.not_task()
         learning.run(self.core)
+        self.passes("keep", run_id=0)
         keep, skip = self.lessons()["keep"], self.lessons()["skip"]
         SEEDS.extend([{"input": {"text": TEXT}, "expected": {"has_my_ask": True}},
                       {"input": {"text": "Can someone review the Q3 plan? It's in the drive."}, "expected": {"has_my_ask": False}}])
@@ -118,19 +139,77 @@ class Lessons(CoreCase):
         self.assertNotIn("venue contract by Friday", own[0].split("## What you've learned")[-1] if "## What" in own[0] else "",
                          "never scored with its own example")
         self.assertTrue(all("venue contract" in p for p in stub.prompts if message_of(p)["text"] != TEXT))
-        self.assertIsNone(self.lessons()["keep"]["eval_run"], "a plain run blames or credits no lesson")
+        self.assertEqual(self.lessons()["keep"]["eval_run"], 0, "a plain run blames or credits no lesson")
         both = evals.run(self.core, repeats=1, runner=Stub(), trying=skip["id"])
         self.assertEqual({x["id"] for x in both["lessons"]}, {keep["id"], skip["id"]})
         self.assertEqual((self.lessons()["skip"]["eval_run"], self.lessons()["skip"]["eval_ok"]), (both["id"], 1))
-        self.assertIsNone(self.lessons()["keep"]["eval_run"], "only the lesson tried takes the result")
+        self.assertEqual(self.lessons()["keep"]["eval_run"], 0, "only the lesson tried takes the result")
 
-    def test_a_lesson_that_failed_its_gate_cant_be_used(self):
+    def test_a_lesson_that_failed_its_gate_isnt_used_and_use_tests_it_again(self):
         self.not_task()
         learning.run(self.core)
         x = self.lessons()["skip"]
+        learning.use(self.core, x["id"])
         learning.scored(self.core, [x["id"]], 1, False)
-        with self.assertRaises(FuzzError):
-            learning.use(self.core, x["id"])
+        x = self.lessons()["skip"]
+        self.assertEqual((x["status"], x["eval_ok"]), ("proposed", 0))
+        self.assertIn("worse", x["eval_note"])
+        self.assertEqual(tools.whoami(self.core, "extractor")["lessons"], "")
+        learning.use(self.core, x["id"])
+        x = self.lessons()["skip"]
+        self.assertEqual((x["status"], x["eval_ok"]), ("testing", None), "the gate decides again, never you alone")
+
+    def test_with_the_gate_off_a_lesson_goes_live_at_once(self):
+        self.core.update_config(lambda c: c["evals"].update(gate_lessons=False))
+        self.missed_yes()
+        learning.run(self.core)
+        self.assertEqual(self.lessons()["keep"]["status"], "active")
+
+    def test_a_new_example_is_a_new_lesson_and_is_tested_again(self):
+        self.missed_yes()
+        learning.run(self.core)
+        x = learning.get(self.core, self.passes("keep")["id"])
+        self.core.q("UPDATE eval_cases SET quote='a different quote' WHERE id=?", (x["case_id"],))
+        learning.run(self.core)
+        x = self.lessons()["keep"]
+        self.assertEqual((x["status"], x["eval_ok"]), ("testing", None))
+
+    def test_the_tick_starts_one_eval_per_kind_and_says_why_others_wait(self):
+        from fuzz import eval_jobs
+        self.core.update_config(lambda c: (c["evals"].update(test_lessons=True), c.update(engine={"client": "copilot"})))
+        self.missed_yes()
+        self.not_task()
+        learning.run(self.core)
+        learning.use(self.core, self.lessons()["skip"]["id"])
+        spawned = []
+
+        def spawn(argv, env, log):
+            spawned.append(argv)
+            return os.getpid()
+        out = learning.test_waiting(self.core, spawn=spawn)
+        self.assertEqual((out["started"], out["waiting"]), (1, 1))
+        keep, skip = self.lessons()["keep"], self.lessons()["skip"]
+        self.assertEqual(spawned[0][-2:], ["--try", str(keep["id"])])
+        self.assertTrue(keep["eval_note"].startswith("job:"))
+        self.assertIn("another run", skip["eval_note"])
+        self.assertEqual(learning.test_waiting(self.core, spawn=spawn)["started"], 0, "one at a time")
+        job = int(keep["eval_note"][4:])
+        eval_jobs.finished(self.core, job, "boom")   # it made no run: it failed
+        self.assertEqual(learning.test_waiting(self.core, spawn=spawn)["stopped"], 1)
+        keep = self.lessons()["keep"]
+        self.assertEqual(keep["status"], "proposed")
+        self.assertIn("boom", keep["eval_note"])
+
+    def test_without_a_client_a_testing_lesson_says_so(self):
+        self.core.update_config(lambda c: c["evals"].update(test_lessons=True))
+        self.missed_yes()
+        learning.run(self.core)
+        self.assertEqual(learning.test_waiting(self.core)["waiting"], 1)
+        self.assertIn("no client", self.lessons()["keep"]["eval_note"])
+
+    def test_a_matcher_threshold_is_scored_by_the_replay_that_proposed_it(self):
+        self.assertEqual(learning.gated(self.core, "dupes"), "active")
+        self.assertEqual(learning.gated(self.core, "extract"), "testing")
 
     def test_a_taken_back_yes_never_returns_however_its_case_ends(self):
         for end in ("skip", "expire"):
@@ -150,7 +229,9 @@ class Lessons(CoreCase):
     def test_use_and_turn_off_only_from_where_they_make_sense(self):
         self.missed_yes()
         learning.run(self.core)
-        x = self.lessons()["keep"]
+        with self.assertRaises(FuzzError):
+            learning.use(self.core, self.lessons()["keep"]["id"])   # testing: the gate has it
+        x = self.passes("keep")
         with self.assertRaises(FuzzError):
             learning.use(self.core, x["id"])   # already in use
         actions.undo(self.core, next(g for g in events.undo_list(self.core, 30) if g["type"] == "task.missed_confirmed")["group"])

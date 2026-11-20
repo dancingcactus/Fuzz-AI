@@ -73,7 +73,8 @@ class NotNeeded(SeriesCase):
             answers.answer(self.core, self.stall_card(sid, n), "not_needed")
         learning.run(self.core)
         lesson = self.core.one("SELECT * FROM lessons WHERE surface='series_suggest'")
-        self.assertEqual((lesson["status"], lesson["key"]), ("active", f"series:{sid}:stall"))
+        self.assertEqual((lesson["status"], lesson["key"]), ("testing", f"series:{sid}:stall"))
+        learning.scored(self.core, [lesson["id"]], 1, True)   # its eval (series_evals) passed
         cases = self.core.all("SELECT kind FROM eval_cases WHERE surface='series_suggest'")
         self.assertEqual([c["kind"] for c in cases], ["not_needed", "not_needed"])
         self.clock.advance(days=12)

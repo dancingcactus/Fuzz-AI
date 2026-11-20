@@ -235,7 +235,8 @@ def _next(core, card, s, p, option, v):
                 json.dumps({"key": p.get("key"), "detector": p.get("detector"), "outcome": option, "title": title})))
         from .. import evals   # the outcome is an eval case, for scoring the detectors later
         evals.add_case(core, "series_suggest", "not_needed" if option == "not_needed" else "wanted",
-                       {"series": s["name"], "detector": p.get("detector"), "title": p.get("title"), "why": p.get("why")},
+                       {"series": s["name"], "series_id": s["id"], "detector": p.get("detector"), "title": p.get("title"),
+                        "why": p.get("why")},   # the id: a lesson that hides a kind is keyed by it (series_evals)
                        {"wanted": option != "not_needed", "option": option}, f"series_card:{card['id']}")
         if option in ("add", "mine"):
             if not title:

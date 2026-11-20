@@ -336,9 +336,11 @@
   }
 
   /* ---------- What I've learned ---------- */
-  /* Each message you corrected me on is an example I read before judging new ones. A missed ask counts as soon as
-     you confirm it; one you said held nothing waits for your OK here, since it changes what I leave out. */
-  var LEARNED = [['keep', 'Asks I missed'], ['skip', 'What isn’t a task'], ['dupes', 'How I spot duplicates'], ['draft', 'How I write']];
+  /* Each message you corrected me on is an example I read before judging new ones. A missed ask is tested as soon as
+     you confirm it; one you said held nothing waits for your OK here, since it changes what I leave out. Either goes
+     live only after a test run with it broke nothing (the lesson gate, learning/__init__.py). */
+  var LEARNED = [['keep', 'Asks I missed'], ['skip', 'What isn’t a task'], ['dupes', 'How I spot duplicates'], ['draft', 'How I write'],
+    ['series_suggest', 'What I suggest in a series']];
   /* extraction's lessons group by keep or skip; every other surface is a group of its own */
   function learnedGroup(x) { return x.surface && x.surface !== 'extract' ? x.surface : x.kind; }
   function learnedHTML() {
@@ -346,11 +348,16 @@
     var body = all.length ? LEARNED.map(function (g) {
       var rows = all.filter(function (x) { return learnedGroup(x) === g[0]; }); if (!rows.length) return '';
       return '<h3>' + g[1] + '</h3><ul class="set-apps">' + rows.map(function (x) {
-        var b = busy['lesson-' + x.id], failed = x.eval_ok === 0;
-        var tag = x.status === 'active' ? ['In use', 'ok'] : x.status === 'off' ? ['Off', 'muted'] : failed ? ['Made me worse in testing', 'warn'] : ['Waiting for your OK', 'accent'];
-        var acts = b ? '' : (x.status !== 'active' && !failed ? '<button type="button" class="btn small" data-lesson="use" data-id="' + x.id + '">' + (x.status === 'off' ? 'Turn back on' : 'Use it') + '</button>' : '') +
+        var b = busy['lesson-' + x.id], failed = x.eval_ok === 0 && x.status === 'proposed';
+        /* the gate (docs/evals.md): a lesson goes live only once a test run with it broke nothing */
+        var tag = x.status === 'active' ? ['In use', 'ok'] : x.status === 'off' ? ['Off', 'muted'] : x.status === 'testing' ? ['Testing', 'accent']
+          : failed ? ['Made me worse in testing', 'warn'] : ['Waiting for your OK', 'accent'];
+        var note = x.eval_note ? (/^job:/.test(x.eval_note) ? 'Testing it now. It goes live if nothing that worked before breaks.' : x.eval_note) : '';
+        var acts = b ? '' : (x.status === 'proposed' || x.status === 'off' ? '<button type="button" class="btn small" data-lesson="use" data-id="' + x.id + '">' +
+            (x.status === 'off' ? 'Turn back on' : failed ? 'Test it again' : 'Use it') + '</button>' : '') +
           (x.status !== 'off' ? '<button type="button" class="btn small" data-lesson="off" data-id="' + x.id + '">Turn off</button>' : '');
-        return '<li class="set-app"><div><span>' + esc(x.rule) + '</span> ' + UI.pill(b || tag[0], b ? 'accent' : tag[1]) + '</div><div class="segrow">' + acts + '</div></li>';
+        return '<li class="set-app"><div><span>' + esc(x.rule) + '</span> ' + UI.pill(b || tag[0], b ? 'accent' : tag[1]) +
+          (note && x.status !== 'active' ? '<p class="meta">' + esc(note) + '</p>' : '') + '</div><div class="segrow">' + acts + '</div></li>';
       }).join('') + '</ul>';
     }).join('') : '<p class="meta">Nothing yet. When you tell me a message held nothing for you, or that I missed an ask, I learn from it here.</p>';
     return section('learned', 'What I’ve learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
@@ -360,7 +367,9 @@
   function lessonAction(what, id) {
     busy['lesson-' + id] = what === 'use' ? 'Turning on…' : 'Turning off…'; repaint('learned');
     return Live.lessonAction(id, what).then(function () { return Live.lessons(); }).then(function (r) {
-      data.lessons = r.lessons; delete busy['lesson-' + id]; repaint('learned'); said('learned', what === 'use' ? 'On. I’ll use it from now on.' : 'Off. I won’t use it.');
+      data.lessons = r.lessons; delete busy['lesson-' + id]; repaint('learned');
+      var now = r.lessons.filter(function (x) { return x.id === id; })[0];
+      said('learned', what !== 'use' ? 'Off. I won’t use it.' : now && now.status === 'testing' ? 'I’ll test it first, and use it once nothing breaks.' : 'On. I’ll use it from now on.');
     }, function (e) { delete busy['lesson-' + id]; repaint('learned'); said('learned', 'That didn’t work: ' + e.message); });
   }
 

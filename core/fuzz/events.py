@@ -29,6 +29,7 @@ EVENT_TYPES = {
     # lessons (learning/): the learner adds, retires and restores them; you use or turn one off; evals score them
     "lesson.added", "lesson.retired", "lesson.restored", "lesson.used", "lesson.turned_off", "lesson.scored",
     "lesson.updated",      # a learner's evidence grew: new wording, or an inferred lesson went live
+    "lesson.tested",       # the gate: its eval started, is waiting (and why), or stopped without a result
     "eval.spot_checked",   # you answered one of Fuzz's checks on its own work (spotcheck.py)
     "task.doing", "task.paused",   # Do it now opened the working card; Pause put it back in the list
     "task.block_started", "task.block_ended", "task.block_missed", "task.block_extended",   # booked time
