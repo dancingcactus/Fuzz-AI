@@ -138,13 +138,29 @@ class StyleLearner(Base):
         self.edit_and_approve(title="Reply 3")
         learning.run(self.core)
         got = self.lessons()
-        self.assertEqual(got["draft:no_greeting"]["status"], "active")
+        self.assertEqual(got["draft:no_greeting"]["status"], "testing", "the evidence agrees: now its eval decides")
         self.assertIn("3 of their last 3", got["draft:no_greeting"]["rule"])
+        learning.scored(self.core, [got["draft:no_greeting"]["id"]], 1, True)
+        self.assertEqual(self.lessons()["draft:no_greeting"]["status"], "active")
+        self.edit_and_approve(title="Reply 4")
+        learning.run(self.core)
+        self.assertEqual(self.lessons()["draft:no_greeting"]["status"], "active", "new counts are new wording, not a new rule")
+
+    def test_a_style_lesson_is_tried_on_the_draft_evals(self):
+        for n in range(3):
+            self.edit_and_approve(title=f"Reply {n}")
+        learning.run(self.core)
+        x = self.lessons()["draft:no_greeting"]
+        run = draft_evals.run(self.core, sets="global", runner=lambda argv, p: '{"broken": []}', trying=x["id"])
+        self.assertIn(x["id"], [y["id"] for y in run["lessons"]])
+        self.assertEqual((self.lessons()["draft:no_greeting"]["status"], self.lessons()["draft:no_greeting"]["eval_run"]),
+                         ("active", run["id"]))
 
     def test_the_executor_reads_them_from_whoami(self):
         for n in range(3):
             self.edit_and_approve(title=f"Reply {n}")
         learning.run(self.core)
+        learning.scored(self.core, [self.lessons()["draft:no_greeting"]["id"]], 1, True)
         w = tools.whoami(self.core, "executor")
         self.assertIn("How this person writes", w["draft_lessons"])
         self.assertIn("Leave out the greeting", w["draft_lessons"])

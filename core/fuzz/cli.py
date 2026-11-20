@@ -393,7 +393,7 @@ def _cmd_eval(a):
             with open(path) as f:
                 return json.load(f)
         run = draft_evals.run(core, sets=a.set, lessons=lessons_file(a.lessons), repeats=a.repeats or 1,
-                              client=a.client, model=a.model, against=a.against, ref=a.base_ref)
+                              client=a.client, model=a.model, against=a.against, ref=a.base_ref, trying=a.trying)
         _print(evals.summary(core, run))
         if not run["gate_ok"]:
             sys.exit(1)

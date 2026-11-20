@@ -242,9 +242,10 @@ def _median(xs):
 
 
 def run(core, sets="all", lessons=None, repeats=1, runner=None, client=None, model=None, against=None, workers=4,
-        ref=None):
+        ref=None, trying=None):
     """Write a fresh draft for each case and score it: personal cases against what you sent (point by point,
-    plus how much changed), global ones against their rules. Recorded and gated like any run."""
+    plus how much changed), global ones against their rules. Recorded and gated like any run. trying: a style
+    lesson scored as if you'd said yes (the lesson gate, learning.test_waiting); only it takes the result."""
     client, model, adapter = _engine(core, client, model, runner)
     text, version, copy = skill_text(ref)
     rules = drafting_rules(text)
@@ -255,6 +256,12 @@ def run(core, sets="all", lessons=None, repeats=1, runner=None, client=None, mod
         raise FuzzError("no draft cases: approve a few drafts, or add eval_seeds/draft.json", "cases")
     if lessons is None:
         lessons = learning.lessons_for(core, SURFACE)
+        if trying is not None:
+            t = learning.get(core, trying)
+            if not t or t["surface"] != SURFACE:
+                raise FuzzError(f"no {SURFACE} lesson {trying}", "lesson")
+            lessons = [x for x in lessons if x["id"] != trying] + [
+                {k: t[k] for k in ("id", "kind", "case_id", "example", "rule")}]
     started = time.monotonic()
     jobs = [c for c in todo for _ in range(repeats)]
     drafts = evals._call_model(core, adapter, model, runner, workers,
@@ -287,7 +294,10 @@ def run(core, sets="all", lessons=None, repeats=1, runner=None, client=None, mod
                        client=client if runner is None else "stub", model=model, repeats=repeats,
                        lessons=lessons or [], sets=sets, seconds=round(time.monotonic() - started, 1),
                        judge=judge_version())
-    return evals.get_run(core, rid)
+    out = evals.get_run(core, rid)
+    if trying is not None:
+        learning.scored(core, [trying], rid, bool(out["gate_ok"]))
+    return out
 
 
 def judge_version():
