@@ -381,6 +381,14 @@ def _cmd_eval(a):
         if not run["gate_ok"]:
             sys.exit(1)
         return
+    if a.op in ("send", "recall"):   # the sender and recall, played through their own tools: invented cases, a model
+        from . import recall_evals, send_evals
+        mod = send_evals if a.op == "send" else recall_evals
+        run = mod.run(core, repeats=a.repeats or 2, client=a.client, model=a.model, against=a.against, ref=a.base_ref)
+        _print(evals.summary(core, run))
+        if not run["gate_ok"]:
+            sys.exit(1)
+        return
     if a.op == "drafts":   # how close drafts are to what you sent
         from . import draft_evals
         if a.history:   # the drafts Fuzz already wrote; the model only judges
