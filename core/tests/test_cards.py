@@ -212,16 +212,34 @@ class QueueRules(CoreCase):
         b = tasks.capture(self.core, "Review the Q4 pricing deck")
         with self.core.tx("fuzz:extractor"):
             cid = cards.create(self.core, "duplicate", a, other_id=b)
+        other = tasks.capture(self.core, "Plain")
         for i in range(2):
             before = self.last_event_id()
             answers.answer(self.core, cid, "not_sure")
             self.assertEqual(self.types_since(before), ["card.postponed"])
-            self.assertEqual(self.open_cards()[-1]["id"], cid, "a postponed card goes to the end")
+            self.assertNotIn(cid, [c["id"] for c in self.open_cards()], "a postponed card sits out today")
+            self.clock.advance(days=1)
+            self.assertEqual(self.open_cards()[-1]["id"], cid, "and comes back tomorrow, at the end")
+        self.assertIn(other, [c["task_id"] for c in self.open_cards()])
         answers.answer(self.core, cid, "not_sure")
         c = cards.get(self.core, cid)
         self.assertEqual((c["status"], c["answer"]["option"]), ("expired", "keep_separate"))
         link = self.core.one("SELECT kind FROM task_links WHERE a=? AND b=?", (a, b))
         self.assertEqual(link["kind"], "kept_separate")
+
+    def test_not_sure_on_the_only_card_doesnt_bring_it_straight_back(self):
+        q = self.core.q
+        eid = q("INSERT INTO entities (user_id, type, name, provisional) VALUES (1,'term','Quillmark',1)").lastrowid
+        with self.core.tx("system"):
+            cid = cards.create(self.core, "entity_term", payload={"entity_id": eid, "term": "Quillmark"})
+        self.assertEqual([c["id"] for c in self.open_cards()], [cid])
+        answers.answer(self.core, cid, "not_sure")
+        self.assertEqual(self.open_cards(), [], "the deck is empty, not the same card again")
+        self.assertEqual([c["id"] for c, _ in cards.queue(self.core, front=cid)], [], "even pinned in front")
+        self.clock.advance(hours=14)   # 23:00: still today
+        self.assertEqual(self.open_cards(), [])
+        self.clock.advance(hours=2)    # 01:00 Wednesday: tomorrow
+        self.assertEqual([c["id"] for c in self.open_cards()], [cid])
 
     def test_one_card_per_task_questions_first(self):
         tid = extract(self.core, "Someone should order the badges", "unclear")
