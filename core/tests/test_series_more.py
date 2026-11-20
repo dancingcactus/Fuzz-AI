@@ -221,8 +221,8 @@ class Splitting(SeriesCase):
         sid = self.make_series(n=6)
         record.set_role(self.core, sid, "drive")
         m = self.members(sid)
-        made = record.split(self.core, sid, [{"name": "OEO", "task_ids": m[:2]}, {"name": "Home Depot", "task_ids": m[2:4]},
-                                             {"name": "Unipol", "task_ids": m[4:]}])
+        made = record.split(self.core, sid, [{"name": "OEO", "task_ids": m[:2]}, {"name": "Marlow Supply", "task_ids": m[2:4]},
+                                             {"name": "Corvane", "task_ids": m[4:]}])
         self.assertEqual(len(made), 3)
         self.assertEqual(record.get(self.core, sid)["state"], "dropped")
         for nid, want in zip(made, (m[:2], m[2:4], m[4:])):
@@ -232,7 +232,7 @@ class Splitting(SeriesCase):
             self.assertEqual(facts.winners(self.core, s["entity_id"])["your_role"], "drive")
             self.assertEqual(views.section(s), "going")
         sh = views.sheet(self.core, made[1])
-        self.assertIn("word:home depot", [a["key"] for a in sh["anchors"]])
+        self.assertIn("word:marlow supply", [a["key"] for a in sh["anchors"]])
         actions.undo(self.core)   # one Undo puts it back together
         self.assertNotEqual(record.get(self.core, sid)["state"], "dropped")
         self.assertEqual(self.members(sid), m)
@@ -240,7 +240,7 @@ class Splitting(SeriesCase):
     def test_tasks_left_out_stay_and_bad_parts_are_refused(self):
         sid = self.make_series(n=5)
         m = self.members(sid)
-        made = record.split(self.core, sid, [{"name": "Unipol renewal and its follow-ups", "task_ids": m[:2]}])
+        made = record.split(self.core, sid, [{"name": "Corvane renewal and its follow-ups", "task_ids": m[:2]}])
         self.assertNotEqual(record.get(self.core, sid)["state"], "dropped")
         self.assertEqual(self.members(sid), m[2:])
         self.assertFalse([a for a in views.sheet(self.core, made[0])["anchors"] if a["yours"]])   # a long name isn't a word to spot
@@ -260,7 +260,7 @@ class SplitApi(Server, SeriesCase):
         m = self.members(sid)
         self.assertEqual(self.req("POST", f"/series/{sid}/split", {"parts": "nope"})[0], 400)
         status, sh = self.req("POST", f"/series/{sid}/split", {"parts": [{"name": "OEO", "task_ids": m[:2]},
-                                                                          {"name": "Unipol", "task_ids": m[2:]}]})
+                                                                          {"name": "Corvane", "task_ids": m[2:]}]})
         self.assertEqual(status, 200)
         self.assertEqual((sh["state"], len(sh["split_into"])), ("dropped", 2))
         self.assertEqual(self.req("POST", f"/series/{sid}/split", {"parts": [{"name": "A", "task_ids": m[:1]}]})[0], 409)

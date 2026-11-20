@@ -164,8 +164,8 @@ class Who(CoreCase):
 
     def test_a_notification_sender_is_never_offered(self):
         bot = "wiki@acme.example"
-        self.submit(msg("w1", **{"from": {"name": "Adobe Wiki", "email": bot}}),
-                    msg("w2", **{"from": {"name": "Nick Ricci via Adobe Wiki", "email": bot}}))
+        self.submit(msg("w1", **{"from": {"name": "Larkspur Wiki", "email": bot}}),
+                    msg("w2", **{"from": {"name": "Nick Ricci via Larkspur Wiki", "email": bot}}))
         self.submit(msg("m1", **{"from": RICCI}))
         self.submit(msg("s1", source="slack", source_id="C1:1", **{"from": AMAR}, people=[{"name": "Nick"}]))
         [card] = self.which_cards()

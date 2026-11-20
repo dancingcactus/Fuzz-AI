@@ -52,7 +52,7 @@ def candidates(core, first, loose=False):
 
 
 def shared(core, eid):
-    """A notification sender that speaks for many people ("James Torio via Adobe Wiki", "Sanjeev Purohit (Jira)"
+    """A notification sender that speaks for many people ("James Torio via Larkspur Wiki", "Sanjeev Purohit (Jira)"
     from one address), so it has picked up their first names. Never who a first name means."""
     names = [r["alias"] for r in core.conn.execute("SELECT alias FROM aliases WHERE entity_id=? AND instr(alias,' ')>0",
                                                    (eid,)).fetchall() if "@" not in r["alias"]]
