@@ -358,11 +358,13 @@
       '<span class="meta">Add as many as you like</span></label>' +
       (extra.length ? '<div class="fchips">' + extra.map(function (p) {
         return '<span class="fchip">' + esc(p) + '<button type="button" data-pick-rm="' + esc(p) + '" aria-label="Unpick ' + esc(p) + '">' + XSVG + '</button></span>'; }).join('') + '</div>' : '') +
-      '<div class="ss-inline"><input id="sp-val" name="value" class="fld" type="text" maxlength="200" autocomplete="off" data-1p-ignore value="' + esc(pickDraft) + '" placeholder="' + esc(PH[attr] || 'A name') + ', then Enter">' +
-      '<button class="btn small" data-addpick>Add</button></div>' +
+      /* the people in it first, to pick with a click; the field under them is for anyone else */
       (ids.length ? '<div class="sp-ideas" role="group" aria-label="People in it"><span class="meta">People in it:</span>' + ids.map(function (x) {
         var on = low.indexOf(x.toLowerCase()) >= 0;
         return '<button type="button" class="gchip solid pick' + (on ? ' on' : '') + '" data-pick="' + esc(x) + '" aria-pressed="' + on + '">' + (on ? CHECK : PLUS) + esc(x) + '</button>'; }).join('') + '</div>' : '') +
+      '<div class="ss-inline"><input id="sp-val" name="value" class="fld" type="text" maxlength="200" autocomplete="off" data-1p-ignore value="' + esc(pickDraft) + '" placeholder="' +
+      esc(ids.length ? 'Or type someone else, then Enter' : (PH[attr] || 'A name') + ', then Enter') + '">' +
+      '<button class="btn small" data-addpick>Add</button></div>' +
       '<p class="meta">' + HELP[attr] + '</p><div class="sp-edit-acts"><button class="btn small primary" data-savepicks' + (n ? '' : ' disabled') + '>' +
       (n > 1 ? 'Add these ' + n : 'Save') + '</button><button type="button" class="btn small" data-cancel>Cancel</button></div></form>';
   }
