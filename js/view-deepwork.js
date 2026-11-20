@@ -272,7 +272,6 @@
   var GUIDE_ROWS = 3;   /* rows before Something else, Triage included */
   function triageN() { return Store.get().queue.length + (Onboard.hasQuestion() && !Store.get().queue.length ? 1 : 0); }
   function triageUrgent() { return Store.queue().some(function (it) { return !!it.dueAt; }); }
-  function triageMins() { return Math.max(2, Math.round(triageN() * 1.5)); }
   function short(t) { var w = (t || '').split(/\s+/); return w.length > 5 ? w.slice(0, 5).join(' ') + '…' : t; }
   /* The rows under My work, in Fuzz's order: the one you came for, where you left off, then what fits the time */
   function guideTasks() { return ready(null); }
@@ -284,7 +283,7 @@
     if (r && r.why === 'meeting') return { pick: triage, why: 'Go, your ' + (r.at || 'meeting') + ' is starting. Triage will be here when you’re back.' };
     if (r && r.why === 'time') return { pick: triage, why: 'Good stretch. Take a break, then a quick look at Triage.' };
     if (urgent) return { pick: 'triage', why: 'Something has a time on it. Let’s clear Triage first. It’s quick.' };
-    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Ten minutes of Triage first, then you’ll have room to get into your work.' };
+    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Clear Triage first, then you’ll have room to get into your work.' };
     if (top) return { pick: top, why: (meetingIn() != null ? 'You’ve got until ' + fmt(E.until) + ' and nothing urgent.' : 'Nothing urgent.') + ' Good time to get into your work.' };
     if (n) return { pick: 'triage', why: 'Nothing big waiting. A quick look at Triage and you’re clear.' };
     return { pick: deep, why: 'Nothing is waiting on you. What do you want to work on? Tell me and I’ll make it a task.' };
@@ -448,7 +447,7 @@
     E.asked = true;
     var typedOn = p === 'typed', txt = E.typed.trim();
     var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sug.pick === 'triage') + '</b><small>' +
-      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="g-m">' + (n ? '~' + triageMins() + ' min' : 'Clear') + '</span>',
+      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="g-m">' + (n ? n + ' waiting' : 'Clear') + '</span>',
       n ? '' : ' aria-disabled="true"');
     /* The top of My work, so the list stays short; what's picked always shows (a link or Work on this can pick
        one further down), in place of the last one */
