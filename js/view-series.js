@@ -61,6 +61,8 @@
   var PLUS = svg('<path d="M12 5v14M5 12h14"/>', 2.6);
   var XSVG = svg('<path d="M6 6l12 12M18 6L6 18"/>');
   var CHECK = svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.6);
+  /* where Work on it sits, when nothing in it is open: a quiet check, not a gap */
+  var NOWORK = '<span class="pill pill--ok pill--icon sp-nowork">' + CHECK + 'No work</span>';
   var INSVG = svg('<path d="M4 12h11M11 7l5 5-5 5M20 4v16"/>');            /* brings work in: an arrow to a line */
   var OUTSVG = svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 18L18 6"/>'); /* keeps work out: a circle struck through */
   var PEN = svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>', 2.2, 15);
@@ -120,7 +122,7 @@
     if (sec === 'wrapped') return h + (s.evidence ? '<p class="meta">' + esc(s.evidence) + '</p>' : '') + '</li>';
     h += strip(s) + lastNext(s, true);
     if (sec === 'watching') return h + '<div class="ep-acts"><button type="button" class="btn small" data-keep="' + s.id + '">Keep it</button><button type="button" class="btn small" data-notseries="' + s.id + '">Not a series</button></div></li>';
-    return h + (s.open ? '<div class="ep-acts"><button type="button" class="btn small" data-workon="' + s.id + '">Work on it</button></div>' : '') + '</li>';
+    return h + '<div class="ep-acts">' + (s.open ? '<button type="button" class="btn small" data-workon="' + s.id + '">Work on it</button>' : NOWORK) + '</div></li>';
   }
   function listHTML() {
     var data0 = Store.series(), secs = data0.sections || {}, any = false, h = '';
@@ -250,7 +252,7 @@
     var title = '<h1 id="sp-title">' + esc(d.name) + '</h1>';
     return '<div class="sp-bar"><a class="btn small sp-back" href="#/series">' + BACK + 'Series</a><div class="sp-title">' + title + '<p class="meta">' + esc(metaLine(d)) + '</p></div>' +
       '<div class="sp-acts">' + (d.section === 'watching' ? '<button type="button" class="btn small" data-act="keep">Keep it</button>' : '') +
-      (work ? '<button type="button" class="btn small primary" data-workon="' + d.id + '">Work on it</button>' : '') +
+      (work ? '<button type="button" class="btn small primary" data-workon="' + d.id + '">Work on it</button>' : !d.open ? NOWORK : '') +
       '<button type="button" class="iconbtn small" data-more aria-haspopup="menu" aria-expanded="false" aria-controls="sp-menu" aria-label="More for ' + esc(d.name) + '" title="More">' + DOTS + '</button>' +
       '<div class="menu" role="menu" id="sp-menu" hidden aria-label="More for ' + esc(d.name) + '">' + menuHTML(d) + '</div></div></div>';
   }
@@ -326,7 +328,7 @@
     if (adding && have.indexOf(adding) < 0) rows.push('<li class="fact-edit">' + factForm(d, adding, '') + '</li>');
     var gaps = MAIN.filter(function (a) { return have.indexOf(a) < 0 && a !== adding; });
     var extras = MORE.filter(function (a) { return have.indexOf(a) < 0 && a !== adding; });
-    var h = rows.length ? '<ul class="lrows sp-facts">' + rows.join('') + '</ul>' : '<p class="meta">Nothing yet. Add what you know and Fuzz builds on it.</p>';
+    var h = rows.length ? '<ul class="lrows sp-facts">' + rows.join('') + '</ul>' : '<p class="meta">Fuzz fills these in on its own as it reads your email, Slack and meetings. If you already know something, add it now.</p>';
     if (removed && removed.id === d.id) h += '<div class="sp-undo" role="status"><span>Removed “' + esc(removed.label) + '”. Fuzz won’t bring it back unless something new says it.</span>' +
       (removed.undo ? '<button type="button" class="btn small" data-factundo>Undo</button>' : '') + '</div>';
     if (gaps.length || extras.length) h += '<div class="sp-gaps"><span class="sp-gaps-l">' + (gaps.length ? 'Fuzz doesn’t know yet' : 'Add more') + '</span>' +

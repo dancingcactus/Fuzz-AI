@@ -139,6 +139,22 @@ class ForMany(Server, SeriesCase):
         self.assertEqual(len([k for k in self.req("GET", f"/series/{sid}")[1]["knows"] if k["attr"] == "for"]), 2)
 
 
+class Drop(Server, SeriesCase):
+    def test_its_ongoing_answers_gone_instead_of_failing_and_undo_brings_it_back(self):
+        sid = self.make_series()
+        status, r = self.req("POST", f"/series/{sid}/drop", {"why": "ongoing"})
+        self.assertEqual((status, r["gone"], r["kind"]), (200, True, "area"))
+        group = [u for u in self.req("GET", "/undo")[1]["recent"] if u["by"] == "human"][0]["group"]
+        self.assertEqual(self.req("POST", "/undo", {"group": group})[0], 200)
+        self.assertEqual(self.req("GET", f"/series/{sid}")[0], 200)
+
+    def test_not_a_series_still_answers_with_its_sheet(self):
+        sid = self.make_series()
+        status, sh = self.req("POST", f"/series/{sid}/drop", {})
+        self.assertEqual((status, sh["id"]), (200, sid))
+        self.assertNotIn("gone", sh)
+
+
 class SeveralAtOnce(Server, SeriesCase):
     def test_several_people_in_one_save_are_one_undo(self):
         sid = self.make_series()

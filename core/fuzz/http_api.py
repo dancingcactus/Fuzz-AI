@@ -697,6 +697,9 @@ class App:
                 ch.series(sid, check_due=1)
                 events.emit(core, "series.reviewed", changes=ch, data={"series_id": sid, "asked": True})
         with core.reading():
+            now = record.get(core, sid)
+            if now["kind"] != "series":   # It's ongoing: an area now, never shown, so there's no sheet to send back
+                return {"id": sid, "state": now["state"], "kind": now["kind"], "gone": True}
             return views.sheet(core, sid)
 
     def task_refs(self, core, m, body, q):
