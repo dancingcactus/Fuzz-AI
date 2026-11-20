@@ -177,6 +177,7 @@ class App:
             ("POST", r"/tasks/(\d+)/(" + "|".join(actions.TASK_VERBS) + ")", self.task_action),
             ("GET", r"/lessons", self.list_lessons),
             ("POST", r"/lessons/(\d+)/(use|off)", self.lesson_action),
+            ("GET", r"/usage", self.get_usage),
             ("GET", r"/evals", self.list_eval_runs),
             ("GET", r"/evals/(\d+)", self.get_eval_run),
             ("GET", r"/evals/labels", self.eval_labels),
@@ -549,6 +550,12 @@ class App:
     def list_lessons(self, core, m, body, q):
         from . import learning
         return {"lessons": learning.listing(core)}
+
+    def get_usage(self, core, m, body, q):
+        """What the role runs used, per local day (usage.py): Copilot's AI credits, Claude Code's dollars, tokens."""
+        from . import usage
+        days = q.get("days") or "30"
+        return dict(usage.daily(core, int(days) if str(days).isdigit() else 30), runs=usage.recent(core, 50))
 
     def list_eval_runs(self, core, m, body, q):
         from . import evals

@@ -9,7 +9,7 @@ import json
 import os
 import subprocess
 
-from . import adapters, config, files, outputs, runs, scheduler
+from . import adapters, config, files, outputs, runs, scheduler, usage
 from .db import FuzzError
 from .roles import scripted
 
@@ -116,4 +116,8 @@ def _headless(core, adapter, role, rid, model, task_id, verbose, say, ask=None):
     rc = proc.wait()
     text = "".join(out)
     ok = adapter.run_ok(rc, text)
+    try:   # what it used, as the client reported it; reading it never fails the run
+        usage.record(core, rid, usage.parse(adapter.name, text))
+    except Exception as e:   # noqa: BLE001
+        say(f"(couldn't record what the run used: {e})")
     return ("ok" if ok else "error"), {"returncode": rc, "transcript": os.path.join(run_dir, "transcript.log")}
