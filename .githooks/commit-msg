@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks a commit message that names anyone or anything from your Fuzz store.
+exec "$(dirname "$0")/leakcheck" --message "$1" --quiet

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Last stop before the public remote: every commit being pushed, message and added lines, including ones made
+# with --no-verify or before the hooks were on.
+z=0000000000000000000000000000000000000000
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$z" ] && continue                      # deleting a branch publishes nothing
+  if [ "$remote_sha" = "$z" ]; then
+    revs="$local_sha --not --remotes"                       # a new branch: what no remote has yet
+  else
+    revs="$remote_sha..$local_sha"
+  fi
+  "$(dirname "$0")/leakcheck" --range "$revs" --quiet || status=1
+done
+exit $status

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Runs core/fuzz/leakcheck.py from this checkout: this repo is public, and nothing from your Fuzz store
+# (colleagues' names, addresses, your employer's domain, your own name) should reach a commit, a test or a PR.
+# Stdlib only, so any python3 will do; FUZZ_PYTHON picks another. FUZZ_HOME picks the store.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+py="${FUZZ_PYTHON:-python3}"
+if ! command -v "$py" >/dev/null 2>&1; then
+  echo "leakcheck: $py not found, so nothing was checked for personal information" >&2
+  exit 0
+fi
+PYTHONPATH="$root/core${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -m fuzz.leakcheck "$@"
