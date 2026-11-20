@@ -50,6 +50,9 @@ It also says which side moved since that run, the app or the cases (see **Changi
    run records the app's commit, the case set's hash and the judge's version; the Evals page splits each
    score change into the two; `fuzz eval rebaseline` scores the old app on new cases.
 
+10. **Labelling cases by hand** (`labels.py`, `#/labels`): say what any recent message held; see
+    **Labelling cases by hand** under Surfaces.
+
 First live runs on Copilot, 2026-11-17, on a copy of the store: extraction global 9 of 9 at 3/3 and the one
 personal case 1/3; executor 4 of 4 at 2/2; global draft rules 3 of 3; the matcher as in item 5. The drafts
 so far are all prep notes, so there's no sent draft to score yet.
@@ -218,6 +221,28 @@ As in `docs/self-improving.md`, with two new sources of cases:
   makes a case by itself.
 - **Wording.** A retitle says what the ask should have said, which gives a second score beyond keep or
   skip.
+
+### Labelling cases by hand (built)
+
+Corrections make personal cases only where you happen to correct something, so the set is thin where
+extraction is quietly right or quietly wrong. `#/labels` (linked from the Evals page; `labels.py`;
+`GET/POST /evals/labels`) lists the last 30 days of messages Fuzz read that have no case yet, with what
+extraction made of each, least sure first (unclear whose, then someone else's, then no ask, then yours). You
+say what each held:
+
+| Label | Case | Why |
+| --- | --- | --- |
+| An ask of mine | keep, with the ask in your words (else extraction's, else the title) | |
+| Someone else's | skip, not strict | "Unclear" isn't a wrong answer for an ask that isn't yours |
+| Nothing here | skip, strict | An "Is this yours?" card on it would be noise, as with Not a task |
+
+- A signal keeps only a quote, so a label's case waits for the executor to fetch the text (the same
+  pending flow as Not a task) and expires after 90 days.
+- The origin is `label:<id>`, not `feedback:<id>`: the examples learner reads `feedback:` origins, so a hand
+  label scores the app and **teaches it nothing**. Lessons still come from corrections.
+- Changing a label retires the old case and makes a new one, so a comparison reports it as relabelled
+  (see **Changing the evals and the app**). Take it back and the message returns to the queue.
+- Not yet: labelling drafts, and a "this label is wrong" action on a failing case in a run's detail.
 
 ### Missed asks (extraction's false negatives)
 

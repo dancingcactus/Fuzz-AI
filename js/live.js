@@ -890,6 +890,12 @@
     evals: function () { return api('GET', '/evals'); },
     evalRun: function (id, vs) { return api('GET', '/evals/' + id + (vs ? '?vs=' + vs : '')); },
     startEval: function (surface, set) { return api('POST', '/evals/run', { surface: surface, set: set || 'all' }); },
+    evalLabels: function (f) {
+      var q = ['source', 'saw'].filter(function (k) { return f && f[k]; }).map(function (k) { return k + '=' + encodeURIComponent(f[k]); }).join('&');
+      return api('GET', '/evals/labels' + (q ? '?' + q : ''));
+    },
+    evalLabel: function (signalKey, label, ask) { return api('POST', '/evals/labels', { signal_key: signalKey, label: label, ask: ask || null }); },
+    evalLabelRemove: function (caseId) { return api('POST', '/evals/labels/' + caseId + '/remove', {}); },
     stopEval: function (jobId) { return api('POST', '/evals/jobs/' + jobId + '/stop', {}); },
     saveSlots: function (n) { return api('PUT', '/slots', { slots: n }).then(function (r) { Store.setSlots(r.slots); return r; }); },
     engine: function () { return api('GET', '/engine?start=0'); },

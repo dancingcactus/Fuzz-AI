@@ -1475,3 +1475,12 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
   .sln { grid-template-columns: 1fr; gap: 0; }
   .sp-acts { width: 100%; justify-content: flex-end; }
 }
+
+/* Label cases (js/view-labels.js) */
+.labels .lb-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
+.labels .lb-item, .labels .lb-case { padding: 12px 14px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: 12px; display: grid; gap: 6px; }
+.labels .lb-quote { margin: 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--muted); }
+.labels .lb-asks { margin: 0; padding-left: 18px; font-size: 13px; }
+.labels .lb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.labels .lb-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.labels .lb-ask-in { width: 100%; }
