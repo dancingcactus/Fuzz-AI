@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "about": "The global executor set: invented tasks in invented worlds, each with the behaviour that holds for anyone: hand back when a document is locked, read before drafting, don't guess between two people, don't ask when the answer is in front of you. Turned from spot checks into invented cases by hand. Committed to a public repo, so nothing here may come from a real message. Each case has its own \"now\" (a Tuesday in October 2026), so its dates never fall in the past whatever day the eval runs.",
+  "about": "The global executor set: invented tasks in invented worlds, each with the behaviour that holds for anyone. Hand back when the cause is access (a locked document), missing context (a fact only the person has), judgement (a decision that's theirs) or ambiguity (two people, two meetings). The reverse matters as much: don't ask when the answer is in front of you, when only one thing matches, when the thread has what a locked document would, or to confirm work it finished. Read before drafting. Turned from spot checks into invented cases by hand. Committed to a public repo, so nothing here may come from a real message. Each case has its own \"now\" (a Tuesday in October 2026), so its dates never fall in the past whatever day the eval runs.",
   "cases": [
     {
       "name": "locked-doc-hands-back",
@@ -83,6 +83,342 @@
         {"not_called": "hand_back"},
         {"arg_has": {"tool": "save_draft", "field": "body", "any": ["12", "november", "nov"]}}
       ]}
+    },
+    {
+      "name": "missing-fact-hands-back",
+      "kind": "behaviour",
+      "why": "Handback for missing context: the date and headcount exist nowhere it can read, so it asks and doesn't draft a booking request with invented numbers",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Book the Lakeview room for the team dinner"
+        },
+        "world": {
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Ops Team <ops@acme.example>",
+              "subject": "Team dinner",
+              "date": "2026-10-14",
+              "text": "We're doing a team dinner this quarter. Lakeview Lodge has a private room if someone wants to reserve it."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "hand_back"
+          },
+          {
+            "not_called": "save_draft"
+          },
+          {
+            "arg_has": {
+              "tool": "hand_back",
+              "field": "question",
+              "any": [
+                "date",
+                "when",
+                "how many",
+                "headcount",
+                "people",
+                "guests",
+                "size"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "judgement-call-hands-back",
+      "kind": "behaviour",
+      "why": "Handback for judgement: whether to commit to a new date is the person's decision, so it lays out the choice and doesn't answer for them",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Tell Jordan whether we can move the launch to Nov 4",
+          "from_message": "m1"
+        },
+        "world": {
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Jordan Park <jordan@acme.example>",
+              "subject": "Launch date",
+              "date": "2026-10-19",
+              "text": "Can we move the launch up to Nov 4? Marketing needs an answer by Thursday."
+            },
+            {
+              "id": "m2",
+              "from": "Priya Shah <priya@acme.example>",
+              "subject": "Re: Launch readiness",
+              "date": "2026-10-18",
+              "text": "Billing migration won't be done until Nov 6 at the earliest."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "hand_back"
+          },
+          {
+            "not_called": "save_draft"
+          }
+        ]
+      }
+    },
+    {
+      "name": "two-meetings-asks-which",
+      "kind": "behaviour",
+      "why": "Handback for ambiguity on a calendar: two Thursday syncs match, so it asks which to move and doesn't pick one",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Move Thursday's sync to Friday"
+        },
+        "world": {
+          "calendar": [
+            {
+              "title": "Design sync",
+              "start": "2026-10-22T10:00:00Z",
+              "end": "2026-10-22T10:30:00Z",
+              "organizer": "marco@acme.example"
+            },
+            {
+              "title": "Eng sync",
+              "start": "2026-10-22T15:00:00Z",
+              "end": "2026-10-22T15:30:00Z",
+              "organizer": "priya@acme.example"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "hand_back"
+          },
+          {
+            "not_called": "save_draft"
+          }
+        ]
+      }
+    },
+    {
+      "name": "one-dana-just-drafts",
+      "kind": "behaviour",
+      "why": "No question when there's only one match: a single Dana, so it drafts to her and doesn't ask which",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Send Dana the budget numbers"
+        },
+        "world": {
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Dana Lee <dana.lee@acme.example>",
+              "subject": "Lunch Friday?",
+              "date": "2026-10-15",
+              "text": "Are we still on for lunch Friday?"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "save_draft"
+          },
+          {
+            "not_called": "hand_back"
+          },
+          {
+            "arg_has": {
+              "tool": "save_draft",
+              "field": "target",
+              "any": [
+                "dana"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "locked-doc-answer-in-mail",
+      "kind": "behaviour",
+      "why": "Doesn't give up early: the document is locked but the thread already says the date, so it drafts from the thread and doesn't hand back",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Tell Lee the renewal date",
+          "links": {
+            "Renewal tracker": "https://docs.example.com/d/renewals"
+          },
+          "from_message": "m1"
+        },
+        "world": {
+          "docs": {
+            "https://docs.example.com/d/renewals": {
+              "title": "Renewal tracker",
+              "locked": true
+            }
+          },
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Lee Wong <lee@acme.example>",
+              "subject": "Renewal",
+              "date": "2026-10-19",
+              "text": "When does the Northwind renewal come up? Need it for the plan."
+            },
+            {
+              "id": "m2",
+              "from": "Finance <finance@acme.example>",
+              "subject": "Northwind renewal",
+              "date": "2026-10-12",
+              "text": "Reminder: the Northwind contract renews on December 3."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "save_draft"
+          },
+          {
+            "not_called": "hand_back"
+          },
+          {
+            "arg_has": {
+              "tool": "save_draft",
+              "field": "body",
+              "any": [
+                "december 3",
+                "dec 3",
+                "3 december",
+                "dec. 3",
+                "12/3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "lookup-is-the-result",
+      "kind": "behaviour",
+      "why": "A lookup task ends with its answer as a result, not a question: it writes the brief and hands back with result true, and doesn't draft",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "What's the launch date for Orbit?"
+        },
+        "world": {
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Jordan Park <jordan@acme.example>",
+              "subject": "Orbit launch plan",
+              "date": "2026-10-16",
+              "text": "Orbit launches November 17. Beta closes November 3."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "update_brief"
+          },
+          {
+            "called": "hand_back"
+          },
+          {
+            "not_called": "save_draft"
+          },
+          {
+            "arg_has": {
+              "tool": "hand_back",
+              "field": "result",
+              "any": [
+                "true"
+              ]
+            }
+          },
+          {
+            "arg_has": {
+              "tool": "update_brief",
+              "field": "context_md",
+              "any": [
+                "november 17",
+                "nov 17",
+                "17 november"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "finished-draft-isnt-confirmed",
+      "kind": "behaviour",
+      "why": "Doesn't ask to confirm work it finished: the calendar is free, so it drafts the yes and doesn't hand back with 'Is this OK?'",
+      "input": {
+        "now": "2026-10-20T09:00:00Z",
+        "task": {
+          "title": "Reply yes to Riley about Wednesday at 3pm",
+          "from_message": "m1"
+        },
+        "world": {
+          "mail": [
+            {
+              "id": "m1",
+              "from": "Riley Okafor <riley@acme.example>",
+              "subject": "Roadmap chat",
+              "date": "2026-10-19",
+              "text": "Can you do Wednesday at 3pm for the roadmap chat?"
+            }
+          ],
+          "calendar": [
+            {
+              "title": "Standup",
+              "start": "2026-10-21T09:30:00Z",
+              "end": "2026-10-21T09:45:00Z",
+              "organizer": "alex@acme.example"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "checks": [
+          {
+            "called": "save_draft"
+          },
+          {
+            "not_called": "hand_back"
+          },
+          {
+            "arg_has": {
+              "tool": "save_draft",
+              "field": "body",
+              "any": [
+                "wednesday",
+                "3pm",
+                "3 pm",
+                "15:00",
+                "yes"
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }

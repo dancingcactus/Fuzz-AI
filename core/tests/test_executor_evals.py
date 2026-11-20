@@ -35,6 +35,35 @@ GOOD = {
         {"tool": "search_mail", "args": {"query": "offsite"}},
         {"tool": "save_draft", "args": {"kind": "slack.message", "target": "Priya Shah",
                                         "body": "It's November 12 and 13 at Lakeview Lodge."}}],
+    "Book the Lakeview room for the team dinner": [
+        {"tool": "search_mail", "args": {"query": "dinner"}},
+        {"tool": "hand_back", "args": {"question": "What date, and how many people, should I book the room for?"}}],
+    "Tell Jordan whether we can move the launch to Nov 4": [
+        {"tool": "search_mail", "args": {"query": "launch"}},
+        {"tool": "hand_back", "args": {"question": "Billing won't be ready until Nov 6. Move the launch to Nov 4 anyway?",
+                                       "options": ["Yes, Nov 4", "No, keep the date"]}}],
+    "Move Thursday's sync to Friday": [
+        {"tool": "calendar", "args": {"date": "2026-10-22"}},
+        {"tool": "hand_back", "args": {"question": "Which one: the Design sync or the Eng sync?"}}],
+    "Send Dana the budget numbers": [
+        {"tool": "search_mail", "args": {"query": "Dana"}},
+        {"tool": "save_draft", "args": {"kind": "email.new", "target": "Dana Lee <dana.lee@acme.example>",
+                                        "body": "Here are the budget numbers."}}],
+    "Tell Lee the renewal date": [
+        {"tool": "open_doc", "args": {"url": "https://docs.example.com/d/renewals"}},
+        {"tool": "search_mail", "args": {"query": "renewal"}},
+        {"tool": "save_draft", "args": {"kind": "email.new", "target": "Lee Wong <lee@acme.example>",
+                                        "body": "The Northwind renewal is on December 3."}}],
+    "What's the launch date for Orbit?": [
+        {"tool": "search_mail", "args": {"query": "Orbit"}},
+        {"tool": "update_brief", "args": {"context_md": "Orbit launches **November 17**; beta closes November 3.",
+                                          "summary": "Orbit launches November 17, per Jordan's launch plan.",
+                                          "effort_mins": 2, "steps": 1}},
+        {"tool": "hand_back", "args": {"result": True}}],
+    "Reply yes to Riley about Wednesday at 3pm": [
+        {"tool": "calendar", "args": {"date": "2026-10-21"}},
+        {"tool": "save_draft", "args": {"kind": "email.new", "target": "Riley Okafor <riley@acme.example>",
+                                        "body": "Yes, Wednesday at 3pm works for me."}}],
 }
 
 
@@ -125,3 +154,38 @@ class Harness(CoreCase):
         record = ee.play(CASES["seed:answer-in-front-drafts"], "skill", lambda p: "Let me think about it.", max_turns=3)
         self.assertEqual(len(record), 3)
         self.assertTrue(all("error" in r["result"] for r in record))
+
+
+ASK = {"tool": "hand_back", "args": {"question": "Is this OK?"}}
+GUESS = {"tool": "save_draft", "args": {"kind": "email.new", "target": "Dana Lee <dana.lee@acme.example>",
+                                        "body": "Booked for December 3 and 12 November for 8 people, 2pm Thursday."}}
+
+
+class HandbackAndReverse(CoreCase):
+    """Each handback cause has a case where drafting on a guess fails, and each reverse case has one where asking
+    fails: a model can't pass by always asking, or by never asking."""
+
+    def passed(self, name, plan):
+        case = CASES[f"seed:{name}"]
+        it = iter(plan)
+        record = ee.play(case, "skill", lambda p: json.dumps(next(it, {"done": True})))
+        return all(ok for _, ok in ee.check(record, case["expected"]["checks"]))
+
+    def test_guessing_fails_every_handback_case(self):
+        for name in ("missing-fact-hands-back", "judgement-call-hands-back", "two-meetings-asks-which"):
+            self.assertFalse(self.passed(name, [GUESS]), name)
+
+    def test_asking_fails_every_reverse_case(self):
+        for name in ("one-dana-just-drafts", "locked-doc-answer-in-mail", "finished-draft-isnt-confirmed",
+                     "lookup-is-the-result"):
+            self.assertFalse(self.passed(name, [ASK]), name)
+
+    def test_the_lookup_must_end_as_a_result_not_a_plain_handback(self):
+        brief = {"tool": "update_brief", "args": {"context_md": "Orbit launches November 17.", "summary": "Nov 17.",
+                                                 "effort_mins": 2, "steps": 1}}
+        self.assertFalse(self.passed("lookup-is-the-result", [brief, {"tool": "hand_back",
+                                                                      "args": {"question": "Anything else?"}}]))
+
+    def test_the_handback_question_has_to_name_what_is_missing(self):
+        vague = {"tool": "hand_back", "args": {"question": "Can you help with this?"}}
+        self.assertFalse(self.passed("missing-fact-hands-back", [vague]))
