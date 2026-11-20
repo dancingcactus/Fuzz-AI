@@ -43,7 +43,7 @@ It also says which side moved since that run, the app or the cases (see **Changi
    question below), and a test that no committed case holds a real-looking address or link.
 7. **Draft scoring and the draft-style learner** (`draft_evals.py`, `learning/learners/drafts.py`,
    executor-0.22 reads `draft_lessons`).
-8. **Executor harness** (`executor_evals.py`) and four global cases (`eval_seeds/executor.json`). Each case
+8. **Executor harness** (`executor_evals.py`) and eleven global cases (`eval_seeds/executor.json`; four at first). Each case
    runs at its own "now", and a task can come from one of the world's messages (`from_message`) so a reply has
    a thread.
 9. **Telling the app's change from the cases'** (issue 45; `evals.record`, `attribution`, `rebaseline`): every
@@ -308,6 +308,21 @@ recipient and thread, no commitments the context doesn't support.
 written as behaviour to check, never exact text: "hands back as access", "doesn't draft before finding the
 meeting date", "asks permission before writing to the shared drive". Behaviour checks carry over to
 anyone's data, which is what makes them global.
+
+**Coverage: handbacks and their reverse** (11 cases). A model can pass a one-sided set by always asking or by
+never asking, so each cause of a handback has a case, and each has a reverse where asking is the failure:
+
+| Cause of a handback | Case where it hands back | Reverse: it must not ask |
+| --- | --- | --- |
+| Access | `locked-doc-hands-back` | `locked-doc-answer-in-mail`: the thread already holds the answer |
+| Missing context (only the person has it) | `missing-fact-hands-back` | |
+| Judgement (the decision is theirs) | `judgement-call-hands-back` | |
+| Ambiguity | `two-danas-asks-which`, `two-meetings-asks-which` | `one-dana-just-drafts`: only one match |
+| (not a handback) | | `answer-in-front-drafts`, `finished-draft-isnt-confirmed` (drafts, no "Is this OK?"), `lookup-is-the-result` (ends as a result, `result: true`) |
+
+Tests (`HandbackAndReverse`) check that drafting on a guess fails every handback case and asking fails every
+reverse case. Still to cover: permission requests (the harness has no `whoami`, so no connector list), putting
+a task off, and prep notes. A spot-check "off" answer is the next source of cases.
 
 **Harness.** The executor works through a chain of tool calls, unlike extraction's single judgment. These
 cases need fake tools that serve the invented sources and record what was called and what was written
