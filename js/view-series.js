@@ -311,7 +311,8 @@
             return '<span class="fchip" title="' + esc(x.source + (x.trust_label ? ' · ' + x.trust_label : '')) + '">' + esc(x.value) +
               (x.fact_id ? '<button type="button" data-wrong="' + x.fact_id + '" data-attr="' + x.attr + '" data-who="' + esc(x.value) + '" aria-label="Take ' + esc(x.value) + ' off ' + esc(ATTR[x.attr]) + '" title="Remove">' + XSVG + '</button>' : '') + '</span>';
           }).join('') + (adding === f.attr ? '' : '<button type="button" class="gchip small" data-edit="add:' + f.attr + '">' + PLUS + (f.attr === 'blocked_on' ? 'Add another' : 'Add someone') + '</button>') + '</span>' +
-          '<span class="s">' + esc(srcs.join(' · ')) + '</span></span></div></li>';
+          '<span class="s">' + esc(srcs.join(' · ')) + '</span></span></div></li>' +
+          (adding === f.attr ? '<li class="fact-edit fact-edit--under">' + factForm(d, f.attr, '', true) + '</li>' : '');   /* adding to this row: right under it */
       }
       if (edit === 'fact:' + f.attr) return '<li class="fact-edit">' + factForm(d, f.attr, f.value) + '</li>';
       return '<li class="fact-row"><button type="button" class="fact" data-edit="fact:' + f.attr + '" aria-label="Edit ' + esc(ATTR[f.attr] || f.attr) + '">' +
@@ -319,7 +320,8 @@
         '<span class="s">' + esc(f.source) + (f.trust_label ? ' · ' + esc(f.trust_label) : '') + '</span></span><span class="fpen">' + PEN + '</span></button>' +
         (f.fact_id ? '<button type="button" class="frm" data-wrong="' + f.fact_id + '" data-attr="' + f.attr + '" aria-label="Remove ' + esc(ATTR[f.attr] || f.attr) + '" title="Remove">' + XSVG + '</button>' : '') + '</li>';
     });
-    if (adding) rows.push('<li class="fact-edit">' + factForm(d, adding, '') + '</li>');
+    /* a fact it doesn't have yet has no row: its form goes at the end (one it has opens under its own row, above) */
+    if (adding && have.indexOf(adding) < 0) rows.push('<li class="fact-edit">' + factForm(d, adding, '') + '</li>');
     var gaps = MAIN.filter(function (a) { return have.indexOf(a) < 0 && a !== adding; });
     var extras = MORE.filter(function (a) { return have.indexOf(a) < 0 && a !== adding; });
     var h = rows.length ? '<ul class="lrows sp-facts">' + rows.join('') + '</ul>' : '<p class="meta">Nothing yet. Add what you know and Fuzz builds on it.</p>';
@@ -344,12 +346,14 @@
   /* For, Owner, Blocked on: pick several at once. Click people in it to pick them (again to unpick), or type a
      name and press Enter; each becomes a chip. Save adds them all, one Undo. Add is the form's first button, so
      Enter adds what's typed instead of saving. */
-  function multiForm(d, attr) {
+  function multiForm(d, attr, under) {
     var ids = ideas(d, attr), low = picks.map(function (p) { return p.toLowerCase(); });
     var extra = picks.filter(function (p) { return ids.map(function (x) { return x.toLowerCase(); }).indexOf(p.toLowerCase()) < 0; });
     var n = picks.length + (pickDraft.trim() ? 1 : 0);
     return '<form class="sp-edit sp-multi" data-form="fact" autocomplete="off" data-1p-ignore><input type="hidden" name="attr" value="' + attr + '">' +
-      '<label class="sp-edit-l" for="sp-val">' + esc(ATTR[attr]) + ' <span class="meta">Add as many as you like</span></label>' +
+      /* under its own row the row already says what it is: the label keeps the name for screen readers only */
+      '<label class="sp-edit-l" for="sp-val">' + (under ? '<span class="sr">Add to ' + esc(ATTR[attr]) + ': </span>' : esc(ATTR[attr]) + ' ') +
+      '<span class="meta">Add as many as you like</span></label>' +
       (extra.length ? '<div class="fchips">' + extra.map(function (p) {
         return '<span class="fchip">' + esc(p) + '<button type="button" data-pick-rm="' + esc(p) + '" aria-label="Unpick ' + esc(p) + '">' + XSVG + '</button></span>'; }).join('') + '</div>' : '') +
       '<div class="ss-inline"><input id="sp-val" name="value" class="fld" type="text" maxlength="200" autocomplete="off" data-1p-ignore value="' + esc(pickDraft) + '" placeholder="' + esc(PH[attr] || 'A name') + ', then Enter">' +
@@ -360,8 +364,8 @@
       '<p class="meta">' + HELP[attr] + '</p><div class="sp-edit-acts"><button class="btn small primary" data-savepicks' + (n ? '' : ' disabled') + '>' +
       (n > 1 ? 'Add these ' + n : 'Save') + '</button><button type="button" class="btn small" data-cancel>Cancel</button></div></form>';
   }
-  function factForm(d, attr, value) {
-    if (MULTI[attr]) return multiForm(d, attr);
+  function factForm(d, attr, value, under) {
+    if (MULTI[attr]) return multiForm(d, attr, under);
     var h = '<form class="sp-edit" data-form="fact"><input type="hidden" name="attr" value="' + attr + '">';
     if (attr === 'your_role') {
       return h + '<span class="sp-edit-l" id="sp-role-l">' + ATTR.your_role + '</span><div class="choices" role="group" aria-labelledby="sp-role-l">' +
