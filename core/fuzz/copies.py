@@ -76,7 +76,7 @@ def _full_name(n):
 
 
 def _code(n):
-    """A code or an acronym (C521, AEM, skc), not an everyday word that happens to be capitalised."""
+    """A code or an acronym (C521, SKU, skc), not an everyday word that happens to be capitalised."""
     return bool(re.search(r"\d", n) or re.fullmatch(r"[A-Z]{2,}", n) or re.search(r"[a-z][A-Z]", n))
 
 

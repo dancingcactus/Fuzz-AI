@@ -175,13 +175,13 @@ class Facts(MemoryCase):
     def test_the_same_claim_worded_twice_is_not_asked(self):
         p = self.person("James Torio", "torio@acme.example")
         facts.add(self.core, p, "manager", "Russell Lewis", source_kind="email", source_ts="2026-11-11T09:00:00Z")
-        facts.add(self.core, p, "manager", "Russell Lewis (rulewis@acme.example)", source_kind="email",
+        facts.add(self.core, p, "manager", "Russell Lewis (russell.l@acme.example)", source_kind="email",
                   source_ts="2026-11-12T09:00:00Z")
         j = self.person("Jacob Tedders", "jacob@acme.example")
         facts.add(self.core, j, "role", "Product Manager", source_kind="slack", source_ts="2026-11-11T09:00:00Z")
-        facts.add(self.core, j, "role", "Product Manager - Adobe Target", source_kind="slack", source_ts="2026-11-12T09:00:00Z")
+        facts.add(self.core, j, "role", "Product Manager - Larkspur Search", source_kind="slack", source_ts="2026-11-12T09:00:00Z")
         self.assertEqual((facts.disputes(self.core, p), facts.disputes(self.core, j)), ([], []))
-        self.assertEqual(facts.winners(self.core, j)["role"], "Product Manager - Adobe Target", "the newer one wins")
+        self.assertEqual(facts.winners(self.core, j)["role"], "Product Manager - Larkspur Search", "the newer one wins")
         self.assertFalse(facts.same_claim("Payments PM", "Payments PMM"), "a longer word is a different claim")
         self.assertFalse(facts.same_claim("Payments PM", "Platform PM"))
 
@@ -299,7 +299,7 @@ class Facts(MemoryCase):
                   source_ts="2026-11-13T23:17:27Z")
         self.assertEqual(facts.disputes(self.core, t), [])
         self.assertEqual(facts.winners(self.core, t)["role"], "Group Product Manager", "the newer read wins")
-        boss = self.person("Russell Lewis", "rulewis@acme.example")
+        boss = self.person("Russell Lewis", "russell.l@acme.example")
         other = self.person("Amy Fazan", "amy@acme.example")
         j = self.person("Jacob Tedders", "jacob@acme.example")
         facts.add(self.core, j, "team", "Target", said_by=boss, source_kind="slack", source_ts="2026-11-11T09:00:00Z")
@@ -315,10 +315,10 @@ class Facts(MemoryCase):
         self.assertEqual(len(facts.disputes(self.core, m)), 1, "two unnamed messages aren't one source")
 
     def test_prose_is_never_asked_about(self):
-        org = facts.resolve_about(self.core, {"type": "org", "name": "Verizon"})
-        facts.add(self.core, org, "what_it_is", "Customer using Adobe Analytics, not CJA, for the tracking.",
+        org = facts.resolve_about(self.core, {"type": "org", "name": "Halvern"})
+        facts.add(self.core, org, "what_it_is", "Customer using Larkspur Metrics, not Pathway, for the tracking.",
                   source_kind="email", source_ts="2026-11-11T19:31:53Z")
-        facts.add(self.core, org, "what_it_is", "Customer whose team confirms tracking is in Adobe Analytics, not CJA.",
+        facts.add(self.core, org, "what_it_is", "Customer whose team confirms tracking is in Larkspur Metrics, not Pathway.",
                   source_kind="email", source_ts="2026-11-11T17:09:04Z")
         self.assertEqual(facts.disputes(self.core, org), [])
         self.assertTrue(facts.winners(self.core, org)["what_it_is"].startswith("Customer using"), "the newer one wins")

@@ -135,7 +135,7 @@ def settle_conflicts(core, actor="system"):
 
 
 def _attr_phrase(name, attr):
-    """Verizon's manager; what Verizon is, not Verizon's what it is."""
+    """Halvern's manager; what Halvern is, not Halvern's what it is."""
     if attr == "what_it_is":
         return f"what {name} is"
     return f"{name}'s {attr.replace('_', ' ')}"

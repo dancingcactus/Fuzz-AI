@@ -73,7 +73,7 @@ _ABBREV_RE = re.compile(r"\b(" + "|".join(_ABBREV) + r")\b\.?")
 
 
 def _gist(v):
-    """The value without asides and with title abbreviations spelled out: "Russell Lewis (rulewis@adobe.com)"
+    """The value without asides and with title abbreviations spelled out: "Russell Lewis (russell.l@acme.example)"
     is Russell Lewis, and "Sr. Mgr, Product Mgmt" is senior manager, product management."""
     g = norm(_ASIDE.sub(" ", v or "")).replace(" & ", " and ")
     return _ABBREV_RE.sub(lambda m: _ABBREV[m.group(1)], g).strip(" ,;:-")
@@ -81,7 +81,7 @@ def _gist(v):
 
 def same_claim(a, b):
     """The same thing said twice: equal once asides are dropped, or one says more after the other ("Product
-    Manager" and "Product Manager - Adobe Target"). Not a disagreement, so nothing to ask."""
+    Manager" and "Product Manager - Larkspur Search"). Not a disagreement, so nothing to ask."""
     x, y = sorted((_gist(a), _gist(b)), key=len)
     return bool(x) and y.startswith(x) and (len(y) == len(x) or not y[len(x)].isalnum())
 
