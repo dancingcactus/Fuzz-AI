@@ -407,8 +407,13 @@
       }
       if (e.target.closest('[data-serpick-close]')) { serPick = { id: null, state: 'closed', choices: [] }; renderDialog(); return; }
       var sset = e.target.closest('[data-serset]');
-      if (sset) { serPick = { id: null, state: 'closed', choices: [] }; Store.taskSeries(sme.id, +sset.dataset.serset).then(function () { Say.tell('It’s part of that series now.'); }); return; }
-      if (e.target.closest('[data-serout]')) { Store.taskSeries(sme.id, null).then(function () { Say.tell('Taken out. Fuzz won’t put it back there by itself.'); }); return; }
+      if (sset) {
+        var sli = sset.closest('li'), sn = sli && sli.querySelector('.ps-name'), sname = sn ? sn.textContent : 'a series';
+        serPick = { id: null, state: 'closed', choices: [] };
+        Store.taskSeries(sme.id, +sset.dataset.serset, 'Put “' + sme.title + '” in ' + sname).then(function () { Say.tell('It’s part of that series now.'); });
+        return;
+      }
+      if (e.target.closest('[data-serout]')) { Store.taskSeries(sme.id, null, 'Took “' + sme.title + '” out of ' + ((sme.series || {}).name || 'its series')).then(function () { Say.tell('Taken out. Fuzz won’t put it back there by itself.'); }); return; }
       var dm = d.querySelector('#dlg-menu'), mb = e.target.closest('[data-dmore]');
       if (mb) { dm.hidden = !dm.hidden; mb.setAttribute('aria-expanded', String(!dm.hidden)); if (!dm.hidden) dm.querySelector('button').focus(); return; }
       if (dm && !dm.hidden && !e.target.closest('#dlg-menu')) { dm.hidden = true; d.querySelector('[data-dmore]').setAttribute('aria-expanded', 'false'); }

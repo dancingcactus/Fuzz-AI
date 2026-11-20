@@ -222,24 +222,32 @@ def _resolve_key(core, key, label):
     return key, label
 
 
-def preview_anchors(core, sid, add=(), remove=()):
+def _index_words(idx, keyed):
+    """Words nobody has used yet as an anchor: index them now, so a preview can say what they'd catch."""
+    for k, label in keyed:
+        if k.startswith("word:") and k not in idx.index:
+            w = f" {k[5:]} "
+            for tid, t in idx.tasks.items():
+                if w in f" {index_mod.norm(t['title'])} {index_mod.norm(t.get('ask') or '')} ":
+                    idx.feats.setdefault(tid, {})[k] = label
+                    idx.index.setdefault(k, set()).add(tid)
+
+
+def preview_anchors(core, sid, add=(), remove=(), exclude=()):
     """What a change to its anchors would have caught: tasks that would join (free ones scoring past the
-    attach line) and members that would no longer score. Read-only."""
+    attach line) and members that would no longer score; for an exclusion, the free tasks it would keep out and
+    the members that already say it (they stay: an exclusion only stops new work). Read-only."""
     s = require(core, sid)
     idx = index_mod.get(core)
     adds = [_resolve_key(core, *anchor_key(a)) for a in add or []]
+    outs = [_resolve_key(core, *anchor_key(a)) for a in exclude or []]
+    _index_words(idx, adds + outs)
     cur = idx.anchors(s["id"])
     new = dict(cur)
     for k in remove or []:
         new.pop(k, None)
     for k, label in adds:
         new[k] = label
-        if k.startswith("word:") and k not in idx.index:   # words nobody has added yet: index them now
-            w = f" {k[5:]} "
-            for tid, t in idx.tasks.items():
-                if w in f" {index_mod.norm(t['title'])} {index_mod.norm(t.get('ask') or '')} ":
-                    idx.feats.setdefault(tid, {})[k] = label
-                    idx.index.setdefault(k, set()).add(tid)
     added_keys = {k for k, _ in adds} | idx.added(s["id"])
     line = idx.cfg["attach_score"]
 
@@ -248,22 +256,37 @@ def preview_anchors(core, sid, add=(), remove=()):
 
     join = [t for t, r in idx.tasks.items() if not r.get("series_id") and sc(t, new) >= line > sc(t, cur)]
     lose = [t for t in idx.members.get(s["id"], ()) if sc(t, new) < line <= sc(t, cur)]
-    return {"would_join": [{"id": t, "title": idx.tasks[t]["title"]} for t in sorted(join)][:20],
-            "would_stop_matching": [{"id": t, "title": idx.tasks[t]["title"]} for t in sorted(lose)][:20],
+    out_keys = {k for k, _ in outs}
+    says = lambda t: bool(out_keys & set(idx.feats.get(t, {})))
+    keep_out = [t for t, r in idx.tasks.items() if not r.get("series_id") and says(t) and sc(t, cur) >= line]
+    already = [t for t in idx.members.get(s["id"], ()) if says(t)]
+    line_of = lambda ts: [{"id": t, "title": idx.tasks[t]["title"]} for t in sorted(ts)][:20]
+    return {"would_join": line_of(join), "would_stop_matching": line_of(lose),
+            "would_keep_out": line_of(keep_out), "already_in": line_of(already),
             "anchors": [{"key": k, "label": v} for k, v in new.items()]}
 
 
-def edit_anchors(core, sid, add=(), remove=(), actor="human", restore=()):
+def edit_anchors(core, sid, add=(), remove=(), actor="human", restore=(), exclude=(), unexclude=()):
     """Add anchors you typed and remove ones Fuzz found (Undo puts them back; so does restore, by key). A
-    removed anchor isn't suggested again. Returns the added keys."""
+    removed anchor isn't suggested again. exclude (typed, like add) keeps new work that says it out of the
+    series; unexclude (by key) takes that back. One event, so one Undo. Returns the added keys."""
     s = require(core, sid)
     idx = index_mod.get(core)
     rows = {a["key"]: a for a in idx.rows.get(s["id"], [])}
     adds = [_resolve_key(core, *anchor_key(a)) for a in add or []]
-    if not adds and not remove and not restore:
+    outs = [_resolve_key(core, *anchor_key(a)) for a in exclude or []]
+    if not adds and not remove and not restore and not outs and not unexclude:
         raise FuzzError("Add or remove at least one", "add")
     with core.tx(actor):
         ch = events.Changes()
+        for k, label in outs:   # an exclusion replaces whatever the key was: it can't bring work in and keep it out
+            if k in rows:
+                ch.anchor(rows[k]["id"], how="exclude", removed=0, label=label)
+            else:
+                ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=label, how="exclude", removed=0)
+        for k in unexclude or []:
+            if k in rows and rows[k]["how"] == "exclude":
+                ch.anchor(rows[k]["id"], how="unexcluded", removed=1)
         for k in restore or []:
             if k in rows and rows[k]["removed"]:
                 ch.anchor(rows[k]["id"], removed=0, how="added" if rows[k]["how"] == "added" else "seed")
@@ -279,7 +302,8 @@ def edit_anchors(core, sid, add=(), remove=(), actor="human", restore=()):
             else:
                 ch.anchor(core.new_id("series_anchors"), series_id=s["id"], key=k, label=label, how="added", removed=0)
         events.emit(core, "series.anchors", changes=ch,
-                    data={"series_id": s["id"], "added": [k for k, _ in adds], "removed": list(remove or [])})
+                    data={"series_id": s["id"], "added": [k for k, _ in adds], "removed": list(remove or []),
+                          "excluded": [k for k, _ in outs], "unexcluded": list(unexclude or [])})
         sync_identifiers(core)
     return [k for k, _ in adds]
 

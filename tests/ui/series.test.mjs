@@ -53,14 +53,38 @@ test('the menu has Series under Lineup, and the page shows the demo’s sections
   await page.waitForFunction(() => document.title === 'Series · Fuzz');
   const heads = await page.$$eval('.series-page .lsec h2', els => els.map(e => e.firstChild.textContent.trim()));
   assert.deepEqual(heads, ['Going', 'Gone quiet', 'Fuzz is watching', 'Wrapped']);
-  assert.match(await page.textContent('.scard[data-series="1"]'), /Next in Northwind rollout: send Priya Friday’s status note/);
-  assert.equal(await page.locator('.scard[data-series="4"] [data-keep]').count(), 1, 'Fuzz is watching: Keep it');
-  /* the sheet */
-  await page.click('.scard[data-series="1"] .scard-name');
-  await page.locator('.series-sheet #ss-title').waitFor();
-  assert.equal(await page.textContent('#ss-title'), 'Northwind rollout');
-  assert.match(await page.textContent('.series-sheet'), /How Fuzz spots it/);
+  assert.match(await page.textContent('.ep[data-series="1"]'), /Next\s*Send Priya Friday’s status note/);
+  assert.equal(await page.locator('.ep[data-series="4"] [data-keep]').count(), 1, 'Fuzz is watching: Keep it');
+  /* past 20 tasks the done ones fold into one box holding their count in fives, then the leftover dots */
+  assert.equal(await page.textContent('.ep[data-series="6"] .sdot.five'), '35');
+  assert.equal(await page.locator('.ep[data-series="6"] .sdot.d').count(), 2);
+  assert.equal(await page.locator('.ep[data-series="1"] .sdot.five').count(), 0, 'under 20 tasks: a dot each');
+  /* the role pill and Edit share a line, centred */
+  const mid = await page.evaluate(() => { const c = document.querySelector('.ep[data-series="1"]'), r = e => { const b = c.querySelector(e).getBoundingClientRect(); return b.top + b.height / 2; }; return Math.abs(r('.pill') - r('.ep-edit')); });
+  assert.ok(mid < 1.5, 'pill and Edit are centred on one line: ' + mid);
+  /* the card opens the series' own page, like an artifact: back pill, name, Work on it and ⋯ */
+  await page.click('.ep[data-series="1"] .ep-about');
+  await page.locator('#sp-title').waitFor();
+  assert.equal(await page.textContent('#sp-title'), 'Northwind rollout');
+  assert.match(await page.textContent('.series-one'), /How Fuzz spots it/);
+  assert.match(await page.textContent('.sp-gaps'), /Fuzz doesn’t know yet/);
+  await page.click('.sp-gaps [data-edit="add:next_milestone"]');
+  assert.equal(await page.isVisible('#sp-val'), true, 'a gap opens its form in place');
   await page.keyboard.press('Escape');
+  await page.click('[data-more]');
+  assert.equal(await page.isVisible('#sp-menu'), true);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.isVisible('#sp-menu'), false);
+  await page.click('.sp-back');
+  await page.locator('.ep[data-series="6"] .ep-edit').waitFor();
+  /* Edit opens it too; past 5 people, 4 show and the rest open with a filter */
+  await page.click('.ep[data-series="6"] .ep-edit');
+  await page.locator('#sp-people').waitFor();
+  assert.equal(await page.locator('#sp-people > li').count(), 4);
+  await page.click('[data-people]');
+  await page.fill('#sp-pq', 'okafor');
+  assert.equal(await page.locator('#sp-people > li:not([hidden])').count(), 1);
+  assert.match(await page.textContent('.sp-title .meta'), /with Ana Costa and 13 others/);
   assert.deepEqual(page.errors, []);
   await page.close();
 });
@@ -137,18 +161,28 @@ test('live: a series you start waits for your OK in Triage, then it’s going, w
   assert.equal(pg.sections.going[0].role, 'drive');
   /* the page and its sheet: add a task to it */
   await page.evaluate(() => App.navigate('#/series'));
-  await page.waitForFunction(() => document.querySelector('.scard .scard-name'), null, { timeout: 15000 });
-  await page.click('.scard .scard-name');
+  await page.waitForFunction(() => document.querySelector('.ep .ep-name'), null, { timeout: 15000 });
+  await page.click('.ep .ep-name');
   await page.locator('#ss-task').waitFor();
   await page.fill('#ss-task', 'Write the Northwind pilot success criteria');
   await page.press('#ss-task', 'Enter');
-  await page.waitForFunction(() => /Write the Northwind pilot success criteria/.test(document.querySelector('.series-sheet').textContent), null, { timeout: 15000 });
+  await page.waitForFunction(() => /Write the Northwind pilot success criteria/.test(document.querySelector('.series-one').textContent), null, { timeout: 15000 });
   const sheet = await api('GET', '/series/' + out.series_id);
   assert.equal(sheet.open_tasks.length, 4);
-  /* its menu opens from the arrow and stays inside the sheet */
-  await page.click('[data-ssmore]');
-  const box = await page.evaluate(() => { const m = document.querySelector('#ss-menu').getBoundingClientRect(), d = document.querySelector('.series-sheet').getBoundingClientRect(); return { ml: m.left, mr: m.right, dl: d.left, dr: d.right }; });
-  assert.ok(box.ml >= box.dl && box.mr <= box.dr, 'the menu fits in the sheet: ' + JSON.stringify(box));
+  /* a fact: the × removes it, and Undo right under the list puts it back */
+  await api('POST', '/series/' + out.series_id + '/facts', { attr: 'status', value: 'Kickoff is booked' });
+  await page.evaluate(() => SeriesView.refresh());
+  await page.waitForFunction(() => document.querySelector('.sp-facts [data-attr="status"]'), null, { timeout: 15000 });
+  await page.click('.sp-facts [data-attr="status"]');
+  await page.locator('[data-factundo]').waitFor({ timeout: 15000 });
+  assert.ok(!(await api('GET', '/series/' + out.series_id)).knows.some(k => k.attr === 'status'), 'removed');
+  await page.click('[data-factundo]');
+  for (let i = 0; i < 50; i++) { if ((await api('GET', '/series/' + out.series_id)).knows.some(k => k.attr === 'status')) break; await new Promise(r => setTimeout(r, 200)); }
+  assert.ok((await api('GET', '/series/' + out.series_id)).knows.some(k => k.attr === 'status'), 'Undo put it back');
+  /* its menu opens from ⋯ and stays inside the page */
+  await page.click('[data-more]');
+  const box = await page.evaluate(() => { const m = document.querySelector('#sp-menu').getBoundingClientRect(), d = document.querySelector('.series-one').getBoundingClientRect(); return { ml: m.left, mr: m.right, dl: d.left, dr: d.right }; });
+  assert.ok(box.ml >= box.dl && box.mr <= box.dr, 'the menu fits in the page: ' + JSON.stringify(box));
   /* Split it into parts: a task whose title says a part's name goes there by itself */
   await page.click('[data-act="split"]');
   await page.fill('#ss-part-0', 'kickoff');

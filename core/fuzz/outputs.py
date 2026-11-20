@@ -157,6 +157,15 @@ def artifacts(core):
     return sorted(filter(None, map(_view, rows)), key=lambda a: a["updated_at"], reverse=True)
 
 
+def for_tasks(core, task_ids):
+    """The files Fuzz wrote for these tasks (a series' own), newest first."""
+    ids = [int(t) for t in task_ids]
+    if not ids:
+        return []
+    rows = core.all(_Q + f"AND s.role='output' AND s.task_id IN ({','.join('?' * len(ids))})", (core.user_id, *ids))
+    return sorted(filter(None, map(_view, rows)), key=lambda a: a["updated_at"], reverse=True)
+
+
 def artifact(core, source_id):
     """One output file, or an attachment you added, for the viewer. None when it's gone."""
     r = core.one(_Q + "AND s.role IN ('attachment','output') AND s.id=?", (core.user_id, source_id))

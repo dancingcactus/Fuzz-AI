@@ -68,6 +68,18 @@ def ensure_token(home, user_id=1):
     return t
 
 
+def _last_event_id(core):
+    r = core.one("SELECT MAX(id) m FROM events WHERE user_id=?", (core.user_id,))
+    return (r and r["m"]) or 0
+
+
+def _undo_group_since(core, since):
+    """The Undo group (GET /undo's group) of the first change you made after event `since`, or None if none."""
+    r = core.one("SELECT id, caused_by FROM events WHERE user_id=? AND id>? AND actor='human' ORDER BY id LIMIT 1",
+                 (core.user_id, since))
+    return (r["caused_by"] or r["id"]) if r else None
+
+
 def task_view(core, t, full=False):
     out = cards.task_summary(t)
     out["log_head"] = (events.task_log(core, t["id"], 1) or [None])[0]
@@ -619,13 +631,22 @@ class App:
         return ask.start(core, body.get("note"), tid, body.get("name")), 201
 
     def series_action(self, core, m, body, q):
+        """What you do on a series' sheet. The answer says which Undo group the change made (undo_group), or null
+        when it changed nothing, so the page offers Undo for this change and never for an earlier one."""
+        since = _last_event_id(core)
+        out = self._series_action(core, m, body, q)
+        if isinstance(out, dict):
+            out = dict(out, undo_group=_undo_group_since(core, since))
+        return out
+
+    def _series_action(self, core, m, body, q):
         from . import tasks as tasks_mod
         from .memory import facts
         from .series import record, views
         sid, what = int(m.group(1)), m.group(2)
         s = record.require(core, sid)
-        if what == "preview":   # read-only: what the change would have caught
-            return record.preview_anchors(core, sid, body.get("add") or [], body.get("remove") or [])
+        if what == "preview":   # read-only: what the change would have caught (or kept out)
+            return record.preview_anchors(core, sid, body.get("add") or [], body.get("remove") or [], body.get("exclude") or [])
         if what in ("keep", "name"):
             record.name(core, sid, body.get("name") if what == "name" else None)
             if what == "keep":
@@ -642,20 +663,46 @@ class App:
         elif what == "reopen":
             record.reopen(core, sid)
         elif what == "anchors":
-            if not all(isinstance(body.get(k) or [], list) for k in ("add", "remove", "restore")):
-                raise FuzzError("add, remove and restore are lists", "add")
-            record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [])
+            if not all(isinstance(body.get(k) or [], list) for k in ("add", "remove", "restore", "exclude", "unexclude")):
+                raise FuzzError("add, remove, restore, exclude and unexclude are lists", "add")
+            record.edit_anchors(core, sid, body.get("add") or [], body.get("remove") or [], restore=body.get("restore") or [],
+                                exclude=body.get("exclude") or [], unexclude=body.get("unexclude") or [])
         elif what == "facts":
-            if body.get("fact_id"):   # "That's wrong": rejected, with Undo
-                facts.reject(core, int(body["fact_id"]))
+            if body.get("fact_id") and body.get("confirm"):   # "Looks right": Fuzz's guess becomes yours, with Undo
+                fid = int(body["fact_id"])
+                if facts.get(core, fid)["entity_id"] not in facts.closure(core, s["entity_id"]):
+                    raise FuzzError("That fact isn't this series'", "fact_id")
+                facts.confirm(core, fid)
+            elif body.get("fact_id"):   # "That's wrong" (the ×): rejected, with Undo
+                fid = int(body["fact_id"])
+                if facts.get(core, fid)["entity_id"] not in facts.closure(core, s["entity_id"]):
+                    raise FuzzError("That fact isn't this series'", "fact_id")
+                facts.reject(core, fid)
             else:
-                facts.edit(core, s["entity_id"], body.get("attr"), body.get("value"))
+                attr = body.get("attr")
+                values = body.get("values") if body.get("values") is not None else [body.get("value")]
+                if not isinstance(values, list) or not values:
+                    raise FuzzError("values is a list with at least one", "values")
+                one = facts.single("series", attr)
+                if one and len(values) > 1:
+                    raise FuzzError(f"{attr} takes one value", "values")
+                # a list (For, Owner, Blocked on: several people) adds each value; one it already has is left as it
+                # is. All of them in one transaction, so one Undo takes the lot back.
+                have = set() if one else {facts.norm(f["value"]) for f in facts.for_entity(core, s["entity_id"])
+                                          if f["attr"] == attr and f["state"] == "winner"}
+                with core.tx("human"):
+                    for v in values:
+                        if facts.norm(v or "") in have:
+                            continue
+                        facts.edit(core, s["entity_id"], attr, v)
+                        have.add(facts.norm(v or ""))
         elif what == "add_task":   # Add a task to …: it goes to Triage already in the series; or move one you have
             if body.get("task_id"):
                 record.link(core, int(body["task_id"]), sid)
-            else:
-                tid = tasks_mod.capture(core, body.get("text"))
-                record.link(core, tid, sid)
+            else:   # one transaction, so one Undo takes the new task back too, not just its "Part of"
+                with core.tx("human"):
+                    tid = tasks_mod.capture(core, body.get("text"))
+                    record.link(core, tid, sid)
         elif what == "work_on":   # Work on …: Focus is the series
             from . import focus
             with core.reading():
@@ -672,6 +719,9 @@ class App:
                 ch.series(sid, check_due=1)
                 events.emit(core, "series.reviewed", changes=ch, data={"series_id": sid, "asked": True})
         with core.reading():
+            now = record.get(core, sid)
+            if now["kind"] != "series":   # It's ongoing: an area now, never shown, so there's no sheet to send back
+                return {"id": sid, "state": now["state"], "kind": now["kind"], "gone": True}
             return views.sheet(core, sid)
 
     def task_refs(self, core, m, body, q):
@@ -696,13 +746,14 @@ class App:
         """{series_id}: "Part of…" from task detail (or swapping in an also-touches one); null takes it out."""
         from .series import record
         tid = int(m.group(1))
+        since = _last_event_id(core)
         if body.get("series_id") is None:
             record.unlink(core, tid)
         elif isinstance(body["series_id"], int):
             record.link(core, tid, body["series_id"])
         else:
             raise FuzzError("series_id is the series this task is part of, or null", "series_id")
-        return task_view(core, tasks.require(core, tid), full=True)
+        return dict(task_view(core, tasks.require(core, tid), full=True), undo_group=_undo_group_since(core, since))
 
     def part_of_choices(self, core, m, body, q):
         from . import deliverables

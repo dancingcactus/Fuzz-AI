@@ -21,6 +21,8 @@ from ..db import iso
 from . import settings as settings_mod
 
 LIVE_SERIES = ("forming", "inferred", "named", "dormant")
+# anchor rows that are off but that you didn't remove: an exclusion (or one you took back), an add you undid
+NOT_REMOVALS = ("exclude", "unexcluded", "undone")
 # The local part of an address that is a mailing list, not a person: northwind-all@, dl-pricing@, eng-team@
 LIST_RE = re.compile(r"^(all|dl|list|team|everyone|announce|staff)[-._]|[-._](all|dl|list|lists|team|everyone|announce|group|staff)@|"
                      r"^[^@]*(-list|-group|-dl)@")
@@ -197,7 +199,10 @@ class Index:
         if s is None:
             return {}
         rows = self.rows.get(sid, [])
-        removed = {a["key"] for a in rows if a["removed"]}
+        # removed by you; an exclusion you took back (or undid) or an add you undid isn't a removal, and a live
+        # exclusion is never an anchor
+        removed = {a["key"] for a in rows if a["removed"] and a["how"] not in NOT_REMOVALS}
+        removed |= set(self.excluded(sid))
         if s["kind"] == "area":
             return {a["key"]: a["label"] or self.labels.get(a["key"], a["key"]) for a in rows if not a["removed"]}
         counts = {}
@@ -219,11 +224,19 @@ class Index:
     def added(self, sid):
         return {a["key"] for a in self.rows.get(sid, []) if a["how"] == "added" and not a["removed"]}
 
+    def excluded(self, sid):
+        """{key: label}: what keeps work out of it ("Keeps work out" on its page). New work carrying one doesn't join."""
+        return {a["key"]: a["label"] or self.labels.get(a["key"], a["key"])
+                for a in self.rows.get(sid, []) if a["how"] == "exclude" and not a["removed"]}
+
     def score(self, tid, sid, anchors=None):
         anchors = self.anchors(sid) if anchors is None else anchors
         mine = self.added(sid)
+        feats = self.feats.get(tid, {})
+        if any(k in feats for k in self.excluded(sid)):   # you said work like this isn't part of it
+            return 0.0
         total, strong = 0.0, False
-        for k in self.feats.get(tid, {}):
+        for k in feats:
             if k in anchors:
                 w = self.weight(k, added=k in mine)
                 if k in self.area_keys and not self.yours(sid):

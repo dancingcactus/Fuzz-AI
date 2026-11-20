@@ -73,6 +73,30 @@ def _people(core, tids, limit=6):
     return [n for n, _ in sorted(seen.items(), key=lambda x: -x[1])][:limit]
 
 
+def _about(s, w, idx, members, open_, people):
+    """The one line under its name that says what it is. The goal when Fuzz has one (a guess until you say so),
+    else a line from its own tasks, which is always a guess: (text, how, guess, fact_id)."""
+    g = w.get("goal")
+    if g:
+        sure = g["how"] == "edited" or g.get("confirmed_at") or (g.get("trust") or {}).get("level") == "confirmed"
+        return g["value"], "goal", not sure, None if sure else g["id"]
+    if not members:
+        return "Nothing in it yet. Add a task, or tell Fuzz what it’s about.", "tasks", True, None
+    pick = sorted(open_ or members, key=lambda t: idx.tasks[t].get("created_at") or "", reverse=True)[0]
+    n = len(members)
+    who = f" with {people[0]}" + (f" and {people[1]}" if len(people) > 1 else "") if people else ""
+    return f"From {n} {'task' if n == 1 else 'tasks'}{who}, like “{idx.tasks[pick]['title']}”.", "tasks", True, None
+
+
+def _last(idx, members):
+    """What moved last: the member task that changed most recently."""
+    if not members:
+        return None
+    t = max(members, key=lambda t: idx.tasks[t].get("state_changed_at") or idx.tasks[t].get("created_at") or "")
+    r = idx.tasks[t]
+    return {"id": t, "title": r["title"], "state": r["state"], "at": r.get("state_changed_at") or r.get("created_at")}
+
+
 def summary(core, s, idx=None):
     """One card on the Series page."""
     idx = idx or index_mod.get(core)
@@ -81,15 +105,49 @@ def summary(core, s, idx=None):
     open_ = [t for t in members if idx.tasks[t]["state"] in states.LIVE]
     role = (w.get("your_role") or {}).get("value")
     st = w.get("status")
+    people = _people(core, open_ or members, 4)
+    about, about_how, about_guess, about_fact = _about(s, w, idx, members, open_, people)
     return {"id": s["id"], "name": s["name"], "state": s["state"], "origin": s["origin"], "section": section(s),
             "muted": bool(s["muted"]), "season": s.get("season") or 1, "role": role, "role_label": ROLE_LABEL.get(role),
+            "about": about, "about_how": about_how, "about_guess": about_guess, "about_fact_id": about_fact,
             "status": _fact_view(core, st) if st else None,
             "done_when": (w.get("done_when") or {}).get("value"),
             "next_milestone": (w.get("next_milestone") or {}).get("value"),
             "next": suggest.next_for(core, s["id"]),
             "open": len(open_), "done": len([t for t in members if idx.tasks[t]["state"] == "done"]),
-            "people": _people(core, open_ or members, 4), "evidence": s.get("evidence"),
+            "people": people, "evidence": s.get("evidence"), "last": _last(idx, members),
             "last_moved": idx.last_moved(s["id"]) or None, "focus_task_ids": open_}
+
+
+def _people_detail(core, members, owner=None, limit=60):
+    """Everyone in its tasks, the ones in the most first: {name, tasks, how}. how says how they're in it: the owner,
+    someone you're waiting on, who sent its asks."""
+    from .. import people as people_mod, tasks
+    book = {}
+    for t in members[-limit:]:
+        row = tasks.get(core, t)
+        if not row:
+            continue
+        live = row["state"] in states.LIVE
+        for p in people_mod.for_task(core, row):
+            b = book.setdefault(p["name"], {"name": p["name"], "tasks": 0, "sent": 0, "waiting": 0})
+            b["tasks"] += 1
+            kinds = {c.get("kind") for c in p.get("contributions") or []}
+            b["sent"] += "sent" in kinds
+            b["waiting"] += "waiting" in kinds and live
+    out = []
+    # owner: one name or several (Owner holds more than one now)
+    owners = {o.strip().lower() for o in ([owner] if isinstance(owner, str) else (owner or [])) if o}
+    for b in sorted(book.values(), key=lambda b: (-b["tasks"], b["name"].lower())):
+        how = []
+        if b["name"].lower() in owners:
+            how.append("Owner")
+        if b["waiting"]:
+            how.append("You’re waiting on them")
+        if b["sent"]:
+            how.append("Sent one of its asks" if b["sent"] == 1 else f"Sent {b['sent']} of its asks")
+        out.append({"name": b["name"], "tasks": b["tasks"], "how": " · ".join(how)})
+    return out
 
 
 def page(core):
@@ -133,13 +191,19 @@ def sheet(core, sid):
                        "ORDER BY COALESCE(decided_at, captured_at) DESC LIMIT 10", (core.user_id, *keys)) if keys else []
     out["decided"] = [{"id": d["id"], "what": d["what"], "why": d.get("why"), "at": d.get("decided_at") or d["captured_at"],
                        "link": d.get("link")} for d in decided]
-    out["people"] = _people(core, members, 10)
-    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"]}
+    owner = [f["value"] for f in out["knows"] if f["attr"] == "owner"]
+    out["people"] = _people_detail(core, sorted(members), owner)
+    from .. import outputs
+    out["artifacts"] = outputs.for_tasks(core, members)
+    removed = {a["key"]: a for a in idx.rows.get(s["id"], []) if a["removed"] and a["how"] not in index_mod.NOT_REMOVALS}
     anchors = idx.anchors(s["id"])
     mine = idx.added(s["id"])
     out["anchors"] = [{"key": k, "label": v, "yours": k in mine, "tasks": len(set(idx.index.get(k, ())) & set(members))}
                       for k, v in sorted(anchors.items(), key=lambda kv: (kv[0] not in mine, -len(idx.index.get(kv[0], ()))))]
     out["removed_anchors"] = [{"key": k, "label": a["label"] or idx.labels.get(k, k)} for k, a in removed.items()]
+    # Keeps work out: new work that says one doesn't join; "tasks" is how many already in it say it (they stay)
+    out["excluded_anchors"] = [{"key": k, "label": v, "tasks": len(set(idx.index.get(k, ())) & set(members))}
+                               for k, v in idx.excluded(s["id"]).items()]
     touching = idx.touching(s["id"])
     out["also_touches"] = [{"id": t, "title": idx.tasks[t]["title"], "series_id": idx.tasks[t].get("series_id"),
                             "series": (idx.series.get(idx.tasks[t].get("series_id")) or {}).get("name")}

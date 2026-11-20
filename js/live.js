@@ -641,16 +641,43 @@
     /* Series: the sheet (read when it opens), what you do on it, the preview of an anchor change, starting
        one from New task, and "Part of…" on a task */
     S.seriesSheet = function (coreId) { return api('GET', '/series/' + coreId); };
-    S.seriesAction = function (coreId, what, body) {
+    /* undoLabel: the change, as the header's Undo list names it. With one, the change's undo group is offered
+       there (and to the page, through Say.lastUndo) once its write is in. */
+    /* Offer Undo for the change a series write made. r.undo_group names its group, or is null when the write
+       changed nothing (a person it already had): then there's nothing to undo, and Undo mustn't take back an
+       earlier change instead. A core from before undo_group says neither, so the newest of yours stands in. */
+    function offerSeriesUndo(r, undoLabel) {
+      if (!undoLabel || !r || r.undo_group === null) return Promise.resolve(r);
+      return api('GET', '/undo').then(function (u) {
+        var mine = (u.recent || []).filter(function (y) { return y.by === 'human'; });
+        var x = r.undo_group === undefined ? mine[0] : mine.filter(function (y) { return y.group === r.undo_group; })[0];
+        if (!x) return r;
+        undoBlocked[x.group] = x.blocked;
+        Say.offerUndo(undoLabel, function () {
+          if (undoBlocked[x.group]) return undoBlocked[x.group];
+          gen++;
+          write(function () { return api('POST', '/undo', { group: x.group }); }).then(syncThenRefresh, syncThenRefresh);
+          return null;
+        }, null, function () { return undoBlocked[x.group] || null; });
+        return r;
+      }, function () { return r; });
+    }
+    S.seriesAction = function (coreId, what, body, undoLabel) {
       gen++;
-      return write(function () { return api('POST', '/series/' + coreId + '/' + what, body || {}); }).then(function (r) { soon(0); return r; });
+      return write(function () { return api('POST', '/series/' + coreId + '/' + what, body || {}); }).then(function (r) {
+        soon(0);
+        return offerSeriesUndo(r, undoLabel);
+      });
     };
     S.seriesPreview = function (coreId, body) { return api('POST', '/series/' + coreId + '/preview', body || {}); };
     S.seriesChoices = function (taskCoreId) { return api('GET', '/tasks/' + taskCoreId + '/series').then(function (r) { return r.choices || []; }); };
-    S.taskSeries = function (id, seriesId) {
+    /* undoLabel: as seriesAction's; "Part of…" on a task undoes like the sheet's own changes */
+    S.taskSeries = function (id, seriesId, undoLabel) {
       var tid = (S.item(id) || {}).coreId; if (!tid) return Promise.resolve();
       gen++;
-      return write(function () { return api('POST', '/tasks/' + tid + '/series', { series_id: seriesId }); }).then(syncThenRefresh);
+      return write(function () { return api('POST', '/tasks/' + tid + '/series', { series_id: seriesId }); }).then(function (r) {
+        return offerSeriesUndo(r, undoLabel).then(function () { return syncThenRefresh(); });
+      });
     };
     /* A suggestion answered on the sheet: the same card Triage shows */
     S.answerSeriesCard = function (cardId, opt, value) {

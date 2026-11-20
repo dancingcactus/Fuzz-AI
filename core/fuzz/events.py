@@ -86,7 +86,7 @@ TABLES = {
     "user_state": _t("key", {"value"}, {"value": None}),
     "deliverables": _t("id", {"state", "tier", "title", "done_when"}, {"state": "dropped"}),
     "series": _t("id", {"state", "name", "kind", "muted"}, {"state": "dropped"}),
-    "series_anchors": _t("id", {"removed"}, {"removed": 1}),
+    "series_anchors": _t("id", {"removed"}, {"removed": 1, "how": "undone"}),   # an undone add isn't one you removed
     "facts": _t("id", {"status", "value", "confirmed_at"}, {"status": "undone"}),
     "knowledge": _t("id", {"status"}, {"status": "undone"}),
     "decision_log": _t("id", {"status", "what"}, {"status": "undone"}),
