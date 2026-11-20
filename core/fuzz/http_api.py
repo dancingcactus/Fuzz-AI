@@ -172,6 +172,7 @@ class App:
             ("GET", r"/tasks", self.list_tasks),
             ("POST", r"/tasks", self.capture),
             ("GET", r"/tasks/search", self.search_tasks),
+            ("GET", r"/tasks/full", self.get_tasks),
             ("GET", r"/tasks/(\d+)", self.get_task),
             ("POST", r"/tasks/(\d+)/(" + "|".join(actions.TASK_VERBS) + ")", self.task_action),
             ("GET", r"/lessons", self.list_lessons),
@@ -292,6 +293,16 @@ class App:
 
     def get_task(self, core, m, body, q):
         return task_view(core, tasks.require(core, int(m.group(1))), full=True)
+
+    def get_tasks(self, core, m, body, q):
+        """?ids=3,14,15: several full tasks in one reading(), so the series index is built once, not once each
+        (a reload asks for every task). An id that isn't yours or no longer exists is left out."""
+        try:
+            ids = [int(x) for x in (q.get("ids") or "").split(",") if x.strip()]
+        except ValueError:
+            raise FuzzError("ids must be task ids separated by commas", "ids")
+        with core.reading():
+            return {"tasks": [task_view(core, t, full=True) for t in (tasks.get(core, i) for i in ids) if t]}
 
     def task_action(self, core, m, body, q):
         out, follow = actions.task_action(core, int(m.group(1)), m.group(2), body)

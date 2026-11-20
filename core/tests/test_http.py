@@ -94,6 +94,16 @@ class Api(Server):
         self.assertEqual(full["state"], "review")
         self.assertTrue(full["log"] and full["drafts"] and full["cards"])
 
+    def test_full_tasks_in_one_request(self):
+        a = self.req("POST", "/tasks", {"text": "Renew the parking permit"})[1]["task_id"]
+        b = self.req("POST", "/tasks", {"text": "Book the dentist"})[1]["task_id"]
+        status, body = self.req("GET", f"/tasks/full?ids={b},{a},9999")
+        self.assertEqual(status, 200)
+        self.assertEqual([t["id"] for t in body["tasks"]], [b, a])   # asked order; one that isn't there is left out
+        self.assertEqual(body["tasks"][1], self.req("GET", f"/tasks/{a}")[1])   # the same as one at a time
+        self.assertEqual(self.req("GET", "/tasks/full?ids=")[1], {"tasks": []})
+        self.assertEqual(self.req("GET", "/tasks/full?ids=a,b")[1]["field"], "ids")
+
     def test_a_source_link_reaches_the_page(self):
         core = self.srv.app.core(1)
         tid = tasks.capture(core, "Follow up with the KB team")
