@@ -1,0 +1,654 @@
+{
+  "format": 1,
+  "about": "The global sender set: invented senders and what each is. Committed to a public repo, so nothing here may come from a real store: names, companies and addresses are invented on the example domains, and only public services (github.com, linkedin.com) keep their own. The person is alex@acme.example, so acme.example is their organisation. Kinds: human (a person), bot (a notifier, relay or no-reply address: nobody reads replies), list (a distribution list or group you're addressed through), brand (an organisation, newsletter or team inbox speaking as itself). `seen` is what Fuzz knows beyond the message: whether the org directory found them, and the other names this address has sent as. Scored by `fuzz eval senders` with no model, so the answer is the same every run.",
+  "cases": [
+    {
+      "name": "initial-and-surname",
+      "kind": "human",
+      "why": "The address is the name: p + navarro",
+      "sender": {
+        "name": "Priya Navarro",
+        "email": "pnavarro@acme.example"
+      }
+    },
+    {
+      "name": "surname-only-address",
+      "kind": "human",
+      "why": "Surname alone as the address",
+      "sender": {
+        "name": "Tomás Reyes",
+        "email": "reyes@acme.example"
+      }
+    },
+    {
+      "name": "first-dot-last-external",
+      "kind": "human",
+      "why": "A customer's first.last address",
+      "sender": {
+        "name": "Hannah Okafor",
+        "email": "hannah.okafor@northwind.example"
+      }
+    },
+    {
+      "name": "three-part-name",
+      "kind": "human",
+      "why": "A long name, abbreviated in the address",
+      "sender": {
+        "name": "Venkat Rao Iyengar",
+        "email": "viyengar@acme.example"
+      }
+    },
+    {
+      "name": "married-name-address",
+      "kind": "human",
+      "why": "Her address kept her old surname; the directory knows her",
+      "sender": {
+        "name": "Lauren Ito",
+        "email": "lbeck@acme.example"
+      },
+      "seen": {
+        "directory": true
+      }
+    },
+    {
+      "name": "employee-number-address",
+      "kind": "human",
+      "why": "A numbered address, but the directory knows him",
+      "sender": {
+        "name": "Jun Park",
+        "email": "all40211@acme.example"
+      },
+      "seen": {
+        "directory": true
+      }
+    },
+    {
+      "name": "slack-id-only",
+      "kind": "human",
+      "why": "A Slack user with an ID is a person",
+      "sender": {
+        "name": "Ravi Castell",
+        "slack_id": "U0EXAMPLE1"
+      }
+    },
+    {
+      "name": "name-only-mention",
+      "kind": "human",
+      "why": "A full name named in a message, nothing else known",
+      "sender": {
+        "name": "Marta Silva"
+      }
+    },
+    {
+      "name": "accented-name-only",
+      "kind": "human",
+      "why": "Accents are still a name",
+      "sender": {
+        "name": "Inès Barbeau"
+      }
+    },
+    {
+      "name": "surname-comma-first",
+      "kind": "human",
+      "why": "Outlook's Surname, First form",
+      "sender": {
+        "name": "Dunmore, Rory",
+        "email": "rory.dunmore@grocer.example"
+      }
+    },
+    {
+      "name": "address-as-name",
+      "kind": "human",
+      "why": "No display name, a person's first.last address",
+      "sender": {
+        "name": "zed.marsh@grocer.example",
+        "email": "zed.marsh@grocer.example"
+      }
+    },
+    {
+      "name": "no-name-person-address",
+      "kind": "human",
+      "why": "A bare address that's someone's name",
+      "sender": {
+        "email": "kgaribaldi@acme.example"
+      }
+    },
+    {
+      "name": "shouting-name",
+      "kind": "human",
+      "why": "Capitals don't make it a team",
+      "sender": {
+        "name": "GRETA BRANDT",
+        "email": "obrandt@bigco.example"
+      }
+    },
+    {
+      "name": "personal-mailbox",
+      "kind": "human",
+      "why": "A personal webmail address with a number in it",
+      "sender": {
+        "name": "Kiran Mehta",
+        "email": "kiran.mehta115@mail.example"
+      }
+    },
+    {
+      "name": "assistant-role-address",
+      "kind": "human",
+      "why": "An executive assistant writing from a role address under her own name",
+      "sender": {
+        "name": "Rachel T",
+        "email": "execoffice@halden.example"
+      }
+    },
+    {
+      "name": "nickname-address-in-directory",
+      "kind": "human",
+      "why": "Goes by Mitch; the address says mitchella",
+      "sender": {
+        "name": "Mitch Arden",
+        "email": "mitchella@acme.example"
+      },
+      "seen": {
+        "directory": true
+      }
+    },
+    {
+      "name": "first-name-only",
+      "kind": "human",
+      "why": "A first name with nothing else is someone, not an app",
+      "sender": {
+        "name": "Theo"
+      }
+    },
+    {
+      "name": "colleague-never-looked-up",
+      "kind": "human",
+      "why": "At your organisation, not looked up yet: unknown isn't not found",
+      "sender": {
+        "name": "Wen Zhao",
+        "email": "wzhao@acme.example"
+      },
+      "seen": {
+        "directory": null
+      }
+    },
+    {
+      "name": "founder-at-own-domain",
+      "kind": "human",
+      "why": "A person at a domain named for them: the address is their first name",
+      "sender": {
+        "name": "Dara Quill",
+        "email": "dara@quillbrothers.example"
+      }
+    },
+    {
+      "name": "github-actions",
+      "kind": "bot",
+      "why": "GitHub's own bot account",
+      "sender": {
+        "name": "github-actions[bot]",
+        "email": "notifications@github.com"
+      }
+    },
+    {
+      "name": "github-repo-notice",
+      "kind": "bot",
+      "why": "A repository's notifications through GitHub's no-reply domain",
+      "sender": {
+        "name": "Orbit/web-app",
+        "email": "web-app@noreply.github.com"
+      }
+    },
+    {
+      "name": "linkedin-messages",
+      "kind": "bot",
+      "why": "A no-reply address in the local part",
+      "sender": {
+        "name": "LinkedIn",
+        "email": "messages-noreply@linkedin.com"
+      }
+    },
+    {
+      "name": "bare-noreply",
+      "kind": "bot",
+      "why": "The display name is the no-reply address itself",
+      "sender": {
+        "name": "noreply@acme.example",
+        "email": "noreply@acme.example"
+      }
+    },
+    {
+      "name": "human-name-on-noreply",
+      "kind": "bot",
+      "why": "A person's name on a no-reply address: an announcement tool sending for them",
+      "sender": {
+        "name": "Dana Whitfield",
+        "email": "no-reply@internal.acme-info.example"
+      }
+    },
+    {
+      "name": "tracker-relay-with-person",
+      "kind": "bot",
+      "why": "The tracker relays as whoever commented: the address is the bot, not Sam",
+      "sender": {
+        "name": "Sam Ortiz (Tracker)",
+        "email": "tracker-relay@acme.example"
+      },
+      "seen": {
+        "names": [
+          "Lee Kwan (Tracker)",
+          "Dana Whitfield (Tracker)",
+          "Ana Ruiz (Tracker)"
+        ]
+      }
+    },
+    {
+      "name": "relay-carrying-plain-names",
+      "kind": "bot",
+      "why": "One address that has sent as several different people is a relay",
+      "sender": {
+        "name": "Ana Ruiz",
+        "email": "docs-relay@acme.example"
+      },
+      "seen": {
+        "names": [
+          "Joe Bassett",
+          "Priya Navarro",
+          "Acme Handbook"
+        ]
+      }
+    },
+    {
+      "name": "slack-build-notifier",
+      "kind": "bot",
+      "why": "A Slack app with no ID or address, named as a notifier",
+      "sender": {
+        "name": "Nightly Build Notifier"
+      }
+    },
+    {
+      "name": "slack-digest-app",
+      "kind": "bot",
+      "why": "A Slack digest app",
+      "sender": {
+        "name": "Standup Digests"
+      }
+    },
+    {
+      "name": "camelcase-agent",
+      "kind": "bot",
+      "why": "An automation account named like code",
+      "sender": {
+        "name": "opsAgent"
+      }
+    },
+    {
+      "name": "slack-itself",
+      "kind": "bot",
+      "why": "The platform writing as itself",
+      "sender": {
+        "name": "Slack"
+      }
+    },
+    {
+      "name": "notification-mailbox",
+      "kind": "bot",
+      "why": "An internal notification mailbox",
+      "sender": {
+        "name": "Security Notification",
+        "email": "alertsnotification@acme.example"
+      }
+    },
+    {
+      "name": "reminder-service",
+      "kind": "bot",
+      "why": "An expense tool's reminder service",
+      "sender": {
+        "name": "Expense Assistant",
+        "email": "reminderservice@spendly.example"
+      }
+    },
+    {
+      "name": "donotreply-mixed-case",
+      "kind": "bot",
+      "why": "DoNotReply, with its own address as the name",
+      "sender": {
+        "name": "Access-DoNotReply@acme.example",
+        "email": "access-donotreply@acme.example"
+      }
+    },
+    {
+      "name": "noreply-with-tag",
+      "kind": "bot",
+      "why": "A receipt from a tagged no-reply address",
+      "sender": {
+        "name": "Crumb Bakery - Midtown",
+        "email": "no-reply+a91c07@orders.example"
+      }
+    },
+    {
+      "name": "underscore-noreply",
+      "kind": "bot",
+      "why": "no_reply with an underscore",
+      "sender": {
+        "name": "no_reply@benefitly.example",
+        "email": "no_reply@benefitly.example"
+      }
+    },
+    {
+      "name": "support-plus-notifications",
+      "kind": "bot",
+      "why": "A plus-tagged notifications address",
+      "sender": {
+        "name": "Sketchpad",
+        "email": "support+notifications@sketchpad.example"
+      }
+    },
+    {
+      "name": "job-alerts",
+      "kind": "bot",
+      "why": "donotreply on an alerts subdomain",
+      "sender": {
+        "name": "Acme Careers",
+        "email": "donotreply@jobalerts.acme.example"
+      }
+    },
+    {
+      "name": "auto-notification",
+      "kind": "bot",
+      "why": "autonotify in the address",
+      "sender": {
+        "name": "Travelwise",
+        "email": "autonotify@travelwise.example"
+      }
+    },
+    {
+      "name": "grp-prefix",
+      "kind": "list",
+      "why": "Grp- is how the organisation names its groups",
+      "sender": {
+        "name": "Grp-Atlas-Launch-Watchers",
+        "email": "atlas-launch-watchers@acme.example"
+      }
+    },
+    {
+      "name": "dl-prefix",
+      "kind": "list",
+      "why": "DL- is a distribution list",
+      "sender": {
+        "name": "DL-Field-Marketing",
+        "email": "field-marketing@acme.example"
+      }
+    },
+    {
+      "name": "org-all",
+      "kind": "list",
+      "why": "Everyone under a manager",
+      "sender": {
+        "name": "ORG-JDOE-ALL",
+        "email": "org-jdoe-all@acme.example"
+      }
+    },
+    {
+      "name": "nameless-eng-list",
+      "kind": "list",
+      "why": "No name, a team-eng address",
+      "sender": {
+        "email": "mobile-runtime-eng@acme.example"
+      }
+    },
+    {
+      "name": "active-users-list",
+      "kind": "list",
+      "why": "A product's user group",
+      "sender": {
+        "name": "Beacon Active Users",
+        "email": "beacon-active-users@acme.example"
+      }
+    },
+    {
+      "name": "site-list",
+      "kind": "list",
+      "why": "Everyone at an office",
+      "sender": {
+        "name": "Denver-regular",
+        "email": "denver-regular@acme.example"
+      }
+    },
+    {
+      "name": "all-company",
+      "kind": "list",
+      "why": "The whole company",
+      "sender": {
+        "name": "AllAcme",
+        "email": "allacme@acme.example"
+      }
+    },
+    {
+      "name": "insiders-list",
+      "kind": "list",
+      "why": "An internal interest group, not in the directory",
+      "sender": {
+        "name": "Atlas - Builder Insiders",
+        "email": "atlas-insiders@acme.example"
+      },
+      "seen": {
+        "directory": false
+      }
+    },
+    {
+      "name": "numbered-group",
+      "kind": "list",
+      "why": "A GR- group with a generated address",
+      "sender": {
+        "name": "GR-Field-Ops & Tools",
+        "email": "gr_ops457@acme.example"
+      }
+    },
+    {
+      "name": "grp-office-hours",
+      "kind": "list",
+      "why": "A group named for a meeting",
+      "sender": {
+        "name": "Grp-api-clinic",
+        "email": "api-clinic@acme.example"
+      }
+    },
+    {
+      "name": "news-alerts",
+      "kind": "brand",
+      "why": "A newspaper's breaking-news sender",
+      "sender": {
+        "name": "The Daily Ledger",
+        "email": "breakingnews@ledger.example"
+      }
+    },
+    {
+      "name": "personal-newsletter",
+      "kind": "brand",
+      "why": "A newsletter named for its author",
+      "sender": {
+        "name": "Marco's Newsletter",
+        "email": "marco+field-notes@letters.example"
+      }
+    },
+    {
+      "name": "course-platform",
+      "kind": "brand",
+      "why": "Support from a bulk mail subdomain",
+      "sender": {
+        "name": "Skillhouse",
+        "email": "support@email.skillhouse.example"
+      }
+    },
+    {
+      "name": "the-x-team",
+      "kind": "brand",
+      "why": "\"The … Team\" at hello@",
+      "sender": {
+        "name": "The Lintly Team",
+        "email": "hello@lintly.example"
+      }
+    },
+    {
+      "name": "persona-at-company",
+      "kind": "brand",
+      "why": "A first name at a company, from marketing@",
+      "sender": {
+        "name": "Nora at Leadwise",
+        "email": "marketing@leadwise.example"
+      }
+    },
+    {
+      "name": "persona-on-bulk-subdomain",
+      "kind": "brand",
+      "why": "A person's name on a marketing subdomain",
+      "sender": {
+        "name": "Felix Marr",
+        "email": "felix.marr@m.contentnews.example"
+      }
+    },
+    {
+      "name": "persona-on-info-address",
+      "kind": "brand",
+      "why": "A rep's name on the company's info mailbox",
+      "sender": {
+        "name": "Teo Varga",
+        "email": "mail-info@scanco.example"
+      }
+    },
+    {
+      "name": "persona-at-sign",
+      "kind": "brand",
+      "why": "Name @ Company from a survey subdomain",
+      "sender": {
+        "name": "Emma @ Survey Loop",
+        "email": "emma@r.surveyloop.example"
+      }
+    },
+    {
+      "name": "internal-comms",
+      "kind": "brand",
+      "why": "An internal team mailbox: a name-shaped team, not in the directory",
+      "sender": {
+        "name": "People Communications",
+        "email": "peoplecomms@acme.example"
+      },
+      "seen": {
+        "directory": false
+      }
+    },
+    {
+      "name": "internal-equity",
+      "kind": "brand",
+      "why": "Two capitalised words, but a department mailbox",
+      "sender": {
+        "name": "Acme Equity",
+        "email": "equity@acme.example"
+      },
+      "seen": {
+        "directory": false
+      }
+    },
+    {
+      "name": "vendor-technologies",
+      "kind": "brand",
+      "why": "A company name on a comms subdomain",
+      "sender": {
+        "name": "Arkwright Systems",
+        "email": "arkwright_systems@comms.arkwright.example"
+      }
+    },
+    {
+      "name": "subject-as-name",
+      "kind": "brand",
+      "why": "The display name is a course title",
+      "sender": {
+        "name": "Leading Your Former Peers",
+        "email": "training@campaign.learnly.example"
+      }
+    },
+    {
+      "name": "weekly-hi",
+      "kind": "brand",
+      "why": "A weekly newsletter at hi@",
+      "sender": {
+        "name": "Garden Money Weekly",
+        "email": "hi@gardenmoney.example"
+      }
+    },
+    {
+      "name": "hr-vendor-for-company",
+      "kind": "brand",
+      "why": "An HR system sending as the company's resource centre",
+      "sender": {
+        "name": "Staff Help Hub",
+        "email": "acme@hrsuite.example"
+      }
+    },
+    {
+      "name": "internal-event-mailbox",
+      "kind": "brand",
+      "why": "An internal events mailbox",
+      "sender": {
+        "name": "Partner Planning Sessions",
+        "email": "partnerqbr@acme.example"
+      },
+      "seen": {
+        "directory": false
+      }
+    },
+    {
+      "name": "info-at-info",
+      "kind": "brand",
+      "why": "info@ on an info subdomain",
+      "sender": {
+        "name": "Pipeline Summit",
+        "email": "info@info.pipelinesummit.example"
+      }
+    },
+    {
+      "name": "brand-campaign-names",
+      "kind": "brand",
+      "why": "A brand sending as several campaigns isn't a relay for people",
+      "sender": {
+        "name": "Skillhouse",
+        "email": "certificates@email.skillhouse.example"
+      },
+      "seen": {
+        "names": [
+          "Skillhouse Certificates",
+          "Skillhouse Executive",
+          "Skillhouse Team"
+        ]
+      }
+    },
+    {
+      "name": "camelcase-brand-with-address",
+      "kind": "brand",
+      "why": "A camelCase brand with an address is a company, not an app account",
+      "sender": {
+        "name": "tryNimbus",
+        "email": "hello@trynimbus.example"
+      }
+    },
+    {
+      "name": "brand-name-is-domain",
+      "kind": "brand",
+      "why": "The name is the domain's, not the address's: the company itself",
+      "sender": {
+        "name": "Halcyon Cloud",
+        "email": "nextsupport@halcyon.example"
+      }
+    },
+    {
+      "name": "newsletter-inside-address",
+      "kind": "brand",
+      "why": "newsletter inside a longer local part",
+      "sender": {
+        "name": "Lumo US",
+        "email": "newsletter.us@lumotech.example"
+      }
+    }
+  ]
+}

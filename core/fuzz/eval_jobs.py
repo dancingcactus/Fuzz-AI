@@ -13,7 +13,7 @@ import sys
 
 from .db import FuzzError
 
-OPS = {"extract": "run", "dupes": "dupes", "draft": "drafts", "executor": "executor"}
+OPS = {"extract": "run", "dupes": "dupes", "senders": "senders", "draft": "drafts", "executor": "executor"}
 PKG_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

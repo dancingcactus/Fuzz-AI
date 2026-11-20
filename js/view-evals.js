@@ -1,5 +1,5 @@
 /* Evals: a debugging view of every eval run (docs/evals.md). Read-only: runs start from the terminal
-   (fuzz eval run | dupes | drafts | executor), since each takes minutes and costs model calls.
+   (fuzz eval run | dupes | senders | drafts | executor), since each takes minutes and costs model calls.
    #/evals lists the newest run of each surface and every run; #/evals/<id> opens one: what changed against the
    run it was gated on, every case, and why a case failed. Only what's in this store is shown. */
 (function () {
@@ -7,9 +7,9 @@
   var esc = UI.esc;
   var root = null, list = null, detail = null, failed = null, surface = 'all', onlyFailing = true, runId = null;
 
-  var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['draft', 'Drafts'], ['executor', 'Executor']];
-  var NAME = { extract: 'Extraction', dupes: 'Duplicates', draft: 'Drafts', executor: 'Executor' };
-  var CMD = { extract: 'fuzz eval run', dupes: 'fuzz eval dupes', draft: 'fuzz eval drafts', executor: 'fuzz eval executor' };
+  var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['senders', 'Senders'], ['draft', 'Drafts'], ['executor', 'Executor']];
+  var NAME = { extract: 'Extraction', dupes: 'Duplicates', senders: 'Senders', draft: 'Drafts', executor: 'Executor' };
+  var CMD = { extract: 'fuzz eval run', dupes: 'fuzz eval dupes', senders: 'fuzz eval senders', draft: 'fuzz eval drafts', executor: 'fuzz eval executor' };
   var CHANGE = { fixed: ['Fixed', 'ok'], broke: ['Broke', 'danger'], flaky: ['Flaky', 'warn'], unchanged: ['Same', 'muted'], 'new': ['New', 'accent'] };
 
   function when(ts) { return ts ? String(ts).replace('T', ' ').replace(/:\d\dZ$/, '') : ''; }
@@ -65,7 +65,7 @@
   }
 
   /* What a run costs, said on the button: the matcher needs no model; the rest take minutes of model calls */
-  var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes' };
+  var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', senders: 'no model, a second', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes' };
 
   function running(s) { return (list.jobs || []).filter(function (j) { return j.status === 'running' && (!s || j.surface === s); })[0]; }
   function ago(ts) {
@@ -74,7 +74,7 @@
   }
 
   function latestHTML() {
-    return '<div class="ev-latest">' + ['extract', 'dupes', 'draft', 'executor'].map(function (s) {
+    return '<div class="ev-latest">' + ['extract', 'dupes', 'senders', 'draft', 'executor'].map(function (s) {
       var r = (list.latest || {})[s], job = running(s);
       var head = '<b>' + esc(NAME[s]) + '</b> ' + (r ? gate(r.gate) : UI.pill('No runs yet', 'muted'));
       var body = r ? '<a class="meta" href="#/evals/' + r.id + '">Global ' + scoreHTML(r, 'global') + ' · Yours ' + scoreHTML(r, 'personal') +
@@ -167,7 +167,7 @@
 
   function paint() {
     var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
-      'or from the terminal (fuzz eval run, dupes, drafts or executor). Times are UTC. What’s yours stays on this machine.</p></div>';
+      'or from the terminal (fuzz eval run, dupes, senders, drafts or executor). Times are UTC. What’s yours stays on this machine.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
     if (!list) { root.innerHTML = head + '<p class="lempty">Loading runs…</p>'; return; }
     /* a <details> you opened stays open across the refresh while something runs */
