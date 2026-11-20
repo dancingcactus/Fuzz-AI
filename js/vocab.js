@@ -85,6 +85,7 @@ window.FuzzVocab = {
    "options": [
     "approve",
     "edit",
+    "send_back",
     "not_yet",
     "schedule"
    ],

@@ -178,6 +178,14 @@ class CardTable(CoreCase):
         self.check(made, "approve", ["task.approved"], "sending")
         self.check(self.draft("nudge.slack"), "not_yet", ["card.answered"], "waiting")
 
+    def test_send_a_nudge_back(self):
+        """Ask Fuzz to change it works on a nudge as on any draft: the note goes to Fuzz, the task back to it"""
+        tid, card = self.draft("nudge.slack")
+        self.check((tid, card), "send_back", ["task.sent_back"], "queued", value="Update the wiki page instead")
+        answers.answer(self.core, card["id"], "send_back", "Update the wiki page instead")
+        self.assertIn("Update the wiki page instead", self.task(tid)["notes"])
+        self.assertEqual(self.core.one("SELECT status FROM drafts WHERE task_id=?", (tid,))["status"], "sent_back")
+
     def test_permission(self):
         self.check(self.permission(), "allow_once", ["permission.granted"])
         self.check(self.permission(), "deny", ["permission.denied"])

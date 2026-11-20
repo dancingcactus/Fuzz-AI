@@ -36,7 +36,8 @@ CARD_KINDS = {
                         suggested="mine", safe="mine"),
     "draft": CardKind("approval", "Is this draft okay?", ("approve", "edit", "send_back", "schedule", "done"),
                       suggested="approve", scheduled=True),
-    "nudge": CardKind("approval", "Can Fuzz chase this reply?", ("approve", "edit", "not_yet", "schedule"),
+    # Ask Fuzz to change it is on every draft the review screen shows, nudges too (send_back)
+    "nudge": CardKind("approval", "Can Fuzz chase this reply?", ("approve", "edit", "send_back", "not_yet", "schedule"),
                       suggested="approve", scheduled=True),
     "permission": CardKind("approval", "Can Fuzz use {resource}?", ("allow_once", "always_allow", "deny"),
                            suggested="allow_once"),
