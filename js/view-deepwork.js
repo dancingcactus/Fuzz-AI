@@ -447,7 +447,7 @@
     E.asked = true;
     var typedOn = p === 'typed', txt = E.typed.trim();
     var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sug.pick === 'triage') + '</b><small>' +
-      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span><span class="g-m">' + (n ? n + ' waiting' : 'Clear') + '</span>',
+      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span>' + (n ? '' : '<span class="g-m">Clear</span>'),
       n ? '' : ' aria-disabled="true"');
     /* The top of My work, so the list stays short; what's picked always shows (a link or Work on this can pick
        one further down), in place of the last one */
