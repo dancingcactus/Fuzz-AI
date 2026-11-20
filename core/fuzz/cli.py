@@ -432,7 +432,12 @@ def _cmd_eval(a):
             return None
         with open(path) as f:
             return json.load(f)
-    if a.op == "compare":
+    if a.op == "rebaseline":   # the cases changed: the baseline's app on today's cases, so the move is theirs
+        run, att, notes = evals.rebaseline(core, a.surface, sets=a.set if a.set != "all" else None,
+                                           repeats=a.repeats, client=a.client, model=a.model, against=a.against)
+        _print(dict(evals.summary(core, run), rebaseline_of=run["against"],
+                    cases_effect=evals.attribution_line(att), notes=notes))
+    elif a.op == "compare":
         base = {"ref": a.base_ref, "installed": a.base_installed, "lessons": lessons_from(a.base_lessons),
                 "model": a.base_model}
         new = {"lessons": lessons_from(a.lessons), "installed": a.installed}
@@ -764,8 +769,9 @@ def parser():
     s.add_argument("id", nargs="?", type=int)
     s.set_defaults(fn=cmd_learn)
 
-    s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, or show a run")
-    s.add_argument("op", choices=["seed", "cases", "run", "compare", "show", "spots", "dupes", "senders", "drafts", "executor",
+    s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, rebaseline after "
+                                    "changing the cases, or show a run")
+    s.add_argument("op", choices=["seed", "cases", "run", "compare", "rebaseline", "show", "spots", "dupes", "senders", "drafts", "executor",
                                   "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
@@ -786,7 +792,8 @@ def parser():
     s.add_argument("--installed", action="store_true", help="run: score the installed skill, not the repo's")
     s.add_argument("--client", choices=["claude-code", "copilot"])
     s.add_argument("--model")
-    s.add_argument("--against", type=int, help="run: gate against this run (default: the last run that passed)")
+    s.add_argument("--against", type=int, help="run: gate against this run (default: the last run that passed); "
+                   "rebaseline: the run whose app to score on today's cases (default: the same)")
     s.add_argument("--run", type=int, help="show: the run id")
     s.set_defaults(fn=cmd_eval)
 

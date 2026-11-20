@@ -345,6 +345,53 @@ class Attribution(CoreCase):
         self.assertIn("app changed: lessons 0 → 1", s["attribution"])
         self.assertIn("cases changed: none", s["attribution"])
 
+    def add_personal(self, origin="feedback:23", text="Could you look at the deck?"):
+        evals.add_case(self.core, "extract", "keep", {"text": text}, {"has_my_ask": True}, origin)
+        SEEDS.append({"input": {"text": text}, "expected": {"has_my_ask": True}})
+        self.addCleanup(SEEDS.pop)
+
+    def test_a_rebaseline_scores_the_baselines_app_on_todays_cases(self):
+        from unittest import mock
+        sha = evals.resolve("HEAD")
+        lesson = {"id": 77, "rule": "Nothing in particular.", "kind": "rule"}
+        with mock.patch.object(evals, "app_commit", return_value=sha):   # the baseline ran a clean HEAD
+            base = evals.run(self.core, lessons=[lesson], repeats=1, runner=Stub())
+        self.add_personal()
+        with mock.patch.object(evals, "harness_same", return_value=True):
+            new, att, notes = evals.rebaseline(self.core, runner=Stub())
+        self.assertEqual((new["against"], new["meta"]["rebaseline_of"]), (base["id"], base["id"]))
+        self.assertEqual((new["skill_copy"], new["app_commit"]), (f"git:{sha}", sha), "it ran the app at the commit")
+        self.assertEqual(new["lessons"], [lesson], "the baseline's lessons, not today's")
+        self.assertEqual(att["app"], [], "the same app: the repo's skill then is the skill at that commit")
+        self.assertTrue(att["set_changed"])
+        self.assertFalse(att["confounded"])
+        self.assertEqual(att["scopes"]["personal"]["added"], {"passed": 1, "of": 1})
+        self.assertEqual(notes, [])
+        self.assertEqual(evals.run_list(self.core)["runs"][0]["rebaseline_of"], base["id"])
+        self.assertEqual(evals.baseline(self.core, "extract")["id"], new["id"], "the next app change gates on it")
+
+    def test_a_rebaseline_says_when_the_harness_moved_since_the_baseline(self):
+        from unittest import mock
+        sha = evals.resolve("HEAD")
+        with mock.patch.object(evals, "app_commit", return_value=sha + "+dirty.0000aaaa"):
+            evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        with mock.patch.object(evals, "harness_same", return_value=False), \
+                mock.patch.object(evals, "app_commit", return_value="fffffff"):
+            new, att, notes = evals.rebaseline(self.core, runner=Stub())
+        self.assertEqual(new["app_commit"], "fffffff", "today's harness ran: it says so")
+        self.assertTrue(any("uncommitted edits" in n for n in notes))
+        self.assertTrue(any("harness has changed" in n for n in notes))
+        # its edits may have touched the skill too: the committed one scored is a different copy
+        self.assertEqual([c["what"] for c in att["app"]], ["copy", "code"])
+
+    def test_a_run_from_before_commits_were_kept_cannot_be_rebaselined(self):
+        base = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
+        self.core.q("UPDATE eval_runs SET app_commit=NULL WHERE id=?", (base["id"],))
+        with self.assertRaises(FuzzError):
+            evals.rebaseline(self.core, runner=Stub())
+        with self.assertRaises(FuzzError):
+            evals.rebaseline(self.core, surface="extract", against=999, runner=Stub())
+
     def test_the_list_says_which_side_moved_since_the_run_before(self):
         a = evals.run(self.core, lessons=[], repeats=1, runner=Stub())
         evals.add_case(self.core, "extract", "keep", {"text": "Can you send it?"}, {"has_my_ask": True}, "feedback:22")

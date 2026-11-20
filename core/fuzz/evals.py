@@ -342,6 +342,17 @@ def app_commit():
     return f"{head}+dirty.{h.hexdigest()[:8]}"
 
 
+HARNESS_PATHS = APP_PATHS + (":(exclude)core/skills",)
+
+
+def harness_same(ref):
+    """Whether the app but its skills is as it was at ref, uncommitted edits and new files included: then a run
+    of the skill at ref ran the app at ref, all of it."""
+    if _git("diff", "--quiet", ref, "--", *HARNESS_PATHS) is None:   # differs, or ref unknown
+        return False
+    return not _git("ls-files", "--others", "--exclude-standard", "--", *HARNESS_PATHS)
+
+
 def resolve(ref):
     """A git ref as the commit it names now: "main" moves, a run must say what it scored."""
     return _git("rev-parse", "--short", f"{ref}^{{commit}}") if ref else None
@@ -524,7 +535,7 @@ def score(core, todo, rules, lessons, repeats=3, adapter=None, model=None, runne
 
 
 def run(core, surface="extract", lessons=None, repeats=3, installed=False, client=None, model=None, runner=None,
-        workers=4, against=None, trying=None, sets="all", ref=None, meta=None):
+        workers=4, against=None, trying=None, sets="all", ref=None, meta=None, app=None):
     """Score every active case `repeats` times, gate it and record the run. The gate compares with `against`
     (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
     must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
@@ -554,7 +565,8 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
         raise FuzzError(f"no eval run {against}", "against")
     rid = record(core, surface, results, base, skill_version=version, skill_copy=copy,
                  client=client if runner is None else "stub", model=model, repeats=repeats, lessons=lessons or [],
-                 sets=sets, seconds=seconds, judge=judge_version(judge), meta=meta)
+                 sets=sets, seconds=seconds, judge=judge_version(judge), meta=meta,
+                 **({"app_commit": app} if app else {}))   # app: the commit it ran, when that isn't HEAD's
     out = get_run(core, rid)
     if trying is not None:   # only the lesson tried takes the result: the others ran before it without failing
         learning.scored(core, [trying], rid, bool(out["gate_ok"]))
@@ -574,6 +586,42 @@ def head_to_head(core, surface="extract", base=None, new=None, repeats=3, client
             client=client, model=new.get("model") or model, runner=new.get("runner") or runner, workers=workers,
             against=a["id"], sets=sets, ref=new.get("ref"))
     return a, b
+
+
+def rebaseline(core, surface="extract", sets=None, repeats=None, client=None, model=None, runner=None, workers=4,
+               against=None):
+    """The cases changed (added, relabelled, a seed edited): score the app the baseline scored, as it was then,
+    on today's cases. Only the cases moved, so whatever the score did is theirs, and the run is the baseline the
+    next change to the app is gated on (docs/evals.md, "Changing the evals and the app"). The skill and the
+    lessons come from the baseline; the harness and judge are today's, and the notes say when those differ.
+    Returns (run, attribution against the baseline, notes)."""
+    base = get_run(core, against) if against else baseline(core, surface)
+    if not base:
+        raise FuzzError(f"no {surface} run to rebaseline from: run `fuzz eval run` first", "against")
+    if base["surface"] != surface:
+        raise FuzzError(f"run {base['id']} is a {base['surface']} run, not {surface}", "against")
+    commit_ = (base.get("app_commit") or "").split("+")[0]
+    if not commit_:
+        raise FuzzError(f"run {base['id']} predates recording the commit it ran: pass --against a newer run, or "
+                        "check out the app you mean and `fuzz eval run`", "against")
+    notes, ref, copy = [], commit_, base.get("skill_copy") or ""
+    if "+dirty" in base["app_commit"]:
+        notes.append(f"Run #{base['id']} ran uncommitted edits; this scores its commit {commit_} without them.")
+    if copy.startswith("git:"):   # the baseline itself scored an older skill: score that one
+        ref = copy.split("@", 1)[1] if "@" in copy else copy[4:]
+    elif copy == "installed":
+        notes.append(f"Run #{base['id']} scored the installed skill; this scores the repo's at {commit_}.")
+    same = harness_same(commit_)
+    new = run(core, surface, lessons=base["lessons"], repeats=repeats or base["repeats"], client=client,
+              model=model or base["model"], runner=runner, workers=workers, against=base["id"],
+              sets=sets or base.get("sets") or "all", ref=ref, meta={"rebaseline_of": base["id"]},
+              app=commit_ if same and ref == commit_ else None)
+    if not same:
+        notes.append(f"Only the skill and lessons come from run #{base['id']}: the harness has changed since "
+                     f"{commit_} and runs as it is now ({new['app_commit']}), so a move on the shared cases may be it.")
+    if base.get("judge") and new.get("judge") != base["judge"]:
+        notes.append(f"The judge changed since run #{base['id']} ({base['judge']} → {new['judge']}).")
+    return new, attribution(base, new), notes
 
 
 def get_run(core, run_id):
@@ -652,13 +700,24 @@ def _lesson_set(lessons):
     return sorted(json.dumps({k: x.get(k) for k in ("id", "rule", "scope", "kind")}, sort_keys=True) for x in lessons)
 
 
+def _skill_source(r):
+    """Where a run's skill text came from, as a commit when it can be said: the repo's skill on a clean tree and
+    the skill read at that commit are the same text (a rebaseline reads it so)."""
+    c = r.get("skill_copy") or ""
+    if c.startswith("git:"):
+        return "commit:" + (c.split("@", 1)[1] if "@" in c else c[4:])
+    if c == "repo" and r.get("app_commit") and "+" not in r["app_commit"]:
+        return "commit:" + r["app_commit"]
+    return c
+
+
 def _app_changes(before, after):
     """What changed on the app's side between two runs: each {what, was, now}. unknown: what an older run
     didn't record, so can't be said either way."""
     changes, unknown = [], []
     for col, name in APP_FIELDS:
         a, b = before.get(col), after.get(col)
-        if a == b:
+        if a == b or (col == "skill_copy" and _skill_source(before) == _skill_source(after)):
             continue
         if col == "judge" and (a is None or b is None):   # runs before judges were versioned
             unknown.append(name)

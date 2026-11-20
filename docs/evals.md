@@ -11,6 +11,7 @@ than what we had before?**
 | --- | --- | --- |
 | `fuzz eval run [--set global\|personal]` | Extraction: is there an ask, and whose | Yes, 3 repeats |
 | `fuzz eval compare [--base-ref main]` | Extraction, two versions head to head on today's cases | Yes |
+| `fuzz eval rebaseline [--against <run>]` | Extraction after the cases changed: the baseline's app on today's cases | Yes |
 | `fuzz eval dupes` | The duplicate matcher on labelled pairs, with a threshold sweep | No |
 | `fuzz eval senders` | Who a sender is: a person, a bot, a list or a brand | No |
 | `fuzz eval drafts --history` | The drafts Fuzz already wrote, against what you sent | Judge only |
@@ -21,6 +22,7 @@ than what we had before?**
 
 Every run prints the cases per set, then against the last run that passed its gate: what it fixed, broke, left
 unchanged or made flaky, with a sign test once anything moved. A run exits 1 when something solved broke.
+It also says which side moved since that run, the app or the cases (see **Changing the evals and the app**).
 
 ## Built
 
@@ -44,6 +46,9 @@ unchanged or made flaky, with a sign test once anything moved. A run exits 1 whe
 8. **Executor harness** (`executor_evals.py`) and four global cases (`eval_seeds/executor.json`). Each case
    runs at its own "now", and a task can come from one of the world's messages (`from_message`) so a reply has
    a thread.
+9. **Telling the app's change from the cases'** (issue 45; `evals.record`, `attribution`, `rebaseline`): every
+   run records the app's commit, the case set's hash and the judge's version; the Evals page splits each
+   score change into the two; `fuzz eval rebaseline` scores the old app on new cases.
 
 First live runs on Copilot, 2026-11-17, on a copy of the store: extraction global 9 of 9 at 3/3 and the one
 personal case 1/3; executor 4 of 4 at 2/2; global draft rules 3 of 3; the matcher as in item 5. The drafts
@@ -131,7 +136,14 @@ invented copy and a note of what it tests.
 1. **Each case has a fingerprint:** a hash of its input and its expected result. A re-fetched message or a
    changed label makes a new fingerprint, and older results for that case stop counting.
 2. **Each run records the fingerprints it scored**, alongside what it already records: skill version and
-   copy, lessons, client, model, and now the global set's commit.
+   copy, lessons, client, model, and the global set's commit. Since issue 45 it also records three ids that
+   tell the app from the cases:
+   - `app_commit`: the repo commit the app ran at (code and skills, not the cases or tests), with
+     `+dirty.<hash>` for uncommitted edits, so two runs on the same edits read as the same app.
+   - `set_hash`: the cases scored, as one id (their keys and fingerprints).
+   - `judge`: a hash of the source of the code and prompts that grade, so editing a judge moves it with
+     nothing to bump.
+   A skill read at a git ref records the commit the ref named (`git:main@1a2b3c4`): `main` moves.
 3. **Two runs are compared only on fingerprints they share.** The gate already ignores new cases; this
    also covers relabelled and expired ones.
 4. **A real comparison re-runs the old version.** "Is B better than A" runs both on today's cases, like
@@ -150,6 +162,49 @@ invented copy and a note of what it tests.
   gate is "nothing solved broke"; the improvement is how many hard ones it fixed.
 - Hold the model fixed. Copilot's default model is recorded as null, so comparisons pass `--model`.
 - Record time and tokens per run, so "better" can't hide "three times slower".
+
+## Changing the evals and the app
+
+A score that moves after both the cases and the app changed can't say which did it (issue 45). So change
+one side at a time, and let the tools say when both moved.
+
+**Reading two runs.** `evals.attribution(before, after)` splits them, and the Evals page and every run's
+summary show it:
+
+- **App:** what changed on the app's side: code, skill, copy, client, model, lessons, judge. A run from
+  before these were recorded says *not recorded* rather than guessing.
+- **On the cases both scored:** the score on the cases both runs scored with the same fingerprint. That's
+  the app's effect, and the arrows on the Evals page show only this.
+- **Cases:** cases added, relabelled (new fingerprint) and gone (expired, retired, another set), and how
+  many of each pass. This is the cases' effect; the page marks it `+2 −1 ~1` beside a score.
+- **Both changed:** the app and the cases both moved. The whole score says nothing on its own, but the
+  score on the shared cases still does. Personal cases expire, so a run on `--set all` weeks after the last
+  often shows this; `--set global` keeps it to the repo's cases.
+
+Any run can be set against any other of the same eval: the run picker on its page (`GET /evals/<id>?vs=<id>`).
+
+**Changing the cases** (adding seeds, relabelling, approving copies):
+
+1. Commit the case changes alone, with no app change in the same commit.
+2. `fuzz eval rebaseline`. It scores the app the baseline scored (its skill at its commit, its lessons and
+   model) on today's cases, gated against it. Only the cases moved, so whatever the score did is theirs. A
+   new case that fails is the next thing for the app to fix, not a regression.
+3. The rebaseline is now the baseline the next app change is gated on.
+
+**Changing the app** (a skill, a lesson, the core, the model):
+
+1. Leave the cases alone.
+2. `fuzz eval compare --base-ref <before>` runs old and new on today's cases, or `fuzz eval run` gates on the
+   baseline. Every difference is the app's.
+
+**When a branch changes both,** do it in that order: rebaseline after the case changes, then score the app
+change. Rebaseline works with the app already changed in the working tree, since it reads the skill from
+the baseline's commit.
+
+What rebaseline can't hold fixed: only the skill text and lessons come from the baseline. The harness and
+the judges run as they are now. When the code outside the skills has changed since the baseline's commit,
+the run records today's commit and says so in its notes, and when a judge changed it says that too. Scoring
+the whole old app (a temporary worktree at the commit) is still to come.
 
 ## Surfaces
 
