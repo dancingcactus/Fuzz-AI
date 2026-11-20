@@ -293,7 +293,7 @@
         now: 'Left off: drafted Day 1; Day 2 next', leftOff: 'Drafted Day 1; Day 2 next', nextStep: 'Draft Day 2: accounts, tools and the first 1:1',
         incoming: 'Priya asked in #team for a first-week guide before the two new hires start.',
         aiNote: 'Fuzz found the old wiki checklist and the IT accounts list. Day 1 is drafted in your notes.',
-        log: [L('guidance', 'Yesterday', 'Done for now in My work. Where you left off: Drafted Day 1; Day 2 next'), L('status', '5 days ago', 'You said you’ll do this. It’s in My work.')],
+        log: [L('guidance', 'Yesterday', 'Stopped here in My work. Where you left off: Drafted Day 1; Day 2 next'), L('status', '5 days ago', 'You said you’ll do this. It’s in My work.')],
         sources: [{ type: 'Slack', title: 'Priya in #team' }, { type: 'Doc', title: 'Old onboarding checklist' }] },
       { id: 'churnread', kind: 'task', doneWhen: 'you have a view on why March churn rose', state: 'deepwork', title: 'Read the churn interviews and pull out themes', source: 'Email', who: 'Research', age: '1 week', stage: 'stale', mins: 45,
         now: 'Ready when you sit down to it', nextStep: 'Read the first four interview summaries and tag each reason',

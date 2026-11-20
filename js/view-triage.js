@@ -1124,7 +1124,7 @@
     if (Dictate.active() && !document.contains(Dictate.field())) Dictate.abort();
     var ex = stack.querySelector('.empty'); if (ex) ex.remove();
     var dt = $('#drop-label');
-    $('#dropbtn').textContent = it.state === 'review' ? 'Discard this draft' : it.kind === 'task' ? 'Drop this task' : 'Dismiss this question';
+    $('#dropbtn').textContent = it.state === 'review' ? 'Drop this draft' : it.kind === 'task' ? 'Drop this task' : 'Drop this question';
     $('#dropbtn').hidden = false;
     paintDue(it);
     card.querySelectorAll('#instr, #draft').forEach(fit);

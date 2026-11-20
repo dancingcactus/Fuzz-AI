@@ -314,12 +314,12 @@
     done: function (id) { var it = S.item(id); S.leave(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
     /* I'll do it: yours, and it takes real time. It leaves Triage for My work and waits for a Deep Work session. */
     deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'In My work, ready when you start'; S.log(it, 'status', 'You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it.'); },
-    /* Done for now in a session: where you left off goes in its notes, and it moves to the back of the pool */
+    /* Stop here in a session: where you left off goes in its notes, and it moves to the back of the pool */
     deepWorkLeftOff: function (id, note) {
       var it = S.item(id); if (!it) return; note = (note || '').trim();
       if (note) { it.leftOff = note; it.now = 'Left off: ' + note; }
       state.items = state.items.filter(function (i) { return i !== it; }).concat([it]);
-      S.log(it, note ? 'guidance' : 'status', note ? 'Done for now in My work. Where you left off: ' + note : 'Done for now in My work.');
+      S.log(it, note ? 'guidance' : 'status', note ? 'Stopped here in My work. Where you left off: ' + note : 'Stopped here in My work.');
     },
     session: function (id) { var it = S.item(id); S.leave(id); it.state = 'session'; it.now = 'Open in ' + S.workIn; S.log(it, 'status', 'You opened this in a working session with ' + S.workIn + '. Fuzz keeps the sources ready.'); },
     /* opt is one of S.scheduleOptions(it), or an exact time: the core's Schedule options, as the API sends them */

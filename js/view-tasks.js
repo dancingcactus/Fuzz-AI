@@ -151,7 +151,7 @@
     var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
     var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Ready', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
     var head = '<div class="deep-head"><p class="meta">Yours to do, and each takes real time. Fuzz gets each one ready.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
-      '<a class="btn primary deep-go" href="#/deepwork">Pick one in the Guide</a></div>';   /* the Guide, with the top of My work picked */
+      '<a class="btn primary deep-go" href="#/deepwork">Work on something</a></div>';   /* the Guide, with the top of My work picked */
     return sectionHTML('deep', 'My work', rows, '', head);
   }
 

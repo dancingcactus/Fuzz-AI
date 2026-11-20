@@ -4,7 +4,7 @@
    (25 on, 5 off, 15 after three), and every time interruption takes over the screen.
 
    The session lives here, in the page: the clock, breaks and the plan. What happens to a task is the core's:
-   finishing it marks it done, Done for now keeps where you left off, and a stuck one goes back to Triage. */
+   Done marks it done, Stop here keeps where you left off, and a stuck one goes back to Triage. */
 (function () {
   var V = {}, esc = UI.esc;
   var root = null, view = null, unsub = null, keyFn = null, timer = 0;
@@ -182,7 +182,7 @@
      are, and All keys is one tap further. Kept by hand next to onKey, which is what they describe. ---------- */
   var KEYS = [
     ['entry', 'The Guide', [['↑ ↓', 'Move through the list'], ['1 – 9', 'Pick a row'], ['Enter', 'Start what’s picked'], ['/', 'Something else: tell me what']]],
-    ['focus', 'Working on a task', [['D', 'Finished it'], ['S', 'I’m stuck: options to make it easier'], ['B', 'Break now'], ['E', 'Tell Fuzz (Enter hands it over with your note)'], ['T', 'Park a stray thought (Esc closes it)'], ['Esc', 'Done for now']]],
+    ['focus', 'Working on a task', [['D', 'Done'], ['H', 'I’m stuck: options to make it easier'], ['B', 'Break now'], ['E', 'Tell Fuzz (Enter hands it over with your note)'], ['T', 'Park a stray thought (Esc closes it)'], ['Esc', 'Done for now']]],
     ['stuck', 'When you’re stuck', [['1', 'Show me the sources'], ['2', 'Switch to something else (your place is kept)'], ['3', 'Hand it to Fuzz'], ['4', 'Send it back to Triage'], ['Esc', 'Never mind']]],
     ['between', 'Between tasks', [['Enter', 'Go on to the next one (or Stop here, when it’s the only choice)'], ['O', 'Something else'], ['Esc', 'Stop here (or close the box)']]],
     ['wrap', 'Wrapping up', [['Enter', 'Wrap up and go to the Guide'], ['Esc', 'Actually, keep going']]],
@@ -599,10 +599,10 @@
       (it.leftOff ? '<p class="dw-crumb"><b>Where you left off:</b> ' + esc(it.leftOff) + '</p>' : '') +
       (brief ? '<details class="dw-prepfold"><summary>What Fuzz got ready</summary><div class="dw-prep">' + UI.text(brief) + '</div></details>' : '') +
       '<div id="dw-sheet"></div>' +
-      '<div class="dw-row" id="dw-main"><button type="button" class="btn primary" id="dw-done">Finished it<kbd aria-hidden="true">D</kbd></button>' +
-      '<button type="button" class="btn" id="dw-stuck">I’m stuck<kbd aria-hidden="true">S</kbd></button>' +
-      '<button type="button" class="btn" id="dw-brk">Break now<kbd aria-hidden="true">B</kbd></button>' +
-      '<button type="button" class="btn" id="dw-later">Done for now<kbd aria-hidden="true">Esc</kbd></button></div>' +
+      '<div class="dw-row" id="dw-main"><button type="button" class="btn primary" id="dw-done" aria-keyshortcuts="D">Done<kbd aria-hidden="true">D</kbd></button>' +
+      '<button type="button" class="btn" id="dw-stuck" aria-keyshortcuts="H">I’m stuck<kbd aria-hidden="true">H</kbd></button>' +
+      '<button type="button" class="btn" id="dw-brk" aria-keyshortcuts="B">Break now<kbd aria-hidden="true">B</kbd></button>' +
+      '<button type="button" class="btn" id="dw-later" aria-keyshortcuts="Escape">Stop here<kbd aria-hidden="true">Esc</kbd></button></div>' +
       '<section class="rich dw-rich" id="dw-rich">' + richHTML(it) + '</section>' + UI.idTag(it) + '</div>';
     $('#dw-done').onclick = finishTask;
     $('#dw-stuck').onclick = function () { openSheet('stuck'); };
@@ -627,7 +627,7 @@
   }
   function stepAnim() { var el = $('#dw-step'); if (el) { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); el.focus({ preventScroll: true }); } }
 
-  /* Finished it: done in the core, with Undo in the header, then a win beat and one next thing */
+  /* Done: done in the core, with Undo in the header, then a win beat and one next thing */
   function finishTask() {
     if (S.sheet || S.take) return;
     var it = task(); if (!it) return;
@@ -746,7 +746,7 @@
     var stopAt = isFinite(S.hardStop) && E.until ? fmt(new Date(E.until - BUFFER * 60000)) : null;
     if (k.kind === 'breakdue') {
       h = '<p class="dw-eyebrow">Break time</p><h2>You’ve been at it about 25 minutes.</h2><p class="dw-lead">Step away for ' + (nextBreakLen() / 60) + ' minutes. Fuzz will hold your place.</p>';
-      o = opt(1, 'Take the break', nextBreakLen() / 60 + ' minutes', 'primary') + (S.snoozed ? opt(2, 'Skip this one', 'Fuzz won’t ask again until the next break') : opt(2, 'Five more minutes', 'Then the break, no waiting')) + opt(4, 'Done for now', 'Fuzz saves your place');
+      o = opt(1, 'Take the break', nextBreakLen() / 60 + ' minutes', 'primary') + (S.snoozed ? opt(2, 'Skip this one', 'Fuzz won’t ask again until the next break') : opt(2, 'Five more minutes', 'Then the break, no waiting')) + opt(4, 'Stop here', 'Fuzz saves your place');
     }
     if (k.kind === 'break') {
       var back = S.view === 'between'
@@ -754,7 +754,7 @@
         : it ? '<div class="dw-backto"><div class="dw-lbl">When you’re back</div><div class="dw-txt">' + esc(it.nextStep || it.title) + '</div>' + (it.nextStep ? '<p class="meta">' + esc(it.title) + '</p>' : '') + '</div>' : '';
       h = k.over ? '<p class="dw-eyebrow">Break’s over</p><h2>Welcome back. No rush.</h2>' + back
         : '<p class="dw-eyebrow">On a break</p><div class="dw-breakdial"><svg viewBox="0 0 100 100" aria-hidden="true" id="dw-breakdial"></svg><span class="dw-breaktime" id="dw-breakleft"></span></div><p class="dw-lead">' + esc(k.idea) + '</p>' + back;
-      o = opt(1, k.over ? 'Back to it' : 'I’m back', '', 'primary') + opt(4, 'Done for now', 'Fuzz saves your place');
+      o = opt(1, k.over ? 'Back to it' : 'I’m back', '', 'primary') + opt(4, 'Stop here', 'Fuzz saves your place');
     }
     if (k.kind === 'timeup') {
       var toHard = (S.hardStop - S.clock) / 60, near = toHard < 30, flip = S.extensions >= 2;   /* after two extensions, Fuzz suggests wrapping up */
@@ -768,7 +768,7 @@
     }
     if (k.kind === 'body') {
       h = '<p class="dw-eyebrow">Body check</p><h2>90 minutes without a real break.</h2><p class="dw-lead">Hyperfocus is great. Water is too. How are your shoulders?</p>';
-      o = opt(1, 'I’m good, keep going', '') + opt(3, 'Take a break', '5 minutes', 'primary') + opt(4, 'Done for now', '');
+      o = opt(1, 'I’m good, keep going', '') + opt(3, 'Take a break', '5 minutes', 'primary') + opt(4, 'Stop here', '');
     }
     el.className = 'dw-take' + (k.kind === 'break' ? ' dw-take--break' : '') + (k.armed ? '' : ' arming');
     el.innerHTML = '<div class="dw-take-in" role="alertdialog" aria-modal="true" aria-label="My work">' + h + '<div class="dw-opts">' + o + '</div>' +
@@ -830,7 +830,7 @@
     var fin = S.log.filter(function (e) { return e.finished; });
     say(fin.length ? 'Good session. I’ll keep your place warm.' : 'That’s okay. Opening it counts. I kept your place.', 'proud');
     var seen = [], rows = S.log.filter(function (e) { if (seen.indexOf(e.task.id) > -1) return false; seen.push(e.task.id); return true; });
-    var head = { meeting: 'Your ' + (E.until ? fmt(E.until) : 'meeting') + ' is in 5 minutes', time: 'That’s your time', stop: 'Stopping here' }[S.wrapWhy] || 'Done for now';
+    var head = { meeting: 'Your ' + (E.until ? fmt(E.until) : 'meeting') + ' is in 5 minutes', time: 'That’s your time', stop: 'Stopping here' }[S.wrapWhy] || 'Stopping here';
     /* What happens to the task you were on: back in My work (with your place kept), the rest to Fuzz, or booked
        time to finish it (Book time's slots, opened right here) */
     var then = open ? '<h2 class="dw-q" id="dw-then-h">Then what?</h2><div class="dw-then" role="radiogroup" aria-labelledby="dw-then-h">' +
@@ -1040,7 +1040,7 @@
       }
       var lk = k.toLowerCase();
       if (lk === 'd') { e.preventDefault(); finishTask(); }
-      else if (lk === 's') { e.preventDefault(); openSheet('stuck'); }
+      else if (lk === 'h') { e.preventDefault(); openSheet('stuck'); }
       else if (lk === 'b') { e.preventDefault(); startBreak(); }
       else if (lk === 't') { e.preventDefault(); openForm('dw-parkform', 'dw-parkbtn', 'dw-parktext'); }
       else if (lk === 'e') { e.preventDefault(); openForm('dw-tellform', 'dw-tellbtn', 'dw-telltext'); }
@@ -1110,7 +1110,7 @@
     loadAway().then(paintAway);
   };
   V.label = label;
-  /* The header's label (and the logo) on the session: a way out like Done for now, through the wrap-up */
+  /* The header's label (and the logo) on the session: a way out like Stop here, through the wrap-up */
   V.leave = function () { if (inSession()) { doneForNow('stop'); return true; } return !!S; };
   /* The core restarted (js/live.js): redraw with what's picked kept, never under the Something else field */
   V.refresh = function () {
