@@ -129,7 +129,8 @@ def resolve_person(core, person, me, ctx=None):
             # (two or more words) is unique, e.g. Priya Shah by email, then by Slack ID. A first
             # name alone only joins a provisional, name-only entity.
             full = name if name and len(name.split()) > 1 else None
-            eid = (_unique_alias(core, "person", full) or _unique_alias(core, "person", name, provisional_only=True)
+            eid = (_unique_alias(core, "person", full) or (full and _the_known_one(core, full))
+                   or _unique_alias(core, "person", name, provisional_only=True)
                    or _new_entity(core, "person", name, False))
             core.conn.execute("UPDATE entities SET provisional=0 WHERE id=?", (eid,))
         if email:
@@ -156,11 +157,90 @@ def resolve_person(core, person, me, ctx=None):
         if eid is not None:
             return eid, "alias"
         return (who.holder(core, name) or _new_entity(core, "person", name, True)), "provisional"
-    eid = _unique_alias(core, "person", name)
+    eid = _unique_alias(core, "person", name) or _the_known_one(core, name)
     if eid is not None:
         prov = core.conn.execute("SELECT provisional FROM entities WHERE id=?", (eid,)).fetchone()["provisional"]
         return eid, "provisional" if prov else "alias"
-    return _new_entity(core, "person", name, True), "provisional"
+    # shared by more than one, or no one yet: it waits on one name-only holder, never a new one per mention
+    return (_full_holder(core, name) or _new_entity(core, "person", name, True)), "provisional"
+
+
+def _holding(core, name):
+    """The live people known by this name: [{id, provisional, ids}], ids being how many emails or Slack IDs they
+    have. Their own name, not only an alias: a relay address (notifications@github.com, a Jira sender) collects
+    the name of everyone it sends for, and isn't any of them."""
+    return core.conn.execute(
+        "SELECT DISTINCT e.id, e.provisional, (SELECT COUNT(*) FROM identifiers i WHERE i.entity_id=e.id) ids "
+        "FROM aliases a JOIN entities e ON e.id=a.entity_id WHERE a.alias=? AND lower(trim(e.name))=a.alias "
+        "AND e.type='person' AND e.redirect_to IS NULL AND e.user_id=? ORDER BY e.id",
+        (name.strip().lower(), core.user_id)).fetchall()
+
+
+def _different(core, a, b):
+    return core.conn.execute("SELECT 1 FROM entity_links WHERE kind='different' AND ((a=? AND b=?) OR (a=? AND b=?))",
+                             (a, b, b, a)).fetchone() is not None
+
+
+def _the_known_one(core, name):
+    """The one confirmed person a full name is shared with only name-only stand-ins for: Wren by email, and a
+    Wren made from her name before her address was seen. None when two real people share it, or you said a
+    stand-in is someone else."""
+    rows = _holding(core, name)
+    real = [r for r in rows if not r["provisional"]]
+    if len(real) != 1:
+        return None
+    rest = [r for r in rows if r["provisional"]]
+    if any(r["ids"] or _different(core, r["id"], real[0]["id"]) for r in rest):
+        return None
+    return real[0]["id"]
+
+
+def _full_holder(core, name):
+    """The name-only person already holding an unsettled full name, if there is one."""
+    row = core.conn.execute(
+        "SELECT e.id FROM entities e WHERE e.user_id=? AND e.type='person' AND e.provisional=1 AND e.redirect_to IS NULL "
+        "AND lower(trim(e.name))=? AND NOT EXISTS (SELECT 1 FROM identifiers i WHERE i.entity_id=e.id) ORDER BY e.id LIMIT 1",
+        (core.user_id, name.strip().lower())).fetchone()
+    return row["id"] if row else None
+
+
+def settle_full_names(core, apply=False):
+    """The name-only people that piled up under a full name before this (a new one per mention once two shared
+    it): each joins the one confirmed person by that name, or the oldest of them when there is none. One with
+    an address of its own, or one you said is someone else, stays. Returns the plan; apply carries it out, each
+    move an entity.merged you can undo."""
+    rows = core.conn.execute(
+        "SELECT e.id, e.name FROM entities e WHERE e.user_id=? AND e.type='person' AND e.provisional=1 "
+        "AND e.redirect_to IS NULL AND e.name LIKE '% %' AND NOT EXISTS (SELECT 1 FROM identifiers i WHERE i.entity_id=e.id) "
+        "ORDER BY e.id", (core.user_id,)).fetchall()
+    by = {}
+    for r in rows:
+        by.setdefault(r["name"].strip().lower(), []).append(r["id"])
+    plan = []
+    for name, ids in sorted(by.items()):
+        real = [r["id"] for r in _holding(core, name) if not r["provisional"]]
+        if len(real) > 1:
+            into, rest = ids[0], ids[1:]   # two real people share it: the stand-ins wait in one place
+        elif real:
+            into, rest = real[0], ids
+        else:
+            into, rest = ids[0], ids[1:]
+        for b in rest:
+            if not any(_different(core, b, x) for x in [into] + real):
+                plan.append({"from": b, "into": into, "name": name})
+    if apply:
+        from .. import events
+        for step in plan:
+            with core.tx("human"):
+                ch = events.Changes()
+                for c in core.conn.execute("SELECT id FROM cards WHERE user_id=? AND kind='entity_person' AND status='open' "
+                                           "AND json_extract(payload,'$.entity_b')=?", (core.user_id, step["from"])).fetchall():
+                    ch.card(c["id"], status="expired", answer={"option": "same", "value": step["into"]})
+                core.conn.execute("UPDATE entities SET redirect_to=? WHERE id=? AND user_id=?",
+                                  (step["into"], step["from"], core.user_id))
+                events.emit(core, "entity.merged", changes=ch, data={"from": step["from"], "into": step["into"],
+                                                                   "settled": True})
+    return plan
 
 
 def lookup_person(core, person):

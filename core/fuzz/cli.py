@@ -331,8 +331,9 @@ def cmd_memory(a):
     if a.op == "cards":
         return _print({"raised": mcards.raise_cards(core), "held": mcards.held(core)})
     if a.op == "people":
-        from .matching import who
-        return _print({"applied": a.apply, "plan": who.settle(core, apply=a.apply)})
+        from .matching import entities, who
+        full = entities.settle_full_names(core, apply=a.apply)   # first, so a first name's holder sees who's left
+        return _print({"applied": a.apply, "plan": who.settle(core, apply=a.apply), "full_names": full})
 
 
 def cmd_eval(a):
