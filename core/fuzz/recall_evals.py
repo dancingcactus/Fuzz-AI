@@ -24,10 +24,9 @@ is the call "answer" (field "text"), and
 import json
 import shutil
 import tempfile
-import time
 from datetime import timedelta
 
-from . import adapters, config as config_mod, evals, executor_evals, tools
+from . import config as config_mod, eval_harness, evals, executor_evals, tools
 from .db import Core, FuzzError, iso, parse_iso
 
 SURFACE = "recall"
@@ -156,55 +155,17 @@ def check(record, checks):
 # ---- a run
 
 def skill_text(ref=None):
-    import subprocess
-    name = "fuzz-recall"
-    if ref:
-        r = subprocess.run(["git", "-C", str(adapters.SKILLS_SRC), "show", f"{ref}:./{name}/SKILL.md"],
-                           capture_output=True, text=True, timeout=30)
-        if r.returncode != 0:
-            raise FuzzError(f"no {name} skill at {ref}", "ref")
-        return r.stdout, evals._version_of(r.stdout), evals.ref_copy(ref)
-    text = (adapters.SKILLS_SRC / name / "SKILL.md").read_text()
-    return text, evals._version_of(text), "repo"
+    return evals.skill_at("fuzz-recall", ref)
+
+
+def _keep(rec):
+    answer = next((x["args"] for x in rec if x["tool"] == "answer"), {})
+    return {"answer": (answer.get("text") or "")[:1500], "sources": answer.get("sources")}
 
 
 def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref=None, path=None, workers=4):
     """Play every recall case `repeats` times; a case passes on a majority. Recorded and gated like any run."""
-    from concurrent.futures import ThreadPoolExecutor
-    from .config import eval_engine
-    client, model = eval_engine(core.config, "ask", client, model)
-    adapter = adapters.get(client) if client in adapters.ADAPTERS else None
-    if runner is None and adapter is None:
-        raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
-    skill, version, copy = skill_text(ref)
-    todo = evals.global_cases(SURFACE, path=path)
-    if not todo:
-        raise FuzzError("no recall cases in eval_seeds/recall.json", "cases")
-
-    def call(p):
-        return evals._call_model(core, adapter, model, runner, 1, [p])[0]
-    started = time.monotonic()
-    jobs = [c for c in todo for _ in range(repeats)]
-    with ThreadPoolExecutor(max_workers=1 if runner else workers) as pool:
-        records = list(pool.map(lambda c: play(c, skill, call), jobs))
-    results = {}
-    for c, rec in zip(jobs, records):
-        verdicts = check(rec, c["expected"]["checks"])
-        ok = all(v for _, v in verdicts)
-        r = results.setdefault(c["key"], {"key": c["key"], "case_id": None, "origin": c["origin"], "scope": "global",
-                                          "kind": c["kind"], "fp": c["fp"], "passes": 0, "runs": 0, "replies": []})
-        r["runs"] += 1
-        r["passes"] += ok
-        answer = next((x["args"] for x in rec if x["tool"] == "answer"), {})
-        r["replies"].append({"passed": ok, "failed": [json.dumps(ch) for ch, v in verdicts if not v],
-                             "calls": [x["tool"] for x in rec], "answer": (answer.get("text") or "")[:1500],
-                             "sources": answer.get("sources")})
-    for r in results.values():
-        r["passed"] = r["passes"] * 2 > r["runs"]
-    results = list(results.values())
-    base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy=copy,
-                       client=client if runner is None else "stub", model=model, repeats=repeats, lessons=[],
-                       sets="global", seconds=round(time.monotonic() - started, 1),
-                       judge=evals.judge_version(check, executor_evals.check))
-    return evals.get_run(core, rid)
+    return eval_harness.run_played(
+        core, SURFACE, "ask", "fuzz-recall", play, lambda c, rec: check(rec, c["expected"]["checks"]), _keep,
+        (check, executor_evals.check), repeats=repeats, runner=runner, client=client, model=model, against=against,
+        ref=ref, path=path, workers=workers)
