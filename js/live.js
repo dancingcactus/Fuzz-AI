@@ -500,6 +500,7 @@
     st.items = items;
     st.groups = groups;
     st.queue = order;
+    Store.partition();   /* a long triage session's smaller cards wait behind the rest (js/view-triage.js) */
     st.queue.forEach(function (id, n) { Store.item(id).order = n; });
     st.maxOrder = order.length; st.minOrder = 0;
     st.totalEver = Math.max(st.totalEver + added.length, order.length);

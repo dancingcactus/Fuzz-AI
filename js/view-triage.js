@@ -9,6 +9,10 @@
      Work mode (one long card) still runs on time: 10 minutes, then 5, 10, 20… */
   var CI_FIRST = 2, CI_GAP_MIN = 5;
   var CI_STRETCH = Prio.STRETCH, CI_STRETCH_SKIP = 4;
+  /* Short sessions: about 15 minutes into Triage, the smaller cards wait (Store.setDefer) so the session can end on
+     All clear. Twenty minutes or more away from Triage starts a new session; Show them brings them back for this one. */
+  var WRAP_MIN = 15, WRAP_GAP_MIN = 20;
+  var trStart = 0, trLeft = 0, wrapAll = false, wrapSaid = false, wrapNote = false;
   /* The Fuzz mood lab is a design tool, not part of the product: open the app with ?lab to get it. */
   var LAB = /[?&]lab(=|&|$)/.test(location.search);
   var esc = UI.esc;
@@ -78,6 +82,7 @@
     /* foOpen too: a focus question left open when you went elsewhere is gone from the new layout, and
        showNext would wait behind it forever (a blank card on coming back from Lineup) */
     alive = true; busy = false; epoch++; ciOpen = false; ciBusy = false; scOpen = false; foOpen = false; scState = null; scheduling = false; askingWho = false; booking = false; pausing = false; wayOpen = false; tab = null; streak = 0;
+    if (!trLeft || Date.now() - trLeft >= WRAP_GAP_MIN * 60000) { trStart = Date.now(); wrapAll = false; wrapSaid = false; }
     root = container;
     root.innerHTML = layout();
     card = $('#card'); stack = $('#stack'); stage = $('#stage');
@@ -98,7 +103,7 @@
     var l = landing(); if (l && card.style.display !== 'none') l.focus({ preventScroll: true });
   };
   V.unmount = function () {
-    alive = false; epoch++;
+    alive = false; epoch++; trLeft = Date.now(); Store.setDefer(null);
     clearTimeout(rushTimer); clearInterval(ciTimer); clearInterval(ambientTimer); clearInterval(V.tickTimer); clearInterval(V.stuckTimer);
     if (unsub) unsub(); unsub = null;
     Say.setBusyCheck(null);
@@ -110,7 +115,8 @@
     if (onScroll) window.removeEventListener('scroll', onScroll); onScroll = null;
     Fuzz.unmount(); root = null;
   };
-  V.hardReset = function () { foAsked = true; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null); };
+  V.hardReset = function () { foAsked = true; foOpen = false; keptStale = {}; edits = {}; planOpen = {}; refs = {}; refPick = {}; ciCount = 0; ciNextAt = CI_FIRST; ciSize = CI_FIRST; ciLastAt = 0; ciMode = null; ciLevel = null; pace = newPace(); rested = false; sessionAt = Date.now(); lastTask = null; greeted = false; grun = null; Store.setRun(null);
+    trStart = Date.now(); trLeft = 0; wrapAll = false; wrapSaid = false; wrapNote = false; Store.setDefer(null); };
   V.refresh = function () {
     if (!alive) return;
     paintFocusLine();
@@ -258,7 +264,7 @@
   /* ---------- Stats, stack ---------- */
   function stats() {
     if (!root) return;
-    var st = Store.get(), left = st.queue.length, cleared = Math.max(st.totalEver - left, 0);
+    var st = Store.get(), all = st.queue.length, cleared = Math.max(st.totalEver - all, 0), left = all - Store.deferredCount();
     Progress.render(cleared, cleared + boxes(left, cleared));
     /* count what's cleared, never what's left */
     document.getElementById('left').textContent = left === 0 ? 'All clear' : cleared ? '✓ ' + cleared : 'Ready';
@@ -1147,6 +1153,48 @@
   }
   function settleSheepish() { setTimeout(function () { if (alive && Fuzz.mood() === 'sheepish') { Fuzz.setMood('idle'); Fuzz.setArm('none'); } }, 3500); }
 
+  /* ---------- Short sessions ----------
+     Smaller cards: Fuzz's own housekeeping (memory, checking its work, series, deliverables to track, same-as
+     questions, setup) and tasks with nothing pressing about them. Never one with a time on it, the one you're
+     doing, anything Fuzz is waiting on you for (a draft, a handback, a permission, is this yours?), Monday's
+     deliverables, or the group you're working through. */
+  var PRESSING = ['urgent', 'vip', 'returned', 'waiting', 'goal'];
+  function smaller(it) {
+    if (!it || it.dueAt || it.doing || it.handedBack || it.kickoff || it.kickoffAsk || it.isNew || it.state === 'review' || it.needsPermission) return false;
+    var g = grun && Store.groupOf(it); if (g && g.id === grun.gid) return false;
+    if (it.kind === 'deliv') return !(it.payload && it.payload.monday);
+    if (it.kind === 'dup') return true;
+    if (it.kind === 'entity') return it.entity !== 'is_task' && it.entity !== 'permission';
+    if (it.kind !== 'task') return false;
+    var c = Prio.cats(it) || [];
+    return !PRESSING.some(function (k) { return c.indexOf(k) > -1; });
+  }
+  function wrapping() { return !wrapAll && Date.now() - trStart >= WRAP_MIN * 60000; }
+  /* Turn the waiting on (or off) as the clock says. Only between cards: the card on screen never moves. */
+  function syncWrap() {
+    if (!wrapping()) { Store.setDefer(null); return; }
+    Store.setDefer(smaller);
+    /* the first time any wait, Fuzz says so on the next card (if there is one; else All clear says it) */
+    if (!wrapSaid && Store.deferredCount()) { wrapSaid = true; wrapNote = Store.queue().some(function (i) { return !Store.isDeferred(i); }); }
+  }
+  /* Only the smaller cards are left: Triage is clear for this session */
+  function wrapClear() { var f = Store.front(); return !!f && Store.isDeferred(f); }
+  function wrapMore() {
+    wrapAll = true; Store.setDefer(null);
+    var n = Store.queue().length;
+    stack.querySelectorAll('.empty').forEach(function (e) { e.remove(); });
+    Fuzz.setMood('happy'); Fuzz.say(n === 1 ? 'Okay, one more.' : 'Okay, the rest of them.', { type: false });
+    stats(); showNext();
+  }
+  /* The next few in My work, as the Guide lists them: each opens the Guide with it picked */
+  function upNextHTML() {
+    var DW = window.DeepWorkView, ts = DW && DW.upNext ? DW.upNext(3) : [];
+    if (!ts.length) return '';
+    return '<h3 class="ac-h">Next in My work</h3><ul class="g-list ac-next">' + ts.map(function (it, i) {
+      return '<li style="--i:' + i + '"><a class="g-row" href="#/work/' + encodeURIComponent(it.id) + '"><span class="g-t"><b>' + esc(it.title) + '</b><small>' + esc(DW.rowSub(it)) + '</small></span><span class="g-m">~' + DW.dur(DW.est(it)) + '</span></a></li>';
+    }).join('') + '</ul>';
+  }
+
   /* ---------- Showing the next card ---------- */
   function cleared() { var st = Store.get(); return Math.max(st.totalEver - st.queue.length, 0); }
   /* Never mid-rush: wait until the time-sensitive cards are handled. */
@@ -1234,8 +1282,9 @@
   /* Bring the next card in as soon as the last one is gone, and hand back the buttons. Fuzz holds his
      reaction to it until he has finished with the last one (showNext(shown)). */
   function bringNext() {
+    syncWrap();
     var t = Store.queue()[0];
-    if (!t || shouldCheckin(t) || (!scOpen && Onboard.setupCard(cleared(), true))) return null;
+    if (!t || wrapClear() || shouldCheckin(t) || (!scOpen && !wrapping() && Onboard.setupCard(cleared(), true))) return null;
     enterCard(t);
     release();
     return t.id;
@@ -1244,13 +1293,14 @@
     var e = epoch;
     try {
       if (runOver(grun)) await exitRun();   /* the last answer of a group is in */
-      var q = Store.queue();
-      /* Nothing left to order, so the focus question goes too */
-      if (!q.length) {
+      syncWrap();
+      var q = Store.queue(), wrapped = wrapClear();
+      /* Nothing left to order (or only what waits for another session), so the focus question goes too */
+      if (!q.length || wrapped) {
         if (foOpen) { foOpen = false; $('#focuscard').hidden = true; paintFocusLine(); }
         /* Today's set ran out after a quick tired or overloaded stretch, with cards waiting for tomorrow: a few more? */
         closeShown();
-        if (!rested && ciModeNow() === 'more' && heldWaiting()) return showCheckin();
+        if (!wrapped && !rested && ciModeNow() === 'more' && heldWaiting()) return showCheckin();
         return zeroState();
       }
       /* While you're saying what you're working on, the queue waits behind the question: a card drawn
@@ -1268,7 +1318,11 @@
       if (inRun && !entered && !Fuzz.isCalm()) Fuzz.fxOn('scan', 700);   /* still gathering */
       var g = t.kind === 'task' && Onboard.guide(t);
       var rushing = t.doing && t.block && !saidRush[t.id] && Store.queue().filter(function (x) { return x !== t && x.dueAt; }).length;
-      if (entered) {
+      if (wrapNote && !entered && !rushing && !g) {
+        wrapNote = false;
+        var wl = 'We’ve been at this a while. Just what matters now; the small stuff can wait.';
+        Fuzz.setMood('caring'); Fuzz.say(wl, { type: false }); Say.announce(wl);
+      } else if (entered) {
         /* what he says is that you're going through a group */
       } else if (rushing) {
         /* your booked block is first; a deadline waits second, and Fuzz says so once */
@@ -1300,6 +1354,7 @@
   /* ---------- Setup cards (js/onboarding.js): one at a time, after real work, Not now always there ---------- */
   var scState = null;
   function showSetup() {
+    if (wrapping()) return false;   /* setup is Fuzz's housekeeping: not at the end of a long session */
     if (ciOpen || scOpen || !alive) return false;
     var c = Onboard.setupCard(cleared()); if (!c) return false;
     scOpen = true; scState = { card: c, step: 'ask', theme: App.prefs().theme };
@@ -1455,19 +1510,22 @@
     var old = stack.querySelector('.empty'); if (old) old.remove();
     var working = Store.inState('working', 'queued'), review = Store.inState('review'), s = Store.stats();
     var e = document.createElement('div'); e.className = 'empty';
-    var h = '', n = cleared(), sentN = Store.sentCount();
+    var h = '', n = cleared(), sentN = Store.sentCount(), wait = Store.deferredCount(), next = upNextHTML();
     /* End on what you did (peak-end): a short recap of the session */
     var recap = n ? '<p class="recap">You cleared ' + n + (n === 1 ? ' card' : ' cards') + (sentN ? ' and sent ' + sentN : '') + '.' + (working.length ? ' Fuzz has ' + working.length + ' going.' : '') + '</p>' : '';
+    /* A long session ended on the important ones: the smaller ones wait, one tap away */
+    var waits = wait ? '<p class="later ac-wait">' + (wait === 1 ? 'One smaller card can' : wait + ' smaller cards can') + ' wait for next time. <button type="button" class="linkbtn" data-wrap="more">Show ' + (wait === 1 ? 'it' : 'them') + '</button></p>' : '';
     if (working.length || review.length) {
       h += '<h2>Nothing waiting for you</h2>' + recap;
       if (working.length) h += '<p class="meta">Fuzz is working on ' + working.length + (working.length === 1 ? ' task' : ' tasks') + '. Anything that gets stuck comes back to the end of this queue.</p>' +
         '<ul class="work">' + working.map(function (t, i) { return '<li style="--i:' + i + '"><span>' + esc(t.title) + (t.dueAt ? ' <span class="tag due t2">Rush</span>' : '') + (t.state === 'queued' ? ' <span class="pill pill--muted">Next up</span>' : '') + '</span><span class="dots" role="img" aria-label="In progress"><i></i><i></i><i></i></span></li>'; }).join('') + '</ul>';
       if (review.length) h += '<p class="meta ready">' + review.length + (review.length === 1 ? ' draft waits' : ' drafts wait') + ' in <a href="#/tasks">Lineup</a> whenever you want ' + (review.length === 1 ? 'it' : 'them') + '.</p>';
+      h += waits + next;
     } else {
-      /* Clearing Triage is its own win. If there's deep work waiting, one quiet offer, never a doorway you have to take. */
-      var deep = Store.inState('deepwork').length;
-      h += '<h2>All clear</h2>' + recap + (deep
-        ? '<p class="meta">Nothing is waiting on you. ' + (deep === 1 ? 'One task is' : deep + ' tasks are') + ' in My work, ready for when you have time.</p><a class="btn primary linklike" href="#/deepwork">Work on something</a> <a class="btn linklike" href="#/capture">New</a>'
+      /* Clearing Triage is its own win. If there's work of yours waiting, the next few and one quiet offer,
+         never a doorway you have to take. */
+      h += '<h2>All clear</h2>' + recap + waits + (next
+        ? '<p class="meta">Nothing is waiting on you. Here’s what’s next in your work, ready for when you have time.</p>' + next + '<div class="ac-row"><a class="btn primary linklike" href="#/guide">Work on something</a> <a class="btn linklike" href="#/capture">New</a></div>'
         : '<p class="meta">Fuzz is on standby. Capture something new to put it to work.</p><a class="btn primary linklike" href="#/capture">New</a>');
     }
     if (s.later) h += '<p class="later">' + s.later + ' scheduled for later</p>';
@@ -2473,6 +2531,7 @@
     });
     /* After "I've done the important stuff": one more card, whenever you want it */
     stack.addEventListener('click', function (e) {
+      if (e.target.closest('[data-wrap]')) { wrapMore(); return; }   /* a long session's smaller cards, after all */
       var b = e.target.closest('[data-rest]'); if (!b) return;
       rested = false; var old = stack.querySelector('.empty'); if (old) old.remove();
       Fuzz.setMood('idle'); showNext();
@@ -2507,5 +2566,7 @@
     });
   }
 
+  /* For tests: as if this triage session started `mins` minutes ago */
+  V.sessionStartedAgo = function (mins) { trStart = Date.now() - mins * 60000; trLeft = 0; wrapAll = false; wrapSaid = false; };
   window.TriageView = V;
 })();

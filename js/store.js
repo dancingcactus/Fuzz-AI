@@ -13,7 +13,7 @@
   var MAX_RUNNING = 2;
   var STEP_MS = 6500;
   var SEND_MS = 3500;
-  var state, subs = [], timer = 0, captureN = 0, sentN = 0;
+  var state, subs = [], timer = 0, captureN = 0, sentN = 0, deferFn = null;
   /* Not part of any group count: cleared cards and dropped tasks */
   var GONE = ['dropped', 'resolved'];
   /* The demo's Series page, shaped like GET /series (made-up work, as the rest of the demo) */
@@ -142,6 +142,17 @@
     },
     queue: function () { return state.queue.map(S.item).filter(Boolean); },
     front: function () { return S.item(state.queue[0]); },
+    /* A triage session that has run long (js/view-triage.js) waits on its smaller cards: they go behind the rest,
+       in the same order, and Triage counts itself clear when only they are left. The card on screen and one you
+       picked from Lineup never wait. Not saved: a new session starts with none. */
+    setDefer: function (fn) { deferFn = fn || null; if (deferFn) S.partition(); },
+    isDeferred: function (it) { return !!(deferFn && it && it.id !== state.shown && !it.picked && deferFn(it)); },
+    deferredCount: function () { return deferFn ? S.queue().filter(S.isDeferred).length : 0; },
+    partition: function () {
+      if (!deferFn) return;
+      var wait = state.queue.filter(function (id) { return S.isDeferred(S.item(id)); });
+      if (wait.length) state.queue = state.queue.filter(function (id) { return wait.indexOf(id) < 0; }).concat(wait);
+    },
     running: function () { return S.inState('working').length; },
 
     stats: function () {
@@ -265,6 +276,7 @@
         if (together(it)) state.queue.forEach(function (o) { var x = S.item(o); if (x.group === it.group && together(x)) take(o); });
       });
       state.queue = out;
+      S.partition();
     },
     /* The group you're working through in Triage (its id), or null once Fuzz has every answer */
     setRun: function (gid) { if (state.groupRun !== gid) { state.groupRun = gid || null; S.sortQueue(); } },
