@@ -86,6 +86,7 @@ def retire(core, origin, why=None, withdrawn=False):
 def _close(core, c, why, withdrawn=False):
     msg = json.loads(c["input"]) if isinstance(c["input"], str) else dict(c["input"])
     msg.pop("text", None)
+    msg.pop("world", None)   # an executor case holds the message, the document or the fact you typed in here
     core.q("UPDATE eval_cases SET status='retired', input=?, note=COALESCE(?, note), withdrawn=MAX(withdrawn, ?) "
            "WHERE id=?", (json.dumps(msg), why, 1 if withdrawn else 0, c["id"]))
 

@@ -77,7 +77,7 @@ their machine.
 | Reporting | Counts per case (fixed, broke, unchanged, flaky), never a percentage | With tens of cases a percentage is noise |
 | Trends over months | The outcome scorecard, not the evals | Personal cases expire on purpose |
 | Drafts | Personal: scored against what the person sent | Voice is personal; only rules like "no invented facts" are global |
-| Executor judgment | Global: spot checks turned into invented cases that check behaviour | What to gather, when to hand back and when to ask hold for everyone |
+| Executor judgment | Global: spot checks turned into invented cases that check behaviour. Personal: cases from your own handbacks (below) | What to gather, when to hand back and when to ask hold for everyone; your handbacks are real, so they stay private |
 
 ## Two kinds of measurement
 
@@ -338,6 +338,30 @@ anyone's data, which is what makes them global.
 cases need fake tools that serve the invented sources and record what was called and what was written
 back. That's a larger build than the extraction harness; `core/fuzz/roles/scripted.py` may be a start.
 The spot-check card comes first, so labels collect while the harness is built.
+
+**Labelling handbacks (personal cases, built).** `#/labels`, Handbacks tab (`handbacks.py`; `GET/POST
+/evals/handbacks`) lists the times the executor handed a task back or asked permission (not a result handed
+back: that's an answer). For each you say:
+
+| Label | What you add | The case expects |
+| --- | --- | --- |
+| Right to ask | optionally why: access, context, judgement or ambiguity | hands back or asks permission, and drafts nothing |
+| Should have gone on, draft it | where the answer was (the thread, a linked document, your calendar) and what it said, in your words | drafts, and neither hands back nor asks permission |
+| Should have gone on, give the answer | the same | writes the brief, then hands back with `result: true` |
+
+- **The world is thin, and a case is only as fair as it.** A real replay needs the message, the documents and
+  the calendar, and the store keeps only a quote of the message and the task's links. So the world is that
+  quote plus the fact you typed, put where you said it was. "Should have gone on" requires the fact: without it
+  a replay can't tell going on from guessing. A "right to ask" case has no fact, so it's as fair as the quote is
+  complete.
+- Run them with `fuzz eval executor --set personal` (or `all`: they play as you, not as the invented
+  Alex). They gate and compare like any case, and the Evals page marks them yours.
+- Private like every personal case: local, 90 days, and when a case ends its world (the quote, the document,
+  your fact) goes with it. A run's replies on them expire too, since a draft's body comes from your message.
+- No `signal_key`: a handback case never touches the message's extraction labels, Not a task or the spot
+  checks. The origin is `handback:<id>`, so the examples learner ignores it.
+- Not yet: a "this was wrong" button on the handback card in triage, and turning a private case into an
+  invented global one.
 
 ## Outcome scorecard
 

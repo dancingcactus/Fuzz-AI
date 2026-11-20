@@ -5,7 +5,7 @@
 (function () {
   var V = {};
   var esc = UI.esc;
-  var root = null, data = null, failed = null, source = '', saw = '', said = '', skipped = {};
+  var root = null, data = null, failed = null, source = '', saw = '', said = '', skipped = {}, tab = 'messages', hb = null;
 
   var SAW = { mine: 'Extraction: yours', unclear: 'Extraction: unclear whose', others: 'Extraction: someone else’s', none: 'Extraction: no ask' };
   var TONE = { mine: 'accent', unclear: 'warn', others: 'muted', none: 'muted' };
@@ -44,11 +44,50 @@
       }).join(' ') + ' ' : '') + '<button type="button" class="btn small linklike" data-remove="' + c.id + '">Take it back</button></div></li>';
   }
 
+  /* Handbacks: when Fuzz stopped to ask you. Right to ask, or it should have gone on (and where the answer was) */
+  var CAUSES = [['', 'Not sure'], ['access', 'It couldn’t get in'], ['context', 'It was missing something only I know'], ['judgement', 'It was my call'], ['ambiguity', 'Two things matched']];
+  var INSTEAD = [['draft', 'Draft it'], ['result', 'Give me the answer']];
+  var FOUND = [['thread', 'In the thread'], ['doc', 'In a linked document'], ['calendar', 'On my calendar']];
+  function hbItemHTML(h) {
+    var opt = (h.options || []).length ? '<div class="meta">Options it gave: ' + h.options.map(esc).join(' · ') + '</div>' : '';
+    var steps = (h.steps || []).length ? '<details><summary class="meta">What it did first</summary><ul class="lb-asks">' + h.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></details>' : '';
+    return '<li class="lb-item" data-event="' + h.event_id + '">' +
+      '<div class="lb-head">' + UI.pill(h.asked === 'permission' ? 'Asked permission' : 'Handed back', 'warn') + ' <b>' + esc(h.title) + '</b> <span class="meta">' + esc(when(h.ts)) + '</span></div>' +
+      '<blockquote class="lb-quote">' + esc(h.question || '') + '</blockquote>' + opt + steps +
+      '<div class="lb-ask" data-ask hidden><label>Why it had to ask <select class="lb-cause">' + opts(CAUSES, '') + '</select></label></div>' +
+      '<div class="lb-ask" data-go hidden>' +
+      '<label>What it should have done <select class="lb-instead">' + opts(INSTEAD, 'draft') + '</select></label> ' +
+      '<label>Where the answer was <select class="lb-found">' + opts(FOUND, 'thread') + '</select></label>' +
+      '<label>What it said, in your words <span class="meta">(needed: a replay can’t tell going on from guessing without it)</span>' +
+      '<input type="text" class="lb-fact lb-ask-in" maxlength="500"></label></div>' +
+      '<div class="lb-actions"><button type="button" class="btn small primary" data-hb="ask">Right to ask</button> ' +
+      '<button type="button" class="btn small" data-hb="proceed">Should have gone on</button> ' +
+      '<button type="button" class="btn small linklike" data-hb-skip>Not now</button></div></li>';
+  }
+  function hbCaseHTML(c) {
+    var what = c.label === 'ask' ? 'Right to ask' + (c.cause ? ' (' + esc(c.cause) + ')' : '') : 'Should have gone on (' + (c.instead === 'result' ? 'give the answer' : 'draft it') + ')';
+    return '<li class="lb-case"><b>' + what + '</b> <span class="meta">' + esc(c.title || '') + ' · counts until ' + esc(when(c.expires_at)) + '</span>' +
+      '<div class="lb-actions"><button type="button" class="btn small linklike" data-hb-remove="' + c.id + '">Take it back</button></div></li>';
+  }
+  function handbacksHTML() {
+    if (!hb) return '<p class="lempty">Loading handbacks…</p>';
+    var q = hb.queue.filter(function (h) { return !skipped['h' + h.event_id]; });
+    return '<p class="meta">Each answer becomes a private case Fuzz is replayed on: the message’s quote, plus what you tell it was there. ' +
+      'Run them with <code>fuzz eval executor</code>. They’re only as fair as that.</p>' +
+      (said ? '<p class="meta" role="status">' + esc(said) + '</p>' : '') +
+      '<h2 class="ev-h">Times Fuzz stopped to ask</h2>' + (q.length ? '<ul class="lb-list">' + q.map(hbItemHTML).join('') + '</ul>' : '<p class="lempty">Nothing left to review.</p>') +
+      '<h2 class="ev-h">Your labels</h2>' + (hb.cases.length ? '<ul class="lb-list">' + hb.cases.map(hbCaseHTML).join('') + '</ul>' : '<p class="lempty">None yet.</p>');
+  }
+
   function paint() {
-    var head = '<div class="tasks-head"><h1>Label cases</h1><p class="meta">Say what each message Fuzz read held. Each answer becomes one of ' +
+    var head = '<div class="tasks-head"><h1>Label cases</h1><p class="meta">Say what happened, and each answer becomes one of ' +
       'your own test cases: it never leaves this machine, and goes after 90 days. It scores Fuzz; it doesn’t teach it. ' +
-      '<a href="#/evals">Back to the evals</a></p></div>';
+      '<a href="#/evals">Back to the evals</a></p></div>' +
+      '<div class="lb-actions lb-tabs" role="tablist">' + [['messages', 'Messages'], ['handbacks', 'Handbacks']].map(function (t) {
+        return '<button type="button" role="tab" aria-selected="' + (tab === t[0]) + '" class="btn small' + (tab === t[0] ? ' primary' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>';
+      }).join(' ') + '</div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
+    if (tab === 'handbacks') { root.innerHTML = head + handbacksHTML(); return; }
     if (!data) { root.innerHTML = head + '<p class="lempty">Loading messages…</p>'; return; }
     var q = data.queue.filter(function (m) { return !skipped[m.key]; });
     root.innerHTML = head +
@@ -62,12 +101,31 @@
   function load() {
     Live.evalLabels({ source: source, saw: saw }).then(function (d) { data = d; failed = null; paint(); },
       function (e) { failed = 'Couldn’t load: ' + e.message; paint(); });
+    Live.evalHandbacks().then(function (d) { hb = d; paint(); }, function (e) { failed = 'Couldn’t load: ' + e.message; paint(); });
   }
   function act(p, ok) { p.then(function () { said = ok; load(); }, function (e) { said = 'That didn’t work: ' + e.message; paint(); }); }
 
   function onClick(e) {
     var b = e.target.closest('button'); if (!b) return;
     var item = b.closest('.lb-item');
+    if (b.dataset.tab) { tab = b.dataset.tab; said = ''; return paint(); }
+    if (b.dataset.hb && item) {
+      /* each label opens its question first; the second tap sends it */
+      var which = b.dataset.hb, box = item.querySelector(which === 'ask' ? '[data-ask]' : '[data-go]');
+      if (box.hidden) {
+        item.querySelector('[data-ask]').hidden = which !== 'ask'; item.querySelector('[data-go]').hidden = which !== 'proceed';
+        [].forEach.call(item.querySelectorAll('[data-hb]'), function (x) { x.textContent = x === b ? 'Save it' : x.dataset.hb === 'ask' ? 'Right to ask' : 'Should have gone on'; });
+        return (which === 'proceed' ? item.querySelector('.lb-fact') : box.querySelector('select')).focus();
+      }
+      var fact = item.querySelector('.lb-fact').value.trim();
+      if (which === 'proceed' && !fact) { said = 'Say what it said, in your words: a replay can’t tell going on from guessing without it.'; return paint(); }
+      b.disabled = true;
+      return act(Live.evalHandback({ event_id: +item.dataset.event, label: which, cause: item.querySelector('.lb-cause').value || null,
+        instead: item.querySelector('.lb-instead').value, found_in: item.querySelector('.lb-found').value, fact: fact }),
+        'Saved. Run fuzz eval executor to score it.');
+    }
+    if (b.hasAttribute('data-hb-skip') && item) { skipped['h' + item.dataset.event] = true; return paint(); }
+    if (b.dataset.hbRemove) { b.disabled = true; return act(Live.evalHandbackRemove(+b.dataset.hbRemove), 'Taken back.'); }
     if (b.dataset.label && item) {
       /* Mine asks for the ask first, so it can be in your words; the second tap sends it */
       var box = item.querySelector('.lb-ask');
@@ -87,7 +145,7 @@
 
   V.mount = function (el) {
     root = document.createElement('section'); root.className = 'lineup evals labels'; el.appendChild(root);
-    data = null; failed = null; said = ''; skipped = {};
+    data = null; hb = null; failed = null; said = ''; skipped = {};
     root.addEventListener('click', onClick); root.addEventListener('change', onChange);
     paint(); load();
   };

@@ -182,6 +182,9 @@ class App:
             ("GET", r"/evals/labels", self.eval_labels),
             ("POST", r"/evals/labels", self.eval_label),
             ("POST", r"/evals/labels/(\d+)/remove", self.eval_label_remove),
+            ("GET", r"/evals/handbacks", self.eval_handbacks),
+            ("POST", r"/evals/handbacks", self.eval_handback),
+            ("POST", r"/evals/handbacks/(\d+)/remove", self.eval_handback_remove),
             ("POST", r"/evals/run", self.start_eval_run),
             ("POST", r"/evals/jobs/(\d+)/stop", self.stop_eval_job),
             ("GET", r"/deliverables", self.list_deliverables),
@@ -575,6 +578,23 @@ class App:
         from . import labels
         with core.tx("human"):
             return labels.remove(core, int(m.group(1)))
+
+    def eval_handbacks(self, core, m, body, q):
+        """Real handbacks to label for the personal executor evals, and the cases already made (handbacks.py)."""
+        from . import handbacks
+        return {"queue": handbacks.queue(core), "cases": handbacks.mine(core)}
+
+    def eval_handback(self, core, m, body, q):
+        from . import handbacks
+        b = body or {}
+        with core.tx("human"):
+            return handbacks.label(core, b.get("event_id"), b.get("label"), cause=b.get("cause"),
+                                   instead=b.get("instead"), found_in=b.get("found_in"), fact=b.get("fact")), 201
+
+    def eval_handback_remove(self, core, m, body, q):
+        from . import handbacks
+        with core.tx("human"):
+            return handbacks.remove(core, int(m.group(1)))
 
     def start_eval_run(self, core, m, body, q):
         """Start one eval in the background (the Evals page's Run button). It costs model calls, so only on a POST."""
