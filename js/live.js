@@ -148,6 +148,11 @@
   }
   function whenText(fire) {
     var t = ts(fire); if (!t) return 'when you’re back at your desk';
+    /* Human terms first: later this week reads as "Friday afternoon", not a date and a minute */
+    var d = new Date(t), now = new Date(), day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var days = Math.floor((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - day0) / 864e5);
+    if (days >= 2 && days < 7) return d.toLocaleDateString(undefined, { weekday: 'long' }) + ' ' + (d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening');
+    if (days >= 7) return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
     return Sched.hint({ anchor: {}, fire_at: new Date(t).toISOString() }).replace(/^Today, /, 'today at ').replace(/^Tomorrow, /, 'tomorrow at ');
   }
   /* The brief is Markdown; the finding on the card shows it as plain lines, the Context tab as Markdown */

@@ -565,9 +565,11 @@
   /* What you answered, as the chip says it */
   function saidOn(it) {
     if (!it) return 'Answered';
-    return ({ working: 'Fuzz', 'queued': 'Fuzz', done: 'Done', scheduled: 'Later', parked: 'Parked', session: 'In ' + Store.workIn,
-      review: 'Needs your OK', sending: 'Sending', mine: 'Yours', dropped: 'Dropped', resolved: 'Answered' })[it.state] ||
-      (it.state === 'waiting' ? 'Waiting on ' + (it.waitingOn || 'someone') : it.state === 'letgo' ? (it.theirs ? 'Not mine' : 'Let go') : 'Answered');
+    if (it.state === 'waiting') return 'Waiting on ' + (it.waitingOn || 'someone');
+    if (it.state === 'letgo') return it.theirs ? 'Not mine' : 'Let go';
+    if (it.state === 'dropped') return 'Dropped';
+    if (it.state === 'triage' || it.state === 'resolved') return 'Answered';
+    return UI.status(it.state)[0] || 'Answered';
   }
   function whereFrom(r) { return r.source === 'email' ? 'This email' : r.source === 'meeting' ? 'That meeting' : r.source === 'slack' ? 'Those messages' : '“' + r.title + '”'; }
   function paintRun(it) {
@@ -1050,7 +1052,7 @@
      the single-letter keys. */
   function reviewHTML(it) {
     var r = Store.recipient(it), w = Store.wording(r), val = edits[it.id + ':draft'] !== undefined ? edits[it.id + ':draft'] : (it.draft || '');
-    var h = tagrow(it, '<span class="tag tag--ok">Needs your OK</span>', true);
+    var h = tagrow(it, '<span class="tag">' + UI.status('review')[0] + '</span>', true);
     h += askHTML(r ? w.ask : 'Does this look right?') + titleHTML(it);
     /* After "Ask Fuzz to change it", the draft says it was reworked and what you asked for */
     if (it.revisedNote) h += '<div class="finding"><span class="finding-tag">Updated from your note</span>' + Fuzz.mini('good', { cls: 'finding-av' }) + '<p>“' + esc(it.revisedNote) + '”</p></div>';

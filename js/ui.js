@@ -12,6 +12,14 @@
     warn: ICON_BASE + '<path d="M8 4.2 V8 L10.6 9.6" fill="none" style="stroke:var(--tone)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     danger: ICON_BASE + '<path d="M5.2 5.2 L10.8 10.8 M10.8 5.2 L5.2 10.8" fill="none" style="stroke:var(--tone)" stroke-width="1.8" stroke-linecap="round"/></svg>'
   };
+  /* Where a task stands, said the same way everywhere (Triage, Lineup, Series, the group sheet): [label, tone] */
+  var STATUS = { triage: ['In Triage', 'accent'], queued: ['Next up', 'muted'], working: ['With Fuzz', 'accent'], review: ['Needs your OK', 'warn'],
+    sending: ['Sending', 'accent'], mine: ['With you', 'accent'], deepwork: ['My work', 'accent'], scheduled: ['Later', 'muted'],
+    waiting: ['Waiting on others', 'warn'], parked: ['Parked', 'muted'], done: ['Done', 'ok'], letgo: ['Let go', 'muted'] };
+  function status(state) {
+    if (state === 'session') return ['In ' + ((window.Store && window.Store.workIn) || 'Claude'), 'muted'];
+    return STATUS[state] || ['', 'muted'];
+  }
   function pill(text, tone) {
     tone = tone || 'muted'; var ic = STATUS_ICON[tone];
     return '<span class="pill pill--' + tone + (ic ? ' pill--icon' : '') + '">' + (ic || '') + esc(text) + '</span>';
@@ -208,5 +216,5 @@
     }).join('') + '</ul>';
   }
 
-  window.UI = { esc: esc, text: text, md: md, pill: pill, idTag: idTag, logHTML: logHTML, sourcesHTML: sourcesHTML, peopleHTML: peopleHTML, wireSources: wireSources, dialog: dialog, KINDS: KINDS };
+  window.UI = { esc: esc, text: text, md: md, pill: pill, status: status, idTag: idTag, logHTML: logHTML, sourcesHTML: sourcesHTML, peopleHTML: peopleHTML, wireSources: wireSources, dialog: dialog, KINDS: KINDS };
 })();
