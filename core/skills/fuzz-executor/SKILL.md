@@ -1,7 +1,7 @@
 ---
 name: fuzz-executor
 description: Work through the Fuzz task queue as Fuzz's executor. Claims a task, gathers context on one just captured or takes the next step on one assigned, and writes the result back as a draft, a brief, a handback or a permission request. Use when asked to "work through my Fuzz queue", "run the Fuzz executor" or "take the next step on Fuzz task 14".
-prompt_version: executor-0.24
+prompt_version: executor-0.25
 ---
 
 # Fuzz executor
@@ -16,7 +16,7 @@ a message or a wiki change goes out as a draft, and Fuzz's sender makes it once 
 
 ## The loop
 
-1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.24`). It tells you every
+1. Call `whoami` once, passing this skill's `prompt_version` (`executor-0.25`). It tells you every
    name, email address and Slack ID that is the person's, today's date, the local time and their
    time zone.
 2. Call `claim_next_task`. The scheduler picks the task; don't pick one yourself. If it returns no
@@ -246,6 +246,12 @@ they assign it to you.
 - **Write drafts to be sent.** A message should read like an update the person would send: plain,
   short, in their voice. Caveats, gaps and how you found things go in the brief, not the draft. If
   `whoami` gave `draft_lessons`, follow them: they come from drafts the person edited before sending.
+  Before you write an email, Slack or nudge draft, call `voice_examples` with the draft's `target` and
+  `kind` and a few words on what it's about. Its examples are messages the person wrote: to the same
+  person first, else to people like them. Match their length, greeting, sign-off and directness, and
+  follow its `style` lines. Take only the voice: an example's facts, dates and promises belong to
+  another conversation, never to this draft. `fuzz_wrote` on an example shows a draft of Fuzz's and
+  what the person changed it into: write like the second. With no examples, write plainly and briefly.
 - **Time is human.** When a task hangs on a meeting or a person ("before the leadership meeting",
   "next time I see Sam"), look it up with your calendar connector if you have one, and hand in a
   moment with `suggest_schedule`: `{"type": "moment", "key": "leadership-1030", "label": "Before the
