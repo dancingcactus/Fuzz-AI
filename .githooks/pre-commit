@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks a commit whose added lines hold anything from your Fuzz store. Bypass once: git commit --no-verify
+exec "$(dirname "$0")/leakcheck" --staged --quiet

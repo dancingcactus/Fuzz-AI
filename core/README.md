@@ -221,6 +221,29 @@ the spike's two-day scenario through the extractor tools, the HTTP API and event
 isolation, and the installer and adapters against a fake home folder with stub `claude` and
 `copilot` executables.
 
+## Keeping your store out of the repo
+
+The repo is public. Nothing from your store (colleagues' names, their addresses, your employer's domain, your
+own name, internal codes) should reach a commit, a test fixture or a PR. Turn the checks on once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+- **pre-commit** checks the lines a commit adds, **commit-msg** the message, and **pre-push** every commit
+  being pushed (so a `--no-verify` commit is still caught before it's public).
+- **`.claude/settings.json`** runs the same check before Claude Code's `gh pr create/edit` or
+  `gh issue comment`, over the command and any `--body-file`.
+- Each one compares the text with your store, opened read-only, the way `fuzz eval copy` checks an invented
+  case. It looks for full names, surnames, organisations, aliases, codes, every identifier, and your own names
+  and addresses. Everyday words are skipped ("Knowledge Center" isn't a person). Any email address off the
+  `.example` domains fails even with no store.
+- Add terms the store doesn't know (an employer, a codename) to `<store>/leakcheck-terms.txt`, and false
+  positives to `<store>/leakcheck-allow.txt`, one per line. Both stay outside the repo, since the lists
+  themselves are personal.
+- By hand: `.githooks/leakcheck --all` checks every tracked file, and `.githooks/leakcheck --files - < body.md`
+  checks any text.
+
 ## Undo
 
 Every human command is one undo group. `POST /undo` reverses the newest, or the one named by
