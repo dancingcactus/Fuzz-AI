@@ -329,6 +329,21 @@ def moment(core):
     return (row or {}).get("value") or "any"
 
 
+def tomorrow(core):
+    """The start of tomorrow, local time, as an ISO timestamp: when a postponed card comes back."""
+    from datetime import timedelta
+    from .db import iso
+    local = core.now().astimezone(timeres.local_tz(core))
+    start = local.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    return iso(start)
+
+
+def held(core, card):
+    """Put off with "Not sure yet" and not due back yet (its payload's hold_until is still ahead)."""
+    until = (card.get("payload") or {}).get("hold_until")
+    return bool(until) and until > core.now_iso()
+
+
 def queue(core, front=None):
     """Open cards in triage order: the working card (a booked block), then time-sensitive, then your focus,
     handbacks and postponed last, then the moment, then order. Once you've answered a check-in today, the
@@ -338,7 +353,8 @@ def queue(core, front=None):
     from . import focus, priority
     m = moment(core)
     fids = focus.focus_ids(core)
-    cards = core.all("SELECT * FROM cards WHERE user_id=? AND status='open'", (core.user_id,))
+    cards = [c for c in core.all("SELECT * FROM cards WHERE user_id=? AND status='open'", (core.user_id,))
+             if not held(core, c)]   # a postponed card sits out until the day it's due back
     by_id = {t["id"]: t for t in core.all(   # every card's task in one query, not one each
         "SELECT * FROM tasks WHERE user_id=? AND id IN (SELECT task_id FROM cards WHERE user_id=? AND status='open')",
         (core.user_id, core.user_id))}
