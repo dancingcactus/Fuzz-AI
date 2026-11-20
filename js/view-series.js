@@ -305,13 +305,15 @@
         if (multiDone[f.attr]) return '';
         multiDone[f.attr] = true;
         var all = knows.filter(function (x) { return x.attr === f.attr; });
-        var srcs = all.map(function (x) { return x.source; }).filter(function (s, i, a) { return s && a.indexOf(s) === i; });
+        /* no source line under the chips (a lone "you" read oddly): each chip says where it came from on hover,
+           and one Fuzz found itself, not you, is dashed like Fuzz's other guesses */
         return '<li class="fact-row fact-multi"><div class="fact"><span class="fl">' + esc(ATTR[f.attr]) + '</span><span class="fv"><span class="fchips">' +
           all.map(function (x) {
-            return '<span class="fchip" title="' + esc(x.source + (x.trust_label ? ' · ' + x.trust_label : '')) + '">' + esc(x.value) +
+            var fuzz = x.source && x.source !== 'you';
+            return '<span class="fchip' + (fuzz ? ' fchip--found' : '') + '" title="' + esc((fuzz ? 'Fuzz found this: ' : 'You added this') + (fuzz ? x.source : '') + (x.trust_label && fuzz ? ' · ' + x.trust_label : '')) + '">' + esc(x.value) +
               (x.fact_id ? '<button type="button" data-wrong="' + x.fact_id + '" data-attr="' + x.attr + '" data-who="' + esc(x.value) + '" aria-label="Take ' + esc(x.value) + ' off ' + esc(ATTR[x.attr]) + '" title="Remove">' + XSVG + '</button>' : '') + '</span>';
           }).join('') + (adding === f.attr ? '' : '<button type="button" class="gchip small" data-edit="add:' + f.attr + '">' + PLUS + (f.attr === 'blocked_on' ? 'Add another' : 'Add someone') + '</button>') + '</span>' +
-          '<span class="s">' + esc(srcs.join(' · ')) + '</span></span></div></li>' +
+          '</span></div></li>' +
           (adding === f.attr ? '<li class="fact-edit fact-edit--under">' + factForm(d, f.attr, '', true) + '</li>' : '');   /* adding to this row: right under it */
       }
       if (edit === 'fact:' + f.attr) return '<li class="fact-edit">' + factForm(d, f.attr, f.value) + '</li>';

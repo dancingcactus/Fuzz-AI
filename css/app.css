@@ -1392,6 +1392,7 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .sp-facts .fact-multi .fact { cursor: default; grid-template-columns: 120px minmax(0, 1fr); padding-right: 16px; }
 .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 1px 0 3px; }
 .fchip { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 2px 2px 2px 12px; border-radius: 999px; background: var(--surface); border: var(--bw) solid var(--line); font-size: 14px; }
+.fchip--found { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .fchip button { width: 26px; height: 26px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .fchip button:hover { background: var(--field); color: var(--blocked); }
 /* How Fuzz spots it: what brings work in, what keeps it out, and one field that adds to either */
