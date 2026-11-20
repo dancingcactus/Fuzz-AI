@@ -1484,3 +1484,6 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .labels .lb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .labels .lb-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
 .labels .lb-ask-in { width: 100%; }
+.labels .lb-ask:not([hidden]) { display: grid; gap: 8px; }
+.labels .lb-ask label { display: grid; gap: 4px; font-size: 13px; }
+.labels .lb-ask select { justify-self: start; max-width: 100%; }

@@ -85,15 +85,16 @@ def world_call(world, name, args):
 
 # ---- one case, in a store of its own
 
-def _store(case, clock=None):
+def _store(case, clock=None, me=None):
     """A fresh store with the case's task claimed. The clock is the case's own "now": invented dates must stay
-    in the future of the case, whatever day the eval runs."""
+    in the future of the case, whatever day the eval runs. me: who a personal case plays as (an invented case
+    brings its own)."""
     if case["input"].get("now"):
         at = parse_iso(case["input"]["now"])
         clock = lambda: at   # noqa: E731
     home = tempfile.mkdtemp(prefix="fuzz-executor-eval-")
     cfg = config_mod.load(home)
-    me = case["input"].get("me") or {"names": ["Alex Chen"], "emails": ["alex@acme.example"]}
+    me = case["input"].get("me") or me or {"names": ["Alex Chen"], "emails": ["alex@acme.example"]}
     cfg.update(me=me, embedder="hash", tz="UTC", evals={"spot_checks_per_week": 0, "run_checks_per_week": 0})
     config_mod.save(home, cfg)
     core = Core(home, 1, clock=clock)
@@ -170,9 +171,9 @@ def _parse(out):
     return got if isinstance(got, dict) else None
 
 
-def play(case, skill, call, clock=None, max_turns=MAX_TURNS):
+def play(case, skill, call, clock=None, max_turns=MAX_TURNS, me=None):
     """Run one case to the end of the task's turn. call(prompt) -> reply. Returns the record of calls."""
-    home, core, tid = _store(case, clock)
+    home, core, tid = _store(case, clock, me)
     try:
         me = {k: (core.config.get("me") or {}).get(k) for k in ("names", "emails")} | {
             "today": core.now().strftime("%A %Y-%m-%d"), "now": core.now_iso()}
@@ -249,17 +250,26 @@ def skill_text(ref=None):
     return draft_evals.skill_text(ref)
 
 
-def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref=None, path=None, workers=4):
-    """Play every executor case `repeats` times; a case passes on a majority. Recorded and gated like any run."""
+def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref=None, path=None, workers=4,
+        sets="all"):
+    """Play every executor case `repeats` times; a case passes on a majority. Recorded and gated like any run.
+    sets: the invented cases in the repo (global), the ones made from your own handbacks (personal, played as
+    you: their world is the message's quote plus the fact you typed), or both."""
     from .config import role_engine
     client, model = role_engine(core.config, "executor", client, model)
     adapter = adapters.get(client) if client in adapters.ADAPTERS else None
     if runner is None and adapter is None:
         raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
     skill, version, copy = skill_text(ref)
-    todo = evals.global_cases(SURFACE, path=path)
+    if sets not in evals.SETS:
+        raise FuzzError(f"set is one of {', '.join(evals.SETS)}", "set")
+    evals.sweep(core)   # a personal case past its 90 days goes, world and all, before it's played
+    todo = (evals.global_cases(SURFACE, path=path) if sets in ("all", "global") else []) + \
+        (evals.cases(core, SURFACE) if sets in ("all", "personal") else [])
     if not todo:
-        raise FuzzError("no executor cases in eval_seeds/executor.json", "cases")
+        raise FuzzError("no executor cases: eval_seeds/executor.json has none" if sets == "global"
+                        else "no executor cases for this set (label some handbacks at #/labels)", "cases")
+    who = {k: (core.config.get("me") or {}).get(k) for k in ("names", "emails", "slack_ids") if (core.config.get("me") or {}).get(k)}
 
     def call(p):
         return evals._call_model(core, adapter, model, runner, 1, [p])[0]
@@ -268,13 +278,15 @@ def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref
     started = time.monotonic()
     jobs = [c for c in todo for _ in range(repeats)]
     with ThreadPoolExecutor(max_workers=1 if runner else workers) as pool:
-        records = list(pool.map(lambda c: play(c, skill, call, core.clock), jobs))
+        records = list(pool.map(lambda c: play(c, skill, call, core.clock, me=who if c.get("scope") == "personal" else None),
+                                jobs))
     results = {}
     for c, rec in zip(jobs, records):
         verdicts = check(rec, c["expected"]["checks"])
         ok = all(v for _, v in verdicts)
-        r = results.setdefault(c["key"], {"key": c["key"], "case_id": None, "origin": c["origin"], "scope": "global",
-                                          "kind": c["kind"], "fp": c["fp"], "passes": 0, "runs": 0, "replies": []})
+        r = results.setdefault(c["key"], {"key": c["key"], "case_id": c.get("id"), "origin": c["origin"],
+                                          "scope": c.get("scope", "personal"), "kind": c["kind"], "fp": c["fp"],
+                                          "passes": 0, "runs": 0, "replies": []})
         r["runs"] += 1
         r["passes"] += ok
         r["replies"].append({"passed": ok, "failed": [json.dumps(ch) for ch, v in verdicts if not v],
@@ -288,5 +300,5 @@ def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref
     base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
     rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy=copy,
                        client=client if runner is None else "stub", model=model, repeats=repeats, lessons=[],
-                       sets="global", seconds=round(time.monotonic() - started, 1), judge=evals.judge_version(check))
+                       sets=sets, seconds=round(time.monotonic() - started, 1), judge=evals.judge_version(check))
     return evals.get_run(core, rid)

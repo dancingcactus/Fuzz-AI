@@ -376,7 +376,7 @@ def _cmd_eval(a):
     if a.op == "executor":   # invented tasks in invented worlds: does it gather, ask and hand back as it should?
         from . import executor_evals
         run = executor_evals.run(core, repeats=a.repeats or 2, client=a.client, model=a.model, against=a.against,
-                                 ref=a.base_ref)
+                                 ref=a.base_ref, sets=a.set)
         _print(evals.summary(core, run))
         if not run["gate_ok"]:
             sys.exit(1)
