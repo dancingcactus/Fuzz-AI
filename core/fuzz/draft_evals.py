@@ -283,13 +283,16 @@ def run(core, sets="all", lessons=None, repeats=1, runner=None, client=None, mod
         r["passed"] = r["passes"] * 2 > r["runs"]
     results = list(results.values())
     base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    reg = evals.regressions(base, {"results": results})
-    cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                 (core.user_id, core.now_iso(), SURFACE, version, copy, client if runner is None else "stub", model,
-                  repeats, json.dumps(lessons or []), json.dumps(results), base["id"] if base else None,
-                  0 if reg else 1, sets, evals.commit(), round(time.monotonic() - started, 1)))
-    return evals.get_run(core, cur.lastrowid)
+    rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy=copy,
+                       client=client if runner is None else "stub", model=model, repeats=repeats,
+                       lessons=lessons or [], sets=sets, seconds=round(time.monotonic() - started, 1),
+                       judge=judge_version())
+    return evals.get_run(core, rid)
+
+
+def judge_version():
+    """The draft judges as graded now: both prompts and the code that reads their replies."""
+    return evals.judge_version(points_prompt, judge_points, _passed, rules_prompt, judge_rules)
 
 
 def skill_text(ref=None):
@@ -301,7 +304,7 @@ def skill_text(ref=None):
                            capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise FuzzError(f"no {name} skill at {ref}", "ref")
-        return r.stdout, evals._version_of(r.stdout), f"git:{ref}"
+        return r.stdout, evals._version_of(r.stdout), evals.ref_copy(ref)
     path = adapters.SKILLS_SRC / name / "SKILL.md"
     text = path.read_text()
     return text, evals._version_of(text), "repo"

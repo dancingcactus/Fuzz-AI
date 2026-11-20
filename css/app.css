@@ -1272,6 +1272,11 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 .ev-delta.up { color: var(--ok); } .ev-delta.down { color: var(--danger); } .ev-delta.level { color: var(--muted); }
 .ev-since { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
 .ev-changed { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ev-attr { margin: 10px 0; padding: 10px 12px; background: var(--field); border-radius: 10px; }
+.ev-attr p { margin: 4px 0; }
+.ev-warn { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ev-vs select { margin-left: 4px; max-width: 100%; }
+.ev-setmark { font-size: 11px; white-space: nowrap; }
 .ev-cases { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .ev-case summary { cursor: pointer; padding: 6px 0; overflow-wrap: anywhere; }
 .ev-pre { margin: 4px 0; padding: 10px; background: var(--field); border-radius: 8px; font-family: var(--font-code); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }

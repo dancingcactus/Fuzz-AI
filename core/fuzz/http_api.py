@@ -566,7 +566,8 @@ class App:
 
     def get_eval_run(self, core, m, body, q):
         from . import evals
-        out = evals.run_detail(core, int(m.group(1)))
+        vs = q.get("vs")
+        out = evals.run_detail(core, int(m.group(1)), vs=int(vs) if str(vs or "").isdigit() else None)
         if out is None:
             raise FuzzError(f"No eval run {m.group(1)}", "run_id", 404)
         return out

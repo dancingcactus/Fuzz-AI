@@ -240,30 +240,25 @@ def run(core, sets="all", embedder=None, against=None, path=None):
                             "passes": int(ok), "runs": 1, "passed": ok, "features": p["features"],
                             **({"why": p["why"]} if p.get("why") else {})})
     base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    reg = evals.regressions(base, {"results": results})
     version = json.dumps({s: meta["thresholds"][s] for s in meta["thresholds"]}, sort_keys=True)
-    cur = core.q("INSERT INTO eval_runs (user_id, ts, surface, skill_version, skill_copy, client, model, repeats, "
-                 "lessons, results, against, gate_ok, sets, seeds_commit, seconds, meta) "
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                 (core.user_id, core.now_iso(), SURFACE, version, "matcher", "replay",
-                  fams.get("personal") or fams.get("global"), 1,
-                  json.dumps(learning.lessons_for(core, SURFACE)), json.dumps(results),
-                  base["id"] if base else None, 0 if reg else 1, sets, evals.commit(),
-                  round(time.monotonic() - started, 1), json.dumps(meta)))
+    rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy="matcher", client="replay",
+                       model=fams.get("personal") or fams.get("global"), repeats=1,
+                       lessons=learning.lessons_for(core, SURFACE), sets=sets,
+                       seconds=round(time.monotonic() - started, 1), meta=meta)
     learning.run(core)   # the thresholds learner reads this run
     proposed = core.all("SELECT id, example FROM lessons WHERE user_id=? AND surface=? AND status='proposed'",
                         (core.user_id, SURFACE))
     ids = [x["id"] for x in proposed
-           if (json.loads(x["example"]) if isinstance(x["example"], str) else x["example"]).get("run") == cur.lastrowid]
-    learning.scored(core, ids, cur.lastrowid, True)
-    return evals.get_run(core, cur.lastrowid)
+           if (json.loads(x["example"]) if isinstance(x["example"], str) else x["example"]).get("run") == rid]
+    learning.scored(core, ids, rid, True)
+    return evals.get_run(core, rid)
 
 
 def summary(core, run):
     meta = json.loads(run["meta"]) if isinstance(run.get("meta"), str) else (run.get("meta") or {})
     base = evals.summary(core, run)
     out = {k: base[k] for k in ("run", "set", "passing", "against", "gate", "regressions", "seconds") if k in base}
-    for k in ("changed", "fixed", "broke"):
+    for k in ("changed", "fixed", "broke", "attribution"):
         if k in base:
             out[k] = base[k]
     out["thresholds"] = meta.get("thresholds")
