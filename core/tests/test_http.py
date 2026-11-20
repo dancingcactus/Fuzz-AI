@@ -153,6 +153,18 @@ class Api(Server):
         status, body = self.req("POST", "/checkin", {"answer": "meh"})
         self.assertEqual((status, body["field"]), (400, "answer"))
 
+    def test_how_you_write_on_off_and_forget(self):
+        from fuzz import voice
+        voice.submit(self.core, [{"source": "email", "source_id": "m1", "ts": "2026-10-10T10:00:00Z",
+                                  "text": "Sounds good, ship it.", "to": [{"email": "priya@acme.example"}]}])
+        got = self.req("GET", "/voice")[1]
+        self.assertEqual((got["enabled"], got["messages"]), (True, 1))
+        status, got = self.req("PUT", "/voice", {"enabled": False})
+        self.assertEqual((status, got["enabled"]), (200, False))
+        self.assertEqual(self.req("PUT", "/voice", {"enabled": "no"})[1]["field"], "enabled")
+        status, got = self.req("POST", "/voice/forget")
+        self.assertEqual((got["forgot"], got["messages"]), (1, 0))
+
     def test_vips_and_a_few_more(self):
         self.assertEqual(self.req("GET", "/vips")[1], {"manager": "", "people": []})
         status, body = self.req("PUT", "/vips", {"manager": " Priya Shah ", "people": ["rob@acme.example", " "]})
