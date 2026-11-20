@@ -184,16 +184,18 @@ def run(core, sets="all", lessons=None, against=None, trying=None, path=None):
         lessons = rows
     else:
         lessons = _lesson_rows(core, lessons) or lessons
-    results = []
-    if sets in ("all", "personal"):
-        for c in evals.cases(core, SURFACE):
-            if c["kind"] not in ("wanted", "not_needed"):
-                continue
-            got = shown(core, c["input"], lessons)
+    mine = [c for c in evals.cases(core, SURFACE) if c["kind"] in ("wanted", "not_needed")] if sets in ("all", "personal") else []
+
+    def personal(with_lessons):
+        out = []
+        for c in mine:
+            got = shown(core, c["input"], with_lessons)
             ok = got == bool(c["expected"].get("wanted"))
-            results.append({"key": f"case:{c['id']}", "case_id": c["id"], "origin": c["origin"], "scope": "personal",
-                            "kind": c["kind"], "fp": c["fp"], "passes": int(ok), "runs": 1, "passed": ok,
-                            "replies": [{"passed": ok, "shown": got}]})
+            out.append({"key": f"case:{c['id']}", "case_id": c["id"], "origin": c["origin"], "scope": "personal",
+                        "kind": c["kind"], "fp": c["fp"], "passes": int(ok), "runs": 1, "passed": ok,
+                        "replies": [{"passed": ok, "shown": got}]})
+        return out
+    results = personal(lessons)
     if sets in ("all", "global"):
         for c in evals.global_cases(SURFACE, path=path):
             got = play(c)
@@ -205,7 +207,14 @@ def run(core, sets="all", lessons=None, against=None, trying=None, path=None):
                                          "suggested": got}]})
     if not results:
         raise FuzzError("no series cases: answer a few “Next in …” cards, or add eval_seeds/series_suggest.json", "cases")
-    base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
+    if trying is not None and not against:
+        # the lesson's own gate: the same cases, this replay, without it. A stored baseline can't judge it: the
+        # answers it matters for (the Not needed that made it, an Add it beside them) are newer than any run, and
+        # a store that never ran this eval has none. A replay costs nothing, so compare like with like
+        without = personal([x for x in lessons if x.get("id") != trying])
+        base = {"id": None, "results": without + [r for r in results if r["scope"] == "global"]}
+    else:
+        base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
     rid = evals.record(core, SURFACE, results, base, skill_version="rules", skill_copy="series", client="rules",
                        model=None, repeats=1, lessons=[{k: x.get(k) for k in ("id", "kind", "rule", "key")} for x in lessons],
                        sets=sets, seconds=round(time.monotonic() - started, 2), judge=evals.judge_version(check, shown))

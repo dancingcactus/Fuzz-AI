@@ -87,7 +87,7 @@ class SeriesPersonal(SeriesCase):
     def test_a_lesson_that_would_hide_what_you_took_fails_its_gate(self):
         sid = self.make_series()
         answers.answer(self.core, self.stall_card(sid, 0), "add", {"title": "Nudge Dana"})
-        series_evals.run(self.core, sets="personal")   # the baseline: the nudge you took is shown
+        # no series run before: the lesson is judged against the same replay without it, not a stored baseline
         lid = self.core.new_id("lessons")
         self.core.q("INSERT INTO lessons (id, user_id, key, surface, kind, rule, status, how) VALUES (?,1,?,?,?,?,?,?)",
                     (lid, f"series:{sid}:stall", "series_suggest", "rule", "No nudges", "testing", "inferred"))
