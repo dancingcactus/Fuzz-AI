@@ -1148,7 +1148,7 @@ replied" are not cards. They are things Fuzz says, through the
 | | `entity_term` | What is this? | Save definition · Same as an existing project · Not sure yet |
 | | `is_task` | Is this a task we should work on? | Yes, it's mine · No, not a task · It's someone else's · Not sure yet |
 | **Approvals** | `draft` | Can this leave the system? | Approve and send · Edit · Send back with a note |
-| | `nudge` | Can Fuzz chase this reply? | Approve and send nudge · Edit · Not yet |
+| | `nudge` | Can Fuzz chase this reply? | Approve and send nudge · Edit · Send back · Not yet |
 | | `permission` | Can Fuzz use this? | Allow once · Always allow · No |
 | **Deliverables** | `part_of` | Is this task part of that deliverable? | Yes · No · Not sure yet |
 | | `deliverable` | Where is this deliverable? (Monday look-back, weekday check, "Looks done?") | Keep going · Make it active · It's done · Let it go · Not sure yet |
