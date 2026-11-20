@@ -236,8 +236,8 @@ Copilot like the other roles, along with a `fuzz-recall` skill.
 | --- | --- |
 | `who_is(name)` | The entity, its live facts with trust, recent interactions, and open commitments both ways |
 | `what_is(term)` | The definition, aliases, and where it came up |
-| `why(question)` | Matching decisions and knowledge, ranked with the existing vectors |
-| `search_memory(query)` | Across entities, facts, knowledge and decisions |
+| `why(question)` | Matching decisions and knowledge, ranked by keyword overlap. **Vector search isn't built yet** |
+| `search_memory(query)` | Across entities, facts, knowledge and decisions, ranked by keyword overlap (no vector search yet) |
 | `correct(fact_id or entity, attr, value)` | The one write: an `edited` fact as `human`, since this is Justin in his own session. It can be undone |
 
 Every result carries `sources` (link, who, when) and a `trust` label. The skill tells Claude to cite them,
