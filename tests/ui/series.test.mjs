@@ -150,8 +150,8 @@ test('live: a series you start waits for your OK in Triage, then it’s going, w
   await page.waitForFunction(() => window.Live && Live.on() && Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 60000 });
   await page.evaluate(() => { const it = Store.queue().filter(i => i.cardKind === 'series_new')[0]; Store.pick(it.id); App.refresh(); });
   await page.waitForFunction(() => document.querySelectorAll('[data-sertask]').length >= 3, null, { timeout: 15000 });
-  const visible = await page.$$eval('#actions .actions > .btn', els => els.map(e => e.textContent.replace(/\d$/, '').trim()));
-  assert.deepEqual(visible, ['Looks right', 'Adjust on its sheet'], 'Not a series sits under its own menu');
+  const visible = await page.$$eval('#actions .card-actions button:not([role="menuitem"]):not(.more-btn)', els => els.map(e => e.textContent.replace(/^\d/, '').replace(/\d$/, '').trim()));
+  assert.deepEqual(visible, ['Looks right', 'Adjust on its sheet', 'Not a series'], 'its cousins sit under Not a series’s own menu');
   await page.click('input[name="ser-role"][value="drive"]');
   await page.click('[data-dv="looks_right"]');
   await page.waitForFunction(() => !Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 15000 });

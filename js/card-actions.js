@@ -69,20 +69,20 @@
     if (slot.verb && !VERBS[slot.verb] && !slot.act) flag('unknown verb ' + slot.verb);
     var o = {}; Object.keys(base).forEach(function (k) { o[k] = base[k]; });
     Object.keys(slot).forEach(function (k) { o[k] = slot[k]; });
-    o.act = o.act || o.verb;
+    if (o.act === undefined) o.act = o.verb;   /* act '' is a button the card wires up by its own attribute */
     return o;
   }
 
   /* data-key is how a comeback card's keys find a button whose act the global key table doesn't know */
   function attrs(v) {
-    return ' data-act="' + esc(v.act) + '"' + (v.key ? ' data-key="' + v.key.toLowerCase() + '" aria-keyshortcuts="' + v.key + '"' : '') + (v.attrs ? ' ' + v.attrs : '');
+    return (v.act ? ' data-act="' + esc(v.act) + '"' : '') + (v.key ? ' data-key="' + v.key.toLowerCase() + '" aria-keyshortcuts="' + v.key + '"' : '') + (v.attrs ? ' ' + v.attrs : '');
   }
-  function label(v) { return esc(v.label) + (v.key ? kbd(v.key) : ''); }
+  function label(v) { return esc(v.label) + (v.hint || v.key ? kbd(v.hint || v.key) : ''); }
 
   /* A numbered answer: the number is its key. It wears the number instead of an icon (rule 3). */
   function answerBtn(a, lead) {
     var body = '<span class="k" aria-hidden="true">' + a.n + '</span><span><b>' + esc(a.label) + '</b>' + (a.small ? '<small>' + esc(a.small) + '</small>' : '') + '</span>';
-    var at = (a.dv != null ? ' data-dv="' + esc(a.dv) + '"' : a.quick != null ? ' data-quick="' + a.quick + '"' : ' data-act="' + esc(a.act) + '"') + ' data-num="' + a.n + '" aria-keyshortcuts="' + a.n + '"' + (a.attrs ? ' ' + a.attrs : '');
+    var at = (a.dv != null ? ' data-dv="' + esc(a.dv) + '"' : a.quick != null ? ' data-quick="' + a.quick + '"' : (a.act ? ' data-act="' + esc(a.act) + '"' : '')) + ' data-num="' + a.n + '" aria-keyshortcuts="' + a.n + '"' + (a.attrs ? ' ' + a.attrs : '');
     return '<button type="button" class="ans ca-ans' + (lead ? ' primary' : '') + '"' + at + '>' + body + '</button>';
   }
 
@@ -95,7 +95,7 @@
     var id = MENU_IDS[m.theme] || 'moremenu';
     return { id: id, name: name, items: items, html: '<div class="menu" role="menu" id="' + id + '" hidden aria-label="' + esc(name) + '"><p class="menu-h" aria-hidden="true">' + esc(name) + '</p>' +
       items.map(function (v) {
-        if (v.answer) return '<button type="button" role="menuitem"' + (v.answer.dv != null ? ' data-dv="' + esc(v.answer.dv) + '"' : v.answer.quick != null ? ' data-quick="' + v.answer.quick + '"' : ' data-act="' + esc(v.answer.act) + '"') + ' data-num="' + v.answer.n + '" aria-keyshortcuts="' + v.answer.n + '"><b>' + esc(v.answer.label) + kbd(v.answer.n) + '</b>' + (v.answer.small ? '<span>' + esc(v.answer.small) + '</span>' : '') + '</button>';
+        if (v.answer) return '<button type="button" role="menuitem"' + (v.answer.dv != null ? ' data-dv="' + esc(v.answer.dv) + '"' : v.answer.quick != null ? ' data-quick="' + v.answer.quick + '"' : (v.answer.act ? ' data-act="' + esc(v.answer.act) + '"' : '')) + (v.answer.attrs ? ' ' + v.answer.attrs : '') + ' data-num="' + v.answer.n + '" aria-keyshortcuts="' + v.answer.n + '"><b>' + esc(v.answer.label) + kbd(v.answer.n) + '</b>' + (v.answer.small ? '<span>' + esc(v.answer.small) + '</span>' : '') + '</button>';
         return '<button type="button" role="menuitem"' + attrs(v) + '><b>' + esc(v.label) + (v.key ? kbd(v.key) : '') + '</b><span>' + esc(v.what || '') + '</span></button>';
       }).join('') + '</div>' };
   }

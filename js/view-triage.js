@@ -827,16 +827,20 @@
     return h + dvButtons(it, it.cardOptions || []);
   }
   function serButtons(it, list, notSeries) {
-    var i = 0, h = '<div id="actions"><div class="actions">' + list.map(function (b) {
-      i++;
-      if (b[0] === 'adjust') return '<button type="button" class="btn" data-act="seriessheet">' + b[1] + '</button>';
-      return '<button type="button" class="btn' + (b[2] ? ' primary' : '') + '" data-dv="' + b[0] + '" aria-keyshortcuts="' + i + '">' + esc(b[1]) + kbd(i) + '</button>';
-    }).join('');
-    if (notSeries) h += '<details class="ser-not"><summary class="btn">Not a series</summary><div class="menu" role="menu">' +
-      '<button type="button" role="menuitem" data-dv="not_series"><b>Not a series</b><span>These just happened together.</span></button>' +
-      '<button type="button" role="menuitem" data-dv="not_series" data-why="ongoing"><b>It’s ongoing</b><span>Part of your job, with no finish line.</span></button>' +
-      '<button type="button" role="menuitem" data-dv="not_sure"><b>Not sure yet</b><span>Ask me again later.</span></button></div></details>';
-    return h + '</div></div>';
+    /* The primary answer leads; the rest share the row, and Not a series is the last slot with its two cousins behind the chevron */
+    var n = 0, lead = null, row = [];
+    list.forEach(function (b) {
+      if (b[0] === 'adjust') { row.push({ verb: 'seriessheet', act: 'seriessheet', label: b[1] }); return; }
+      var a = { answer: { n: ++n, dv: b[0], label: b[1] } };
+      if (!lead && b[2]) lead = a; else row.push(a);
+    });
+    if (!lead) { var k = row.findIndex(function (x) { return x.answer; }); lead = row.splice(k, 1)[0]; }
+    /* renumber so the badges follow the order on the card (the keys do) */
+    var m = 0; [lead].concat(row).forEach(function (x) { if (x.answer) x.answer.n = ++m; });
+    if (notSeries) row.push({ answer: { n: ++m, dv: 'not_series', label: 'Not a series' }, menu: { theme: 'answers', label: 'Not a series, another way', items: [
+      { answer: { n: ++m, dv: 'not_series', label: 'It’s ongoing', small: 'Part of your job, with no finish line.', attrs: 'data-why="ongoing"' } },
+      { answer: { n: ++m, dv: 'not_sure', label: 'Not sure yet', small: 'Ask me again later.' } }] } });
+    return '<div id="actions">' + CardActions.render({ cls: 'ser', lead: lead, row: row }) + '</div>';
   }
   function partOfQHTML(it) {
     return tagrow(it, '', true) + askHTML(it.partOfPrompt || 'Is this part of that deliverable?') + titleHTML(it) + dvButtons(it, it.cardOptions || ['yes', 'no', 'not_sure']) + UI.idTag(it);
@@ -1338,18 +1342,21 @@
     return true;
   }
   function appName() { var e = scState.card.engine; return e === 'copilot' ? 'Copilot' : 'Claude Code'; }
+  /* A setup card's buttons carry data-sc instead of data-act: the card wires them up itself */
+  function scBtn(name, label, hint, key) { return { verb: 'sc-' + name, act: '', attrs: 'data-sc="' + name + '"', label: label, hint: hint, key: key || null }; }
+  function scActions(lead, row) { return CardActions.render({ cls: 'sc', lead: lead, row: row }); }
   function paintSetup() {
-    var c = scState.card, sc = $('#setupcard'), h = '<div class="tagrow"><span class="src">From Fuzz</span></div>', not = '<button type="button" class="btn" data-sc="later" aria-keyshortcuts="Escape">Not now' + kbd('Esc') + '</button>';
+    var c = scState.card, sc = $('#setupcard'), h = '<div class="tagrow"><span class="src">From Fuzz</span></div>', not = scBtn('later', 'Not now', 'Esc', 'Escape');
     if (c.name === 'hours') h = hoursHTML(c);
     else if (c.name === 'folder') {
       h += '<h2 id="sc-h" tabindex="-1">Can I save files for you?</h2><p>Some tasks end in a document, a spreadsheet or a checklist. I’d keep them in <b>Documents › Fuzz</b>, one folder per task. Nothing in it is sent anywhere.</p>' +
-        '<div class="sc-actions"><button type="button" class="btn primary" data-sc="yes">Yes, use Documents › Fuzz' + kbd('↵') + '</button>' + not + '</div>';
+        scActions(scBtn('yes', 'Yes, use Documents › Fuzz', '↵'), [not]);
     } else if (c.name === 'theme') {
       h += '<h2 id="sc-h" tabindex="-1">Want a different colour?</h2><p>Pick one and it changes straight away. This is the only time I’ll ask; Settings has the rest.</p>' +
         '<div class="palettes sc-pals" role="group" aria-label="Theme">' + Themes.list.map(function (t) {
           var p = Themes.palette(t.id, Themes.resolveMode(App.prefs().mode), App.prefs().contrast), on = t.id === App.prefs().theme;
           return '<button type="button" class="pal" data-sc-theme="' + t.id + '" aria-pressed="' + on + '"><span class="pal-sw" style="background:' + p.bg + ';border-color:' + p.line + '"><i style="background:' + p.accent + '"></i><i style="background:' + p.link + '"></i><i style="background:' + p.ink + '"></i></span><span class="pal-n">' + esc(t.name) + '</span></button>';
-        }).join('') + '</div><div class="sc-actions"><button type="button" class="btn primary" data-sc="yes">Keep this one' + kbd('↵') + '</button>' + not + '</div>';
+        }).join('') + '</div>' + scActions(scBtn('yes', 'Keep this one', '↵'), [not]);
     } else {
       var app = appName(), s = scState.step;
       h += '<h2 id="sc-h" tabindex="-1">Want me to find your asks myself?</h2>' +
@@ -1358,13 +1365,13 @@
         h += '<ol class="sc-steps"><li><b>In ' + esc(app) + ', connect what you use.</b> ' + (c.engine === 'copilot' ? 'In Copilot, type <code>/mcp</code> and add one.' : 'On claude.ai, open Settings, then Connectors. Or type <code>/mcp</code> in Claude Code.') + '</li>' +
           '<li><b>Come back here</b> and press “I’ve connected one”. This card waits for you.</li></ol>' +
           (s === 'none' ? '<p class="setup-hint" role="status">' + (scState.error ? 'I couldn’t ask ' + esc(app) + ': ' + esc(scState.error) + ' Try again in a moment.' : 'I didn’t find anything I can read with yet. Once one is connected, try again.') + '</p>' : '') +
-          '<div class="sc-actions"><button type="button" class="btn primary" data-sc="look">I’ve connected one' + kbd('↵') + '</button>' + not + '</div>';
+          scActions(scBtn('look', 'I’ve connected one', '↵'), [not]);
       } else if (s === 'looking') {
         h += '<div class="setup-wait"><span class="spin" aria-hidden="true"></span><p><span role="status">Asking ' + esc(app) + ' what it can reach…</span><small>Usually about a minute. Nothing is read or changed while I ask.</small></p></div><div class="sc-actions">' + not + '</div>';
       } else if (s === 'found') {
         h += '<p><b>With these, I’d be able to:</b></p><ul class="sc-can">' + scState.tools.slice(0, 6).map(function (t) { return '<li>' + esc(t.does || t.allow) + '</li>'; }).join('') + (scState.tools.length > 6 ? '<li>…and ' + (scState.tools.length - 6) + ' more ways to look things up</li>' : '') + '</ul>' +
           '<p class="meta">Only ways to read and look things up. Settings lists each one.</p>' +
-          '<div class="sc-actions"><button type="button" class="btn primary" data-sc="allow">Allow these' + kbd('↵') + '</button>' + not + '</div>';
+          scActions(scBtn('allow', 'Allow these', '↵'), [not]);
       }
     }
     sc.innerHTML = h;
@@ -1381,13 +1388,14 @@
       var opts = function (v, from) { return Onboard.hourSteps.filter(function (x) { return from ? x < 24 : x > 0; }).map(function (x) { return '<option value="' + x + '"' + (x === v ? ' selected' : '') + '>' + esc(Onboard.clock(x)) + '</option>'; }).join(''); };
       h += '<div class="onb-times"><label for="sc-from">From</label><select id="sc-from">' + opts(cur[0], true) + '</select><label for="sc-until">until</label><select id="sc-until">' + opts(cur[1], false) + '</select></div>' +
         '<label class="check"><input type="checkbox" id="sc-wkd"' + (c.hours && c.hours.weekends ? ' checked' : '') + '> <span>Weekends too</span></label>' +
-        '<div class="sc-actions"><button type="button" class="btn primary" data-sc="save">Save' + kbd('↵') + '</button><button type="button" class="btn" data-sc="back">Back</button></div>';
+        scActions(scBtn('save', 'Save', '↵'), [scBtn('back', 'Back')]);
       return h;
     }
     var choices = [['weekdays', 'Weekdays, ' + usual], ['everyday', 'Every day, ' + usual], ['none', 'No fixed hours'], ['other', 'Different hours…']];
-    return h + '<div class="sc-choices" role="group" aria-label="When do you work?">' + choices.map(function (o, i) {
-      return '<button type="button" class="btn' + (i === 0 ? ' primary' : '') + '" data-sc="' + o[0] + '" data-hq aria-keyshortcuts="' + (i + 1) + '">' + esc(o[1]) + kbd(i + 1) + '</button>';
-    }).join('') + '</div><div class="sc-actions"><button type="button" class="btn linkbtn" data-sc="later" aria-keyshortcuts="Escape">Skip for now' + kbd('Esc') + '</button></div>';
+    /* The usual hours lead (one key does it); the other three share the row. Skip for now is the free way out, a link under it. */
+    var ans = choices.map(function (o, i) { return { answer: { n: i + 1, act: '', label: o[1], attrs: 'data-sc="' + o[0] + '" data-hq' } }; });
+    return h + CardActions.render({ cls: 'sc', lead: ans[0], row: ans.slice(1) }) +
+      '<div class="sc-actions"><button type="button" class="btn linkbtn" data-sc="later" aria-keyshortcuts="Escape">Skip for now' + kbd('Esc') + '</button></div>';
   }
   function hoursAnswer(what) {
     var cur = (scState.card.hours && scState.card.hours.hours) || [8, 18.5], body;
