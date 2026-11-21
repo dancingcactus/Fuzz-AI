@@ -50,9 +50,11 @@ They never mean a standing verb. So "Not sure yet" on a choice card is also S, b
 move as Later, even if it is drawn in the numbered column.
 
 **5. Fixed order, fixed place.** The standing row is always at the bottom of the card and always reads in the
-same order: *forward* (hand off, work in Claude), then *defer* (Later), then *close* (Done, Let it go). The
-card above it changes, and the row does not move. After an interruption, the user's eyes go to the same
-spot.
+same order, the order of the themes in rule 15: **who does it**, then **when**, then **clear it from my
+plate**. That is the order of the questions the user asks themselves: who will do this, when, and if not, can
+it go. The card above the row changes, and the row does not move. After an interruption, the user's eyes go to
+the same spot. It is a default: when a card's lead is itself one of those moves (Done leading on a result),
+the remaining themes keep their relative order, and no sub-action jumps ahead of another.
 
 **6. Every card has a free way out.** Later, Not sure yet or Not now: always visible, always S, always
 described as no penalty. A card that can only be answered "yes" is a trap. The way out is never red, never
@@ -111,11 +113,16 @@ lead, such as "This one keeps moving. Want a smaller first step?" Then it stays 
 
 **15. A menu holds one theme.** Everything behind a chevron is the same kind of move as the button it hangs
 from, so the user can guess what is inside before opening it. There are three themes:
-- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Work in Claude, Help me start (H).
+- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Help me start (H), and Work in Claude (C).
 - **When** (Later ▾): Book time, After the others, Check again later, It still matters.
 - **Clear it from my plate** (Done ▾): Park it, Waiting on someone, Not mine, Let it go.
 
-An item lives in exactly one menu. A menu has at most four items, most common first, and its label names the
+The order is the same on every card (rule 5): who does it, when, clear it from my plate.
+
+An item lives in exactly one place. Work in Claude is a "who does it" move, but when there is room it is a
+plain button in the first sub-action slot instead of a menu item, because it is the one real alternative to
+handing off and has its own key. It is never in both. When there is no room, it goes back into the lead's menu.
+A menu has at most four items, most common first, and its label names the
 theme in a few words ("Clear it another way", "Book time instead"). If a new item does not fit a theme, it
 belongs in a different menu, or it is a new card kind. If a menu needs "Other" or "More" in its name, it is a
 grab bag, and it gets split. Keys stay on the verb, so P, W, X and L work from inside the menu.
