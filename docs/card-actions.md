@@ -85,6 +85,13 @@ matches the screenshots of the "I'll do this" card and the Yes / No / Not sure y
 made visible. A card never has a second row of sub-actions, a second lead, or two filled buttons side by
 side. When a choice card has more than one answer, answer 1 is the lead and the others share the row below.
 
+**13. Whatever the user wrote for Fuzz (E) goes with every action.** If there is text in the "Tell Fuzz
+something" box when any button is pressed, lead, sub-action or menu item, that text is sent along with the
+action, as the instruction for a hand-off or as a note on the task for the rest (Later, Done, Park, Let it
+go). Nothing typed is ever dropped, and no action asks the user to send the note first. The card shows that
+a note is attached, so the user can see it will travel. Only the way out of the box itself (Escape, or
+clearing it) discards the text.
+
 ### What the rules give each card kind
 
 Each row is the full-width lead, then at most three sub-actions (rule 12).
@@ -111,7 +118,7 @@ reviews it (the plan in `docs/fuzz-tone.md`).
 |---|---|---|---|
 | **Starting.** The hard part is the first move, and a blank decision is a wall. | Pre-chosen next step; the lowest-effort first action. | 1, 10, 12 | Strong. The fill is the start button, the biggest target on the card, and Fuzz does the doing. |
 | **Too many options.** Choice overload hits harder under fatigue. | Fewer visible choices; a clear recommendation. | 1, 2 | Strong, as long as 2 is really kept (see Part 4). |
-| **Working memory.** Holding what a button does, or where it is, costs effort. | Consistency; recognition over recall; stable layout. | 3, 5, 8 | Strong. This is where today's cards are weakest. |
+| **Working memory.** Holding what a button does, or where it is, costs effort. A thought typed and then lost is a cost too. | Consistency; recognition over recall; stable layout; capture without a second step. | 3, 5, 8, 13 | Strong. This is where today's cards are weakest. |
 | **Re-entry after interruption.** The user loses their place and the thread. | Same place, same shape, state shown on the card. | 5, 11 | Strong for layout. The card also needs to show *where you were* (outside this doc). |
 | **Shame and emotional load.** Piles of undone things feel like accusations. | Neutral colour and wording; no counts; no penalty. | 6, 9 | Strong. Emotional dysregulation is well documented in ADHD. Rejection sensitivity is a popular label rather than a diagnosis, so use it as a design cue, not a claim. |
 | **Impulsivity and mis-taps.** A quick press lands on the wrong button. | Undo instead of confirm dialogs; targets spaced apart. | 7, 9 | Reasonable. Undo beats a "Sure?" dialog, which people click through. |
@@ -141,6 +148,7 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
 | 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into Later's chevron, key L kept. Bring it back becomes the full-width lead, with Keep it parked and Later ▾ on the row below. |
 | 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
+| 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
 | 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
 | 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. |
 
@@ -162,8 +170,8 @@ Still open:
 
 1. **Icons to draw.** Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine have
    none today. Pick a set that matches the existing arrow, clock and check.
-2. **Do you want a test?** Rules 1 (one fill), 2 and 12 (four visible, one row of three) and 3 (a key means
-   one verb) can be checked by a UI test that renders each card kind and counts. That would stop this
+2. **Do you want a test?** Rules 1 (one fill), 2 and 12 (four visible, one row of three), 3 (a key means
+   one verb) and 13 (every action carries the note) can be checked by a UI test that renders each card kind and counts. That would stop this
    drifting again.
 3. **Build it?** A shared card-actions component (item 11) is the way to get all of this at once. It is
    not started.
