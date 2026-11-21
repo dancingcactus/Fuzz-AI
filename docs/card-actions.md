@@ -17,7 +17,7 @@ Every action on a card sits in one of three layers.
 | Layer | What it is | Where it lives | Limit |
 |---|---|---|---|
 | **Lead** | The decision this card exists for. Fuzz's suggestion is filled in. | The big block: numbered answers, or Hand it to Fuzz. | One filled button |
-| **Standing verbs** | The few moves every card shares: hand off, do it myself, later, done, let go. | The row under the lead, always in the same order. | Four visible, with the same word, key, icon and place on every card |
+| **Standing verbs** | The few moves every card shares: hand off, do it myself, later, done, let go. | The row under the lead, always in the same order. | Four visible, with the same word, key and place on every card |
 | **Depth** | Everything else that is still possible. | Behind a chevron, or the E link ("Tell Fuzz something"). | One level, up to four items, each with a line saying what happens |
 
 A card's job is to pick one lead, show the standing verbs that make sense for it, and push the rest into
@@ -34,14 +34,16 @@ Book time on a big task) is fine. Two fills is not.
 removed: what doesn't fit goes behind the chevron of the standing verb it is closest to.
 (Existing rule, 2026-11-13.)
 
-**3. A verb keeps its word, key, icon and place.** If Later is S, clock icon, third in the row on one card,
+**3. A verb keeps its word, key and place.** If Later is S, third in the row on one card,
 it is that on every card that has it. A card that needs a different meaning gets a different word and a
 different key. It never reuses one. The letter keys are the standing verbs: A hand off, C work in Claude,
 G I'll do it, H help me start, S later, D done, K it still matters, L let it go, P park, W waiting, X not mine, E tell Fuzz.
-**Every standing verb carries its icon wherever it appears**, as a button or as a menu item, because the
-icon helps the user recognise it before reading. (Numbered answers wear their number instead: they are
-answers, not verbs.) A verb that moves into a chevron keeps its key, so L still works when Let it go sits in
-Later's menu.
+**Only the lead carries an icon.** The main button wears the icon of its verb (arrow for Hand it to Fuzz,
+check for Done), because it is the one thing every card asks the user to recognise at a glance. Sub-actions and
+menu items are words and a key hint only, which keeps the row quiet. A verb keeps the same icon whenever it
+is the lead, so Done is a check on every card where it leads. A lead that is a numbered answer wears its number
+instead: it is an answer, not a verb. A verb that moves into a chevron keeps its key, so L still works when Let
+it go sits in Done's menu.
 
 **4. Numbers are for answers, letters are for verbs.** 1, 2, 3 mean "the nth answer in the lead block".
 They never mean a standing verb. So "Not sure yet" on a choice card is also S, because it is the same
@@ -176,7 +178,7 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". |
 | 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Help me start, Later and Done. |
 | 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. |
-| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: every standing verb wears its icon, as a button and as a menu item. Needs icons for Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine. |
+| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: only the lead has an icon. Later and Done lose theirs (the clock and the check) when they are sub-actions. Every verb that can lead needs one icon: Hand it to Fuzz and Done have theirs, and Help me start, Bring it back, Book time, Do it now, Let it go and Pause (on the working card) need one. |
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
 | 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into a chevron, key L kept (Done's, under rule 15). Bring it back becomes the full-width lead, with Keep it parked, Later ▾ and Done ▾ on the row below. |
 | 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
@@ -200,15 +202,15 @@ Settled by the author, 2026-11-21:
   appear less and less over time. Rule 15 refines which chevron: it is a clear-it move, so it sits with Park it
   and Not mine in Done's menu, not in Later's. That is my proposal, so say if you want it kept under Later.
 - **Menus** (rule 15): a chevron holds one theme, so Done and Park it share a menu.
-- **Icons** stay, on every standing verb, because they help comprehension.
+- **Icons** go on the lead only (the full-width main button). Sub-actions and menu items have none.
 - **Layout** is rule 12: a full-width lead, then up to three sub-actions on the next row.
 - **Avoidance** (rule 14): the options change when a task seems to be avoided, and the card says so in one
   short, neutral line.
 
 Still open:
 
-1. **Icons to draw.** Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine have
-   none today. Pick a set that matches the existing arrow, clock and check.
+1. **Icons to draw.** Only verbs that can be the lead need one. Help me start, Bring it back, Book time,
+   Do it now and Let it go have none today. Pick a set that matches the existing arrow and check.
 2. **Do you want a test?** Rules 1 (one fill), 2 and 12 (four visible, one row of three), 3 (a key means
    one verb) and 13 (every action carries the note) can be checked by a UI test that renders each card kind and counts. That would stop this
    drifting again.
