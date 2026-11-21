@@ -62,7 +62,7 @@ test('a draft: E asks for a change and S is Not now', async () => {
     const it = Store.get().items.find(i => i.state === 'review');
     Store.pick(it.id); App.refresh();
   });
-  await page.locator('#card .actions.review').waitFor();
+  await page.locator('#card .card-actions.review').waitFor();
   assert.equal(await page.locator('[data-act="revise"]').getAttribute('aria-keyshortcuts'), 'E');
   assert.equal(await page.locator('[data-act="notnow"]').getAttribute('aria-keyshortcuts'), 'S');
   await page.keyboard.press('e');

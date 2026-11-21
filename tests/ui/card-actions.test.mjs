@@ -55,6 +55,7 @@ const KINDS = [
   ['working card', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, __doNow: true }],
   ['join a waiting reply', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, joinReply: true, joinReason: 'A reply to this thread is waiting for your OK.' }],
   ['parked check-in Fuzz leans to let go', 'vendor', { putOff: false, review: true, leansGo: true }],
+  ['draft waiting for your OK', 'retro', {}],
   ['What’s in the way?', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, inTheWay: true }],
 ];
 
@@ -91,7 +92,7 @@ test('a key means one verb across every card kind (rule 3)', async () => {
       bs.map(b => [b.getAttribute('aria-keyshortcuts'), b.dataset.act, b.textContent.replace(/[A-Z0-9]$/, '').trim()]));
     for (const [key, act, text] of pairs) {
       if (/^\d$/.test(key)) continue;   /* numbers are answers (rule 4) */
-      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule', 'way-notnow': 'schedule' }[act] || act;
+      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule', 'way-notnow': 'schedule', notnow: 'schedule', sentself: 'done' }[act] || act;
       if (seen[key] && seen[key] !== verbOf) assert.fail(`${key} is ${seen[key]} and ${verbOf} (${name})`);
       seen[key] = verbOf;
     }
@@ -156,10 +157,44 @@ for (const [name, k, acts] of NOTED) {
       const where = (id) => page.evaluate(([id, act]) => { const i = Store.item(id); return act === 'assign' ? (i.instr || '') : (i.notes || ''); }, [id, act]);
       const before = await where(id);
       await page.evaluate((act) => document.querySelector(`#card [data-act="${act}"]`).click(), act);
-      await page.waitForTimeout(250);
-      const after = await where(id);
+      let after = before;
+      for (let i = 0; i < 50 && after === before; i++) { await page.waitForTimeout(100); after = await where(id); }
       assert.notEqual(after, before, 'it changed');
       assert.match(after, /and mention the budget/);
     });
   }
 }
+
+/* Rule 13 for the actions that open a small form first (Pause, Waiting on someone), and for a question's own note */
+test('Pause: the note for Fuzz goes with it, and so does where you left off (rule 13)', async () => {
+  await show('naming', KINDS[10][2]);
+  await page.keyboard.press('e');
+  await page.keyboard.type('and mention the budget');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.querySelector('#card [data-act="pause"]').click());
+  await page.locator('#pause-q').waitFor();
+  await page.locator('#pause-q').fill('numbers next');
+  await page.locator('#pause-form button[type="submit"]').click();
+  await page.waitForFunction(() => /and mention the budget/.test(Store.item('naming').notes || '') && /numbers next/.test(JSON.stringify(Store.item('naming').log)));
+});
+
+test('Waiting on someone: a note typed first goes with it (rule 13)', async () => {
+  await show('naming', KINDS[0][2]);
+  await page.keyboard.press('e');
+  await page.keyboard.type('and mention the budget');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.querySelector('#card [data-act="waiting"]').click());
+  await page.locator('#wait-who').fill('Dana');
+  await page.locator('#wait-form button[type="submit"]').click();
+  await page.waitForFunction(() => /and mention the budget/.test(Store.item('naming').notes || ''));
+});
+
+test('an entity question: the note goes along with the answer (rule 13)', async () => {
+  await show('dana');
+  await page.keyboard.press('e');
+  await page.keyboard.type('they met at the offsite');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('2');
+  await page.waitForFunction(() => !Store.inQueue('dana'));
+  assert.match(JSON.stringify(await page.evaluate(() => Store.item('dana'))), /they met at the offsite/);
+});

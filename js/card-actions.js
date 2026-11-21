@@ -26,6 +26,7 @@
     step: SV + '<path d="M4 19h5v-5h5V9h6"/></svg>',
     cal: SV + '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
     back: SV + '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 6 6"/></svg>',
+    send: SV + '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>',
     leaf: SV + '<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14"/><path d="M5 19l7-7"/></svg>'
   };
   var CHEVRON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
@@ -52,7 +53,7 @@
     keepparked:   { label: 'Keep it parked', key: null, theme: 'when', what: 'Stays parked. Fuzz won’t ask again for a few weeks.' },
     clarify:      { label: 'Bring it back', key: null, theme: 'who', icon: 'back', what: 'It’s an ordinary card again, first in line.' },
     pause:        { label: 'Pause', key: 'Z', theme: 'when', what: 'Stop for now, with a line on where you left off.' },
-    keepgoing:    { label: 'Keep going', key: 'K', theme: 'when', what: 'The block runs on a little, if your calendar is free.' },
+    keepgoing:    { label: 'Keep going', key: 'N', theme: 'when', what: 'The block runs on a little, if your calendar is free.' },
     joinreply:    { label: 'Add to the reply', key: null, theme: 'who', icon: 'arrow', what: 'It goes into the reply that is waiting for your OK.' }
   };
 
@@ -81,7 +82,7 @@
   /* A numbered answer: the number is its key. It wears the number instead of an icon (rule 3). */
   function answerBtn(a, lead) {
     var body = '<span class="k" aria-hidden="true">' + a.n + '</span><span><b>' + esc(a.label) + '</b>' + (a.small ? '<small>' + esc(a.small) + '</small>' : '') + '</span>';
-    var at = (a.quick != null ? ' data-quick="' + a.quick + '"' : ' data-act="' + esc(a.act) + '"') + ' data-num="' + a.n + '" aria-keyshortcuts="' + a.n + '"' + (a.attrs ? ' ' + a.attrs : '');
+    var at = (a.dv != null ? ' data-dv="' + esc(a.dv) + '"' : a.quick != null ? ' data-quick="' + a.quick + '"' : ' data-act="' + esc(a.act) + '"') + ' data-num="' + a.n + '" aria-keyshortcuts="' + a.n + '"' + (a.attrs ? ' ' + a.attrs : '');
     return '<button type="button" class="ans ca-ans' + (lead ? ' primary' : '') + '"' + at + '>' + body + '</button>';
   }
 
@@ -94,7 +95,7 @@
     var id = MENU_IDS[m.theme] || 'moremenu';
     return { id: id, name: name, items: items, html: '<div class="menu" role="menu" id="' + id + '" hidden aria-label="' + esc(name) + '"><p class="menu-h" aria-hidden="true">' + esc(name) + '</p>' +
       items.map(function (v) {
-        if (v.answer) return '<button type="button" role="menuitem"' + (v.answer.quick != null ? ' data-quick="' + v.answer.quick + '"' : ' data-act="' + esc(v.answer.act) + '"') + ' data-num="' + v.answer.n + '" aria-keyshortcuts="' + v.answer.n + '"><b>' + esc(v.answer.label) + kbd(v.answer.n) + '</b>' + (v.answer.small ? '<span>' + esc(v.answer.small) + '</span>' : '') + '</button>';
+        if (v.answer) return '<button type="button" role="menuitem"' + (v.answer.dv != null ? ' data-dv="' + esc(v.answer.dv) + '"' : v.answer.quick != null ? ' data-quick="' + v.answer.quick + '"' : ' data-act="' + esc(v.answer.act) + '"') + ' data-num="' + v.answer.n + '" aria-keyshortcuts="' + v.answer.n + '"><b>' + esc(v.answer.label) + kbd(v.answer.n) + '</b>' + (v.answer.small ? '<span>' + esc(v.answer.small) + '</span>' : '') + '</button>';
         return '<button type="button" role="menuitem"' + attrs(v) + '><b>' + esc(v.label) + (v.key ? kbd(v.key) : '') + '</b><span>' + esc(v.what || '') + '</span></button>';
       }).join('') + '</div>' };
   }
@@ -139,7 +140,7 @@
       if (!s) return;
       var all = [s].concat(s.menu ? (s.menu.items || []) : []);
       all.forEach(function (x) {
-        var v = x.answer ? { key: String(x.answer.n), label: x.answer.label, act: x.answer.act || 'quick' + x.answer.quick } : verbOf(x);
+        var v = x.answer ? { key: String(x.answer.n), label: x.answer.label, act: x.answer.act || 'a' + (x.answer.dv != null ? x.answer.dv : x.answer.quick) } : verbOf(x);
         if (v.key) { if (keys[v.key] && keys[v.key] !== v.act) flag('key ' + v.key + ' means both ' + keys[v.key] + ' and ' + v.act, spec); keys[v.key] = v.act; }
       });
     });
