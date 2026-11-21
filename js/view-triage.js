@@ -548,8 +548,9 @@
     return '<div class="tagrow"><p class="eyebrow">' + h + ebItem('<span class="tag due" id="duetag" hidden></span>') + '</p></div>';
   }
   function metaHTML(it) {
-    var h = '', st = it.stage || 'fresh', stage = { fresh: 'Fresh', settling: 'Aging', stale: 'Sitting' }[st] || 'Fresh';
-    if (it.age) h += ebItem('<span class="eb' + (st === 'fresh' ? '' : ' eb-warn') + '" title="' + esc(stage + ' · ' + it.age) + '">' + (st === 'fresh' ? '' : stage + ' · ') + esc(it.age) + '</span>', true);
+    var h = '';
+    /* how old it is, as a plain fact: no "Aging" or "Sitting", no warning dot (stale cards are asked about, not accused) */
+    if (it.age) h += ebItem('<span class="eb" title="' + esc(it.age + ' old') + '">' + esc(it.age) + '</span>', true);
     if (it.sizeLabel) h += ebItem('<span class="eb' + (Store.isBig(it) ? ' eb-warn' : '') + '" title="' + esc(it.sizeLabel) + '">' + esc(it.sizeLabel.split(' · ')[0]) + '</span>', true);
     var g = Store.groupOf(it);
     if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);

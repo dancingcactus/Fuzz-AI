@@ -20,6 +20,10 @@
     if (state === 'session') return ['In ' + ((window.Store && window.Store.workIn) || 'Claude'), 'muted'];
     return STATUS[state] || ['', 'muted'];
   }
+  /* An empty list: a small Fuzz says so, the same on every page. html is trusted markup from the page. */
+  function empty(html) {
+    return '<p class="lempty">' + (window.Fuzz && Fuzz.mini ? Fuzz.mini('good', { cls: 'lempty-av' }) : '') + '<span>' + html + '</span></p>';
+  }
   function pill(text, tone) {
     tone = tone || 'muted'; var ic = STATUS_ICON[tone];
     return '<span class="pill pill--' + tone + (ic ? ' pill--icon' : '') + '">' + (ic || '') + esc(text) + '</span>';
@@ -216,5 +220,5 @@
     }).join('') + '</ul>';
   }
 
-  window.UI = { esc: esc, text: text, md: md, pill: pill, status: status, idTag: idTag, logHTML: logHTML, sourcesHTML: sourcesHTML, peopleHTML: peopleHTML, wireSources: wireSources, dialog: dialog, KINDS: KINDS };
+  window.UI = { esc: esc, text: text, md: md, pill: pill, status: status, empty: empty, idTag: idTag, logHTML: logHTML, sourcesHTML: sourcesHTML, peopleHTML: peopleHTML, wireSources: wireSources, dialog: dialog, KINDS: KINDS };
 })();

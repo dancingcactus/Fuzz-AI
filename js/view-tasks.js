@@ -53,7 +53,7 @@
   function sectionHTML(id, title, rows, empty, extra) {
     if (!rows.length && !empty) return '';
     return '<section class="lsec" aria-labelledby="sec-' + id + '"><h2 id="sec-' + id + '">' + title + '</h2>' + (extra || '') +
-      (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : '<p class="lempty">' + empty + '</p>') + '</section>';
+      (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : UI.empty(empty)) + '</section>';
   }
 
   /* A section that starts closed (Parked, Finished) and stays as you left it while the page updates */

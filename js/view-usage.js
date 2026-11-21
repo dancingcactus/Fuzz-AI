@@ -113,7 +113,7 @@
     var seg = '<div class="segrow" role="group" aria-label="Range">' + RANGES.map(function (r) {
       return '<button type="button" class="seg" aria-pressed="' + (r[0] === days) + '" data-days="' + r[0] + '">' + r[1] + '</button>';
     }).join('') + '</div>';
-    var head = '<div class="tasks-head"><h1>Usage</h1><p class="meta">What my runs used, per day, as each app reports it. ' +
+    var head = '<a class="linkbtn set-back" href="#/settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Settings</a>' + '<div class="tasks-head"><h1>Usage</h1><p class="meta">What my runs used, per day, as each app reports it. ' +
       'Copilot counts AI credits, as its CLI reports them. Claude Code counts dollars: on a subscription, that’s what the same tokens would cost on the API, not your bill. ' +
       'Evals, the focus pass and setup’s connector check aren’t counted, so your GitHub or Anthropic billing page can show more.' +
       (data && data.tz ? ' Days are in ' + esc(data.tz) + '.' : '') + '</p>' + seg + '</div>';

@@ -510,7 +510,8 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .quick { margin: 0; }
 .incoming { margin: 0; line-height: 1.6; color: var(--muted); }
 .profiles { display: flex; flex-wrap: wrap; gap: 10px; }
-.profile { flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px; padding: 14px; border: var(--bw) solid var(--line); border-radius: 16px; background: var(--field); }
+.profiles > .profile { flex: 1 1 220px; } /* side by side in a row; alone in the card it is only as tall as its text */
+.profile { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: var(--bw) solid var(--line); border-radius: 16px; background: var(--field); }
 .plabel { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .pname { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.25; }
 .pdetail { font-size: 14px; color: var(--muted); }
@@ -572,6 +573,8 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .ctx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .ctx li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.55; }
 .ctx i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 8px; }
+.lempty:has(.lempty-av) { display: flex; align-items: center; gap: 10px; }
+.lempty-av { width: 34px; flex: none; }
 .md { line-height: 1.6; overflow-wrap: anywhere; overflow-x: auto; }
 .md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
 .md p, .md ul, .md ol, .md blockquote, .md pre { margin: 0 0 12px; }

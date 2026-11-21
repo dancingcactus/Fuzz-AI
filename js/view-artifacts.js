@@ -72,7 +72,7 @@
       return;
     }
     if (!items.length) {
-      root.innerHTML = head + '<p class="lempty">Nothing yet. When Fuzz writes a document, a deck or a checklist for a task, it shows up here' + (folder && folder !== 'demo' ? ', and in ' + esc(folder) : '') + '.</p>';
+      root.innerHTML = head + UI.empty('Nothing yet. When Fuzz writes a document, a deck or a checklist for a task, it shows up here' + (folder && folder !== 'demo' ? ', and in ' + esc(folder) : '') + '.');
       return;
     }
     /* the search box is built once, so typing in it, or a refresh while Fuzz writes, keeps your place */
