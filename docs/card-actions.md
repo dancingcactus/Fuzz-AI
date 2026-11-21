@@ -37,7 +37,7 @@ removed: what doesn't fit goes behind the chevron of the standing verb it is clo
 **3. A verb keeps its word, key, icon and place.** If Later is S, clock icon, third in the row on one card,
 it is that on every card that has it. A card that needs a different meaning gets a different word and a
 different key. It never reuses one. The letter keys are the standing verbs: A hand off, C work in Claude,
-G I'll do it, S later, D done, K it still matters, L let it go, P park, W waiting, X not mine, E tell Fuzz.
+G I'll do it, H help me start, S later, D done, K it still matters, L let it go, P park, W waiting, X not mine, E tell Fuzz.
 **Every standing verb carries its icon wherever it appears**, as a button or as a menu item, because the
 icon helps the user recognise it before reading. (Numbered answers wear their number instead: they are
 answers, not verbs.) A verb that moves into a chevron keeps its key, so L still works when Let it go sits in
@@ -94,9 +94,9 @@ clearing it) discards the text.
 
 **14. When Fuzz suspects a task is being avoided, the lead changes, not the layout.** Signals are a task
 rescheduled again and again, a long time in the queue, or a hand-off bounced back. The card then leads with
-the move that makes starting cheapest, picked by the likely cause: a big task leads with Find my first
-step, a decision leads with Fuzz's pick, a draft the user doesn't want to write leads with Fuzz drafting it,
-and an unknown cause leads with Help me start. The card says so in **one short, neutral line** above the
+the move that makes starting cheapest, picked by the likely cause: a big task or an unknown cause leads with Help me
+start, a decision leads with Fuzz's pick, and a draft the user doesn't want to write leads with Fuzz drafting
+it. The card says so in **one short, neutral line** above the
 lead, such as "This one keeps moving. Want a smaller first step?" Then it stays out of the way.
 - Rules 3, 6 and 12 hold: same keys, the free way out still there, a full-width lead with at most three
   sub-actions. Rule 2's budget holds too, so nothing is added to the card, only swapped.
@@ -109,7 +109,7 @@ lead, such as "This one keeps moving. Want a smaller first step?" Then it stays 
 
 **15. A menu holds one theme.** Everything behind a chevron is the same kind of move as the button it hangs
 from, so the user can guess what is inside before opening it. There are three themes:
-- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Work in Claude, Find my first step.
+- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Work in Claude, Help me start (H).
 - **When** (Later ▾): Book time, After the others, Check again later, It still matters.
 - **Clear it from my plate** (Done ▾): Park it, Waiting on someone, Not mine, Let it go.
 
@@ -128,7 +128,7 @@ Each row is the full-width lead, then at most three sub-actions (rule 12).
 | Choice or entity question | Answer 1 | The other answers; Not sure yet is always one of them | Something else (E) |
 | Fuzz's answers (a handback) | Answer 1 | Other answers · Later ▾ · Done ▾ | Tell Fuzz (E), Other ways |
 | Parked check-in | Bring it back | Keep it parked · Later ▾ · Done ▾ | When: Book time. Clear it: Let it go (L), Not mine |
-| Stale check-in | Hand it to Fuzz | Find my first step · Later ▾ · Done ▾ | When: It still matters (K), Book time. Clear it: Let it go (L), Park it, Not mine |
+| Stale check-in | Hand it to Fuzz | Help me start · Later ▾ · Done ▾ | When: It still matters (K), Book time. Clear it: Let it go (L), Park it, Not mine |
 | Result Fuzz found | Done | Send Fuzz further · Later | Other ways |
 | Working card | Done | Pause (Keep going takes its place at the end of a block) · Later ▾ · Hand it to Fuzz ▾ | When: Book the rest. Who does it: Work in Claude |
 | Big task | The suggested way to take it ▾ | The one alternative · Later ▾ · Done ▾ | Who does it and how: the other ways to take it, in the lead's chevron. Later keeps only the When items |
@@ -174,7 +174,7 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind the lead's chevron, which holds the take-it-on ways. The standing row stays. |
 | 2 | Working card | Six visible: Done, Keep going, Pause, Hand to Fuzz ▾, Work in Claude, Book time. It is the card for focus, so it should be the calmest. | 2, 5 | Done leads. Keep Pause and Keep going when it applies. Move the rest into one chevron. |
 | 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". |
-| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Find my first step, Later and Done. |
+| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Help me start, Later and Done. |
 | 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. |
 | 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: every standing verb wears its icon, as a button and as a menu item. Needs icons for Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine. |
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
@@ -185,7 +185,7 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
 | 13 | Avoidance | The keeps-coming-back card already leads with Help me start and words it neutrally, and the "what’s in the way" sheet exists. But the lead swap only happens on that one card kind, the sheet is a separate stacked list of four tiles outside the rule 12 shape, and no card shows the one neutral line. I have not checked what an ordinary task does after several reschedules. | 14, 12 | Make the swap general: pick the lead by likely cause, add the one-line prompt above it, and fold the sheet into the lead and a row of three. |
 | 14 | Menus | Done ▾ holds Do it now (who does it) and After the others (when), alongside Park it, Waiting and Not mine (clear it). On the stale and putoff cards Later ▾ holds Park it and Not mine. The big-task card puts take-it-on ways under Later. The working card's More ▾ is a grab bag. | 15 | Move each item to the menu of its theme (Part 2, rule 15). Rename or split any menu whose label needs "Other" or "More". |
-| 15 | Naming | "Just the first step" (`firststep`, in the big-task row, the stale answers and `live.js`) is a noun phrase among verbs. It also does the same job as "Help me start" on the keeps-coming-back card: both work out a two-minute first step. | 3, 8 | Renamed "Find my first step" (a verb, four words, rule 8). Decide whether it and "Help me start" become one action with one label and one key. |
+| 15 | Naming | "Just the first step" (`firststep`, in the big-task row, the stale answers and `live.js`) is a noun phrase among verbs, and does the same job as "Help me start" on the keeps-coming-back card (`unclear`): both work out what it needs and a two-minute first step. | 3, 8 | Decided: one action, **Help me start**, replacing both. It is a "who does it" move, lives in the Hand it to Fuzz menu, and is the lead on the keeps-coming-back card. Both `firststep` and `unclear` become one handler. It takes H, the key "Help me start" had before it was retired, which means updating the test that asserts H is gone. |
 
 Screenshot 2 (the "I'll do this" card) is the closest to the target: a full-width fill, then one row of
 three, with chevrons on the verbs that have cousins. Screenshot 3 (Yes / No / Not sure yet) already has
