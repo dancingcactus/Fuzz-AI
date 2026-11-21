@@ -85,7 +85,7 @@ test('a note goes with Done', async () => {
 
 test('a result keeps its follow-up answer, and its brief isn’t folded', async () => {
   await show('naming', { stage: 'fresh', handedBack: true, result: true, quick: ['Draft the guide from the notes'] });
-  assert.equal(await page.locator('.answers .ans[data-quick]').count(), 1);
+  assert.equal(await page.locator('.card-actions [data-quick]').count(), 1);
   assert.equal(await page.locator('#details').count(), 0);
 });
 

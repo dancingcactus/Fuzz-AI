@@ -67,13 +67,13 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
   await page.locator('#card [data-dv="first"]').waitFor();
   /* the stuck check runs every 15 seconds */
   await page.waitForTimeout(16500);
-  assert.equal(await page.locator('#way-h').count(), 0, 'no What’s in the way? on a memory card');
+  assert.equal(await page.locator('#way').count(), 0, 'no What’s in the way? on a memory card');
   assert.equal(await page.locator('#card [data-dv="first"]').count(), 1, 'its own answers stay');
   assert.equal(await page.locator('#card [data-act="assign"]').count(), 0, 'no task buttons');
   /* a task left in front still gets asked */
   const t = await page.evaluate(() => Store.get().queue.find(id => { const i = Store.item(id); return i && i.kind === 'task' && i.state === 'triage' && !i.doing; }));
   await show(t);
-  await page.locator('#way-h').waitFor({ timeout: 20000 });
+  await page.locator('#way').waitFor({ timeout: 20000 });
 });
 
 test('Fuzz’s spot checks draw like memory cards: the message, then what was there; the run, then what was off', async () => {
@@ -110,9 +110,10 @@ test('no Find out: a task card has Done, Q does nothing, and What’s in the way
   await page.keyboard.press('q');
   assert.equal(await page.evaluate(() => Store.shown()), t);
   await page.evaluate((id) => { Store.item(id).inTheWay = true; App.refresh(); }, t);
-  await page.locator('#way-h').waitFor();
-  const choices = await page.$$eval('.way .when', els => els.map(e => [e.dataset.act, e.getAttribute('aria-keyshortcuts')]));
-  assert.deepEqual(choices, [['way-big', '1'], ['way-decide', '2'], ['way-draft', '3'], ['way-notnow', '4']]);
+  await page.locator('#way').waitFor();
+  const choices = await page.$$eval('.way [data-act]', els => els.map(e => [e.dataset.act, e.getAttribute('aria-keyshortcuts')]));
+  /* the same shape as every card: one lead, then three, and Not now is S (rule 6) */
+  assert.deepEqual(choices, [['way-big', '1'], ['way-decide', '2'], ['way-draft', '3'], ['way-notnow', 'S']]);
   await page.keyboard.press('2');
   await page.waitForFunction((id) => !Store.inQueue(id), t);
   assert.equal(await page.evaluate((id) => Store.item(id).now, t), 'Laying out the options');
@@ -142,10 +143,9 @@ test('⌘ Enter in the box hands it to Fuzz with what you wrote', async () => {
 test('a question card answers its headline with numbered answers', async () => {
   await show('room');
   assert.match(await ask(), /big room on 3 or the quiet one on 5/);
-  const answers = page.locator('.answers .ans');
-  assert.equal(await answers.count(), 3, 'two answers and Something else');
-  assert.doesNotMatch((await page.locator('#card [data-act="assign"]').first().getAttribute('class')) || '', /primary/, 'the answers lead');
-  assert.equal(await page.locator('#card .quiet-row > *').count(), 2, 'under the answers, Later and Other ways only');
+  assert.equal(await page.locator('.card-actions [data-quick]').count(), 2, 'the two answers: one leads, one shares the row');
+  assert.match(await page.locator('.card-actions > .ca-ans').getAttribute('class'), /primary/, 'answer 1 is the lead');
+  assert.equal(await page.locator('#card [data-act="assign"]').count(), 0, 'no second hand-off beside the answers');
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('room'));
   assert.match(await page.evaluate(() => Store.item('room').instr), /quiet room on 5/);
@@ -164,9 +164,11 @@ test('a note goes along with the answer you pick', async () => {
   assert.match(instr, /and copy Ines/);
 });
 
-test('Something else opens the box', async () => {
+test('Tell Fuzz something is a link under the actions, not a numbered answer', async () => {
   await show('room');
   await page.keyboard.press('3');
+  assert.notEqual(await page.evaluate(() => document.activeElement.id), 'instr', '3 is not an answer here');
+  await page.locator('.addnote').click();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'instr');
 });
 

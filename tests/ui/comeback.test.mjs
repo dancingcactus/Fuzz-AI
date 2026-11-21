@@ -39,22 +39,21 @@ async function show(id, flags) {
   }, [id, flags]);
   await page.locator('#card .comeback').waitFor();
 }
-const row = () => page.locator('.comeback .back-row [aria-keyshortcuts]').evaluateAll(bs => bs.map(b => b.getAttribute('aria-keyshortcuts')));
+const row = () => page.locator('.comeback .card-actions [aria-keyshortcuts]').evaluateAll(bs => bs.map(b => b.getAttribute('aria-keyshortcuts')));
 
-for (const [name, id, flags, keep] of [
-  ['quiet for a while', 'naming', null, true],
-  ['keeps coming back', 'vendor', null, true],
-  ['back from Parked', 'vendor', { putOff: false, review: true }, true],
-  ['waiting on someone', 'vendor', { putOff: false, checkBack: true, waitingOn: 'Dana' }, false],
+for (const [name, id, flags, keys] of [
+  ['quiet for a while', 'naming', null, ['K', 'S', 'L']],
+  ['keeps coming back', 'vendor', null, ['K', 'S', 'L']],
+  ['back from Parked', 'vendor', { putOff: false, review: true }, ['S', 'L']],
+  ['waiting on someone', 'vendor', { putOff: false, checkBack: true, waitingOn: 'Dana' }, ['S', 'L']],
 ]) {
-  test(`${name}: numbered ways forward, then the same row`, async () => {
+  test(`${name}: a lead, then the same keys on every card`, async () => {
     await show(id, flags);
-    const keys = await row();
-    assert.deepEqual(keys.filter(k => /^[KSL]$/.test(k)), keep ? ['K', 'S', 'L'] : ['S', 'L']);
-    const ans = await page.locator('.comeback .answers .ans').evaluateAll(bs => bs.map(b => b.getAttribute('aria-keyshortcuts')));
-    assert.ok(ans.length >= 1);
-    assert.deepEqual(ans, ans.map((_, i) => String(i + 1)));
-    for (const gone of ['G', 'U', 'H', 'R']) assert.equal(await page.locator(`#card [aria-keyshortcuts="${gone}"]`).count(), 0, `${gone} is retired`);
+    const have = await row();
+    for (const k of keys) assert.ok(have.includes(k), `${k} is on the card`);
+    assert.equal(await page.locator('.comeback .card-actions > .btn.primary, .comeback .card-actions > .split > .primary, .comeback .card-actions > .ca-ans.primary').count() >= 1, true, 'one lead');
+    assert.equal(await page.locator('.comeback .card-actions .primary:not(.more-btn)').count(), 1, 'one fill');
+    for (const gone of ['U', 'R']) assert.equal(await page.locator(`#card [aria-keyshortcuts="${gone}"]`).count(), 0, `${gone} is retired`);
   });
 }
 
@@ -67,7 +66,7 @@ test('a check-back: 1 is They got back to me', async () => {
 
 test('keeps coming back: 1 is Help me start, and L lets it go', async () => {
   await show('vendor');
-  assert.match(await page.locator('.comeback .answers .ans').first().textContent(), /Help me start/);
+  assert.match(await page.locator('.comeback .card-actions > .ca-lead-btn').textContent(), /Help me start/);
   await page.keyboard.press('l');
   await page.waitForFunction(() => Store.item('vendor').state === 'letgo');
 });

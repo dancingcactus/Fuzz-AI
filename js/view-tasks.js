@@ -303,7 +303,9 @@
       '<label class="sr" for="dlg-draft">' + (r ? esc(w.field) : 'Fuzz’s write-up') + '</label><textarea id="dlg-draft" rows="' + (r && r.verb && r.verb !== 'comment' ? 10 : 5) + '">' + esc(it.draft) + '</textarea></section>';
     h += actionsRow(acts, it.state === 'review');
     if (r) h += '<p class="sendnote">' + esc(w.note) + '</p>';
-    if (it.state === 'review') h += '<form class="revise" id="dlg-revise" hidden><label for="dlg-revise-text">Tell Fuzz what to change</label><div class="parkrow"><input id="dlg-revise-text" type="text" autocomplete="off" placeholder="For example: shorter, and mention the two maybes"><button class="btn" type="submit">Send back to Fuzz</button></div></form>';
+    if (it.state === 'review') h += '<form class="revise instr" id="dlg-revise" hidden><div class="instr-top"><label for="dlg-revise-text">Tell Fuzz what to change</label></div>' +
+      Composer.box({ id: 'dlg-revise-text', rows: 2, placeholder: 'For example: shorter, and mention the two maybes', tools: Composer.bar({ mic: { for: 'dlg-revise-text', label: 'Dictate what to change' } }) }) +
+      '<button class="btn revise-send" type="submit">Send back to Fuzz</button></form>';
     return h;
   }
   function actionsRow(acts, revise) {

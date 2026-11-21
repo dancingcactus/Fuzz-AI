@@ -621,8 +621,10 @@
     wrap('approve', function (id, text) { var it = S.item(id); return then(editFirst(it, text), decide(it, 'approve')); });
     wrap('accept', function (id, text) { var it = S.item(id); return then(editFirst(it, text), decide(it, 'approve')); });
     wrap('nudgeSent', function (id, text) { var it = S.item(id); return then(editFirst(it, text), decide(it, 'approve')); });
-    wrap('revise', function (id, note, text) {
+    wrap('revise', function (id, note, text, read) {
       var it = S.item(id);
+      /* the core takes a note, so the sources you pointed to go in it as words */
+      if (read && read.length) note += ' Read these first: ' + read.map(function (s) { return '“' + s.title + '”'; }).join(', ') + '.';
       return then(editFirst(it, text), decide(it, 'send_back', note), function () { return kick(it); });
     });
     /* Not now on a question: postpone it in the core too. A task (End of the list) goes to the back of the

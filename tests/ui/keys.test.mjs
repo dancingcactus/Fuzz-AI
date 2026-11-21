@@ -62,9 +62,26 @@ test('a draft: E asks for a change and S is Not now', async () => {
     const it = Store.get().items.find(i => i.state === 'review');
     Store.pick(it.id); App.refresh();
   });
-  await page.locator('#card .actions.review').waitFor();
+  await page.locator('#card .card-actions.review').waitFor();
   assert.equal(await page.locator('[data-act="revise"]').getAttribute('aria-keyshortcuts'), 'E');
   assert.equal(await page.locator('[data-act="notnow"]').getAttribute('aria-keyshortcuts'), 'S');
   await page.keyboard.press('e');
   assert.equal(await page.locator('#revise').isVisible(), true);
+  /* It is the same composer as the Tell Fuzz box: the field with + and the mic inside it */
+  const inBox = await page.evaluate(() => ['#revise-text', '[data-act="plus"]', '[data-dictate="revise-text"]'].map(s => !!document.querySelector('#revise .composer ' + s)));
+  assert.deepEqual(inBox, [true, true, true]);
+  assert.equal(await page.locator('#revise .refs').getAttribute('data-for'), 'revise-text');
+  await page.locator('#revise [data-act="plus"]').click();
+  assert.equal(await page.locator('#plusmenu').isVisible(), true);
+  assert.ok(await page.locator('#plusmenu [data-act="upload"]').isVisible(), 'Upload files is in the menu');
+  await page.keyboard.press('Escape');
+  /* The line under the box says what the keys do while you type, and they do it */
+  await page.locator('#revise-text').focus();
+  const line = page.locator('#revise .typing');
+  assert.equal(await line.isVisible(), true);
+  assert.match(await line.textContent(), /Enter\s*Send back.*Esc\s*Keep it, keys back/);
+  await page.locator('#revise-text').fill('shorter');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-act')), 'revise', 'Esc leaves the box');
+  assert.equal(await page.locator('#revise-text').inputValue(), 'shorter', 'and keeps what you wrote');
 });

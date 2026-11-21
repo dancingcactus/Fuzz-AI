@@ -8,10 +8,12 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
 import { chromium } from 'playwright-core';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const PORT = 9700 + Math.floor(Math.random() * 40);   /* outside the static servers' 8790–9690 */
+/* A free port from the OS, so parallel test files and other running cores never collide */
+const PORT = await new Promise((res, rej) => { const srv = createServer(); srv.listen(0, '127.0.0.1', () => { const { port } = srv.address(); srv.close(() => res(port)); }); srv.on('error', rej); });
 const HAVE_UV = spawnSync('uv', ['--version']).status === 0;
 let home, core, browser, page, tok, base;
 
@@ -21,7 +23,7 @@ before(async () => {
   writeFileSync(join(home, 'config.json'), JSON.stringify({ me: { names: ['Sam'], emails: ['sam@acme.example'], slack_ids: [], folders: {} }, embedder: 'hash', tz: 'UTC' }));
   core = spawn('uv', ['run', '--project', join(ROOT, 'core'), 'python', '-m', 'fuzz', '--home', home, 'serve', '--port', String(PORT)], { cwd: join(ROOT, 'core'), stdio: 'ignore' });
   base = `http://127.0.0.1:${PORT}`;
-  for (let i = 0; i < 300; i++) {   /* up to a minute: the suite starts every file at once */
+  for (let i = 0; i < 900; i++) {   /* up to three minutes: the suite starts every file at once */
     try { if ((await fetch(base + '/health')).ok) break; } catch { await new Promise(r => setTimeout(r, 200)); }
   }
   tok = Object.keys(JSON.parse(readFileSync(join(home, 'tokens.json'), 'utf8')))[0];
@@ -30,7 +32,7 @@ before(async () => {
   page = await browser.newPage();
   page.errors = []; page.on('pageerror', e => page.errors.push(e.message));
   await page.goto(`${base}/?token=${tok}#/triage`);
-  await page.waitForFunction(() => window.Live && Live.on() && Store.queue().length >= 4, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.Live && Live.on() && Store.queue().length >= 4, null, { timeout: 180000 });
 });
 after(async () => { await browser?.close(); core?.kill(); if (home) rmSync(home, { recursive: true, force: true }); });
 

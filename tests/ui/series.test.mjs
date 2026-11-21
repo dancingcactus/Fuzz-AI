@@ -9,10 +9,12 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
 import { chromium } from 'playwright-core';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const PORT = 8790 + Math.floor(Math.random() * 900);
+/* A free port from the OS, so parallel test files and other running cores never collide */
+const PORT = await new Promise((res, rej) => { const srv = createServer(); srv.listen(0, '127.0.0.1', () => { const { port } = srv.address(); srv.close(() => res(port)); }); srv.on('error', rej); });
 const LIVE_PORT = 9740 + Math.floor(Math.random() * 40);   /* outside the static servers' 8790–9690, and live.test's 9700–9739 */
 const HAVE_UV = spawnSync('uv', ['--version']).status === 0;
 let server, browser, home, core, tok, base;
@@ -28,7 +30,7 @@ before(async () => {
   writeFileSync(join(home, 'config.json'), JSON.stringify({ me: { names: ['Sam'], emails: ['sam@acme.example'], slack_ids: [], folders: {} }, embedder: 'hash', tz: 'UTC' }));
   core = spawn('uv', ['run', '--project', join(ROOT, 'core'), 'python', '-m', 'fuzz', '--home', home, 'serve', '--port', String(LIVE_PORT)], { cwd: join(ROOT, 'core'), stdio: 'ignore' });
   base = `http://127.0.0.1:${LIVE_PORT}`;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 900; i++) {
     try { if ((await fetch(base + '/health')).ok) break; } catch { await new Promise(r => setTimeout(r, 200)); }
   }
   tok = Object.keys(JSON.parse(readFileSync(join(home, 'tokens.json'), 'utf8')))[0];
@@ -147,21 +149,21 @@ test('live: a series you start waits for your OK in Triage, then it’s going, w
   const out = await api('POST', '/series', { note: 'Northwind pilot' });
   assert.ok(out.series_id, 'the core started it');
   const page = await newPage(`${base}/?token=${tok}#/triage`);
-  await page.waitForFunction(() => window.Live && Live.on() && Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 60000 });
+  await page.waitForFunction(() => window.Live && Live.on() && Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 180000 });
   await page.evaluate(() => { const it = Store.queue().filter(i => i.cardKind === 'series_new')[0]; Store.pick(it.id); App.refresh(); });
-  await page.waitForFunction(() => document.querySelectorAll('[data-sertask]').length >= 3, null, { timeout: 15000 });
-  const visible = await page.$$eval('#actions .actions > .btn', els => els.map(e => e.textContent.replace(/\d$/, '').trim()));
-  assert.deepEqual(visible, ['Looks right', 'Adjust on its sheet'], 'Not a series sits under its own menu');
+  await page.waitForFunction(() => document.querySelectorAll('[data-sertask]').length >= 3, null, { timeout: 45000 });
+  const visible = await page.$$eval('#actions .card-actions button:not([role="menuitem"]):not(.more-btn)', els => els.map(e => e.textContent.replace(/^\d/, '').replace(/\d$/, '').trim()));
+  assert.deepEqual(visible, ['Looks right', 'Adjust on its sheet', 'Not a series'], 'its cousins sit under Not a series’s own menu');
   await page.click('input[name="ser-role"][value="drive"]');
   await page.click('[data-dv="looks_right"]');
-  await page.waitForFunction(() => !Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 15000 });
-  for (let i = 0; i < 50; i++) { if ((await api('GET', '/series')).counts.going === 1) break; await new Promise(r => setTimeout(r, 200)); }
+  await page.waitForFunction(() => !Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 45000 });
+  for (let i = 0; i < 150; i++) { if ((await api('GET', '/series')).counts.going === 1) break; await new Promise(r => setTimeout(r, 200)); }
   const pg = await api('GET', '/series');
   assert.equal(pg.counts.going, 1);
   assert.equal(pg.sections.going[0].role, 'drive');
   /* the page and its sheet: add a task to it */
   await page.evaluate(() => App.navigate('#/series'));
-  await page.waitForFunction(() => document.querySelector('.ep .ep-name'), null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector('.ep .ep-name'), null, { timeout: 45000 });
   await page.click('.ep .ep-name');
   await page.locator('#ss-task').waitFor();
   await page.fill('#ss-task', 'Write the Northwind pilot success criteria');

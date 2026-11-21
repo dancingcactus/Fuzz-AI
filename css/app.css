@@ -326,6 +326,8 @@ html.calm .echo { animation: none; }
 .plantext { font-size: 16px; margin: 4px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .linkbtn.inline { min-height: 36px; padding: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--link); }
 .addnote { margin-top: 8px; }
+.keysline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.keysline kbd { margin: 0 6px 0 0; }
 .instr .typing { margin: 8px 0 0; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 10px; padding: 7px 10px; }
 .instr:not(:focus-within) .typing { display: none; }
 .card:has(#instr:focus) .ans .k, .card:has(#instr:focus) #actions kbd, .card:has(#instr:focus) .card-details kbd { opacity: .25; }
@@ -357,6 +359,31 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .actions:not(.working-actions):has(> .split-assign) { grid-template-columns: repeat(3, 1fr); }
 .actions:not(.working-actions) > .split-assign { grid-column: 1 / -1; }
 .split-assign .menu, .split-later .menu, .ser-not .menu { left: 0; right: auto; } /* they start their row: open toward the card */
+/* The card's action area (js/card-actions.js, docs/card-actions.md): a full-width lead, then one row of up to three */
+.card-actions { display: flex; flex-direction: column; gap: 8px; }
+.card-actions .btn { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; }
+.card-actions .btn.primary { min-height: 52px; box-shadow: 0 4px 10px -4px color-mix(in srgb, #000 30%, transparent); }
+.ca-line { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+.ca-row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+.ca-row.ca-n1 { grid-template-columns: 1fr; }
+.ca-row.ca-n2 { grid-template-columns: repeat(2, 1fr); }
+.ca-row > * { min-width: 0; }
+.card-actions .split { width: 100%; }
+.card-actions .split .btn.split-main { flex: 1; min-width: 0; }
+.card-actions .ca-row .btn { padding-left: 8px; padding-right: 8px; overflow-wrap: normal; word-break: normal; hyphens: none; }
+.card-actions .ca-row .split .more-btn { width: 38px; padding: 0; }
+.card-actions .split .menu, .ca-row > .split:first-child .menu { left: 0; right: auto; }
+.ca-row > .split:not(:first-child) .menu { left: auto; right: 0; }
+.ca-lead .menu { left: 0; right: 0; width: auto; max-width: none; }
+.ca-ans { width: 100%; }
+.ca-ans.primary:not(:has(small)) { justify-content: center; }   /* a lead with no small line centres like the row under it */
+.ca-row .ca-ans { min-height: 46px; padding: 6px 8px; gap: 8px; justify-content: center; }
+.ca-row .ca-ans small { display: none; }
+.ca-row .ca-ans b { font-size: 15px; }
+.ca-row .ca-ans .k { width: 22px; height: 22px; font-size: 12.5px; }
+.ca-ans.primary { background: var(--terra, var(--accent)); border-color: var(--terra, var(--accent)); color: var(--terra-ink, #fff); min-height: 56px; }
+.ca-ans.primary .k { background: transparent; border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.ca-ans.primary small { color: inherit; opacity: .85; }
 /* A draft waiting for your OK: who it goes to, the editable text, then the decision */
 .draft { display: flex; flex-direction: column; gap: 8px; }
 .draft-to { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 15px; }
@@ -384,13 +411,14 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .sendnote { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 .revise { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .revise[hidden] { display: none; }
-.revise label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.revise.instr { gap: 8px; }
+.revise-send { align-self: flex-end; min-height: 46px; }
 /* Key hints (A, D, S, P, 1 to 6): only where there is a keyboard to press them */
 kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 8px; border-radius: 6px;
   border: 1px solid color-mix(in srgb, currentColor 40%, transparent); font-family: var(--font-body); font-size: 12px; font-weight: 600; line-height: 1; }
 .menu b kbd { margin-left: 10px; vertical-align: 1px; }
 .when kbd, .mood kbd, .chip kbd { margin-left: 6px; vertical-align: 1px; }
-@media (hover: none), (pointer: coarse) { kbd, .cap-actions .hint { display: none; } }
+@media (hover: none), (pointer: coarse) { kbd, .keysline { display: none; } }
 .split .more-btn svg { margin: 0; }
 /* Other ways ▾: a labelled menu button, the quiet partner of Later under a card whose choice leads */
 .actions.quiet-row { grid-template-columns: 1fr 1fr; }
@@ -893,7 +921,8 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .actions .split { grid-column: auto; }
   /* Same reading order as the wide row (Hand, Work in, Later, Done), in two rows */
   #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign claude" "sched done"; }
-  #actions kbd { display: none; } /* no room for key hints in two tight rows */
+  #actions kbd, .card-actions .ca-row kbd { display: none; } /* no room for key hints in two tight rows or a row of three */
+  #actions .card-actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   #actions > .actions > .split-assign, #actions > .actions > [data-act="assign"] { grid-area: assign; }
   #actions > .actions [data-act="assign"] { min-height: 46px; }
   #actions > .actions > .split-done { grid-area: done; }
@@ -907,7 +936,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   /* The actions stick to the bottom of the screen, so their menus open upward */
   #actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   /* The card's actions stay within thumb reach while you read on down the card */
-  #actions:has(> .actions) {
+  #actions:has(> .actions), #actions:has(> .card-actions) {
     position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2; margin: 0 -8px; padding: 8px; border-radius: 16px;
     background: var(--surface); box-shadow: 0 -6px 18px -12px color-mix(in srgb, var(--ink) 40%, transparent);
   }
@@ -1097,6 +1126,7 @@ p.onb-note { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px
 
 /* The dictation tip on the first New task screen */
 .cap-drop { position: relative; }
+.cap-drop.instr .typing { display: flex; }   /* always showing on New: if it hid on blur, the Capture button would move out from under a click */
 .cap-dropzone { display: none; position: absolute; inset: 0; border: 2px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
 .cap-dropzone small { color: var(--muted); }
 .cap-dragging .cap-dropzone { display: flex; }
