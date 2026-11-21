@@ -1,6 +1,6 @@
 # Card actions: principles
 
-Status: **proposal, 2026-11-21.** Rules 3, 9, 12 and 14 and the Let it go and icon calls are the author's
+Status: **proposal, 2026-11-21.** Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
 (2026-11-21). The rest is not yet signed off. Nothing is built. Part 3 checks the rules against ADHD
 practice, and Part 4 lists where the current cards break them. These come from common executive-function
 traits and from reading the code, not from testing. Nobody with ADHD has tried them, and nobody qualified in
@@ -69,7 +69,7 @@ the buttons are "Work on…", the action is "I'll do it".
 **9. Weight says importance, never alarm.** The lead is filled. Standing verbs are outlined and the same
 size. A chevron shares the weight of the button it belongs to. Nothing on a card is red, and Let it go is
 only filled when Fuzz is actually leaning that way (`leansGo`). Targets are at least 44 px. Let it go lives
-in Later's chevron on cards that come back to ask, so the user does not meet it by accident. (The hope is
+in Done's chevron (rule 15) on cards that come back to ask, so the user does not meet it by accident. (The hope is
 that those cards appear less and less, as Fuzz learns what to let go of itself.)
 
 **10. Hand-off first.** Fuzz does the work (principle 1). So where it applies, Hand it to Fuzz leads the
@@ -107,20 +107,31 @@ lead, such as "This one keeps moving. Want a smaller first step?" Then it stays 
 - The change is visible, never silent. Someone coming back after an interruption should be able to see why
   the lead is not what it was.
 
+**15. A menu holds one theme.** Everything behind a chevron is the same kind of move as the button it hangs
+from, so the user can guess what is inside before opening it. There are three themes:
+- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Work in Claude, Just the first step.
+- **When** (Later ▾): Book time, After the others, Check again later, It still matters.
+- **Clear it from my plate** (Done ▾): Park it, Waiting on someone, Not mine, Let it go.
+
+An item lives in exactly one menu. A menu has at most four items, most common first, and its label names the
+theme in a few words ("Clear it another way", "Book time instead"). If a new item does not fit a theme, it
+belongs in a different menu, or it is a new card kind. If a menu needs "Other" or "More" in its name, it is a
+grab bag, and it gets split. Keys stay on the verb, so P, W, X and L work from inside the menu.
+
 ### What the rules give each card kind
 
 Each row is the full-width lead, then at most three sub-actions (rule 12).
 
 | Card kind | Lead (full width, filled) | Sub-actions (one row, up to 3) | Depth |
 |---|---|---|---|
-| Ordinary task | Hand it to Fuzz | Work in Claude · Later ▾ · Done ▾ | I'll do it (key G, under the lead's chevron); Book time (under Later); Do it now, After the others, Park, Waiting, Not mine (under Done) |
+| Ordinary task | Hand it to Fuzz ▾ | Work in Claude · Later ▾ · Done ▾ | Who does it: I'll do it (G), Do it now. When: Book time, After the others. Clear it: Park it, Waiting on someone, Not mine |
 | Choice or entity question | Answer 1 | The other answers; Not sure yet is always one of them | Something else (E) |
 | Fuzz's answers (a handback) | Answer 1 | Other answers · Later ▾ · Done ▾ | Tell Fuzz (E), Other ways |
-| Parked check-in | Bring it back | Keep it parked · Later ▾ | Let it go (key L, under Later) |
-| Stale check-in | Hand it to Fuzz | Just the first step · It still matters · Later ▾ | Let it go (key L), Book time, Park, Not mine, all under Later |
+| Parked check-in | Bring it back | Keep it parked · Later ▾ · Done ▾ | When: Book time. Clear it: Let it go (L), Not mine |
+| Stale check-in | Hand it to Fuzz | Just the first step · Later ▾ · Done ▾ | When: It still matters (K), Book time. Clear it: Let it go (L), Park it, Not mine |
 | Result Fuzz found | Done | Send Fuzz further · Later | Other ways |
-| Working card | Done | Pause · Keep going (when it applies) · More ▾ | Hand it to Fuzz, Work in Claude, Book the rest |
-| Big task | The suggested way to take it | The one alternative · Later ▾ · Done ▾ | The other ways to take it, under Later |
+| Working card | Done | Pause (Keep going takes its place at the end of a block) · Later ▾ · Hand it to Fuzz ▾ | When: Book the rest. Who does it: Work in Claude |
+| Big task | The suggested way to take it ▾ | The one alternative · Later ▾ · Done ▾ | Who does it and how: the other ways to take it, in the lead's chevron. Later keeps only the When items |
 
 ## Part 3. Checking the rules against ADHD practice
 
@@ -133,7 +144,7 @@ reviews it (the plan in `docs/fuzz-tone.md`).
 |---|---|---|---|
 | **Starting.** The hard part is the first move, and a blank decision is a wall. | Pre-chosen next step; the lowest-effort first action. | 1, 10, 12 | Strong. The fill is the start button, the biggest target on the card, and Fuzz does the doing. |
 | **Too many options.** Choice overload hits harder under fatigue. | Fewer visible choices; a clear recommendation. | 1, 2 | Strong, as long as 2 is really kept (see Part 4). |
-| **Working memory.** Holding what a button does, or where it is, costs effort. A thought typed and then lost is a cost too. | Consistency; recognition over recall; stable layout; capture without a second step. | 3, 5, 8, 13 | Strong. This is where today's cards are weakest. |
+| **Working memory.** Holding what a button does, or where it is, costs effort. A thought typed and then lost is a cost too. | Consistency; recognition over recall; stable layout; capture without a second step. | 3, 5, 8, 13, 15 | Strong. This is where today's cards are weakest. |
 | **Re-entry after interruption.** The user loses their place and the thread. | Same place, same shape, state shown on the card. | 5, 11 | Strong for layout. The card also needs to show *where you were* (outside this doc). |
 | **Shame and emotional load.** Piles of undone things feel like accusations. | Neutral colour and wording; no counts; no penalty. | 6, 9 | Strong. Emotional dysregulation is well documented in ADHD. Rejection sensitivity is a popular label rather than a diagnosis, so use it as a design cue, not a claim. |
 | **Impulsivity and mis-taps.** A quick press lands on the wrong button. | Undo instead of confirm dialogs; targets spaced apart. | 7, 9 | Reasonable. Undo beats a "Sure?" dialog, which people click through. |
@@ -160,19 +171,20 @@ Found by reading `js/view-triage.js`, as it is on main.
 
 | # | Where | Break | Rule | Suggested fix |
 |---|---|---|---|---|
-| 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind Later's chevron. The standing row stays. |
+| 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind the lead's chevron, which holds the take-it-on ways. The standing row stays. |
 | 2 | Working card | Six visible: Done, Keep going, Pause, Hand to Fuzz ▾, Work in Claude, Book time. It is the card for focus, so it should be the calmest. | 2, 5 | Done leads. Keep Pause and Keep going when it applies. Move the rest into one chevron. |
 | 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". |
-| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Later's chevron (your call on item 8), which makes it four: Hand it to Fuzz as the lead, then Just the first step, It still matters and Later. |
+| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Just the first step, Later and Done. |
 | 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. |
 | 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: every standing verb wears its icon, as a button and as a menu item. Needs icons for Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine. |
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
-| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into Later's chevron, key L kept. Bring it back becomes the full-width lead, with Keep it parked and Later ▾ on the row below. |
+| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into a chevron, key L kept (Done's, under rule 15). Bring it back becomes the full-width lead, with Keep it parked, Later ▾ and Done ▾ on the row below. |
 | 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
 | 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. |
 | 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
 | 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
 | 13 | Avoidance | The keeps-coming-back card already leads with Help me start and words it neutrally, and the "what’s in the way" sheet exists. But the lead swap only happens on that one card kind, the sheet is a separate stacked list of four tiles outside the rule 12 shape, and no card shows the one neutral line. I have not checked what an ordinary task does after several reschedules. | 14, 12 | Make the swap general: pick the lead by likely cause, add the one-line prompt above it, and fold the sheet into the lead and a row of three. |
+| 14 | Menus | Done ▾ holds Do it now (who does it) and After the others (when), alongside Park it, Waiting and Not mine (clear it). On the stale and putoff cards Later ▾ holds Park it and Not mine. The big-task card puts take-it-on ways under Later. The working card's More ▾ is a grab bag. | 15 | Move each item to the menu of its theme (Part 2, rule 15). Rename or split any menu whose label needs "Other" or "More". |
 
 Screenshot 2 (the "I'll do this" card) is the closest to the target: a full-width fill, then one row of
 three, with chevrons on the verbs that have cousins. Screenshot 3 (Yes / No / Not sure yet) already has
@@ -184,7 +196,9 @@ rules 9 and 12.
 Settled by the author, 2026-11-21:
 
 - **Let it go** moves into a chevron on the cards that come back to ask. The aim is for those cards to
-  appear less and less over time.
+  appear less and less over time. Rule 15 refines which chevron: it is a clear-it move, so it sits with Park it
+  and Not mine in Done's menu, not in Later's. That is my proposal, so say if you want it kept under Later.
+- **Menus** (rule 15): a chevron holds one theme, so Done and Park it share a menu.
 - **Icons** stay, on every standing verb, because they help comprehension.
 - **Layout** is rule 12: a full-width lead, then up to three sub-actions on the next row.
 - **Avoidance** (rule 14): the options change when a task seems to be avoided, and the card says so in one
