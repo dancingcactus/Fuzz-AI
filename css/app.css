@@ -324,6 +324,8 @@ html.calm .echo { animation: none; }
 .plantext { font-size: 16px; margin: 4px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .linkbtn.inline { min-height: 36px; padding: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--link); }
 .addnote { margin-top: 8px; }
+.keysline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.keysline kbd { margin: 0 6px 0 0; }
 .instr .typing { margin: 8px 0 0; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 10px; padding: 7px 10px; }
 .instr:not(:focus-within) .typing { display: none; }
 .card:has(#instr:focus) .ans .k, .card:has(#instr:focus) #actions kbd, .card:has(#instr:focus) .card-details kbd { opacity: .25; }
@@ -372,6 +374,7 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .ca-row > .split:not(:first-child) .menu { left: auto; right: 0; }
 .ca-lead .menu { left: 0; right: 0; width: auto; max-width: none; }
 .ca-ans { width: 100%; }
+.ca-ans.primary:not(:has(small)) { justify-content: center; }   /* a lead with no small line centres like the row under it */
 .ca-row .ca-ans { min-height: 46px; padding: 6px 8px; gap: 8px; justify-content: center; }
 .ca-row .ca-ans small { display: none; }
 .ca-row .ca-ans b { font-size: 15px; }
@@ -406,13 +409,14 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .sendnote { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 .revise { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .revise[hidden] { display: none; }
-.revise label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.revise.instr { gap: 8px; }
+.revise-send { align-self: flex-end; min-height: 46px; }
 /* Key hints (A, D, S, P, 1 to 6): only where there is a keyboard to press them */
 kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 8px; border-radius: 6px;
   border: 1px solid color-mix(in srgb, currentColor 40%, transparent); font-family: var(--font-body); font-size: 11.5px; font-weight: 600; line-height: 1; }
 .menu b kbd { margin-left: 10px; vertical-align: 1px; }
 .when kbd, .mood kbd, .chip kbd { margin-left: 6px; vertical-align: 1px; }
-@media (hover: none), (pointer: coarse) { kbd, .cap-actions .hint { display: none; } }
+@media (hover: none), (pointer: coarse) { kbd, .keysline { display: none; } }
 .split .more-btn svg { margin: 0; }
 .menu {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 8; width: 300px; max-width: 80vw; background: var(--surface); border: var(--bw) solid var(--line);

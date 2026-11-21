@@ -459,13 +459,14 @@
     }).join('') + '</ul>';
   }
   /* + adds a source to this ask, as in a chat box: upload a file, or pick one the task already has */
-  function refsHTML(it) {
+  function refsHTML(it, micFor) {
     var n = it.sources.length, open = !!refPick[it.id] && n > 0;
-    return '<div class="composer-bar"><div class="plus"><button type="button" class="plusbtn" data-act="plus" aria-haspopup="menu" aria-expanded="false" aria-controls="plusmenu" aria-label="Add a source for Fuzz" title="Add a source"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>' +
-      '<div class="menu plusmenu" role="menu" id="plusmenu" hidden aria-label="Add a source">' +
-        '<button type="button" role="menuitem" data-act="upload"><b>Upload files</b><span>Or drag them anywhere onto the screen.</span></button>' +
-        (n ? '<button type="button" role="menuitem" data-act="refpick"><b>Pick from Sources</b><span>' + n + (n === 1 ? ' source' : ' sources') + ' on this task to point Fuzz to.</span></button>' : '') +
-      '</div></div>' + Dictate.button('instr', 'Dictate instructions', 'plusbtn') + '<div class="refchips-wrap" id="refchips">' + refChipsHTML(it) + '</div></div>' +
+    var menu = '<button type="button" role="menuitem" data-act="upload"><b>Upload files</b><span>Or drag them anywhere onto the screen.</span></button>' +
+      (n ? '<button type="button" role="menuitem" data-act="refpick"><b>Pick from Sources</b><span>' + n + (n === 1 ? ' source' : ' sources') + ' on this task to point Fuzz to.</span></button>' : '');
+    return Composer.bar({
+      plus: Composer.plus({ act: 'plus', menuId: 'plusmenu', label: 'Add a source for Fuzz', title: 'Add a source', menuLabel: 'Add a source', body: menu }),
+      mic: { for: micFor || 'instr', label: micFor === 'revise-text' ? 'Dictate what to change' : 'Dictate instructions' },
+      after: '<div class="refchips-wrap" id="refchips">' + refChipsHTML(it) + '</div>' }) +
       '<fieldset class="refpick" id="refpick"' + (open ? '' : ' hidden') + '><legend>Point Fuzz to these sources</legend>' + it.sources.map(function (s) {
         return '<label class="refopt"><input type="checkbox" data-ref="' + esc(srcKey(s)) + '"' + (isPicked(it, s) ? ' checked' : '') + '><span class="pill pill--muted">' + esc(s.type) + '</span><span class="refopt-t">' + esc(s.title) + '</span></label>';
       }).join('') + '<button type="button" class="linkbtn refpick-done" data-act="refpick">Done</button></fieldset>';
@@ -475,7 +476,7 @@
     m.hidden = !open; b.setAttribute('aria-expanded', String(open));
     if (open) m.querySelector('button').focus(); else if (!keepFocus) b.focus();
   }
-  function paintRefs() { var it = cur(), el = $('#refs'); if (it && el) el.innerHTML = refsHTML(it); }
+  function paintRefs() { var it = cur(), el = $('#refs'); if (it && el) el.innerHTML = refsHTML(it, el.dataset.for); }
   function paintRefChips() { var it = cur(), el = $('#refchips'); if (it && el) el.innerHTML = refChipsHTML(it); }
 
   function richAvail(it) {
@@ -940,8 +941,7 @@
       : '<div class="plan" id="plan"' + (open ? ' hidden' : '') + '><p class="lbl">I’ll do this</p><p class="plantext" id="plantext">' + (val.trim() ? esc(val) : '<span class="meta">Nothing yet. Tell me what to do.</span>') + '</p>' +
         '<button type="button" class="linkbtn inline" data-act="tellfuzz">Change what I’ll do' + kbd('E') + '</button></div>';
     return plan + '<div class="instr" id="planedit"' + (open ? '' : ' hidden') + '><div class="instr-top"><label for="instr">' + (answersOn ? 'Tell Fuzz' : 'I’ll do this') + '</label><span>' + (answersOn ? 'It goes along with your answer.' : 'Suggested by Fuzz. Edit anything.') + '</span></div>' +
-      '<div class="composer"><textarea id="instr" rows="3"' + (answersOn ? ' placeholder="For example: and copy Ines"' : '') + '>' + esc(val) + '</textarea><div class="refs" id="refs">' + refsHTML(it) + '</div></div>' + dropHTML() +
-      '<p class="typing">You’re typing. ' + (noHand ? '' : kbd('⌘ Enter') + ' hands it to Fuzz. ') + kbd('Esc') + ' keeps ' + (answersOn ? 'your note' : 'your changes') + ' and brings the keys back' + (noHand ? ', and it goes along with what you pick' : '') + '.</p></div>';
+      Composer.box({ id: 'instr', rows: 3, value: val, placeholder: answersOn ? 'For example: and copy Ines' : '', tools: refsHTML(it), toolsId: 'refs', toolsFor: 'instr' , typing: [].concat(noHand ? [] : [['⌘ Enter', 'Hand it to Fuzz']], [['Esc', noHand ? 'Keep it, with your pick' : 'Keep it, keys back']]) }) + dropHTML() + '</div>';
   }
   /* Open the card's box (Tell Fuzz, E); close it again with what you wrote kept */
   function revealBox() {
@@ -1007,13 +1007,17 @@
         h += nv.trim() ? '<div class="plan" id="plan"' + (nopen ? ' hidden' : '') + '><p class="lbl">' + esc(it.boxLabel) + '</p><p class="plantext" id="plantext">' + esc(nv) + '</p><button type="button" class="linkbtn inline" data-act="tellfuzz">Change it' + kbd('E') + '</button></div>'
           : '<button type="button" class="linkbtn inline addnote" data-act="tellfuzz"' + (nopen ? ' hidden' : '') + '>Add a note' + kbd('E') + '</button>';
         h += '<div class="instr" id="planedit"' + (nopen ? '' : ' hidden') + '><div class="instr-top"><label for="note">' + esc(it.boxLabel) + '</label><span class="instr-side"><span>Optional. Edit anything.</span>' + Dictate.button('note', 'Dictate a note') + '</span></div><textarea id="note" rows="2" placeholder="' + esc(it.placeholder || '') + '">' + esc(nv) + '</textarea>' +
-          '<p class="typing">You’re typing. ' + kbd('Esc') + ' keeps it and brings the keys back, and it goes along with your answer.</p></div>';
+          Composer.typing([['Esc', 'Keep it, with your answer']]) + '</div>';
       }
       /* A question with its answers: the first leads, the others share the row, and Not sure yet is the free way out (S, rule 6) */
-      var ea = [{ n: 2, act: 'ent-secondary', label: it.secondary }];
+      /* A card with one real answer gets "Not sure yet" as its second (live.js). That is the free way out, so it is S, not 2 (rule 4) */
+      var nsOnly = it.secondary === 'Not sure yet' && !it.third;
+      var ea = nsOnly ? [] : [{ n: 2, act: 'ent-secondary', label: it.secondary }];
       if (it.third) ea.push({ n: 3, act: 'ent-third', label: it.third });
-      h += CardActions.render({ cls: 'ent', lead: { answer: { n: 1, act: 'ent-primary', label: it.primary } },
-        row: ea.map(function (a) { return { answer: a }; }).concat(it.kickoffAsk ? [] : [{ verb: 'ent-later', act: 'ent-later', label: 'Not sure yet', key: 'S', theme: 'when' }]) });
+      var eslots = ea.map(function (a) { return { answer: a }; });
+      if (nsOnly) eslots.push({ verb: 'ent-secondary', act: 'ent-secondary', label: 'Not sure yet', key: 'S', theme: 'when' });
+      else if (!it.kickoffAsk) eslots.push({ verb: 'ent-later', act: 'ent-later', label: 'Not sure yet', key: 'S', theme: 'when' });
+      h += CardActions.render({ cls: 'ent', lead: { answer: { n: 1, act: 'ent-primary', label: it.primary } }, row: eslots });
     }
 
     /* Where it came from, the first step, people and sources fold under Details (I), so the card holds one decision (#4) */
@@ -1081,7 +1085,9 @@
       { verb: 'revise', act: 'revise', label: 'Ask Fuzz to change it', key: 'E', theme: 'who', attrs: 'aria-expanded="false" aria-controls="revise"' },
       { verb: 'notnow', act: 'notnow', label: 'Not now', key: 'S', theme: 'when' }] }) +
       (r ? '<p class="sendnote">' + esc(w.note) + '</p>' : it.afterApprove ? '<p class="sendnote">' + esc(it.afterApprove) + '</p>' : '') +
-      '<form class="revise" id="revise" hidden><label for="revise-text">Tell Fuzz what to change</label><div class="parkrow"><input id="revise-text" type="text" autocomplete="off" placeholder="For example: shorter, and mention the two maybes">' + Dictate.button('revise-text', 'Dictate what to change') + '<button class="btn" type="submit">Send back to Fuzz</button></div></form>';
+      '<form class="revise instr" id="revise" hidden><div class="instr-top"><label for="revise-text">Tell Fuzz what to change</label></div>' +
+      Composer.box({ id: 'revise-text', rows: 2, placeholder: 'For example: shorter, and mention the two maybes', tools: refsHTML(it, 'revise-text'), toolsId: 'refs', toolsFor: 'revise-text', typing: [['⌘ Enter', 'Send back'], ['Esc', 'Keep it, keys back']] }) +
+      dropHTML() + '<button class="btn revise-send" type="submit">Send back to Fuzz</button></form>';
   }
 
   /* Text boxes grow to show all their text, so nothing is cut off on a narrow screen */
@@ -1921,7 +1927,8 @@
     var it = cur(); if (!it || it.state !== 'review') return;
     var note = $('#revise-text').value.trim(), title = it.title;
     var draft = $('#draft') ? $('#draft').value : null;
-    var ch = Store.track([it.id], function () { Store.revise(it.id, note, draft); });
+    var read = pickedRefs(it);
+    var ch = Store.track([it.id], function () { Store.revise(it.id, note, draft, read); });
     forgetEdits(it.id);
     offer('Sent “' + title + '” back to Fuzz to change.', ch);
     Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Got it. I’ll bring it back changed.', { type: false });
@@ -2184,7 +2191,7 @@
       if (e.target.id === 'instr' || e.target.id === 'note' || e.target.id === 'draft') edits[it.id + ':' + e.target.id] = e.target.value;
       if (e.target.id === 'wait-who') edits[it.id + ':who'] = e.target.value;
       lastInput = Date.now();   /* a sign of progress, in work mode */
-      if (e.target.id === 'instr' || e.target.id === 'draft') fit(e.target);
+      if (e.target.id === 'instr' || e.target.id === 'draft' || e.target.id === 'revise-text') fit(e.target);
     });
     /* Add files: the button opens the picker, a drop lands on the task */
     card.addEventListener('change', function (e) {
@@ -2367,6 +2374,10 @@
        card, a quick answer on a handback, a mood (then a follow-up) on a check-in. Escape backs out. */
     var KEYS = { a: 'assign', d: 'done', s: 'schedule', p: 'park', c: 'claude', w: 'waiting', x: 'theirs', b: 'book', z: 'pause', g: 'deepwork', h: 'helpstart', n: 'keepgoing' }, REVIEW = { e: 'revise', s: 'notnow', d: 'sentself' };
     docKey = function (e) {
+      /* ⌘ Enter in the change box sends the draft back */
+      if (alive && !busy && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'revise-text' && card.contains(e.target)) {
+        e.preventDefault(); if (e.target.value.trim()) $('#revise').requestSubmit(); return;
+      }
       /* ⌘ Enter in the box hands it to Fuzz with what you wrote */
       if (alive && !busy && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'instr' && card.contains(e.target)) {
         if (!card.querySelector('[data-act="assign"]')) {   /* this card can't hand it over: keep the note for your choice */
@@ -2381,6 +2392,11 @@
       /* Escape stops dictating first, keeping what was heard */
       if (e.key === 'Escape' && Dictate.active()) { e.preventDefault(); Dictate.stop(); return; }
       /* Escape leaves the card's box, so the number keys work again */
+      if (e.key === 'Escape' && t && t.id === 'revise-text' && card.contains(t)) {
+        e.preventDefault(); var rb = card.querySelector('[data-act="revise"]'); if (rb) rb.focus({ preventScroll: true }); else t.blur();
+        Fuzz.say(t.value.trim() ? 'Kept it. Keys are back.' : 'Keys are back.', { type: false });
+        return;
+      }
       if (e.key === 'Escape' && t && (t.id === 'instr' || t.id === 'note') && card.contains(t)) {
         e.preventDefault();
         var kept = t.value.trim() && t.value.trim() !== (cur() && (cur().instr || cur().hint) || '').trim();
@@ -2458,8 +2474,8 @@
         /* Tell Fuzz: into the card's box. Esc leaves it with what you wrote, and the keys work again. */
         if (openBox()) e.preventDefault();
         return;
-      } else if (k === 's' && card.querySelector('[data-act="ent-later"], [data-dv="not_sure"], [data-act="hold-skip"]')) {
-        b = card.querySelector('[data-act="ent-later"], [data-dv="not_sure"], [data-act="hold-skip"]');   /* Not sure yet is Later's key (rules 4 and 6) */
+      } else if (k === 's' && card.querySelector('[data-act="ent-later"], [data-act="ent-secondary"][data-key="s"], [data-dv="not_sure"], [data-act="hold-skip"]')) {
+        b = card.querySelector('[data-act="ent-later"], [data-act="ent-secondary"][data-key="s"], [data-dv="not_sure"], [data-act="hold-skip"]');   /* Not sure yet is Later's key (rules 4 and 6) */
       } else if (KEYS[k]) {
         b = card.querySelector('[data-act="' + KEYS[k] + '"]');
       } else if (n > -1) {

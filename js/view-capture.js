@@ -67,8 +67,7 @@
       : panel === 'artifact' ? artifactPanelHTML() : PLUS_ITEMS.map(function (x) {
         return '<button type="button" role="menuitem" class="opt" data-plus="' + x[0] + '">' + plusIcon(x[0]) + '<span><b>' + x[1] + '</b><small>' + x[2] + '</small></span></button>';
       }).join('');
-    return '<div class="plus cap-plus"><button type="button" class="plusbtn' + (plusOpen ? ' on' : '') + '" id="cap-plus" aria-haspopup="menu" aria-expanded="' + plusOpen + '" aria-controls="cap-plusmenu" aria-label="Add a series, a person, a source or a file" title="Add a series, a person, a source or a file">' + PLUS_SVG + '</button>' +
-      '<div class="menu plusmenu" role="menu" id="cap-plusmenu" aria-label="Add a series, a person, a source or a file"' + (plusOpen ? '' : ' hidden') + '>' + body + '</div></div>';
+    return Composer.plus({ btnId: 'cap-plus', menuId: 'cap-plusmenu', cls: 'cap-plus', open: plusOpen, label: 'Add a series, a person, a source or a file', body: body });
   }
   function chip(icon, label, what, i) {
     return '<li class="file serpick">' + icon.replace(/width="20" height="20"/, 'width="16" height="16"') + '<span>' + esc(label) + '</span>' +
@@ -127,16 +126,16 @@
         '<h1 id="cap-h" class="cap-title">What is on your mind?</h1>' +
         /* The same box as Tell Fuzz on a Triage card: the field, with + and the mic inside it and what you added
            beside them. The field has focus; while a file is dragged over the page, the box is the drop zone. */
-        '<div class="cap-drop" id="drop"><label class="sr" for="cap-text">New</label>' +
-          '<div class="composer"><textarea id="cap-text" rows="4" placeholder="For example: send Sam the slides from Tuesday"' + (ob && ob.tip ? ' aria-describedby="cap-tip"' : '') + '></textarea>' +
-            '<div class="refs"><div class="composer-bar"><span class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</span>' +
-              Dictate.button('cap-text', 'Dictate', 'plusbtn').replace('<button ', '<button id="cap-mic" ') +
-              '<ul class="files" id="files" aria-label="Attached documents and the series"></ul></div></div></div>' +
+        '<div class="cap-drop instr" id="drop"><label class="sr" for="cap-text">New</label>' +
+          Composer.box({ id: 'cap-text', rows: 4, placeholder: 'For example: send Sam the slides from Tuesday', describedBy: ob && ob.tip ? 'cap-tip' : '',
+            tools: Composer.bar({ plus: '<span class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</span>', mic: { for: 'cap-text', label: 'Dictate', id: 'cap-mic' },
+              after: '<ul class="files" id="files" aria-label="Attached documents and the series"></ul>' }),
+            typing: [['⌘ Enter', 'Capture'], ['Esc', 'Back']] }) +
           '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div>' +
           '<input type="file" id="file" multiple hidden></div>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          '<span class="hint">Ctrl or Cmd + Enter to capture · Hold ' + Dictate.key + ' to dictate · Esc to go back</span></div>' +
+          '</div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
         '<p class="fine">Tasks from email, Slack and meetings arrive in triage on their own, so you only need to capture the ones that start in your head.</p></section></section>';

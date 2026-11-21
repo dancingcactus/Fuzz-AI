@@ -645,10 +645,11 @@
       S.log(it, 'status', 'You approved this.');
       wrapCheck(it);
     },
-    revise: function (id, note, text) {
+    revise: function (id, note, text, read) {
       var it = S.item(id);
       S.leave(id); S.editDraft(it, text);
       S.log(it, 'guidance', 'You asked for changes: ' + note); it.revisedNote = note;
+      if (read && read.length) S.log(it, 'guidance', 'Read these first: ' + read.map(function (s) { return '“' + s.title + '”'; }).join(', ') + '.');
       it.script = { steps: [['action', 'Reworked the draft: ' + note.replace(/[.!\s]*$/, '') + '.']], ending: { type: 'review' } };
       it.workStep = 0; it.nextAt = Date.now() + 4500; it.now = 'Changing the draft';
       it.state = S.running() >= MAX_RUNNING ? 'queued' : 'working'; it.queuedAt = Date.now();
