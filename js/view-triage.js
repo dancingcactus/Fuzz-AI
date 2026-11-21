@@ -309,6 +309,7 @@
       var b = sp.querySelector('.more-btn'); if (b) b.setAttribute('aria-expanded', 'false');
     });
   }
+  var avoidSaid = {};   /* the neutral line of rule 14 is said once per card, not on every visit */
   function actionsHTML(it) {
     if (scheduling) {
       /* Three likely times first, then End of the list and an exact time. The rest wait behind More times,
@@ -410,6 +411,13 @@
       /* Fuzz's answers: the first leads (pressing it is the hand-off). The others share the row with Later and Done. */
       var rest = ans.slice(1), slot1 = rest.length ? answerSlot(rest) : { verb: 'assign', label: 'Hand it to Fuzz' };
       return CardActions.render({ lead: { answer: ans[0] }, row: [slot1, LATER(['book', 'afterothers']), { verb: 'done', menu: DONE }] });
+    }
+    /* Rule 14: a task already sent to the end of the list once leads with the cheapest way to start, under one short,
+       neutral line that is said once. Same keys, same row shape; nothing is counted and nothing is red. */
+    if (it.afterOthers && !it.result) {
+      var say = !avoidSaid[it.id];
+      return CardActions.render({ cls: 'avoided', line: say ? 'This one has waited its turn. Want a smaller first step?' : '', lead: 'helpstart', row: [
+        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }, 'donow'] } }, LATER(['book']), { verb: 'done', menu: DONE }] });
     }
     /* An ordinary task: hand it to Fuzz leads, with I'll do it and Do it now behind its chevron */
     return CardActions.render({ lead: { verb: 'assign', menu: { theme: 'who', items: ['deepwork', 'donow'] } }, row: [
@@ -1085,6 +1093,7 @@
     card.className = 'card' + (it.doing ? ' working' : ''); card.style.display = ''; card.style.visibility = '';
     seen(it);
     card.innerHTML = cardHTML(it);
+    if (it.afterOthers) avoidSaid[it.id] = true;
     if (Dictate.active() && !document.contains(Dictate.field())) Dictate.abort();
     var ex = stack.querySelector('.empty'); if (ex) ex.remove();
     var dt = $('#drop-label');

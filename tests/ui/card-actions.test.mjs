@@ -61,6 +61,7 @@ const KINDS = [
   ['deliverable question', 'dv-test', { __new: { kind: 'deliv', cardKind: 'deliverable_keep', title: 'Release notes', ask: 'Keep going on this?', cardOptions: ['keep_going', 'make_active', 'its_done', 'let_go', 'not_sure'], suggested: 'keep_going', payload: {} } }],
   ['part-of question', 'po-test', { __new: { kind: 'task', cardKind: 'part_of', title: 'Draft the intro', partOfPrompt: 'Is this part of Release notes?', cardOptions: ['yes', 'no', 'not_sure'], suggested: 'yes' } }],
   ['calendar hold', 'hold-test', { __new: { kind: 'task', cardKind: 'hold', title: 'Prepare the demo', holdPrompt: 'Add a hold for this to your calendar?', holdWhen: 'Tue 2 to 3 PM' } }],
+  ['task that already went after the others', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, afterOthers: true }],
   ['What’s in the way?', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, inTheWay: true }],
 ];
 
@@ -239,4 +240,16 @@ test('an entity question: the note goes along with the answer (rule 13)', async 
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('dana'));
   assert.match(JSON.stringify(await page.evaluate(() => Store.item('dana'))), /they met at the offsite/);
+});
+
+test('a task sent to the end of the list once leads with Help me start, under one neutral line, said once (rule 14)', async () => {
+  await show('naming', { stage: 'fresh', handedBack: false, result: false, quick: null, afterOthers: true });
+  assert.equal(await page.locator('#card .card-actions > .ca-lead-btn').getAttribute('data-act'), 'helpstart');
+  const line = await page.locator('#card .ca-line').textContent();
+  assert.match(line, /smaller first step/);
+  assert.doesNotMatch(line, /\d|times|again and again/, 'it never counts or accuses');
+  assert.equal(await page.locator('#card [data-act="assign"]').count(), 1, 'handing it over is still one move away');
+  await page.evaluate(() => { App.refresh(); });
+  await page.locator('#card .card-actions').first().waitFor();
+  assert.equal(await page.locator('#card .ca-line').count(), 0, 'the line is said once');
 });
