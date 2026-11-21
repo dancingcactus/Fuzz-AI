@@ -79,7 +79,7 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
 test('Fuzz’s spot checks draw like memory cards: the message, then what was there; the run, then what was off', async () => {
   await page.evaluate(() => {
     const st = Store.get();
-    const base = { kind: 'deliv', memory: true, state: 'triage', incoming: '', source: 'Fuzz checking its work', who: '', age: '',
+    const base = { kind: 'deliv', memory: true, state: 'triage', incoming: '', source: 'Fuzz’s spot check', who: '', age: '',
       log: [], sources: [], people: [], context: [], conversation: [], code: [] };
     st.items.push(Object.assign({}, base, { id: 'c902', cardKind: 'spot_message', cardId: 902, suggested: 'nothing',
       cardOptions: ['nothing', 'had_ask', 'not_sure'], title: 'Was there anything for you here?', ask: 'Was there anything for you here?',
@@ -144,7 +144,8 @@ test('a question card answers its headline with numbered answers', async () => {
   assert.match(await ask(), /big room on 3 or the quiet one on 5/);
   const answers = page.locator('.answers .ans');
   assert.equal(await answers.count(), 3, 'two answers and Something else');
-  assert.doesNotMatch(await page.locator('#card [data-act="assign"]').first().getAttribute('class'), /primary/, 'the answers lead');
+  assert.doesNotMatch((await page.locator('#card [data-act="assign"]').first().getAttribute('class')) || '', /primary/, 'the answers lead');
+  assert.equal(await page.locator('#card .quiet-row > *').count(), 2, 'under the answers, Later and Other ways only');
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('room'));
   assert.match(await page.evaluate(() => Store.item('room').instr), /quiet room on 5/);

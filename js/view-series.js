@@ -53,9 +53,6 @@
     scope_out: 'Nearby work that belongs somewhere else' };
   var ROLE = { drive: 'Driving it', contribute: 'Helping', follow: 'Keeping up' };
   var ROLE_HELP = { drive: 'You own how it turns out.', contribute: 'Someone else owns it; you have a piece.', follow: 'You mostly need to know what happened.' };
-  var STATE = { triage: 'In Triage', queued: 'With Fuzz', working: 'With Fuzz', review: 'Needs your OK', sending: 'Sending', mine: 'With you',
-    session: 'Open in Claude', deepwork: 'My work', scheduled: 'Later', waiting: 'Waiting on others', parked: 'Parked', done: 'Done', letgo: 'Let go' };
-  var STATE_TONE = { triage: 'accent', queued: 'accent', working: 'accent', review: 'warn', sending: 'accent', done: 'ok' };
   var BADGE = { markdown: 'MD', word: 'DOC', slides: 'PPT', pdf: 'PDF', table: 'CSV', image: 'IMG', html: 'WEB', text: 'TXT', other: 'FILE' };
   function svg(d, w, s) { return '<svg width="' + (s || 16) + '" height="' + (s || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2.4) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
   var PLUS = svg('<path d="M12 5v14M5 12h14"/>', 2.6);
@@ -392,7 +389,7 @@
     var h = '';
     if (tasksTab === 'open') {
       if (d.section !== 'wrapped') h += '<form class="ss-inline" data-form="task"><label class="sr" for="ss-task">Add a task to ' + esc(d.name) + '</label><input id="ss-task" class="fld" type="text" autocomplete="off" placeholder="Add a task to ' + esc(d.name) + '"><button class="btn small">Add</button></form>';
-      h += open.length ? '<ul class="ps-tasks">' + open.map(function (t) { return '<li><span class="ps-main"><span class="ps-name">' + esc(t.title) + '</span></span><span class="ps-side">' + UI.pill(STATE[t.state] || t.state, STATE_TONE[t.state] || 'muted') + '</span></li>'; }).join('') + '</ul>'
+      h += open.length ? '<ul class="ps-tasks">' + open.map(function (t) { return '<li><span class="ps-main"><span class="ps-name">' + esc(t.title) + '</span></span><span class="ps-side">' + UI.pill.apply(null, UI.status(t.state)[0] ? UI.status(t.state) : [t.state, 'muted']) + '</span></li>'; }).join('') + '</ul>'
         : '<p class="meta">Nothing open.</p>';
     } else {
       h += done.length ? '<ul class="ps-tasks">' + done.map(function (t) { return '<li><span class="ps-main"><span class="ps-name">' + esc(t.title) + '</span>' + (t.summary ? '<span class="ps-dw">' + esc(t.summary) + '</span>' : '') + '</span><span class="ps-side">' + UI.pill(t.state === 'letgo' ? 'Let go' : 'Done', t.state === 'letgo' ? 'muted' : 'ok') + '</span></li>'; }).join('') + '</ul>' +

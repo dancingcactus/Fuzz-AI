@@ -127,7 +127,7 @@
         sendTo: { to: 'Priya Raman', via: 'Email reply' },
         draft: 'Hi Priya, yes, I recommend shipping the winning variant. It beat control on the primary metric and the guardrail metrics held. I can walk your team through it Thursday if useful.' },
 
-      { id: 'dana', kind: 'entity', entity: 'person', state: 'triage', title: 'Dana in Slack and Dana Reyes in email', source: 'Entity check', who: '',
+      { id: 'dana', kind: 'entity', entity: 'person', state: 'triage', title: 'Dana in Slack and Dana Reyes in email', source: 'Fuzz has a question', who: '',
         age: '2 days', stage: 'settling', mins: 1, energy: 'low',
         meta: 'Slack and email · seen 4 times this week',
         incoming: 'Two people named Dana keep showing up around the offsite budget. If they are one person, Fuzz can combine their history and match tasks more reliably.',
@@ -182,7 +182,7 @@
         primary: 'Merge', secondary: 'Keep separate',
         answers: { primary: 'Merged. The Slack message is now a source on the Priya task.', secondary: 'Kept separate, and linked so Fuzz won’t ask again.' } },
 
-      { id: 'lantern', kind: 'entity', entity: 'term', state: 'triage', title: 'Project Lantern', source: 'Entity check', who: '',
+      { id: 'lantern', kind: 'entity', entity: 'term', state: 'triage', title: 'Project Lantern', source: 'Fuzz has a question', who: '',
         age: '3 days', stage: 'settling', mins: 1, energy: 'low',
         meta: 'Slack, meetings and email · seen 5 times this week',
         incoming: 'The name keeps appearing in messages, but there is no project, document or term in your notes with that name yet.',
@@ -293,7 +293,7 @@
         now: 'Left off: drafted Day 1; Day 2 next', leftOff: 'Drafted Day 1; Day 2 next', nextStep: 'Draft Day 2: accounts, tools and the first 1:1',
         incoming: 'Priya asked in #team for a first-week guide before the two new hires start.',
         aiNote: 'Fuzz found the old wiki checklist and the IT accounts list. Day 1 is drafted in your notes.',
-        log: [L('guidance', 'Yesterday', 'Done for now in My work. Where you left off: Drafted Day 1; Day 2 next'), L('status', '5 days ago', 'You said you’ll do this. It’s in My work.')],
+        log: [L('guidance', 'Yesterday', 'Stopped here in My work. Where you left off: Drafted Day 1; Day 2 next'), L('status', '5 days ago', 'You said you’ll do this. It’s in My work.')],
         sources: [{ type: 'Slack', title: 'Priya in #team' }, { type: 'Doc', title: 'Old onboarding checklist' }] },
       { id: 'churnread', kind: 'task', doneWhen: 'you have a view on why March churn rose', state: 'deepwork', title: 'Read the churn interviews and pull out themes', source: 'Email', who: 'Research', age: '1 week', stage: 'stale', mins: 45,
         now: 'Ready when you sit down to it', nextStep: 'Read the first four interview summaries and tag each reason',

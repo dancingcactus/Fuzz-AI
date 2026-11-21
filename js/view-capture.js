@@ -136,7 +136,7 @@
           '<input type="file" id="file" multiple hidden></div>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          '<span class="hint">Ctrl or Cmd + Enter to capture · Hold ' + Dictate.key + ' to dictate · Esc to go back</span></div>' +
+          '<span class="hint"><kbd>⌘ Enter</kbd> capture · hold <kbd>' + Dictate.key + '</kbd> dictate · <kbd>Esc</kbd> back</span></div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
         '<p class="fine">Tasks from email, Slack and meetings arrive in triage on their own, so you only need to capture the ones that start in your head.</p></section></section>';

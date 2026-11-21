@@ -237,7 +237,7 @@
   }
 
   function paint() {
-    var head = '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
+    var head = '<a class="linkbtn set-back" href="#/settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Settings</a>' + '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
       'or from the terminal (fuzz eval run, dupes, senders, drafts, executor, send, recall, series or priority). Times are UTC. What’s yours stays on this machine. ' +
       'Thin spots? <a href="#/labels">Label cases</a> by hand.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }

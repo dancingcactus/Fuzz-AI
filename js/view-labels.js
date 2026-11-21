@@ -45,7 +45,7 @@
   }
 
   function paint() {
-    var head = '<div class="tasks-head"><h1>Label cases</h1><p class="meta">Say what each message Fuzz read held. Each answer becomes one of ' +
+    var head = '<a class="linkbtn set-back" href="#/settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Settings</a>' + '<div class="tasks-head"><h1>Label cases</h1><p class="meta">Say what each message Fuzz read held. Each answer becomes one of ' +
       'your own test cases: it never leaves this machine, and goes after 90 days. It scores Fuzz; it doesn’t teach it. ' +
       '<a href="#/evals">Back to the evals</a></p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }

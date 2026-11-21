@@ -17,7 +17,7 @@
   };
   function cells(it, key) {
     if (key === 'current') {
-      var m = { review: ['Needs your OK', 'warn'], working: ['Fuzz working', 'accent'], 'queued': ['Next up', 'muted'], sending: ['Sending', 'accent'], mine: ['With you', 'muted'], session: ['In ' + Store.workIn, 'muted'], deepwork: ['My work', 'accent'], scheduled: ['Scheduled', 'muted'] }[it.state];
+      var m = UI.status(it.state);
       if (it.gathering) m = ['Gathering context', 'accent'];
       return { tone: m[1], c2: m[0], c3: it.age, c4: Store.nowText(it) || '—' };
     }
@@ -39,7 +39,7 @@
   function rowHTML(it, status, tone, sub, cls) {
     return '<li><button type="button" class="lrow' + (cls ? ' ' + cls : '') + '" data-open="' + it.id + '">' +
       '<span class="lrow-main"><span class="rt">' + esc(it.title) + '</span><span class="rs">' + esc(it.source) + (it.updated ? ' · Updated' : '') + (Store.partOf(it) ? ' · ' + esc(Store.partOf(it)) : '') + (it.series ? ' · ' + esc(Store.seriesLine(it)) : '') + '</span></span>' +
-      '<span class="lrow-side">' + UI.pill(status, tone) + (sub ? '<span class="lrow-sub">' + esc(sub) + '</span>' : '') + '</span></button></li>';
+      '<span class="lrow-side">' + (status ? UI.pill(status, tone) : '') + (sub ? '<span class="lrow-sub">' + esc(sub) + '</span>' : '') + '</span></button></li>';
   }
   /* What's in Triage, closed until you ask. Picking one opens it first in Triage. */
   function decideHTML(q) {
@@ -53,7 +53,7 @@
   function sectionHTML(id, title, rows, empty, extra) {
     if (!rows.length && !empty) return '';
     return '<section class="lsec" aria-labelledby="sec-' + id + '"><h2 id="sec-' + id + '">' + title + '</h2>' + (extra || '') +
-      (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : '<p class="lempty">' + empty + '</p>') + '</section>';
+      (rows.length ? '<ul class="lrows">' + rows.join('') + '</ul>' : UI.empty(empty)) + '</section>';
   }
 
   /* A section that starts closed (Parked, Finished) and stays as you left it while the page updates */
@@ -138,8 +138,8 @@
 
   function yoursRows() {
     var mine = Store.inState('review').filter(function (it) { return !Store.inQueue(it.id); });
-    var r = mine.map(function (it) { return rowHTML(it, 'Needs your OK', 'warn', 'You set it aside'); });
-    Store.inState('mine').forEach(function (it) { r.push(rowHTML(it, 'With you', 'accent', it.now)); });
+    var r = mine.map(function (it) { return rowHTML(it, UI.status('review')[0], 'warn', 'You set it aside'); });
+    Store.inState('mine').forEach(function (it) { r.push(rowHTML(it, UI.status('mine')[0], 'accent', it.now)); });
     Store.inState('session').forEach(function (it) { r.push(rowHTML(it, 'In ' + Store.workIn, 'muted', it.now || 'Fuzz keeps the sources open')); });
     return r;
   }
@@ -151,7 +151,7 @@
     var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
     var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Ready', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
     var head = '<div class="deep-head"><p class="meta">Yours to do, and each takes real time. Fuzz gets each one ready.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
-      '<a class="btn primary deep-go" href="#/deepwork">Pick one in the Guide</a></div>';   /* the Guide, with the top of My work picked */
+      '<a class="btn primary deep-go" href="#/deepwork">Work on something</a></div>';   /* the Guide, with the top of My work picked */
     return sectionHTML('deep', 'My work', rows, '', head);
   }
 
@@ -230,7 +230,7 @@
     h += deliverablesHTML();
     h += laneHTML();
     h += sectionHTML('others', 'Waiting on others', Store.inState('waiting').map(function (it) { return rowHTML(it, it.waitingOn || 'Someone', 'warn', !it.nextCheck ? '' : /^Fuzz /.test(it.nextCheck) ? it.nextCheck : 'Checks back ' + it.nextCheck.charAt(0).toLowerCase() + it.nextCheck.slice(1)); }));
-    var later = Store.inState('scheduled').map(function (it) { return rowHTML(it, 'Scheduled', 'muted', it.scheduledFor ? 'Back ' + it.scheduledFor : it.now); });
+    var later = Store.inState('scheduled').map(function (it) { return rowHTML(it, '', 'muted', it.scheduledFor ? 'Back ' + it.scheduledFor : it.now); });
     var parked = Store.inState('parked').sort(function (a, b) { return (b.woke ? 1 : 0) - (a.woke ? 1 : 0); });
     /* A parked task that woke up (something new came in) stays in view; the rest wait in Parked, closed */
     later = parked.filter(function (it) { return it.woke; }).map(function (it) { return rowHTML(it, 'Woke up', 'accent', it.now, 'woke'); }).concat(later);

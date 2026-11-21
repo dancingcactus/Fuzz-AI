@@ -148,6 +148,11 @@
   }
   function whenText(fire) {
     var t = ts(fire); if (!t) return 'when you’re back at your desk';
+    /* Human terms first: later this week reads as "Friday afternoon", not a date and a minute */
+    var d = new Date(t), now = new Date(), day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var days = Math.floor((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - day0) / 864e5);
+    if (days >= 2 && days < 7) return d.toLocaleDateString(undefined, { weekday: 'long' }) + ' ' + (d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening');
+    if (days >= 7) return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
     return Sched.hint({ anchor: {}, fire_at: new Date(t).toISOString() }).replace(/^Today, /, 'today at ').replace(/^Tomorrow, /, 'tomorrow at ');
   }
   /* The brief is Markdown; the finding on the card shows it as plain lines, the Context tab as Markdown */
@@ -478,7 +483,7 @@
       var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
       items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory, series: series,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: check ? 'Fuzz checking its work' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: check ? 'Fuzz’s spot check' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
