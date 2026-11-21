@@ -66,7 +66,7 @@
   function verbOf(slot) {
     if (typeof slot === 'string') slot = { verb: slot };
     var base = VERBS[slot.verb] || {};
-    if (slot.verb && !VERBS[slot.verb] && !slot.act) flag('unknown verb ' + slot.verb);
+    if (slot.verb && !VERBS[slot.verb] && slot.act === undefined) flag('unknown verb ' + slot.verb);
     var o = {}; Object.keys(base).forEach(function (k) { o[k] = base[k]; });
     Object.keys(slot).forEach(function (k) { o[k] = slot[k]; });
     if (o.act === undefined) o.act = o.verb;   /* act '' is a button the card wires up by its own attribute */
@@ -107,7 +107,7 @@
     var main;
     if (isAns) main = answerBtn(slot.answer, lead);
     else {
-      var primary = lead || v.primary;
+      var primary = (lead && !v.quiet) || v.primary;
       main = '<button type="button" class="btn' + (primary ? ' primary' : '') + (menu ? ' split-main' : '') + (lead ? ' ca-lead-btn' : '') + (v.cls ? ' ' + v.cls : '') + '"' + attrs(v) + '>' +
         (lead && v.icon ? ICON[v.icon] : '') + label(v) + '</button>';
       var id = v.verb + '|' + v.act; if (seen[id]) flag(v.label + ' appears twice on one card');
@@ -144,6 +144,7 @@
         if (v.key) { if (keys[v.key] && keys[v.key] !== v.act) flag('key ' + v.key + ' means both ' + keys[v.key] + ' and ' + v.act, spec); keys[v.key] = v.act; }
       });
     });
+    /* a card that is only waiting has nothing to decide, so its one button is the free way out and not a fill */
     var h = '<div class="card-actions' + (spec.cls ? ' ' + spec.cls : '') + '">';
     if (spec.line) h += '<p class="ca-line">' + esc(spec.line) + '</p>';
     h += slotHTML(spec.lead, 'lead', seen);

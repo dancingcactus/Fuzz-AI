@@ -165,6 +165,43 @@ for (const [name, k, acts] of NOTED) {
   }
 }
 
+/* The setup cards (hours, folder, lookup) are private to the Triage view, so a test-only hook is spliced into
+   the script as it is served. Nothing else about the page changes. */
+test('the setup cards: one lead and a row, the way out in it, nothing the component flags', async () => {
+  const { readFileSync } = await import('node:fs');
+  const p2 = await browser.newPage();
+  await p2.route('**/js/view-triage.js', async route => {
+    let src = readFileSync(ROOT + 'js/view-triage.js', 'utf8');
+    const i = src.lastIndexOf('})();');
+    src = src.slice(0, i) + 'window.__setup=function(st){scOpen=true;scState=st;card.style.display="none";var sc=$("#setupcard");sc.hidden=false;sc.className="card setupcard";paintSetup();};\n' + src.slice(i);
+    await route.fulfill({ contentType: 'application/javascript', body: src });
+  });
+  await p2.goto(`http://127.0.0.1:${PORT}/#/triage`);
+  await p2.locator('#card [data-act]').first().waitFor();
+  const seen = {};
+  for (const [name, st] of [['hours', { card: { name: 'hours', hours: { hours: [8, 18.5] } }, step: 'ask' }],
+    ['hours, other', { card: { name: 'hours', hours: { hours: [8, 18.5] } }, step: 'other' }],
+    ['folder', { card: { name: 'folder' }, step: 'ask' }], ['lookup', { card: { name: 'lookup', engine: 'claude' }, step: 'ask' }],
+    ['lookup, waiting', { card: { name: 'lookup', engine: 'claude' }, step: 'looking' }]]) {
+    await p2.evaluate((st) => window.__setup(Object.assign({ tools: [] }, st)), st);
+    seen[name] = await p2.evaluate(() => ({
+      fills: document.querySelectorAll('#setupcard .card-actions .primary:not(.more-btn)').length,
+      row: document.querySelectorAll('#setupcard .ca-row > *').length,
+      out: !!document.querySelector('#setupcard [data-sc="later"], #setupcard [data-sc="back"]'),
+      loose: document.querySelectorAll('#setupcard button[data-sc]:not(.card-actions *)').length,
+    }));
+  }
+  const bad = await p2.evaluate(() => CardActions.violations.slice());
+  await p2.close();
+  assert.deepEqual(bad, []);
+  for (const [name, r] of Object.entries(seen)) {
+    assert.equal(r.fills, name === 'lookup, waiting' ? 0 : 1, `${name}: one fill, or none while it only waits`);
+    assert.ok(r.row <= 3, `${name}: at most three in the row`);
+    assert.equal(r.out, true, `${name}: a way out`);
+    assert.equal(r.loose, 0, `${name}: no button outside the component`);
+  }
+});
+
 /* Rule 13 for the actions that open a small form first (Pause, Waiting on someone), and for a question's own note */
 test('Pause: the note for Fuzz goes with it, and so does where you left off (rule 13)', async () => {
   await show('naming', KINDS[10][2]);

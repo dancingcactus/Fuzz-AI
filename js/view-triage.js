@@ -1367,7 +1367,7 @@
           (s === 'none' ? '<p class="setup-hint" role="status">' + (scState.error ? 'I couldn’t ask ' + esc(app) + ': ' + esc(scState.error) + ' Try again in a moment.' : 'I didn’t find anything I can read with yet. Once one is connected, try again.') + '</p>' : '') +
           scActions(scBtn('look', 'I’ve connected one', '↵'), [not]);
       } else if (s === 'looking') {
-        h += '<div class="setup-wait"><span class="spin" aria-hidden="true"></span><p><span role="status">Asking ' + esc(app) + ' what it can reach…</span><small>Usually about a minute. Nothing is read or changed while I ask.</small></p></div><div class="sc-actions">' + not + '</div>';
+        h += '<div class="setup-wait"><span class="spin" aria-hidden="true"></span><p><span role="status">Asking ' + esc(app) + ' what it can reach…</span><small>Usually about a minute. Nothing is read or changed while I ask.</small></p></div>' + scActions(Object.assign({}, not, { quiet: true }), []);
       } else if (s === 'found') {
         h += '<p><b>With these, I’d be able to:</b></p><ul class="sc-can">' + scState.tools.slice(0, 6).map(function (t) { return '<li>' + esc(t.does || t.allow) + '</li>'; }).join('') + (scState.tools.length > 6 ? '<li>…and ' + (scState.tools.length - 6) + ' more ways to look things up</li>' : '') + '</ul>' +
           '<p class="meta">Only ways to read and look things up. Settings lists each one.</p>' +
@@ -1391,11 +1391,14 @@
         scActions(scBtn('save', 'Save', '↵'), [scBtn('back', 'Back')]);
       return h;
     }
-    var choices = [['weekdays', 'Weekdays, ' + usual], ['everyday', 'Every day, ' + usual], ['none', 'No fixed hours'], ['other', 'Different hours…']];
+    var choices = [['weekdays', 'Weekdays, ' + usual], ['everyday', 'Every day, ' + usual], ['none', 'No fixed hours'], ['other', 'Other hours…']];
     /* The usual hours lead (one key does it); the other three share the row. Skip for now is the free way out, a link under it. */
-    var ans = choices.map(function (o, i) { return { answer: { n: i + 1, act: '', label: o[1], attrs: 'data-sc="' + o[0] + '" data-hq' } }; });
-    return h + CardActions.render({ cls: 'sc', lead: ans[0], row: ans.slice(1) }) +
-      '<div class="sc-actions"><button type="button" class="btn linkbtn" data-sc="later" aria-keyshortcuts="Escape">Skip for now' + kbd('Esc') + '</button></div>';
+    var pick = function (o, n) { return { n: n, act: '', label: o[1], attrs: 'data-sc="' + o[0] + '" data-hq' }; };
+    /* Skip for now is the free way out (rule 6), in the row; No fixed hours waits behind Different hours */
+    return h + CardActions.render({ cls: 'sc', lead: { answer: pick(choices[0], 1) }, row: [
+      { answer: pick(choices[1], 2) },
+      { answer: pick(choices[3], 3), menu: { theme: 'answers', label: 'Other ways to answer', items: [{ answer: pick(choices[2], 4) }] } },
+      scBtn('later', 'Skip for now', 'Esc', 'Escape')] });
   }
   function hoursAnswer(what) {
     var cur = (scState.card.hours && scState.card.hours.hours) || [8, 18.5], body;
