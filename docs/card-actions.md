@@ -1,6 +1,7 @@
 # Card actions: principles
 
-Status: **proposal, 2026-11-21.** Not yet signed off, not yet built. Part 3 checks the rules against ADHD
+Status: **proposal, 2026-11-21.** Rules 3, 9 and 12 and the Let it go and icon calls are the author's
+(2026-11-21). The rest is not yet signed off. Nothing is built. Part 3 checks the rules against ADHD
 practice, and Part 4 lists where the current cards break them. These come from common executive-function
 traits and from reading the code, not from testing. Nobody with ADHD has tried them, and nobody qualified in
 ADHD has reviewed them (the same caveat as `docs/onboarding.md`). Treat them as hypotheses.
@@ -28,8 +29,8 @@ depth. It does not invent new buttons.
 with numbered answers it is answer 1. On a result Fuzz found, it is Done. Moving the fill (Do it now versus
 Book time on a big task) is fine. Two fills is not.
 
-**2. Four visible, the rest in depth.** At most four visible choices, counting numbered answers and the
-standing row together. "Tell Fuzz something" is an input, not a choice, so it doesn't count. Nothing is
+**2. Four visible, the rest in depth.** At most four visible choices: the lead and up to three sub-actions
+(rule 12). Numbered answers count. "Tell Fuzz something" is an input, not a choice, so it doesn't count. Nothing is
 removed: what doesn't fit goes behind the chevron of the standing verb it is closest to.
 (Existing rule, 2026-11-13.)
 
@@ -37,6 +38,10 @@ removed: what doesn't fit goes behind the chevron of the standing verb it is clo
 it is that on every card that has it. A card that needs a different meaning gets a different word and a
 different key. It never reuses one. The letter keys are the standing verbs: A hand off, C work in Claude,
 G I'll do it, S later, D done, K it still matters, L let it go, P park, W waiting, X not mine, E tell Fuzz.
+**Every standing verb carries its icon wherever it appears**, as a button or as a menu item, because the
+icon helps the user recognise it before reading. (Numbered answers wear their number instead: they are
+answers, not verbs.) A verb that moves into a chevron keeps its key, so L still works when Let it go sits in
+Later's menu.
 
 **4. Numbers are for answers, letters are for verbs.** 1, 2, 3 mean "the nth answer in the lead block".
 They never mean a standing verb. So "Not sure yet" on a choice card is also S, because it is the same
@@ -63,8 +68,9 @@ the buttons are "Work on…", the action is "I'll do it".
 
 **9. Weight says importance, never alarm.** The lead is filled. Standing verbs are outlined and the same
 size. A chevron shares the weight of the button it belongs to. Nothing on a card is red, and Let it go is
-only filled when Fuzz is actually leaning that way (`leansGo`). Targets are at least 44 px, and the two
-closing verbs are not neighbours at the same weight (see Part 4, item 8).
+only filled when Fuzz is actually leaning that way (`leansGo`). Targets are at least 44 px. Let it go lives
+in Later's chevron on cards that come back to ask, so the user does not meet it by accident. (The hope is
+that those cards appear less and less, as Fuzz learns what to let go of itself.)
 
 **10. Hand-off first.** Fuzz does the work (principle 1). So where it applies, Hand it to Fuzz leads the
 standing row, and the verbs that mean "I'll carry this" (Work in Claude, I'll do it) follow it.
@@ -72,17 +78,27 @@ standing row, and the verbs that mean "I'll carry this" (Work in Claude, I'll do
 **11. The answer is a result, not a spinner.** A press moves to the next card in the same beat, and Fuzz says
 in one line what he did. A card is never left in a half-pressed state.
 
+**12. The lead is full width, with up to three sub-actions on the row below.** The lead spans the card and is
+the only filled button. Directly under it is one row of at most three sub-actions, equal in width, outlined,
+each with its chevron where it has depth. That is the whole action area: one big target, then three. It
+matches the screenshots of the "I'll do this" card and the Yes / No / Not sure yet card, and it is rule 2
+made visible. A card never has a second row of sub-actions, a second lead, or two filled buttons side by
+side. When a choice card has more than one answer, answer 1 is the lead and the others share the row below.
+
 ### What the rules give each card kind
 
-| Card kind | Lead (the fill) | Standing verbs shown | Depth |
+Each row is the full-width lead, then at most three sub-actions (rule 12).
+
+| Card kind | Lead (full width, filled) | Sub-actions (one row, up to 3) | Depth |
 |---|---|---|---|
-| Ordinary task | Hand it to Fuzz ▾ | Work in Claude · Later ▾ · Done ▾ | I'll do it (under hand off); Book time (under Later); Do it now, After the others, Park, Waiting, Not mine (under Done) |
-| Choice or entity question | Answer 1 | Answers 2 and 3, with Not sure yet as the way out | Something else (E) |
-| Fuzz's answers (a handback) | Answer 1 | Later ▾ · Done | Tell Fuzz (E), Other ways ▾ |
-| Check-in (comes back) | The one answer Fuzz suggests | It still matters · Later ▾ · Let it go | Book, Park, Not mine |
-| Result Fuzz found | Done | Send Fuzz further · Ask me later | Other ways ▾ |
-| Working card | Done | Pause · Later | Hand to Fuzz, Work in Claude, Book the rest |
-| Big task | The suggested way to take it | Two more of the five | The other two, behind Later's chevron |
+| Ordinary task | Hand it to Fuzz | Work in Claude · Later ▾ · Done ▾ | I'll do it (key G, under the lead's chevron); Book time (under Later); Do it now, After the others, Park, Waiting, Not mine (under Done) |
+| Choice or entity question | Answer 1 | The other answers; Not sure yet is always one of them | Something else (E) |
+| Fuzz's answers (a handback) | Answer 1 | Other answers · Later ▾ · Done ▾ | Tell Fuzz (E), Other ways |
+| Parked check-in | Bring it back | Keep it parked · Later ▾ | Let it go (key L, under Later) |
+| Stale check-in | Hand it to Fuzz | Just the first step · It still matters · Later ▾ | Let it go (key L), Book time, Park, Not mine, all under Later |
+| Result Fuzz found | Done | Send Fuzz further · Later | Other ways |
+| Working card | Done | Pause · Keep going (when it applies) · More ▾ | Hand it to Fuzz, Work in Claude, Book the rest |
+| Big task | The suggested way to take it | The one alternative · Later ▾ · Done ▾ | The other ways to take it, under Later |
 
 ## Part 3. Checking the rules against ADHD practice
 
@@ -93,7 +109,7 @@ reviews it (the plan in `docs/fuzz-tone.md`).
 
 | ADHD challenge | What helps | Rules that carry it | Verdict |
 |---|---|---|---|
-| **Starting.** The hard part is the first move, and a blank decision is a wall. | Pre-chosen next step; the lowest-effort first action. | 1, 10 | Strong. The fill is the start button, and Fuzz does the doing. |
+| **Starting.** The hard part is the first move, and a blank decision is a wall. | Pre-chosen next step; the lowest-effort first action. | 1, 10, 12 | Strong. The fill is the start button, the biggest target on the card, and Fuzz does the doing. |
 | **Too many options.** Choice overload hits harder under fatigue. | Fewer visible choices; a clear recommendation. | 1, 2 | Strong, as long as 2 is really kept (see Part 4). |
 | **Working memory.** Holding what a button does, or where it is, costs effort. | Consistency; recognition over recall; stable layout. | 3, 5, 8 | Strong. This is where today's cards are weakest. |
 | **Re-entry after interruption.** The user loses their place and the thread. | Same place, same shape, state shown on the card. | 5, 11 | Strong for layout. The card also needs to show *where you were* (outside this doc). |
@@ -119,26 +135,38 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind Later's chevron. The standing row stays. |
 | 2 | Working card | Six visible: Done, Keep going, Pause, Hand to Fuzz ▾, Work in Claude, Book time. It is the card for focus, so it should be the calmest. | 2, 5 | Done leads. Keep Pause and Keep going when it applies. Move the rest into one chevron. |
 | 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". |
-| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2 | Move "Just the first step" behind Hand it to Fuzz as a menu item, or fold It still matters into Later's chevron. Needs your call. |
+| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Later's chevron (your call on item 8), which makes it four: Hand it to Fuzz as the lead, then Just the first step, It still matters and Later. |
 | 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. |
-| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude has none, and the check-in row and answers have none. | 3 | Pick one rule: icons on the standing verbs only, everywhere, or none. |
+| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: every standing verb wears its icon, as a button and as a menu item. Needs icons for Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine. |
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
-| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row: close, similar, and the second is a close verb. | 9 | Put Let it go in the chevron of Later, or leave a gap. Undo makes this low risk. Needs your call. |
+| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into Later's chevron, key L kept. Bring it back becomes the full-width lead, with Keep it parked and Later ▾ on the row below. |
+| 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
 | 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
 | 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. |
 
-Screenshot 2 (the "I'll do this" card) is the closest to the target. It has one fill, a stable row, chevrons
-on the verbs that have cousins, and four visible. Screenshot 3 (Yes / No / Not sure yet) is right on the
-budget and the fill, but breaks rule 4. Screenshot 1 (the parked check-in) follows rules 1 and 6, and
-breaks rules 2 and 9 a little.
+Screenshot 2 (the "I'll do this" card) is the closest to the target: a full-width fill, then one row of
+three, with chevrons on the verbs that have cousins. Screenshot 3 (Yes / No / Not sure yet) already has
+the rule 12 shape, but breaks rule 4. Screenshot 1 (the parked check-in) follows rules 1 and 6, and breaks
+rules 9 and 12.
 
-## Part 5. Decisions for you
+## Part 5. Decisions
 
-1. **Stale check-in (item 4).** Which gives way, "Just the first step" or "It still matters"?
-2. **Let it go (item 8).** Keep it in the row, or move it into a chevron on that card?
-3. **Icons (item 6).** On the standing verbs only, or none?
-4. **Do you want a test?** Rule 1 (one fill), rule 2 (four visible) and rule 3 (a key means one verb) can be
-   checked by a UI test that renders each card kind and counts. That would stop this drifting again.
+Settled by the author, 2026-11-21:
+
+- **Let it go** moves into a chevron on the cards that come back to ask. The aim is for those cards to
+  appear less and less over time.
+- **Icons** stay, on every standing verb, because they help comprehension.
+- **Layout** is rule 12: a full-width lead, then up to three sub-actions on the next row.
+
+Still open:
+
+1. **Icons to draw.** Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine have
+   none today. Pick a set that matches the existing arrow, clock and check.
+2. **Do you want a test?** Rules 1 (one fill), 2 and 12 (four visible, one row of three) and 3 (a key means
+   one verb) can be checked by a UI test that renders each card kind and counts. That would stop this
+   drifting again.
+3. **Build it?** A shared card-actions component (item 11) is the way to get all of this at once. It is
+   not started.
 
 ## How to use this
 
