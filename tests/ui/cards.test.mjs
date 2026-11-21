@@ -144,7 +144,8 @@ test('a question card answers its headline with numbered answers', async () => {
   assert.match(await ask(), /big room on 3 or the quiet one on 5/);
   const answers = page.locator('.answers .ans');
   assert.equal(await answers.count(), 3, 'two answers and Something else');
-  assert.doesNotMatch(await page.locator('#card [data-act="assign"]').first().getAttribute('class'), /primary/, 'the answers lead');
+  assert.doesNotMatch((await page.locator('#card [data-act="assign"]').first().getAttribute('class')) || '', /primary/, 'the answers lead');
+  assert.equal(await page.locator('#card .quiet-row > *').count(), 2, 'under the answers, Later and Other ways only');
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('room'));
   assert.match(await page.evaluate(() => Store.item('room').instr), /quiet room on 5/);

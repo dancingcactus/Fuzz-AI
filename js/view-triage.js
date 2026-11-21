@@ -302,6 +302,12 @@
       '<button type="button" class="btn more-btn' + (primary ? ' primary' : '') + '" data-act="more" data-menu="' + menuId + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + label + '" title="' + label + '">' + ARROW + '</button>' +
       '<div class="menu" role="menu" id="' + menuId + '" hidden aria-label="' + label + '">' + items + '</div></div>';
   }
+  /* Other ways ▾: one quiet menu button for the moves that don't lead on this card. Each item keeps its key, so
+     the keys work with the menu closed. */
+  function otherWays(menuId, items) {
+    return '<div class="split split-other"><button type="button" class="btn more-btn other-btn" data-act="more" data-menu="' + menuId + '" aria-haspopup="menu" aria-expanded="false">Other ways' + ARROW + '</button>' +
+      '<div class="menu" role="menu" id="' + menuId + '" hidden aria-label="Other ways">' + items + '</div></div>';
+  }
   function menuItem(act, key, name, what) {
     return '<button type="button" role="menuitem" data-act="' + act + '"' + (key ? ' aria-keyshortcuts="' + key + '"' : '') + '><b>' + name + (key ? kbd(key) : '') + '</b><span>' + what + '</span></button>';
   }
@@ -376,15 +382,15 @@
         '</div>' + (it.inTheWay ? '' : '<div class="sched-links"><button type="button" class="linkbtn" data-act="way-dismiss" aria-keyshortcuts="Escape">Never mind</button></div>') + '</div>';
     }
     if (it.doing) {
-      /* The working card: the rest of the queue is out of view. Its ways out. */
+      /* The working card: the rest of the queue is out of view. Done leads; Keep going at the end of a block, else
+         Pause; everything else waits behind Other ways, keys and all (3 or 4 visible, like every card) */
       return '<div class="actions working-actions">' +
         '<button type="button" class="btn primary done-btn" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Done' + kbd('D') + '</button>' +
         (it.blockEnd ? '<button type="button" class="btn" data-act="keepgoing" aria-keyshortcuts="K">Keep going' + kbd('K') + '</button>' : '') +
         '<button type="button" class="btn" data-act="pause" aria-keyshortcuts="Z">Pause' + kbd('Z') + '</button>' +
-        splitHTML('split-assign', '<button type="button" class="btn split-main" data-act="assign" aria-keyshortcuts="A">Hand to Fuzz' + kbd('A') + '</button>',
-          'assignmenu', 'Keep it yourself', DEEP_ITEM) +
-        '<button type="button" class="btn" data-act="claude" aria-keyshortcuts="C">Work in ' + esc(Store.workIn) + kbd('C') + '</button>' +
-        '<button type="button" class="btn" data-act="book" aria-keyshortcuts="B">' + (it.firstStepMode ? 'Book the rest' : 'Book time') + kbd('B') + '</button></div>';
+        otherWays('workmenu', menuItem('assign', 'A', 'Hand to Fuzz', 'Fuzz takes it from here.') + DEEP_ITEM +
+          menuItem('claude', 'C', 'Work in ' + esc(Store.workIn), 'Open it with the sources ready.') +
+          menuItem('book', 'B', it.firstStepMode ? 'Book the rest' : 'Book time', 'Hold time on your calendar to finish it.')) + '</div>';
     }
     if (it.state === 'review') return reviewActionsHTML(it);
     /* A result: what Fuzz found is the thing you asked for, so Done leads and Assign is the way to send him further.
@@ -393,11 +399,13 @@
     /* A late ask from a thread whose reply waits for your OK: joining that reply leads */
     /* A big task leads with four choices, so it gets booked or pushed instead of ground through */
     var big = !join && !res && Store.isBig(it);
+    /* Three ways in: the one Fuzz suggests (book it, or do it now), I'll do it, or just the first step. The other
+       of book and do-now, and After the others, wait behind Other ways. */
+    var nowFirst = it.suggested === 'do_now';
     var bigRow = big ? '<div class="lead-choice big-choice"><p class="meta">' + esc((it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. How do you want to take it?') + '</p><div class="lead-btns">' +
-      '<button type="button" class="btn' + (it.suggested === 'do_now' ? ' primary' : '') + '" data-act="donow">Do it now</button>' +
-      '<button type="button" class="btn' + (it.suggested !== 'do_now' ? ' primary' : '') + '" data-act="book" aria-keyshortcuts="B">Book time' + kbd('B') + '</button>' +
+      (nowFirst ? '<button type="button" class="btn primary" data-act="donow">Do it now</button>'
+        : '<button type="button" class="btn primary" data-act="book" aria-keyshortcuts="B">Book time' + kbd('B') + '</button>') +
       '<button type="button" class="btn" data-act="deepwork" aria-keyshortcuts="G">I’ll do it' + kbd('G') + '</button>' +
-      '<button type="button" class="btn" data-act="afterothers">After the others</button>' +
       '<button type="button" class="btn" data-act="firststep">Just the first step</button></div></div>' : '';
     var joinRow = join ? '<div class="lead-choice"><p class="meta">' + esc(it.joinReason || 'A reply to this thread is waiting for your OK.') + '</p>' +
       '<button type="button" class="btn primary" data-act="joinreply">Add to the reply</button></div>' : '';
@@ -410,12 +418,26 @@
     var laterBtn = '<button type="button" class="btn' + (big ? '' : ' split-main') + '" data-act="schedule" aria-keyshortcuts="S"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Later' + kbd('S') + '</button>';
     var laterSplit = big ? laterBtn : splitHTML('split-later', laterBtn, 'latermenu', 'Book time instead',
       menuItem('book', 'B', 'Book time', 'Hold time on your calendar to do it. It doesn’t count as putting it off.'));
+    /* A card whose choice leads (its answers, Add to the reply, a big one's three ways): under it one quiet row,
+       Later ▾ and Other ways ▾, with every other move and its key in the menus (the card action budget) */
+    if (!res && (join || big || asks)) {
+      var others = (big ? (nowFirst ? menuItem('book', 'B', 'Book time', 'Hold time on your calendar to do it.') : menuItem('donow', '', 'Do it now', 'Open it as your working card, with the rest of the list out of view.')) +
+          menuItem('schedule', 'S', 'Later', 'Pick a rough time. It comes back then.') : '') +
+        menuItem('assign', 'A', 'Hand it to Fuzz', 'As it is, without picking an answer.') + (big ? '' : DEEP_ITEM) +
+        menuItem('claude', 'C', 'Work in ' + esc(Store.workIn), 'Open it with the sources ready.') +
+        menuItem('done', 'D', 'Done', 'It’s already done.') +
+        (big ? menuItem('afterothers', '', 'After the others', 'To the end of this session. No penalty.') : '') +
+        menuItem('park', 'P', 'Park it', 'Out of triage with no date.') +
+        menuItem('waiting', 'W', 'Waiting on someone', 'You’re blocked until they get back to you. Fuzz checks back.') +
+        menuItem('theirs', 'X', 'Not mine', 'It’s someone else’s to do. Fuzz lets it go.');
+      return joinRow + bigRow + '<div class="actions quiet-row">' + (big ? '' : laterSplit) + otherWays('othermenu', others) + '</div>';
+    }
     return joinRow + bigRow + '<div class="actions' + (res ? ' result' : '') + '">' + (res ? '' : assignSplit) +
       (res ? '' : '<button type="button" class="btn" data-act="claude" aria-keyshortcuts="C">Work in ' + esc(Store.workIn) + kbd('C') + '</button>') +
       (res ? '' : laterSplit) +
       '<div class="split split-done"><button type="button" class="btn done-btn' + (res ? ' primary' : '') + '" data-act="done" aria-keyshortcuts="D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Done' + kbd('D') + '</button>' +
         '<button type="button" class="btn more-btn" data-act="more" aria-haspopup="menu" aria-expanded="false" aria-label="Clear it another way" title="Clear it another way"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
-        '<div class="menu" role="menu" id="moremenu" hidden aria-label="Clear it another way"><p class="menu-h" aria-hidden="true">Clear it another way</p>' +
+        '<div class="menu" role="menu" id="moremenu" hidden aria-label="Clear it another way">' +
           (big ? '' : '<button type="button" role="menuitem" data-act="donow"><b>Do it now</b><span>Open it as your working card, with the rest of the list out of view.</span></button>' +
           '<button type="button" role="menuitem" data-act="afterothers"><b>After the others</b><span>To the end of this session. No penalty.</span></button>') +
           '<button type="button" role="menuitem" data-act="park" aria-keyshortcuts="P"><b>Park it' + kbd('P') + '</b><span>Out of triage with no date. It waits in Parked until someone follows up, or you bring it back.</span></button>' +
@@ -785,11 +807,12 @@
     } else if (it.cardKind === 'spot_run') {
       h += '<section class="dv-steps"><h3>' + esc(p.title || '') + '</h3>' +
         (p.summary ? '<p class="meta">' + esc(p.summary) + '</p>' : '') +
-        ((p.steps || []).length ? '<ul class="mentions">' + p.steps.map(function (s) { return '<li><span>' + esc(s) + '</span></li>'; }).join('') + '</ul>' : '') + '</section>' +
-        '<fieldset class="asks"><legend>If something was off, what?</legend><ul class="mentions">' + Object.keys(p.off || {}).map(function (k) {
+        /* the steps and the "what was off" list fold away, so the answer sits near the question */
+        ((p.steps || []).length ? '<details class="card-details"><summary>The steps Fuzz took <span class="meta">' + p.steps.length + '</span></summary><ul class="mentions">' + p.steps.map(function (s) { return '<li><span>' + esc(s) + '</span></li>'; }).join('') + '</ul></details>' : '') + '</section>' +
+        '<details class="card-details spot-off"><summary>If something was off, what?</summary><fieldset class="asks"><legend class="sr">What was off</legend><ul class="mentions">' + Object.keys(p.off || {}).map(function (k) {
           return '<li><label class="check"><input type="checkbox" data-spotoff="' + esc(k) + '"> <span>' + esc(p.off[k]) + '</span></label></li>';
         }).join('') + '</ul></fieldset>' +
-        '<div class="dv-new"><label for="spot-note">Anything else?</label><input id="spot-note" type="text" autocomplete="off"></div>';
+        '<div class="dv-new"><label for="spot-note">Anything else?</label><input id="spot-note" type="text" autocomplete="off"></div></details>';
     } else if (it.cardKind === 'fact_conflict') {
       h += '<div class="profiles">' + (p.facts || []).map(function (f, i) {
         return profileHTML((i ? 'Second' : 'First') + ' · ' + (MEM_LEVEL[f.level] || f.level), f.value,
@@ -2215,6 +2238,9 @@
         var dit = cur(), dopt = dv.dataset.dv, dval = dv.dataset.why ? { why: dv.dataset.why } : dvValue(dit, dopt);
         if (dopt === 'define' && !dval) { var dd = $('#mem-def'); if (dd) dd.focus(); Fuzz.say('What does it mean? A few words is plenty.', { type: false }); return; }
         if (dopt === 'neither' && !dval) { var dn = $('#mem-neither'); if (dn) dn.focus(); Fuzz.say('What is it, then? Type it in and press Neither again.', { type: false }); return; }
+        /* Something was off, with its list still folded: open it first, so you can say what */
+        var dso = card.querySelector('.spot-off');
+        if (dopt === 'off' && dso && !dso.open && !(dval.what || []).length && !dval.note) { dso.open = true; var dcb = dso.querySelector('input'); if (dcb) dcb.focus(); Fuzz.say('What was off? Tick it, then press Something was off again.', { type: false }); return; }
         if (dopt === 'track' && !(dval.title || '').trim()) { var dtl = $('#dv-title'); if (dtl) dtl.focus(); Fuzz.say('Give it a name first.', { type: false }); return; }
         if (dopt === 'track' && dval.checked_by === 'fuzz' && !(dval.done_when || '').trim()) { var ddw = $('#dv-dw'); if (ddw) ddw.focus(); Fuzz.say('How will we know it’s done? Or tick the box and you check it.', { type: false }); return; }
         if (dopt === 'track' && !(dval.done_when || '').trim()) dval.done_when = 'You say it’s done';
