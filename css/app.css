@@ -572,7 +572,7 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .ctx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .ctx li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.55; }
 .ctx i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 8px; }
-.md { line-height: 1.6; overflow-wrap: anywhere; }
+.md { line-height: 1.6; overflow-wrap: anywhere; overflow-x: auto; }
 .md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
 .md p, .md ul, .md ol, .md blockquote, .md pre { margin: 0 0 12px; }
 .md h4, .md h5, .md h6 { margin: 18px 0 6px; font-family: var(--font-body); font-size: 15px; font-weight: 600; }
@@ -589,6 +589,8 @@ input.xp-time:focus { outline: none; border-color: var(--accent); background: va
 .tablewrap { overflow-x: auto; margin: 0 0 12px; }
 .md table { border-collapse: collapse; min-width: 100%; font-size: 14px; }
 .md th, .md td { padding: 7px 10px; border: var(--bw) solid var(--line); text-align: left; vertical-align: top; }
+/* table cells break between words, never inside one ("Researc / h"); a wide table scrolls instead */
+.md th, .md td { overflow-wrap: normal; word-break: normal; min-width: 6ch; }
 .md th { background: var(--chip); font-weight: 600; }
 .md td > :last-child, .md th > :last-child { margin-bottom: 0; }
 .md-code { padding: 10px 12px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--code-line); overflow-x: auto; font-family: var(--font-code); font-size: 13px; line-height: 1.5; }
@@ -883,10 +885,11 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .lane-row .lrow-main { flex: 1 1 0; }
   .dlg-in { padding: 18px; }
   .when-grid { grid-template-columns: 1fr; }
-  /* Two rows instead of three, so the sticky block takes less of the screen: Assign and Done, then Work in Claude and Schedule */
+  /* Two rows instead of three, so the sticky block takes less of the screen */
   .actions { grid-template-columns: repeat(2, 1fr); }
   .actions .split { grid-column: auto; }
-  #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign done" "claude sched"; }
+  /* Same reading order as the wide row (Hand, Work in, Later, Done), in two rows */
+  #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign claude" "sched done"; }
   #actions kbd { display: none; } /* no room for key hints in two tight rows */
   #actions > .actions > .split-assign, #actions > .actions > [data-act="assign"] { grid-area: assign; }
   #actions > .actions [data-act="assign"] { min-height: 46px; }
@@ -905,8 +908,8 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
     position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2; margin: 0 -8px; padding: 8px; border-radius: 16px;
     background: var(--surface); box-shadow: 0 -6px 18px -12px color-mix(in srgb, var(--ink) 40%, transparent);
   }
-  /* Triage keeps its actions at the bottom, so New task moves back into the header there */
-  body[data-view="triage"] .appbar-right .nav-cta { display: inline-flex; }
+  /* New stays reachable everywhere: the floating button on Lineup and Artifacts, the header's icon on every other page */
+  body:not([data-view="tasks"]):not([data-view="artifacts"]):not([data-view="capture"]) .appbar-right .nav-cta { display: inline-flex; }
 }
 @media (max-width: 420px) {
   .view { padding-left: 12px; padding-right: 12px; }
@@ -1234,6 +1237,9 @@ html[data-theme="technicolor"] .pwrap, html[data-theme="technicolor"] .fzmini { 
 
 /* ---------- Fuzz's memory: the ask box (Artifacts, Inspector) and the inspector (#/inspect, with ?lab) ---------- */
 .memask { margin: 0 0 16px; display: grid; gap: 6px; }
+.ask-fold { margin: 0 0 16px; }
+.ask-fold .memask { margin: 8px 0 0; }
+.ask-fold .memask label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .memask label { font-weight: 600; }
 .memask-row { display: flex; gap: 8px; }
 .memask-row input { flex: 1; min-width: 0; }

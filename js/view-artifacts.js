@@ -77,8 +77,10 @@
     }
     /* the search box is built once, so typing in it, or a refresh while Fuzz writes, keeps your place */
     if (!root.querySelector('#aq')) {
-      root.innerHTML = head + (Live.on() && window.Memory ? Memory.askHTML() : '') + '<div class="asearch"><label class="sr" for="aq">Search artifacts</label>' +
+      /* Finding a file is this page's job, so its search comes first; asking Fuzz's memory folds under it */
+      root.innerHTML = head + '<div class="asearch"><label class="sr" for="aq">Search artifacts</label>' +
         '<input id="aq" type="search" autocomplete="off" placeholder="Search by file or task" value="' + esc(query) + '"></div>' +
+        (Live.on() && window.Memory ? '<details class="card-details ask-fold"><summary>Ask Fuzz’s memory <span class="meta">who someone is, why something was decided</span></summary>' + Memory.askHTML() + '</details>' : '') +
         '<div class="alist"></div>';
     }
     paintList();
