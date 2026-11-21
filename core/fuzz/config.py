@@ -13,7 +13,10 @@ DEFAULTS = {
     "vips": {"manager": "", "people": []},
     "engine": {"client": None, "model": None},
     "roles": {},
-    "budget": {"max_working": 2, "max_steps": 20, "max_attempts": 3, "lease_minutes": 10},
+    "budget": {"max_working": 2, "max_steps": 20, "max_attempts": 3, "lease_minutes": 10,
+               # how long one client run may take before it's stopped, in minutes the Mac is awake (sleep doesn't
+               # count). The longest healthy runs seen: executor 8, extractor 52 (2026-11)
+               "run_minutes": {"executor": 30, "extractor": 90, "sender": 10, "ask": 15}},
     "tz": "local",
     "stale_days": 7,
     # The parked review: a few parked tasks a day come back to ask "Still want this?", how many by your
@@ -169,6 +172,12 @@ def update_me(cfg, add=None, remove=None, replace=None):
 def gathers(cfg):
     """Whether a capture goes to Fuzz first: only when it's on and an executor can run."""
     return bool((cfg.get("gather") or {}).get("enabled") and role_engine(cfg, "executor")[0])
+
+
+def run_minutes(cfg, role):
+    """How long one client run of this role may take (budget.run_minutes), in minutes."""
+    lim = (cfg.get("budget") or {}).get("run_minutes") or {}
+    return lim.get(role) or DEFAULTS["budget"]["run_minutes"].get(role) or 30
 
 
 def role_engine(cfg, role, client=None, model=None):

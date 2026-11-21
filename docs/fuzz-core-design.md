@@ -1291,7 +1291,9 @@ option does for that kind and writes the events. So one Undo and one log cover e
   [Working through a group](#working-through-a-group).
 - **Monday's deliverable cards come first that day,** after the first check-in. See
   [Tiers and the Monday review](#tiers-and-the-monday-review).
-- **"Not sure yet" postpones, it doesn't fail.** The card comes back later at the end of the queue.
+- **"Not sure yet" postpones, it doesn't fail.** The card sits out of the deck until tomorrow (local
+  midnight, `payload.hold_until`), then comes back at the end of the queue. Just moving it to the end
+  brought it straight back whenever it was the only card open.
   After two postpones the core takes the safe answer itself (keep separate, stay provisional, keep it
   as a task) and writes `card.expired`. A question you don't answer never blocks the work behind it.
 - **The UI is free to change.** Each kind maps to a layout and a reaction from Fuzz (puzzled for

@@ -439,6 +439,9 @@
         (items.length ? '<ul class="g-away-list">' + items.map(awayItem).join('') + '</ul>' : '') + '</div>' +
       '</details></aside>';
   }
+  function rowSub(it) {
+    return it.leftOff ? 'Where you left off: ' + it.leftOff : it.state !== 'deepwork' ? (it.state === 'scheduled' ? 'Booked for this time' : 'Ready when you are') : it.aiNote ? 'Fuzz got it ready' : it.nextStep ? 'Next: ' + it.nextStep : 'Fuzz gets it ready as you start';
+  }
   function vGuide() {
     var sug = suggestion(), n = triageN(), tasks = guideTasks();
     if (E.link && E.link.pick && (E.link.pick === 'typed' || tasks.some(function (it) { return it.id === E.link.pick; }))) sug = { pick: E.link.pick, why: sug.why };   /* what your calendar booked the time for */
@@ -459,8 +462,7 @@
     }
     var hidden = tasks.length - shown.length;
     var taskRows = shown.map(function (it) {
-      var sub = it.leftOff ? 'Where you left off: ' + it.leftOff : it.state !== 'deepwork' ? (it.state === 'scheduled' ? 'Booked for this time' : 'Ready when you are') : it.aiNote ? 'Fuzz got it ready' : it.nextStep ? 'Next: ' + it.nextStep : 'Fuzz gets it ready as you start';
-      return radio(it.id, p === it.id, '<span class="g-t"><b>' + esc(it.title) + tag(sug.pick === it.id) + '</b><small>' + esc(sub) + '</small></span><span class="g-m">~' + dur(est(it)) + '</span>');
+      return radio(it.id, p === it.id, '<span class="g-t"><b>' + esc(it.title) + tag(sug.pick === it.id) + '</b><small>' + esc(rowSub(it)) + '</small></span><span class="g-m">~' + dur(est(it)) + '</span>');
     }).join('');
     /* Something else: picked, its title becomes the field, so you type right where "Something else" was */
     var typedRow = typedOn
@@ -1136,6 +1138,10 @@
   V.active = function () { return inSession(); };
   V.dur = dur;
   V.est = est;
+  /* The top of My work in the Guide's order, for Triage's All clear (js/view-triage.js) */
+  V.upNext = function (n) { return guideTasks().slice(0, n); };
+  /* What the Guide says under a task's name */
+  V.rowSub = rowSub;
 
   window.DeepWorkView = V;
   window.DeepWork = V;

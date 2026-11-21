@@ -505,6 +505,7 @@
     st.items = items;
     st.groups = groups;
     st.queue = order;
+    Store.partition();   /* a long triage session's smaller cards wait behind the rest (js/view-triage.js) */
     st.queue.forEach(function (id, n) { Store.item(id).order = n; });
     st.maxOrder = order.length; st.minOrder = 0;
     st.totalEver = Math.max(st.totalEver + added.length, order.length);
@@ -885,6 +886,9 @@
     /* Your manager and a few more whose asks come first (#9); null on a core from before them */
     vips: function () { return api('GET', '/vips').catch(function () { return null; }); },
     saveVips: function (body) { return api('PUT', '/vips', body); },
+    voice: function () { return api('GET', '/voice').catch(function () { return null; }); },   /* a core from before voice has none */
+    setVoice: function (on) { return api('PUT', '/voice', { enabled: on }); },
+    forgetVoice: function () { return api('POST', '/voice/forget', {}); },
     hours: function () { return api('GET', '/hours'); },
     saveHours: function (body) { return api('PUT', '/hours', body); },
     /* How many tasks Fuzz may work on at once: the Lineup's slots */

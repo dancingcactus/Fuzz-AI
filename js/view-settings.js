@@ -49,8 +49,8 @@
 
   function load() {
     return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; }),
-      Live.lessons().catch(function () { return null; }), Live.vips()]).then(function (r) {   /* a core from before lessons has no /lessons, nor VIPs */
-      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null, vips: r[6] };
+      Live.lessons().catch(function () { return null; }), Live.vips(), Live.voice()]).then(function (r) {   /* a core from before lessons has no /lessons, nor VIPs, nor voice */
+      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null, vips: r[6], voice: r[7] };
       return data;
     });
   }
@@ -65,13 +65,13 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What I know about you, what I may do, and how I look. Each part saves on its own.</p>' +
-      meHTML() + vipsHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + vipsHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + voiceHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
   var FN = null;
   function repaint(id) {
-    FN = FN || { me: meHTML, vips: vipsHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML };
+    FN = FN || { me: meHTML, vips: vipsHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML, voice: voiceHTML };
     var el = root && root.querySelector('#sec-' + id); if (!el) return;
     var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
     var grp = a && a.getAttribute && a.getAttribute('data-group');
@@ -364,6 +364,34 @@
       '<p class="meta"><a href="#/evals">How I score on my tests</a>: every eval run, for debugging.</p>' +
       '<span class="meta set-said" id="said-learned" role="status"></span>');
   }
+  /* How you write (core/fuzz/voice.py): your own messages, shown to me before I draft one to the same person or people
+     like them, and a few counted lines on how you write to each audience. Kept only on this Mac. */
+  function voiceHTML() {
+    var v = data.voice; if (!v) return '';
+    var b = busy.voice;
+    var toggle = '<label class="check"><input type="checkbox" id="set-voice"' + (v.enabled ? ' checked' : '') + (b ? ' disabled' : '') + '> <span>Use my own messages as examples' +
+      '<small>Before I draft a message, I look at a few you wrote to the same person, or to people like them, and copy how you write, never what you said.</small></span></label>';
+    var have = v.messages + (v.messages === 1 ? ' message' : ' messages') + ' of yours' +
+      (v.edited_drafts ? ', and ' + v.edited_drafts + (v.edited_drafts === 1 ? ' draft' : ' drafts') + ' you edited' : '');
+    var forget = v.messages ? '<div class="set-actions"><button type="button" class="btn small" data-voice="forget"' + (b ? ' disabled' : '') + '>' + (b === 'forget' ? 'Forgetting…' : 'Forget my messages') + '</button></div>' : '';
+    var body = !v.enabled ? '<p class="meta">Off. I write plainly and briefly, and I don’t collect new messages of yours.' +
+      (v.messages ? ' The ' + v.messages + ' I have stay on this Mac until you forget them.' : '') + '</p>' + forget :
+      '<p class="meta">I have ' + have + '.' + (v.messages < v.want ? ' I’ll read back a few more from your sent mail and Slack.' : '') + '</p>' +
+      (v.profiles.length ? '<h3>To each audience</h3><ul class="set-apps">' + v.profiles.map(function (p) {
+        return '<li class="set-app"><div><span>' + esc(p.audience) + '</span> ' + UI.pill(p.messages + (p.messages === 1 ? ' message' : ' messages'), 'muted') +
+          '<p class="meta">' + p.lines.map(esc).join(' ') + '</p></div></li>';
+      }).join('') + '</ul>' : '<p class="meta">Once I have five messages to an audience, I’ll say here how you write to it.</p>') + forget;
+    return section('voice', 'How you write', 'So my drafts sound like you. Your messages stay on this Mac.', toggle + body +
+      '<span class="meta set-said" id="said-voice" role="status"></span>');
+  }
+  function voiceAction(what, on) {
+    busy.voice = what; repaint('voice');
+    var call = what === 'forget' ? Live.forgetVoice() : Live.setVoice(on);
+    return call.then(function (r) {
+      data.voice = r; busy.voice = false; repaint('voice');
+      said('voice', what === 'forget' ? 'Forgotten. I’ll start again from your next messages.' : on ? 'On. My next drafts follow how you write.' : 'Okay.');
+    }, function (e) { busy.voice = false; repaint('voice'); said('voice', 'That didn’t work: ' + e.message); });
+  }
   function lessonAction(what, id) {
     busy['lesson-' + id] = what === 'use' ? 'Turning on…' : 'Turning off…'; repaint('learned');
     return Live.lessonAction(id, what).then(function () { return Live.lessons(); }).then(function (r) {
@@ -399,6 +427,7 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.app) return appAction(b.dataset.app, b.dataset.client);
     if (b.dataset.lesson) return lessonAction(b.dataset.lesson, parseInt(b.dataset.id, 10));
+    if (b.dataset.voice) return voiceAction(b.dataset.voice);
     if (b.dataset.hmode) { hoursEdit.mode = b.dataset.hmode; repaint('hours'); return; }
     if (b.dataset.slots) { var n = (slotsEdit || data.slots.slots) + parseInt(b.dataset.slots, 10); slotsEdit = Math.max(1, Math.min(data.slots.max, n)); repaint('slots'); return; }
     if (b.dataset.list) return listAgain();
@@ -415,6 +444,7 @@
     var t = e.target;
     if (t.id === 'look-font') return App.setCodeFont(t.value);
     if (t.id === 'look-calm') return App.setCalm(t.checked);
+    if (t.id === 'set-voice') return voiceAction('enabled', t.checked);
     if (t.id === 'h-from') hoursEdit.from = parseFloat(t.value);
     else if (t.id === 'h-until') hoursEdit.until = parseFloat(t.value);
     else if (t.dataset.src !== undefined) setSource(parseInt(t.dataset.src, 10), t.dataset.group, t.checked);

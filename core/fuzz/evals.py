@@ -18,14 +18,13 @@ that passed in the baseline broke now"; a case whose repeats split is flaky, rep
 import hashlib
 import json
 import math
-import re
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
 
-from . import adapters, learning
+from . import adapters, learning, replies
 from .config import eval_engine
 from .db import FuzzError, iso
 
@@ -405,19 +404,27 @@ def _version_of(text):
     return None
 
 
+def skill_at(name, ref=None):
+    """A skill's SKILL.md from the repo, or as it was at a git commit or branch: (text, prompt_version, copy)."""
+    if not ref:
+        text = (adapters.SKILLS_SRC / name / "SKILL.md").read_text()
+        return text, _version_of(text), "repo"
+    try:
+        r = subprocess.run(["git", "-C", str(adapters.SKILLS_SRC), "show", f"{ref}:./{name}/SKILL.md"],
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise FuzzError(f"couldn't read the {name} skill at {ref}: {e}", "ref")
+    if r.returncode != 0:
+        raise FuzzError(f"no {name} skill at {ref}: {r.stderr.strip()[:200]}", "ref")
+    return r.stdout, _version_of(r.stdout), ref_copy(ref)
+
+
 def skill_text(surface, installed=False, adapter=None, ref=None):
     """The SKILL.md a run reads, and which copy it was. Installed skills are copies; say which was scored.
     ref: the skill as it was at that git commit or branch, to score an old version head to head."""
     name = SURFACES[surface]
     if ref:
-        try:
-            r = subprocess.run(["git", "-C", str(adapters.SKILLS_SRC), "show", f"{ref}:./{name}/SKILL.md"],
-                               capture_output=True, text=True, timeout=30)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            raise FuzzError(f"couldn't read the skill at {ref}: {e}", "ref")
-        if r.returncode != 0:
-            raise FuzzError(f"no {name} skill at {ref}: {r.stderr.strip()[:200]}", "ref")
-        return r.stdout, _version_of(r.stdout), ref_copy(ref)
+        return skill_at(name, ref)
     if installed:
         if adapter is None:
             raise FuzzError("scoring the installed skill needs a client", "client")
@@ -460,12 +467,9 @@ def prompt(rules, me, msg, lessons):
 
 
 def _parse(out):
-    m = re.search(r"\{.*\}", out or "", re.S)
-    if not m:
-        raise ValueError("no JSON in the reply")
-    got = json.loads(m.group(0))
-    if not isinstance(got.get("candidates"), list):
-        raise ValueError("no candidates list in the reply")
+    got = replies.json_object(out, want=lambda o: isinstance(o.get("candidates"), list))
+    if got is None:
+        raise ValueError("no candidates list in the reply" if replies.json_object(out) else "no JSON in the reply")
     return got
 
 
@@ -503,8 +507,10 @@ def _call_model(core, adapter, model, runner, workers, prompts):
         return list(pool.map(call, prompts))
 
 
-def _engine(core, client, model, runner):
-    client, model = eval_engine(core.config, "extractor", client, model)
+def engine(core, role, client=None, model=None, runner=None):
+    """The client, model and adapter an eval of this role runs on (config.eval_engine). A runner (the tests'
+    stand-in for a model) needs no client."""
+    client, model = eval_engine(core.config, role, client, model)
     adapter = adapters.get(client) if client in adapters.ADAPTERS else None
     if runner is None and adapter is None:
         raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
@@ -542,7 +548,7 @@ def run(core, surface="extract", lessons=None, repeats=3, installed=False, clien
     (a run id) or else the last run that passed its own gate, never just the run before: two bad runs in a row
     must both fail. runner(argv, prompt) -> reply text stands in for the client in tests; the store is touched
     only before and after the model calls. ref scores the skill as it was at that git commit or branch."""
-    client, model, adapter = _engine(core, client, model, runner)
+    client, model, adapter = engine(core, "extractor", client, model, runner)
     text, version, copy = skill_text(surface, installed, adapter, ref=ref)
     rules = judgment_rules(text)
     sweep(core)

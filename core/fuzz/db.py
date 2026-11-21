@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS runs (
   trigger TEXT,                    -- manual | launchd | ui | chat
   started_at TEXT NOT NULL,
   finished_at TEXT,
-  outcome TEXT,                    -- ok | error | nothing_to_do
+  outcome TEXT,                    -- ok | error | nothing_to_do | timeout (stopped at its limit) | abandoned (its process died first)
   detail TEXT NOT NULL DEFAULT '{}',
   usage TEXT                       -- JSON: what the client said it used (usage.py); {"none": true} when it said nothing
 );
@@ -376,6 +376,23 @@ CREATE TABLE IF NOT EXISTS screen_times (   -- when each card was on screen and 
   left_at TEXT,
   away_s INTEGER,
   how TEXT                         -- what ended it: the answer, or skipped
+);
+CREATE TABLE IF NOT EXISTS writing_samples (   -- messages you wrote, only your words, for drafts in your voice (voice.py); not events
+  user_id INTEGER NOT NULL,
+  source TEXT NOT NULL,            -- email | slack
+  source_id TEXT NOT NULL,
+  ts TEXT,
+  recipients TEXT,                 -- json [{name, email, slack_id}]: who it went to, you left out
+  place TEXT,                      -- a Slack channel; none for a DM or an email
+  text TEXT NOT NULL,
+  link TEXT,
+  added_at TEXT,
+  PRIMARY KEY (user_id, source, source_id)
+);
+CREATE TABLE IF NOT EXISTS voice_state (   -- when Fuzz last asked the extractor to read your sent messages back; not events
+  user_id INTEGER PRIMARY KEY,
+  asked_at TEXT,
+  done_at TEXT                     -- the extractor found no older messages: stop asking
 );
 -- memory: entities' facts, knowledge and decisions (docs/memory-layers.md). facts, knowledge, decision_log and
 -- memory_links are projected (replayed from events); memory_files, fact_views and memory_refusals are derived.

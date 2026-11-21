@@ -76,6 +76,28 @@ Energy can rise as you clear cards.
 - Several skips or Laters in a row bring an early check-in that offers to scale down.
 - Signal: clearing speed and skips, from `screen_times`.
 
+## Short sessions
+
+Triage should be short. About **15 minutes** into a session, the smaller cards wait, so the session can end
+on All clear instead of trailing on.
+
+- **Smaller cards:** Fuzz's own housekeeping (memory questions, checking its work, series, deliverables to
+  track or review, "same as?" questions, setup cards) and tasks with none of the pressing categories
+  (urgent, VIP, returned, waiting, goal).
+- **Never wait:** anything with a time on it, the card you're doing, drafts, handbacks, permission and
+  "is this yours?" questions, the onboarding kickoff, something you just captured, Monday's deliverables, the
+  group you're working through, a card picked from Lineup, and the card on screen. The clock is only read
+  between cards.
+- When only smaller cards are left, Triage shows **All clear**, with "N smaller cards can wait for next time ·
+  Show them". Show them brings them back for the rest of that session. Fuzz says so once, on the first
+  card after the switch.
+- Being away from Triage for **20 minutes** or more starts a new session. Coming back from Lineup doesn't.
+- Every All clear lists the **next three in My work**, in the Guide's order. Each one opens the Guide with
+  that task picked (`#/work/<id>`).
+- UI only. The cards stay in the queue, and the core's order isn't changed: `Store.setDefer` moves them
+  behind the rest, for the demo's sort and for live syncs (`Live.apply`). Code: `smaller()` and `syncWrap()`
+  in `js/view-triage.js`; tests in `tests/ui/wrapup.test.mjs`.
+
 ## Order of work
 
 1. **Issue 9:** count-based check-ins, the stretch as boxes, sliding in after a check-in. Uses today's

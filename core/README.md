@@ -211,8 +211,11 @@ tests/              unittest suites
 ## Tests
 
 ```bash
-python3 -m unittest discover core/tests
+PYTHONPATH=core ~/.local/share/uv/tools/fuzz-core/bin/python -m unittest discover -b core/tests
 ```
+
+Run it with the core's own Python (the one `install.sh` made; system Python lacks `mcp` and `jsonschema`).
+`-b` holds each test's output and shows it only for a test that fails, so the summary isn't buried.
 
 They cover replay against the live tables, every card kind and answer (including Undo), postpone
 and expiry, check-in spacing, the brief fields, the time resolver on a fixed clock, the scheduler

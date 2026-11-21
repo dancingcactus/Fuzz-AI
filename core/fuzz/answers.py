@@ -335,6 +335,11 @@ def _postpone(core, card, t):
             for tid in [a["id"] for a in many] or ([card["task_id"]] if card["task_id"] else []):
                 cards.sync(core, tid)
         return
+    # "Ask me again later" means a later day: the card sits out of the deck until tomorrow, then comes back at
+    # the end. Just moving it to the end brought it straight back whenever it was the only card open.
     ch = events.Changes()
-    ch.card(card["id"], postponed=card["postponed"] + 1, order_key=cards.next_order(core))
-    events.emit(core, "card.postponed", task_id=card["task_id"], changes=ch, data={"kind": card["kind"]})
+    until = cards.tomorrow(core)
+    ch.card(card["id"], postponed=card["postponed"] + 1, order_key=cards.next_order(core),
+            payload=dict(card.get("payload") or {}, hold_until=until))
+    events.emit(core, "card.postponed", task_id=card["task_id"], changes=ch,
+                data={"kind": card["kind"], "hold_until": until})
