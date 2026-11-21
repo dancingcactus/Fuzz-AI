@@ -686,7 +686,7 @@
       '<div class="title-block"><h3 class="task-title">' + esc(it.title) + '</h3><div class="chips"><span class="meta">' + esc(it.holdWhen || '') + '</span></div></div>' +
       '<p class="meta">' + esc(it.holdRemove ? 'It’s done before its block, so the time can go back to you.' : 'Fuzz adds an event of your own in that time, named after the task. Your other events are never changed.') + '</p>' +
       '<div id="actions">' + CardActions.render({ lead: { verb: 'hold-approve', act: 'hold-approve', label: it.holdRemove ? 'Remove it' : 'Add the hold' },
-        row: (it.holdRemove ? [] : [{ verb: 'hold-always', act: 'hold-always', label: 'Always allow for my calendar' }]).concat([{ verb: 'hold-skip', act: 'hold-skip', label: it.holdRemove ? 'Keep it' : 'Skip' }]) }) + '</div>' + UI.idTag(it);
+        row: (it.holdRemove ? [] : [{ verb: 'hold-always', act: 'hold-always', label: 'Always allow for my calendar' }]).concat([{ verb: 'hold-skip', act: 'hold-skip', label: it.holdRemove ? 'Keep it' : 'Skip', key: 'S' }]) }) + '</div>' + UI.idTag(it);
   }
   /* Deliverable cards: one decision each, like any question card */
   var DV_LABEL = { keep_going: 'Keep going', make_active: 'Make it active', its_done: 'It’s done', let_go: 'Let it go',
@@ -706,9 +706,17 @@
     if (!opts.length) return '';
     /* The suggested answer leads; the rest share one row (three at most, the last holding any extra behind its chevron) */
     var order = opts.slice().sort(function (a, b) { return (b === it.suggested) - (a === it.suggested); });
-    var ans = order.map(function (o, i) { return { n: i + 1, dv: o, label: (which && WHO_LABEL[o]) || DV_LABEL[o] || o }; });
+    var ans = order.map(function (o, i) { return { n: i + 1, dv: o, also: o === 'not_sure' ? 'S' : undefined, label: (which && WHO_LABEL[o]) || DV_LABEL[o] || o }; });
     var rest = ans.slice(1).map(function (a) { return { answer: a }; });
-    if (rest.length > 3) { var tail = rest.splice(2); rest.push({ answer: tail[0].answer, menu: { theme: 'answers', items: tail.slice(1) } }); }
+    /* Not sure yet stays visible (it is S, the free way out); any extra answers wait behind the chevron of the one before it */
+    var ns = rest.filter(function (x) { return x.answer.dv === 'not_sure'; }), others = rest.filter(function (x) { return x.answer.dv !== 'not_sure'; });
+    if (rest.length > 3) {
+      var room = 3 - ns.length, head = others.slice(0, room - 1), tail = others.slice(room - 1);
+      rest = head.concat([{ answer: tail[0].answer, menu: { theme: 'answers', items: tail.slice(1) } }], ns);
+    }
+    /* The badges follow the order on the card, which is the order the number keys count */
+    var num = 0; ans[0].n = ++num;
+    rest.forEach(function (x) { x.answer.n = ++num; (x.menu ? x.menu.items : []).forEach(function (m) { m.answer.n = ++num; }); });
     return '<div id="actions">' + CardActions.render({ lead: { answer: ans[0] }, row: rest }) + '</div>';
   }
   /* Fuzz's memory: same person?, what is this?, was this a decision?, which is right? Evidence before answers. */
@@ -2441,8 +2449,8 @@
         /* Tell Fuzz: into the card's box. Esc leaves it with what you wrote, and the keys work again. */
         if (openBox()) e.preventDefault();
         return;
-      } else if (k === 's' && card.querySelector('[data-act="ent-later"]')) {
-        b = card.querySelector('[data-act="ent-later"]');   /* Not sure yet is Later's key (rules 4 and 6) */
+      } else if (k === 's' && card.querySelector('[data-act="ent-later"], [data-dv="not_sure"], [data-act="hold-skip"]')) {
+        b = card.querySelector('[data-act="ent-later"], [data-dv="not_sure"], [data-act="hold-skip"]');   /* Not sure yet is Later's key (rules 4 and 6) */
       } else if (KEYS[k]) {
         b = card.querySelector('[data-act="' + KEYS[k] + '"]');
       } else if (n > -1) {

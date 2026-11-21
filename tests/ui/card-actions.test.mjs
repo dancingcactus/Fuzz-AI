@@ -32,7 +32,9 @@ afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); }
 
 async function show(id, flags) {
   await page.evaluate(([id, flags]) => {
-    const it = Store.item(id); const { __doNow, ...rest } = flags || {}; Object.assign(it, rest);
+    const { __new, ...flags2 } = flags || {};
+    if (__new && !Store.item(id)) Store.get().items.push(Object.assign({ id, state: 'triage', source: 'Test', who: 'Test', age: '1 day', sources: [], people: [], log: [] }, __new));
+    const it = Store.item(id); const { __doNow, ...rest } = flags2; Object.assign(it, rest);
     if (!Store.inQueue(id)) Store.enqueue(it, 'front');
     Store.pick(id); if (__doNow) Store.doNow(id); App.refresh();
   }, [id, flags]);
@@ -56,6 +58,9 @@ const KINDS = [
   ['join a waiting reply', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, joinReply: true, joinReason: 'A reply to this thread is waiting for your OK.' }],
   ['parked check-in Fuzz leans to let go', 'vendor', { putOff: false, review: true, leansGo: true }],
   ['draft waiting for your OK', 'retro', {}],
+  ['deliverable question', 'dv-test', { __new: { kind: 'deliv', cardKind: 'deliverable_keep', title: 'Release notes', ask: 'Keep going on this?', cardOptions: ['keep_going', 'make_active', 'its_done', 'let_go', 'not_sure'], suggested: 'keep_going', payload: {} } }],
+  ['part-of question', 'po-test', { __new: { kind: 'task', cardKind: 'part_of', title: 'Draft the intro', partOfPrompt: 'Is this part of Release notes?', cardOptions: ['yes', 'no', 'not_sure'], suggested: 'yes' } }],
+  ['calendar hold', 'hold-test', { __new: { kind: 'task', cardKind: 'hold', title: 'Prepare the demo', holdPrompt: 'Add a hold for this to your calendar?', holdWhen: 'Tue 2 to 3 PM' } }],
   ['What’s in the way?', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, inTheWay: true }],
 ];
 
@@ -92,7 +97,7 @@ test('a key means one verb across every card kind (rule 3)', async () => {
       bs.map(b => [b.getAttribute('aria-keyshortcuts'), b.dataset.act, b.textContent.replace(/[A-Z0-9]$/, '').trim()]));
     for (const [key, act, text] of pairs) {
       if (/^\d$/.test(key)) continue;   /* numbers are answers (rule 4) */
-      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule', 'way-notnow': 'schedule', notnow: 'schedule', sentself: 'done' }[act] || act;
+      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule', 'way-notnow': 'schedule', notnow: 'schedule', sentself: 'done', 'hold-skip': 'schedule' }[act] || act;
       if (seen[key] && seen[key] !== verbOf) assert.fail(`${key} is ${seen[key]} and ${verbOf} (${name})`);
       seen[key] = verbOf;
     }
@@ -105,7 +110,7 @@ test('a key means one verb across every card kind (rule 3)', async () => {
 test('every card has a free way out on S, in the visible row (rule 6)', async () => {
   for (const [name, id, flags] of KINDS) {
     await show(id, flags);
-    const n = await page.locator('#card .card-actions .ca-row [aria-keyshortcuts="S"], #card .card-actions > [aria-keyshortcuts="S"], #card .card-actions .ca-row .split > [aria-keyshortcuts="S"]').count();
+    const n = await page.locator('#card .card-actions [aria-keyshortcuts~="S"]:not([role="menuitem"])').count();
     assert.ok(n >= 1, `${name} has S`);
   }
 });

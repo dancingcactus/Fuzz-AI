@@ -215,18 +215,17 @@ Settled by the author, 2026-11-21:
 - **Avoidance** (rule 14): the options change when a task seems to be avoided, and the card says so in one
   short, neutral line.
 
-Yours to decide. None of these blocks the build; each is a taste or setting call:
+Defaults I chose while building, applied and tested. Change any of them if you disagree; each is one line to
+change:
 
-1. **Icons.** Every verb that can lead has one now, drawn in the stroke style of the arrow and the check. The new
-   ones (Do it now, Help me start, Book time, Bring it back, Let it go, Send) are first drawings: swap them if
-   you want a different set. They live in `ICON` in `js/card-actions.js`.
-2. **Cards outside the table.** The review, deliverable, hold and part-of cards now use the component, but the
-   table above was not written for them, so they follow rules 1, 2 and 12 only. Say whether they should follow
-   the rest.
-3. **Keep going is N now,** so K means only It still matters. N was free; say if you want another letter.
-4. **Avoidance** (rule 14, audit 13): built on the signals that exist. A different threshold for “keeps getting
-   pushed” is the core’s setting, not the card’s.
-
+1. **Icons.** Every verb that can lead has one, drawn in the stroke style of the arrow and the check (`ICON` in
+   `js/card-actions.js`).
+2. **Keep going is N,** so K means only It still matters.
+3. **The review, deliverable, hold and part-of cards follow every rule.** They are tested with the rest: one
+   fill, at most three in the row, icons only on the lead, a key meaning one verb, and a free way out on S (Not
+   sure yet on a question, Skip on a hold, Not now on a draft).
+4. **Avoidance** (rule 14, audit 13): built on the signals that exist. How many reschedules count as “keeps
+   getting pushed” is the core’s setting, not the card’s.
 
 ## Part 6. How it is built
 
@@ -251,7 +250,7 @@ answer. Only the lead gets an icon, or its number. `render()` records anything t
 a menu of more than four items or of a mixed theme) and warns on the console. The layout is one block of CSS,
 `.card-actions`, replacing the per-card grid areas.
 
-`render()` also checks rule 5: no sub-action may come before one of an earlier theme. `tests/ui/card-actions.test.mjs` renders fifteen card kinds, and the setup cards, (the working, join, big, result, answer, entity, review, check-in and what’s-in-the-way cards, among others) and checks rules 1, 2/12, 3, 5, 6, 13 and 15 on each.
+`render()` also checks rule 5: no sub-action may come before one of an earlier theme. `tests/ui/card-actions.test.mjs` renders eighteen card kinds, and the setup cards, (the working, join, big, result, answer, entity, review, check-in and what’s-in-the-way cards, among others) and checks rules 1, 2/12, 3, 5, 6, 13 and 15 on each.
 
 ## How to use this
 
