@@ -113,7 +113,7 @@
       seen[id] = true;
     }
     if (!menu) return main;
-    return '<div class="split ca-split ca-' + role + ' ca-' + (slot.menu.theme) + '">' + main +
+    return '<div class="split ca-split ' + (lead ? 'ca-lead' : 'ca-slot') + ' ca-' + (slot.menu.theme) + '">' + main +
       '<button type="button" class="btn more-btn' + (lead ? ' primary' : '') + '" data-act="more" data-menu="' + menu.id + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(menu.name) + '" title="' + esc(menu.name) + '">' + CHEVRON + '</button>' +
       menu.html + '</div>';
   }
