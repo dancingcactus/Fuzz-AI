@@ -96,13 +96,13 @@ test('? opens the key guide on the keys for where you are', async () => {
   await page.keyboard.press('?');
   const dlg = page.locator('#dw-keysdlg');
   assert.equal(await dlg.isVisible(), true);
-  assert.match(await page.textContent('#dw-keys-now'), /Right now.*Finished it.*Tell Fuzz/s);
+  assert.match(await page.textContent('#dw-keys-now'), /Right now.*Done.*Tell Fuzz/s);
   assert.equal(await page.evaluate(() => document.querySelector('#dw-keysdlg .keys-all').open), false);
   await page.keyboard.press('Escape');
   assert.equal(await dlg.isHidden(), true);
   assert.equal(await page.locator('#dw-step').isVisible(), true);   // Esc closed the guide, not the task
 
-  await page.keyboard.press('s');
+  await page.keyboard.press('h');
   await page.keyboard.press('?');
   assert.match(await page.textContent('#dw-keys-now'), /Send it back to Triage/);
   await page.keyboard.press('Escape');

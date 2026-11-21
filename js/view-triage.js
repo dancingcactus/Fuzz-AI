@@ -231,11 +231,12 @@
         '<div class="echo" id="echo" aria-hidden="true" hidden>' + Fuzz.mini('good', { cls: 'echo-av' }) + '<span id="echo-t"></span></div>' +
         /* Working through a group: its name and how far along you are, above the card */
         '<div class="gband" id="gband" hidden></div>' +
+        /* Outside the stack: inside it, the line pushed the card down while the ghost cards stayed put and covered it */
+        '<p class="upnext" id="upnext" role="status" hidden></p>' +
         '<div class="stack" id="stack">' +
-          '<p class="upnext" id="upnext" role="status" hidden></p>' +
           '<article class="card" id="card"></article>' +
           '<article class="card checkin" id="checkin" hidden>' +
-            '<div class="tagrow"><span class="src">Quick pause</span></div>' +
+            '<div class="tagrow"><p class="eyebrow"><span class="eb-i"><span class="eb-sep" aria-hidden="true"></span><span class="tag tag--info">Quick pause</span></span></p></div>' +
             '<h2 id="ci-h" tabindex="-1">How are you doing?</h2><p class="meta">Totally optional. It takes about five seconds.</p>' +
             '<div class="moods" id="ci-moods" role="group" aria-label="How are you doing?">' + moodBtns + '</div>' +
             '<div class="ci-follow" id="ci-follow"></div>' +
@@ -522,12 +523,14 @@
     if (it.kind === 'dup') tags += '<span class="tag tag--info">Possible duplicate</span>';
     if (it.isNew) tags += '<span class="tag tag--ok">Just captured</span>';
     var h = tags.split('</span>').filter(Boolean).map(function (t) { return ebItem(t + '</span>'); }).join('');
-    h += ebItem('<span class="src">' + esc(it.source + (it.who ? ' · ' + it.who : '')) + '</span>') + (withMeta ? metaHTML(it) : '');
+    if (it.source) h += ebItem('<span class="src">' + esc(it.source + (it.who ? ' · ' + it.who : '')) + '</span>');
+    h += withMeta ? metaHTML(it) : '';
     return '<div class="tagrow"><p class="eyebrow">' + h + ebItem('<span class="tag due" id="duetag" hidden></span>') + '</p></div>';
   }
   function metaHTML(it) {
-    var h = '', st = it.stage || 'fresh', stage = { fresh: 'Fresh', settling: 'Aging', stale: 'Sitting' }[st] || 'Fresh';
-    if (it.age) h += ebItem('<span class="eb' + (st === 'fresh' ? '' : ' eb-warn') + '" title="' + esc(stage + ' · ' + it.age) + '">' + (st === 'fresh' ? '' : stage + ' · ') + esc(it.age) + '</span>', true);
+    var h = '';
+    /* how old it is, as a plain fact: no "Aging" or "Sitting", no warning dot (stale cards are asked about, not accused) */
+    if (it.age) h += ebItem('<span class="eb" title="' + esc(it.age + ' old') + '">' + esc(it.age) + '</span>', true);
     if (it.sizeLabel) h += ebItem('<span class="eb' + (Store.isBig(it) ? ' eb-warn' : '') + '" title="' + esc(it.sizeLabel) + '">' + esc(it.sizeLabel.split(' · ')[0]) + '</span>', true);
     var g = Store.groupOf(it);
     if (g) h += ebItem('<button type="button" class="eb eb-link" data-act="group" title="' + esc(Store.partOf(it, true)) + '" aria-label="' + esc(Store.partOf(it, true)) + '. Open the group">' + esc(g.title) + '</button>', true);
@@ -565,9 +568,11 @@
   /* What you answered, as the chip says it */
   function saidOn(it) {
     if (!it) return 'Answered';
-    return ({ working: 'Fuzz', 'queued': 'Fuzz', done: 'Done', scheduled: 'Later', parked: 'Parked', session: 'In ' + Store.workIn,
-      review: 'Needs your OK', sending: 'Sending', mine: 'Yours', dropped: 'Dropped', resolved: 'Answered' })[it.state] ||
-      (it.state === 'waiting' ? 'Waiting on ' + (it.waitingOn || 'someone') : it.state === 'letgo' ? (it.theirs ? 'Not mine' : 'Let go') : 'Answered');
+    if (it.state === 'waiting') return 'Waiting on ' + (it.waitingOn || 'someone');
+    if (it.state === 'letgo') return it.theirs ? 'Not mine' : 'Let go';
+    if (it.state === 'dropped') return 'Dropped';
+    if (it.state === 'triage' || it.state === 'resolved') return 'Answered';
+    return UI.status(it.state)[0] || 'Answered';
   }
   function whereFrom(r) { return r.source === 'email' ? 'This email' : r.source === 'meeting' ? 'That meeting' : r.source === 'slack' ? 'Those messages' : '“' + r.title + '”'; }
   function paintRun(it) {
@@ -653,7 +658,7 @@
   function evidenceHTML(it) {
     var h = '';
     if (it.kind === 'entity' && it.entity === 'person') {
-      h += '<div class="profiles">' + it.profiles.map(function (p) { return '<div class="profile"><span class="plabel">' + esc(p.where) + '</span><span class="pname">' + esc(p.name) + '</span><span class="pdetail">' + esc(p.detail) + '</span><span class="pseen">' + esc(p.seen) + '</span></div>'; }).join('') + '</div>';
+      h += '<div class="profiles">' + it.profiles.map(function (p) { return profileHTML(p.where, p.name, p.detail, p.seen); }).join('') + '</div>';
     }
     if (it.kind === 'entity' && it.entity === 'term') {
       h += '<ul class="mentions">' + it.mentions.map(function (m) { return '<li><span class="pill pill--muted">' + esc(m.where) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>';
@@ -676,20 +681,30 @@
       if (fd.ask && !fd.already) h += '<p class="meta">That’s the one makes this task “' + esc(fd.ask) + '”, and Fuzz learns from having missed it.</p>';
       if (fd.already) h += '<p class="meta">You already have this as “' + esc(fd.already) + '”. That’s the one keeps that task and lets this one go.</p>';
     }
+    /* A standing grant says what it commits you to before you choose it */
+    if (it.kind === 'entity' && it.entity === 'permission') h += '<p class="sendnote">Allow once covers this task. Always allow means Fuzz won’t ask about this again.</p>';
     if (it.kind === 'dup') {
       var o = Store.item(it.dupOf);
-      h += '<div class="profiles"><div class="profile"><span class="plabel">Already in your queue</span><span class="pname">' + esc(o ? o.title : '') + '</span><span class="pdetail">' + esc(o ? o.source + ' · ' + o.who : '') + '</span><span class="pseen">' + esc(o ? o.age + ' old' : '') + '</span></div>';
+      h += '<div class="profiles">' + profileHTML('Already in your queue', o ? o.title : '', o ? o.source + ' · ' + o.who : '', o ? o.age + ' old' : '');
       /* The same ask that came in more than once: each one, and one answer for them all */
       if (it.dupes) h += it.dupes.map(function (d) {
-        return '<div class="profile"><span class="plabel">Came in again</span><span class="pname">' + esc(d.title) + '</span><span class="pdetail">#' + d.id + '</span><span class="pseen">' + esc(d.at) + '</span></div>';
+        return profileHTML('Came in again', d.title, '#' + d.id, d.at);
       }).join('') + '</div>';
-      else h += '<div class="profile"><span class="plabel">New just now</span><span class="pname">' + esc(it.title) + '</span><span class="pdetail">' + esc(it.source + ' · ' + it.who) + '</span><span class="pseen">' + esc(it.age) + ' old</span></div></div>';
+      else h += profileHTML('New just now', it.title, it.source + ' · ' + it.who, it.age + ' old') + '</div>';
     }
     return h;
   }
 
   /* Reading order: the question, what it's about, then how to act on it, then the background.
      Entity and duplicate cards put their evidence before the answers, so you see it before choosing. */
+  /* Every question card's answers are drawn by CardActions (js/card-actions.js): the suggested answer leads, the rest share the row. */
+  /* One evidence box: who or what, where it was seen. Person, duplicate, memory and fact cards all use it. */
+  function profileHTML(label, name, detail, seen, extra) {
+    return '<div class="profile"><span class="plabel">' + esc(label || '') + '</span>' + (name ? '<span class="pname">' + esc(name) + '</span>' : '') +
+      (detail ? '<span class="pdetail">' + esc(detail) + '</span>' : '') + (seen ? '<span class="pseen">' + esc(seen) + '</span>' : '') + (extra || '') + '</div>';
+  }
+  /* Why Fuzz asked: every question card says it once, in Fuzz's box above the evidence */
+  function whyHTML(text) { return text ? findingHTML({ aiHeading: 'Why Fuzz asked', aiNote: text }) : ''; }
   function holdHTML(it) {
     return tagrow(it) + askHTML(it.holdPrompt || 'Add a hold for this to your calendar?') +
       '<div class="title-block"><h3 class="task-title">' + esc(it.title) + '</h3><div class="chips"><span class="meta">' + esc(it.holdWhen || '') + '</span></div></div>' +
@@ -746,16 +761,16 @@
     if (it.cardKind === 'entity_person' && (p.candidates || []).length) {
       /* Which Nick?: the messages that only said "Nick", then the people it could be, likeliest first */
       var held = (p.profiles || [])[0] || {}, cands = (p.profiles || []).slice(1);
-      h += '<div class="profile"><span class="plabel">Where it said “' + esc(p.name || held.name) + '”</span>' + psourcesHTML(held.sources) + '</div>' +
+      h += profileHTML('Where it said “' + (p.name || held.name) + '”', '', '', '', psourcesHTML(held.sources)) +
         '<fieldset class="asks"><legend>Who it could be</legend><div class="profiles">' + cands.map(function (x, i) {
-          return '<label class="profile pick"><span class="plabel"><input type="radio" name="mem-who" value="' + x.entity_id + '"' + (i ? '' : ' checked') + '> ' + esc(x.where) + '</span>' +
+          return '<label class="profile pick"><span class="plabel"><input type="radio" class="pick-in" name="mem-who" value="' + x.entity_id + '"' + (i ? '' : ' checked') + '> ' + esc(x.where) + '</span>' +
             '<span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span>' +
             ((x.why || []).length ? '<span class="pseen">' + esc(x.why.join(' · ')) + '</span>' : '<span class="pseen">Nothing links them to these messages</span>') +
             psourcesHTML(x.sources) + '</label>';
         }).join('') + '</div></fieldset>' +
         '<div class="dv-new"><label for="mem-other">Someone else? Their full name</label><input id="mem-other" type="text" autocomplete="off" placeholder="First and last name"></div>';
     } else if (it.cardKind === 'entity_person') {
-      h += '<div class="profiles">' + (p.profiles || []).map(function (x) { return '<div class="profile"><span class="plabel">' + esc(x.where) + '</span><span class="pname">' + esc(x.name) + '</span><span class="pdetail">' + esc(x.detail) + '</span><span class="pseen">' + esc(x.seen) + '</span>' + psourcesHTML(x.sources) + '</div>'; }).join('') + '</div>';
+      h += '<div class="profiles">' + (p.profiles || []).map(function (x) { return profileHTML(x.where, x.name, x.detail, x.seen, psourcesHTML(x.sources)); }).join('') + '</div>';
     } else if (it.cardKind === 'entity_term') {
       if ((p.mentions || []).length) h += '<ul class="mentions">' + p.mentions.map(function (m) { return '<li><span class="pill pill--muted">' + esc(m.where) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>';
       h += '<div class="dv-new"><label for="mem-def">What is ' + esc(p.term || 'it') + '?</label><textarea id="mem-def" rows="2" placeholder="A short definition">' + esc(p.best_guess || '') + '</textarea></div>';
@@ -770,28 +785,30 @@
       var mwhere = [MEM_SOURCE[p.source] || 'A message', p.from, p.title, p.ts ? String(p.ts).slice(0, 10) : ''].filter(Boolean).join(' · ');
       var mq = p.quote ? '“' + esc(p.quote) + '”' : '';
       if (/^https?:/.test(p.link || '')) mq = '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">' + (mq || 'Open it') + '</a>';
-      h += '<div class="profile"><span class="plabel">' + esc(mwhere) + '</span>' + (mq ? '<span class="pquote">' + mq + '</span>' : '') + '</div>' +
+      /* a short label, and who, what and when in plain case underneath (not an 80-character capital line) */
+      h += profileHTML(MEM_SOURCE[p.source] || 'A message', '', [p.from, p.title, p.ts ? String(p.ts).slice(0, 10) : ''].filter(Boolean).join(' · '), '', mq ? '<span class="pquote">' + mq + '</span>' : '') +
         '<div class="dv-new"><label for="spot-ask">If there was something, what was it?</label><input id="spot-ask" type="text" autocomplete="off" placeholder="For example: send Dana the venue contract"></div>';
     } else if (it.cardKind === 'spot_run') {
       h += '<section class="dv-steps"><h3>' + esc(p.title || '') + '</h3>' +
         (p.summary ? '<p class="meta">' + esc(p.summary) + '</p>' : '') +
-        ((p.steps || []).length ? '<ul class="mentions">' + p.steps.map(function (s) { return '<li><span>' + esc(s) + '</span></li>'; }).join('') + '</ul>' : '') + '</section>' +
-        '<fieldset class="asks"><legend>If something was off, what?</legend><ul class="mentions">' + Object.keys(p.off || {}).map(function (k) {
+        /* the steps and the "what was off" list fold away, so the answer sits near the question */
+        ((p.steps || []).length ? '<details class="card-details"><summary>The steps Fuzz took <span class="meta">' + p.steps.length + '</span></summary><ul class="mentions">' + p.steps.map(function (s) { return '<li><span>' + esc(s) + '</span></li>'; }).join('') + '</ul></details>' : '') + '</section>' +
+        '<details class="card-details spot-off"><summary>If something was off, what?</summary><fieldset class="asks"><legend class="sr">What was off</legend><ul class="mentions">' + Object.keys(p.off || {}).map(function (k) {
           return '<li><label class="check"><input type="checkbox" data-spotoff="' + esc(k) + '"> <span>' + esc(p.off[k]) + '</span></label></li>';
         }).join('') + '</ul></fieldset>' +
-        '<div class="dv-new"><label for="spot-note">Anything else?</label><input id="spot-note" type="text" autocomplete="off"></div>';
+        '<div class="dv-new"><label for="spot-note">Anything else?</label><input id="spot-note" type="text" autocomplete="off"></div></details>';
     } else if (it.cardKind === 'fact_conflict') {
       h += '<div class="profiles">' + (p.facts || []).map(function (f, i) {
-        return '<div class="profile"><span class="plabel">' + (i ? 'Second' : 'First') + ' · ' + esc(MEM_LEVEL[f.level] || f.level) + '</span><span class="pname">' + esc(f.value) + '</span>' +
-          '<span class="pdetail">' + esc([f.said_by ? f.said_by + ' said' : '', MEM_SOURCE[f.source_kind] || f.source_kind].filter(Boolean).join(', in ')) + '</span><span class="pseen">' + esc(f.source_ts ? String(f.source_ts).slice(0, 10) : '') + '</span></div>';
+        return profileHTML((i ? 'Second' : 'First') + ' · ' + (MEM_LEVEL[f.level] || f.level), f.value,
+          [f.said_by ? f.said_by + ' said' : '', MEM_SOURCE[f.source_kind] || f.source_kind].filter(Boolean).join(', in '), f.source_ts ? String(f.source_ts).slice(0, 10) : '');
       }).join('') + '</div>' +
         '<div class="dv-new"><label for="mem-neither">Neither? What is it?</label><input id="mem-neither" type="text" autocomplete="off"></div>';
     }
     return h;
   }
   function delivHTML(it) {
-    var p = it.payload || {}, h = '<div class="tagrow"><span class="src">' + esc(it.source || 'Your deliverables') + '</span></div>' + askHTML(it.ask);
-    if (it.incoming) h += '<p class="dlg-what">' + esc(it.incoming) + '</p>';
+    var p = it.payload || {}, h = tagrow({ source: '' }, '<span class="tag tag--info">' + esc(it.source || 'Your deliverables') + '</span>') + askHTML(it.ask);
+    h += whyHTML(it.incoming);
     if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
     if (it.series) return h + seriesHTML(it) + UI.idTag(it);
     if (it.cardKind === 'week_plan' && p.steps) {
@@ -999,7 +1016,10 @@
       if (answersOn) h += '<div id="actions">' + actionsHTML(it) + '</div>' + planHTML(it, answersOn);
       else h += planHTML(it, answersOn) + '<div id="actions">' + actionsHTML(it) + '</div>';
     } else {
-      h += '<p class="incoming">' + UI.text(it.incoming) + '</p>' + evidenceHTML(it);
+      /* Why Fuzz asked sits in Fuzz's box above the evidence, once: the core's reason is often the same text */
+      if (it.aiNote) h += findingHTML(it);
+      if (it.incoming && it.incoming !== it.aiNote) h += '<p class="incoming">' + UI.text(it.incoming) + '</p>';
+      h += evidenceHTML(it);
       /* Fuzz asking what he may read (the onboarding's last task) is a plain yes or no: no notes, no Not sure */
       if (!it.kickoffAsk) {
         /* The note is a link (E), so the numbers always pick an answer (#1, #2). A guess Fuzz already has is plain text. */
@@ -1021,7 +1041,7 @@
     }
 
     /* Where it came from, the first step, people and sources fold under Details (I), so the card holds one decision (#4) */
-    var more = (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask && !stale, it.entity === 'is_task');
+    var more = (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask ? !stale : !!it.aiNote, it.entity === 'is_task');
     h += (isTask && !it.doing && !it.result ? '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, people, sources</span>' + kbd('I') + '</summary>' + more + '</details>' : more) + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">DONE</div>';
     return h;
@@ -1032,7 +1052,7 @@
      the single-letter keys. */
   function reviewHTML(it) {
     var r = Store.recipient(it), w = Store.wording(r), val = edits[it.id + ':draft'] !== undefined ? edits[it.id + ':draft'] : (it.draft || '');
-    var h = tagrow(it, '<span class="tag tag--ok">Needs your OK</span>', true);
+    var h = tagrow(it, '<span class="tag">' + UI.status('review')[0] + '</span>', true);
     h += askHTML(r ? w.ask : 'Does this look right?') + titleHTML(it);
     /* After "Ask Fuzz to change it", the draft says it was reworked and what you asked for */
     if (it.revisedNote) h += '<div class="finding"><span class="finding-tag">Updated from your note</span>' + Fuzz.mini('good', { cls: 'finding-av' }) + '<p>“' + esc(it.revisedNote) + '”</p></div>';
@@ -1103,7 +1123,7 @@
     if (Dictate.active() && !document.contains(Dictate.field())) Dictate.abort();
     var ex = stack.querySelector('.empty'); if (ex) ex.remove();
     var dt = $('#drop-label');
-    $('#dropbtn').textContent = it.state === 'review' ? 'Discard this draft' : it.kind === 'task' ? 'Drop this task' : 'Dismiss this question';
+    $('#dropbtn').textContent = it.state === 'review' ? 'Drop this draft' : it.kind === 'task' ? 'Drop this task' : 'Drop this question';
     $('#dropbtn').hidden = false;
     paintDue(it);
     card.querySelectorAll('#instr, #draft').forEach(fit);
@@ -2256,6 +2276,9 @@
         var dit = cur(), dopt = dv.dataset.dv, dval = dv.dataset.why ? { why: dv.dataset.why } : dvValue(dit, dopt);
         if (dopt === 'define' && !dval) { var dd = $('#mem-def'); if (dd) dd.focus(); Fuzz.say('What does it mean? A few words is plenty.', { type: false }); return; }
         if (dopt === 'neither' && !dval) { var dn = $('#mem-neither'); if (dn) dn.focus(); Fuzz.say('What is it, then? Type it in and press Neither again.', { type: false }); return; }
+        /* Something was off, with its list still folded: open it first, so you can say what */
+        var dso = card.querySelector('.spot-off');
+        if (dopt === 'off' && dso && !dso.open && !(dval.what || []).length && !dval.note) { dso.open = true; var dcb = dso.querySelector('input'); if (dcb) dcb.focus(); Fuzz.say('What was off? Tick it, then press Something was off again.', { type: false }); return; }
         if (dopt === 'track' && !(dval.title || '').trim()) { var dtl = $('#dv-title'); if (dtl) dtl.focus(); Fuzz.say('Give it a name first.', { type: false }); return; }
         if (dopt === 'track' && dval.checked_by === 'fuzz' && !(dval.done_when || '').trim()) { var ddw = $('#dv-dw'); if (ddw) ddw.focus(); Fuzz.say('How will we know it’s done? Or tick the box and you check it.', { type: false }); return; }
         if (dopt === 'track' && !(dval.done_when || '').trim()) dval.done_when = 'You say it’s done';
@@ -2445,6 +2468,8 @@
         return;
       } else if (card.querySelector('[data-dv]') && n > -1) {
         b = card.querySelectorAll('[data-dv]')[n];
+      } else if (card.querySelector('[data-act^="hold-"]') && n > -1) {
+        b = card.querySelectorAll('[data-act^="hold-"]')[n];
       } else if (booking) {
         if (n > -1) b = card.querySelectorAll('[data-book]')[n];
       } else if (wayOpen || (cur() && cur().inTheWay)) {

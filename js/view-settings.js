@@ -64,7 +64,7 @@
     if (!root) return;
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
-      '<p class="meta">What Fuzz knows about you, what he may do, and how he looks. Each part saves on its own.</p>' +
+      '<p class="meta">What I know about you, what I may do, and how I look. Each part saves on its own.</p>' +
       meHTML() + vipsHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + voiceHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
@@ -360,7 +360,7 @@
           (note && x.status !== 'active' ? '<p class="meta">' + esc(note) + '</p>' : '') + '</div><div class="segrow">' + acts + '</div></li>';
       }).join('') + '</ul>';
     }).join('') : '<p class="meta">Nothing yet. When you tell me a message held nothing for you, or that I missed an ask, I learn from it here.</p>';
-    return section('learned', 'What I’ve learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
+    return section('learned', 'What Fuzz has learned', 'Messages you corrected me on. I read them before judging new ones like them.', body +
       '<p class="meta"><a href="#/evals">How I score on my tests</a>: every eval run, for debugging.</p>' +
       '<span class="meta set-said" id="said-learned" role="status"></span>');
   }

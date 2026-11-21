@@ -16,7 +16,8 @@
         "rule": "cream-palette",
         "value": "*",
         "files": [
-          "index.html"
+          "index.html",
+          "artifact.html"
         ],
         "createdAt": "2026-10-20T21:12:46.317Z",
         "reason": "user confirmed: Warm Theme System (light --bg #FBF3E8) marked binding during init; recorded in PRODUCT.md Brand Commitments"
@@ -46,6 +47,17 @@
         ],
         "createdAt": "2026-11-15T16:18:45.500Z",
         "reason": "Claude triage 2026-11-15: L580 is a neutral grey blockquote rule (.md blockquote), L935 an inset gutter mark on a highlighted code line (.code-row.hl); standard typography/code-viewer conventions, not accent-striped cards"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "css/app.css",
+          "index.html",
+          "artifact.html"
+        ],
+        "createdAt": "2026-11-20T00:00:00.000Z",
+        "reason": "Claude triage 2026-11-20: the Retro and Technicolor themes' scan-line textures on body::after (pointer-events none, off under high contrast); an opt-in theme texture, not decoration on content"
       }
     ]
   }

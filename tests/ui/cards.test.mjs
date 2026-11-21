@@ -79,7 +79,7 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
 test('Fuzz’s spot checks draw like memory cards: the message, then what was there; the run, then what was off', async () => {
   await page.evaluate(() => {
     const st = Store.get();
-    const base = { kind: 'deliv', memory: true, state: 'triage', incoming: '', source: 'Fuzz checking its work', who: '', age: '',
+    const base = { kind: 'deliv', memory: true, state: 'triage', incoming: '', source: 'Fuzz’s spot check', who: '', age: '',
       log: [], sources: [], people: [], context: [], conversation: [], code: [] };
     st.items.push(Object.assign({}, base, { id: 'c902', cardKind: 'spot_message', cardId: 902, suggested: 'nothing',
       cardOptions: ['nothing', 'had_ask', 'not_sure'], title: 'Was there anything for you here?', ask: 'Was there anything for you here?',

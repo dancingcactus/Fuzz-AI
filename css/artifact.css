@@ -3,7 +3,7 @@
 .av-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .av-back { flex: none; text-decoration: none; }
 .av-title { min-width: 0; }
-.av-title h1 { font-family: var(--font-display); font-weight: 800; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+.av-title h1 { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
 .av-title .meta { margin: 0; font-size: 13px; }
 .av-task { color: var(--ink); font-weight: 600; }
 .av-bar .appbar-right { grid-column: 2; }
@@ -14,7 +14,7 @@
 .av:focus { outline: none; }
 .av--slides { max-width: 1100px; }
 .av--pdf, .av--html { max-width: 1100px; }
-.av-status, .av-note { margin: 0; color: var(--muted); font-size: 13.5px; }
+.av-status, .av-note { margin: 0; color: var(--muted); font-size: 14px; }
 .av-doc { background: var(--surface); border: var(--bw) solid var(--line); border-radius: 16px; padding: 28px 32px; box-shadow: var(--shadow); }
 .av-doc.md { font-size: 16px; line-height: 1.65; }
 .av-doc.md h1, .av-doc.md h2, .av-doc.md h3 { font-family: var(--font-display); font-weight: 800; line-height: 1.25; margin: 26px 0 10px; }

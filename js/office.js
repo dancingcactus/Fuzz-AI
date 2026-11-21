@@ -264,7 +264,7 @@
           sizes.push(sz);
           var css = 'font-size:' + (sz / Wpt * 100).toFixed(3) + 'cqw', col = color(kid(pr, 'solidFill')) || defColor;
           if (col) css += ';color:' + col;
-          if ((at(pr, 'b') || defB) === '1') css += ';font-weight:700';
+          if ((at(pr, 'b') || defB) === '1') css += ';font-weight:600';
           if (at(pr, 'i') === '1') css += ';font-style:italic';
           if (at(pr, 'u') && at(pr, 'u') !== 'none') css += ';text-decoration:underline';
           var link = kid(pr, 'hlinkClick'), href = link && webLink(c.slide.rels[rid(link)]);

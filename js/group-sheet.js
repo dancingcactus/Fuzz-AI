@@ -4,12 +4,9 @@
    done, never what's left. Each task keeps its own deadline and done-when, so the group has neither. */
 (function () {
   var esc = UI.esc;
-  var STATE = { triage: ['In Triage', 'accent'], working: ['With Fuzz', 'accent'], 'queued': ['Next up', 'muted'], review: ['Needs your OK', 'warn'],
-    mine: ['With you', 'accent'], session: ['In Claude', 'muted'], deepwork: ['My work', 'accent'], scheduled: ['Later', 'muted'], waiting: ['Waiting on others', 'warn'],
-    parked: ['Parked', 'muted'], done: ['Done', 'ok'], letgo: ['Let go', 'muted'] };
   var dlg = null, gid = null, opts = {}, renaming = false, unsub = null;
 
-  function label(it) { return it.state === 'session' ? ['In ' + S().workIn, 'muted'] : STATE[it.state] || ['', 'muted']; }
+  function label(it) { return UI.status(it.state); }
   /* "1 done · 2 with others · 1 in Triage", done first */
   function summary(g) {
     var n = {}, order = [];
