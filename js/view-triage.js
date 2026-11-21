@@ -231,8 +231,9 @@
         '<div class="echo" id="echo" aria-hidden="true" hidden>' + Fuzz.mini('good', { cls: 'echo-av' }) + '<span id="echo-t"></span></div>' +
         /* Working through a group: its name and how far along you are, above the card */
         '<div class="gband" id="gband" hidden></div>' +
+        /* Outside the stack: inside it, the line pushed the card down while the ghost cards stayed put and covered it */
+        '<p class="upnext" id="upnext" role="status" hidden></p>' +
         '<div class="stack" id="stack">' +
-          '<p class="upnext" id="upnext" role="status" hidden></p>' +
           '<article class="card" id="card"></article>' +
           '<article class="card checkin" id="checkin" hidden>' +
             '<div class="tagrow"><p class="eyebrow"><span class="eb-i"><span class="eb-sep" aria-hidden="true"></span><span class="tag tag--info">Quick pause</span></span></p></div>' +
