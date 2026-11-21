@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS runs (
   trigger TEXT,                    -- manual | launchd | ui | chat
   started_at TEXT NOT NULL,
   finished_at TEXT,
-  outcome TEXT,                    -- ok | error | nothing_to_do
+  outcome TEXT,                    -- ok | error | nothing_to_do | timeout (stopped at its limit) | abandoned (its process died first)
   detail TEXT NOT NULL DEFAULT '{}',
   usage TEXT                       -- JSON: what the client said it used (usage.py); {"none": true} when it said nothing
 );

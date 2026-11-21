@@ -11,3 +11,7 @@ tests/ui/node_modules/
 
 # Playwright MCP: screenshots and logs from browser checks
 .playwright-mcp/
+
+# Finder and Python leftovers
+.DS_Store
+__pycache__/

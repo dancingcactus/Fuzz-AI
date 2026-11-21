@@ -121,10 +121,12 @@ UNDO_HOOKS = {
 def tick(core):
     """The clock: the scheduler's tick, then series (quiet ones rest, moving ones wake, next steps are suggested).
     Series run from here, not from the scheduler, so the domain never imports them (tests/test_layers.py)."""
-    from . import scheduler
+    from . import runs, scheduler
     from .series import suggest
     out = scheduler.tick(core)
     out["series"] = suggest.tick(core)
+    out["runs_reaped"] = runs.reap(core)
+    out["runs_pruned"] = runs.prune(core)
     return out
 
 

@@ -17,7 +17,7 @@ import json
 import re
 import subprocess
 
-from . import events, states
+from . import events, replies, states
 from .db import FuzzError
 
 QUICK = ("small things", "quick ones", "quick things", "small stuff", "quick stuff")
@@ -262,13 +262,10 @@ def prompt(core, text):
 
 
 def _parse(text):
-    m = re.search(r"\{.*\}", text or "", re.S)
-    if not m:
+    got = replies.json_object(text)
+    if got is None:
         raise FuzzError("The AI pass didn't return JSON", "result")
-    try:
-        return json.loads(m.group(0))
-    except ValueError:
-        raise FuzzError("The AI pass returned broken JSON", "result")
+    return got
 
 
 def ai_pass(core, text, runner=None, timeout=REFINE_TIMEOUT, lock=None):

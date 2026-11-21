@@ -25,9 +25,8 @@ import json
 import re
 import shutil
 import tempfile
-import time
 
-from . import adapters, config as config_mod, evals, scheduler, tasks, tools
+from . import config as config_mod, eval_harness, evals, replies, scheduler, tasks, tools
 from .db import Core, FuzzError, parse_iso
 
 SURFACE = "executor"
@@ -160,14 +159,8 @@ def turn_prompt(skill, case, me, record):
 
 
 def _parse(out):
-    m = re.search(r"\{.*\}", out or "", re.S)
-    if not m:
-        return None
-    try:
-        got = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
-    return got if isinstance(got, dict) else None
+    """The tool call (or {"done": true}) in a turn's reply; None when there's no JSON object in it."""
+    return replies.json_object(out, want=lambda o: "tool" in o or "done" in o) or replies.json_object(out)
 
 
 def play(case, skill, call, clock=None, max_turns=MAX_TURNS):
@@ -245,48 +238,18 @@ def check(record, checks):
 # ---- a run
 
 def skill_text(ref=None):
-    from . import draft_evals
-    return draft_evals.skill_text(ref)
+    return evals.skill_at("fuzz-executor", ref)
+
+
+def _keep(rec):
+    # the cases are invented, so what it wrote can be kept to read a failure
+    return {"trace": [{"tool": x["tool"], "args": json.dumps(x["args"], ensure_ascii=False)[:400]}
+                      for x in rec if x["tool"] not in WORLD_TOOLS]}
 
 
 def run(core, repeats=2, runner=None, client=None, model=None, against=None, ref=None, path=None, workers=4):
     """Play every executor case `repeats` times; a case passes on a majority. Recorded and gated like any run."""
-    from .config import eval_engine
-    client, model = eval_engine(core.config, "executor", client, model)
-    adapter = adapters.get(client) if client in adapters.ADAPTERS else None
-    if runner is None and adapter is None:
-        raise FuzzError("no client to run evals with: set engine.client or pass --client", "client")
-    skill, version, copy = skill_text(ref)
-    todo = evals.global_cases(SURFACE, path=path)
-    if not todo:
-        raise FuzzError("no executor cases in eval_seeds/executor.json", "cases")
-
-    def call(p):
-        return evals._call_model(core, adapter, model, runner, 1, [p])[0]
-
-    from concurrent.futures import ThreadPoolExecutor
-    started = time.monotonic()
-    jobs = [c for c in todo for _ in range(repeats)]
-    with ThreadPoolExecutor(max_workers=1 if runner else workers) as pool:
-        records = list(pool.map(lambda c: play(c, skill, call, core.clock), jobs))
-    results = {}
-    for c, rec in zip(jobs, records):
-        verdicts = check(rec, c["expected"]["checks"])
-        ok = all(v for _, v in verdicts)
-        r = results.setdefault(c["key"], {"key": c["key"], "case_id": None, "origin": c["origin"], "scope": "global",
-                                          "kind": c["kind"], "fp": c["fp"], "passes": 0, "runs": 0, "replies": []})
-        r["runs"] += 1
-        r["passes"] += ok
-        r["replies"].append({"passed": ok, "failed": [json.dumps(ch) for ch, v in verdicts if not v],
-                             "calls": [r2["tool"] for r2 in rec],
-                             # the cases are invented, so what it wrote can be kept to read a failure
-                             "trace": [{"tool": r2["tool"], "args": json.dumps(r2["args"], ensure_ascii=False)[:400]}
-                                       for r2 in rec if r2["tool"] not in WORLD_TOOLS]})
-    for r in results.values():
-        r["passed"] = r["passes"] * 2 > r["runs"]
-    results = list(results.values())
-    base = evals.get_run(core, against) if against else evals.baseline(core, SURFACE)
-    rid = evals.record(core, SURFACE, results, base, skill_version=version, skill_copy=copy,
-                       client=client if runner is None else "stub", model=model, repeats=repeats, lessons=[],
-                       sets="global", seconds=round(time.monotonic() - started, 1), judge=evals.judge_version(check))
-    return evals.get_run(core, rid)
+    return eval_harness.run_played(
+        core, SURFACE, "executor", "fuzz-executor", lambda c, skill, call: play(c, skill, call, core.clock),
+        lambda c, rec: check(rec, c["expected"]["checks"]), _keep, (check,), repeats=repeats, runner=runner,
+        client=client, model=model, against=against, ref=ref, path=path, workers=workers)

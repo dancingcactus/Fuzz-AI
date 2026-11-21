@@ -19,7 +19,7 @@ import json
 import re
 from pathlib import Path
 
-from . import evals, learning
+from . import evals, learning, replies
 from .db import FuzzError
 
 RUN = 6                          # this many words in a row shared with the private text is copying
@@ -168,10 +168,9 @@ def invent_prompt(case):
 
 
 def _parse(out):
-    m = re.search(r"\{.*\}", out or "", re.S)
-    if not m:
+    got = replies.json_object(out, want=lambda o: "input" in o) or replies.json_object(out)
+    if got is None:
         raise FuzzError("the model's copy had no JSON", "copy")
-    got = json.loads(m.group(0))
     for k in ("name", "input", "expected"):
         if k not in got:
             raise FuzzError(f"the model's copy has no {k}", "copy")
@@ -195,7 +194,7 @@ def _case(core, case_id):
 def trap_check(core, real, copy, repeats=3, runner=None, client=None, model=None):
     """Score the real case and the copy the same way: the repo's skill and the active lessons, but the real case's
     own. The copy should come out as the real case does."""
-    _, model, adapter = evals._engine(core, client, model, runner)
+    _, model, adapter = evals.engine(core, "extractor", client, model, runner)
     text, version, _ = evals.skill_text(real["surface"])
     rules = evals.judgment_rules(text)
     lessons = learning.leave_out(learning.lessons_for(core, real["surface"]), real["id"])
@@ -220,7 +219,7 @@ def invent(core, case_id, repeats=3, runner=None, client=None, model=None, write
     real = _case(core, case_id)
     if writer is None:
         def writer(p):
-            return evals._call_model(core, evals._engine(core, client, model, runner)[2], model, runner, 1, [p])[0]
+            return evals._call_model(core, evals.engine(core, "extractor", client, model, runner)[2], model, runner, 1, [p])[0]
     copy = _parse(writer(invent_prompt(real)))
     copy["kind"] = real["kind"]
     copy["expected"] = dict(copy["expected"], has_my_ask=real["expected"]["has_my_ask"])
