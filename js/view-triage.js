@@ -891,11 +891,16 @@
       i++;
       return { attr: 'data-dv="' + b[0] + '"', label: b[1], primary: b[2], key: i };
     })).replace(/<\/div>$/, '');
-    /* Not a series opens a menu, so it wears the same chevron as the split buttons on task cards */
-    if (notSeries) h += '<details class="ser-not"><summary class="btn" aria-haspopup="menu">Not a series' + CHEVRON + '</summary><div class="menu" role="menu">' +
-      '<button type="button" role="menuitem" data-dv="not_series"><b>Not a series</b><span>These just happened together.</span></button>' +
-      '<button type="button" role="menuitem" data-dv="not_series" data-why="ongoing"><b>It’s ongoing</b><span>Part of your job, with no finish line.</span></button>' +
-      '<button type="button" role="menuitem" data-dv="not_sure"><b>Not sure yet</b><span>Ask me again later.</span></button></div></details>';
+    /* Not a series is a split button like Later on task cards: the main answer, and its two cousins behind the
+       arrow. Number keys follow the [data-dv] order, so all three keep their keys with the menu closed. */
+    if (notSeries) {
+      var k = i + 1, item = function (dv, why, key, name, what) {
+        return '<button type="button" role="menuitem" data-dv="' + dv + '"' + (why ? ' data-why="' + why + '"' : '') + ' aria-keyshortcuts="' + key + '"><b>' + name + kbd(key) + '</b><span>' + what + '</span></button>';
+      };
+      h += splitHTML('ser-not', '<button type="button" class="btn split-main" data-dv="not_series" aria-keyshortcuts="' + k + '">Not a series' + kbd(k) + '</button>',
+        'm-sernot', 'Other answers', item('not_series', 'ongoing', k + 1, 'It’s ongoing', 'Part of your job, with no finish line.') +
+        item('not_sure', '', k + 2, 'Not sure yet', 'Ask me again later.'));
+    }
     return h + '</div></div>';
   }
   function partOfQHTML(it) {
