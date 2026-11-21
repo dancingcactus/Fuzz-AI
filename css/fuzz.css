@@ -419,3 +419,12 @@ html.calm .card.stamped .stamp{animation:none!important;opacity:.82}
 /* Rubber-stamp ink: translucent, multiplied into the card, with a worn, uneven edge */
 .stamp{text-transform:uppercase;mix-blend-mode:multiply;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 2.1'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 2.1'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
 .stamp:not(.s2):not(.s3):not(.s4):not(.s5){outline:2px solid var(--sage);outline-offset:-9px;border-radius:12px}
+/* Calm (and reduced motion, which turns Calm on): the app's own surfaces keep fades and drop the overshoot.
+   Cards fade in; the ghost stack, the bubble, the counters, button presses and stamps hold still. */
+@keyframes calmfade{from{opacity:0}}
+html.calm .card.enter,html.calm .card.enter-tilt{animation:calmfade .25s ease-out backwards}
+html.calm .card.enter h2,html.calm .card.enter .title-block{animation:none}
+html.calm .card.shake,html.calm .ghost.arrive,html.calm .bubble.pop,html.calm .stat.pop b,html.calm .ci-follow .btn,html.calm .card.stamped .stamp{animation:none!important}
+html.calm .ghost{transition:none}
+html.calm .btn{transition:background-color .15s ease-out}
+html.calm .btn:active,html.calm .btn.squish{transform:none}
