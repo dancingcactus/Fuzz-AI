@@ -1,7 +1,8 @@
 # Card actions: principles
 
-Status: **proposal, 2026-11-21.** Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
-(2026-11-21). The rest is not yet signed off. Nothing is built. Part 3 checks the rules against ADHD
+Status: **proposal, 2026-11-21, now built** for the task, answer, result, big, join, working, check-in and
+entity cards (Part 6). Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
+(2026-11-21). The rest is not yet signed off. Part 3 checks the rules against ADHD
 practice, and Part 4 lists where the current cards break them. These come from common executive-function
 traits and from reading the code, not from testing. Nobody with ADHD has tried them, and nobody qualified in
 ADHD has reviewed them (the same caveat as `docs/onboarding.md`). Treat them as hypotheses.
@@ -176,25 +177,25 @@ Two cautions beyond the table.
 
 ## Part 4. Where the current cards break the rules
 
-Found by reading `js/view-triage.js`, as it is on main.
+Found by reading `js/view-triage.js`, as it was on main. The last line of each row says what is built now.
 
 | # | Where | Break | Rule | Suggested fix |
 |---|---|---|---|---|
-| 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind the lead's chevron, which holds the take-it-on ways. The standing row stays. |
-| 2 | Working card | Six visible: Done, Keep going, Pause, Hand to Fuzz ▾, Work in Claude, Book time. It is the card for focus, so it should be the calmest. | 2, 5 | Done leads. Keep Pause and Keep going when it applies. Move the rest into one chevron. |
-| 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". |
-| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Help me start, Later and Done. |
-| 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. |
-| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: only the lead has an icon. Later and Done lose theirs (the clock and the check) when they are sub-actions. Every verb that can lead needs one icon: Hand it to Fuzz and Done have theirs, and Help me start, Bring it back, Book time, Do it now, Let it go and Pause (on the working card) need one. |
-| 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
-| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into a chevron, key L kept (Done's, under rule 15). Bring it back becomes the full-width lead, with Keep it parked, Later ▾ and Done ▾ on the row below. |
-| 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
-| 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. |
-| 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
-| 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
-| 13 | Avoidance | The keeps-coming-back card already leads with Help me start and words it neutrally, and the "what’s in the way" sheet exists. But the lead swap only happens on that one card kind, the sheet is a separate stacked list of four tiles outside the rule 12 shape, and no card shows the one neutral line. I have not checked what an ordinary task does after several reschedules. | 14, 12 | Make the swap general: pick the lead by likely cause, add the one-line prompt above it, and fold the sheet into the lead and a row of three. |
-| 14 | Menus | Done ▾ holds Do it now (who does it) and After the others (when), alongside Park it, Waiting and Not mine (clear it). On the stale and putoff cards Later ▾ holds Park it and Not mine. The big-task card puts take-it-on ways under Later. The working card's More ▾ is a grab bag. | 15 | Move each item to the menu of its theme (Part 2, rule 15). Rename or split any menu whose label needs "Other" or "More". |
-| 15 | Naming | "Just the first step" (`firststep`, in the big-task row, the stale answers and `live.js`) is a noun phrase among verbs, and does the same job as "Help me start" on the keeps-coming-back card (`unclear`): both work out what it needs and a two-minute first step. | 3, 8 | Decided: one action, **Help me start**, replacing both. It is a "who does it" move, lives in the Hand it to Fuzz menu, and is the lead on the keeps-coming-back card. Both `firststep` and `unclear` become one handler. It takes H, the key "Help me start" had before it was retired, which means updating the test that asserts H is gone. |
+| 1 | Big task card (`bigRow`) | Five choices in a lead block, then the four standing buttons: nine visible. | 2 | Lead shows the suggested one and one alternative. The rest go behind the lead's chevron, which holds the take-it-on ways. The standing row stays. **Status:** **Built.** The big task card is the suggested way, one alternative, Later ▾ and Done ▾: four visible. |
+| 2 | Working card | Six visible: Done, Keep going, Pause, Hand to Fuzz ▾, Work in Claude, Book time. It is the card for focus, so it should be the calmest. | 2, 5 | Done leads. Keep Pause and Keep going when it applies. Move the rest into one chevron. **Status:** **Built.** Done leads; Pause (Keep going at the end of a block), Later ▾ (Book the rest) and Hand it to Fuzz ▾ (I’ll do it, Work in Claude) share the row. |
+| 3 | Working card | "Hand to Fuzz" where every other card says "Hand it to Fuzz". | 3, 8 | Use "Hand it to Fuzz". **Status:** **Built.** |
+| 4 | Stale check-in | Two answers plus It still matters, Later and Let it go: five. | 2, 12 | Let it go moves into Done's chevron (items 8 and 14), and It still matters moves into Later's. That leaves the lead plus Help me start, Later and Done. **Status:** **Built.** Hand it to Fuzz leads; Help me start, Later ▾ (It still matters, Book time) and Done ▾ (Park it, Not mine, Let it go) share the row. |
+| 5 | Choice and entity cards | "Not sure yet" is key 3, or 4 when there is a third answer, so the free way out moves. Every task card uses S. | 3, 4, 6 | Bind S too, and show it as the hint. **Status:** **Built.** Not sure yet is S and sits in the row. The numbers 3 and 4 no longer mean it. |
+| 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: only the lead has an icon. Later and Done lose theirs (the clock and the check) when they are sub-actions. Every verb that can lead needs one icon: Hand it to Fuzz and Done have theirs, and Help me start, Bring it back, Book time, Do it now, Let it go and Pause (on the working card) need one. **Status:** **Built, with placeholder icons.** Only the lead wears one. The icons for Do it now, Help me start, Book time, Bring it back and Let it go are quick sketches in `js/card-actions.js` (`ICON`), to be redrawn. |
+| 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". **Status:** **Built.** The result card says Later. |
+| 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into a chevron, key L kept (Done's, under rule 15). Bring it back becomes the full-width lead, with Keep it parked, Later ▾ and Done ▾ on the row below. **Status:** **Built.** The parked check-in leads with Bring it back; Let it go is in Done’s menu, and leads only when `leansGo`. |
+| 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. **Status:** Unchanged, as decided. |
+| 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. **Status:** **Partly built.** On cards with answers and on the check-ins the link sits right under the actions. The ordinary card still shows its “I’ll do this” plan above the lead, because that block is the plan, not the link. |
+| 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. **Status:** **Built.** `js/card-actions.js`: the task, answer, result, big, join, working, check-in and entity cards describe what they offer as data and the component lays it out. The review card (a draft waiting for your OK), the deliverable, hold and part-of cards and the setup cards still build their own rows. |
+| 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. **Status:** **Checked for the closing actions.** `tests/ui/card-actions.test.mjs` types a note and presses park, after the others, not mine, I’ll do it, Help me start, let it go, It still matters, keep, keep parked, bring it back, check again later, they got back, nudge and hand it to Fuzz on a card of each kind, and finds the note on the task. Not covered: Pause and Waiting on someone (their forms), the entity cards, and the review card. |
+| 13 | Avoidance | The keeps-coming-back card already leads with Help me start and words it neutrally, and the "what’s in the way" sheet exists. But the lead swap only happens on that one card kind, the sheet is a separate stacked list of four tiles outside the rule 12 shape, and no card shows the one neutral line. I have not checked what an ordinary task does after several reschedules. | 14, 12 | Make the swap general: pick the lead by likely cause, add the one-line prompt above it, and fold the sheet into the lead and a row of three. **Status:** **Not built.** The component has a `line` slot, the big task card uses it, and the keeps-coming-back card leads with Help me start. Choosing the lead from the likely cause on any card needs a signal (reschedules, time in the queue) that I did not look for in the core. |
+| 14 | Menus | Done ▾ holds Do it now (who does it) and After the others (when), alongside Park it, Waiting and Not mine (clear it). On the stale and putoff cards Later ▾ holds Park it and Not mine. The big-task card puts take-it-on ways under Later. The working card's More ▾ is a grab bag. | 15 | Move each item to the menu of its theme (Part 2, rule 15). Rename or split any menu whose label needs "Other" or "More". **Status:** **Built** for the task, answer, result, big, join, working and check-in cards. One exception by design: a card with three or more answers puts the rest behind its second answer’s chevron, an “answers” menu, the one menu that is not a theme. |
+| 15 | Naming | "Just the first step" (`firststep`, in the big-task row, the stale answers and `live.js`) is a noun phrase among verbs, and does the same job as "Help me start" on the keeps-coming-back card (`unclear`): both work out what it needs and a two-minute first step. | 3, 8 | Decided: one action, **Help me start**, replacing both. It is a "who does it" move, lives in the Hand it to Fuzz menu, and is the lead on the keeps-coming-back card. Both `firststep` and `unclear` become one handler. It takes H, the key "Help me start" had before it was retired, which means updating the test that asserts H is gone. **Status:** **Built.** `helpstart` (H) replaces `firststep` and `unclear`; the retired-key test no longer lists H. `Store.firstStep` is left in the store, unused. |
 
 Screenshot 2 (the "I'll do this" card) is the closest to the target: a full-width fill, then one row of
 three, with chevrons on the verbs that have cousins. Screenshot 3 (Yes / No / Not sure yet) already has
@@ -217,12 +218,41 @@ Settled by the author, 2026-11-21:
 Still open:
 
 1. **Icons to draw.** Only verbs that can be the lead need one. Help me start, Bring it back, Book time,
-   Do it now and Let it go have none today. Pick a set that matches the existing arrow and check.
-2. **Do you want a test?** Rules 1 (one fill), 2 and 12 (four visible, one row of three), 3 (a key means
-   one verb) and 13 (every action carries the note) can be checked by a UI test that renders each card kind and counts. That would stop this
-   drifting again.
-3. **Build it?** A shared card-actions component (item 11) is the way to get all of this at once. It is
-   not started.
+   Do it now and Let it go now have placeholder sketches. Pick a set that matches the existing arrow and check.
+2. **Cards not on the component yet.** The review card (a draft waiting for your OK), the deliverable, hold and
+   part-of cards and the setup cards still build their own rows. They are not in the table above, so the rules
+   were not written for them. Say whether they should follow.
+3. **Keep going and It still matters are both K.** Keep going is on the working card and It still matters on the
+   check-ins. They never share a card, but rule 3 says a key means one verb everywhere. One of them needs a
+   new key.
+4. **Avoidance** (rule 14, audit 13): the line slot is built. Choosing the lead from the likely cause on any
+   card is not, until there is a signal for it.
+5. **Check the note on the entity and review cards** (rule 13).
+
+## Part 6. How it is built
+
+`js/card-actions.js` (loaded before `view-triage.js`) holds two things.
+
+- **`VERBS`**, the one place a verb's word, key, icon, theme and menu line are written. Rule 3 is therefore
+  structural: a card cannot give Later a different key.
+- **`CardActions.render(spec)`**, which lays out the area. A card describes what it offers as data:
+
+```js
+CardActions.render({
+  lead: { verb: 'assign', menu: { theme: 'who', items: ['deepwork', 'donow'] } },
+  row:  [ 'claude',
+          { verb: 'schedule', menu: { theme: 'when', items: ['book', 'afterothers'] } },
+          { verb: 'done',     menu: { theme: 'clear', items: ['park', 'waiting', 'theirs'] } } ]
+});
+```
+
+A slot is a verb id, `{ verb, label?, menu? }`, or `{ answer: { n, label, small, quick | act } }` for a numbered
+answer. Only the lead gets an icon, or its number. `render()` records anything that breaks a rule in
+`CardActions.violations` (two fills, more than three sub-actions or four visible, a key that means two verbs,
+a menu of more than four items or of a mixed theme) and warns on the console. The layout is one block of CSS,
+`.card-actions`, replacing the per-card grid areas.
+
+`tests/ui/card-actions.test.mjs` renders ten card kinds and checks rules 1, 2/12, 3, 5, 6, 13 and 15 on each.
 
 ## How to use this
 
