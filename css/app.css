@@ -897,7 +897,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .actions { grid-template-columns: repeat(2, 1fr); }
   .actions .split { grid-column: auto; }
   #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign done" "claude sched"; }
-  #actions kbd { display: none; } /* no room for key hints in two tight rows */
+  #actions kbd, .card-actions .ca-row kbd { display: none; } /* no room for key hints in a row of three */
   #actions .card-actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   #actions > .actions > .split-assign, #actions > .actions > [data-act="assign"] { grid-area: assign; }
   #actions > .actions [data-act="assign"] { min-height: 46px; }
