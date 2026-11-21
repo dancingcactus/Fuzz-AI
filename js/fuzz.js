@@ -266,7 +266,31 @@
   };
 
   /* Bored: surfs channels, with a face pop between each */
-  var BORED_LINES = ['Surfing channels. Nothing on.', 'Anyone out there?', 'I could alphabetize your task sources.', 'Channel 4 is still just static.'];
+  /* null is a slot for one of COULD, picked at random; two per round, between the channel lines. */
+  var BORED_LINES = ['Surfing channels. Nothing on.', null, 'Anyone out there?', null, 'Channel 4 is still just static.'];
+  /* Pointless things he could do for you. Written to docs/fuzz-tone.md: one line, no counts, nothing goes out. */
+  var COULD = [
+    'I could count the ceiling tiles in your office and tell you the total.',
+    'I could rearrange your queue into the shape of a smaller queue.',
+    'I could alphabetize your meetings, then re-sort them by mood.',
+    'I could keep an eye on your houseplant and tell you if it seems nervous.',
+    'I could rename your calendar events "final_v2" so they feel at home.',
+    'I could try to remember the name of that one actor. You know the one.',
+    'I could hold a staring contest with the microwave clock. It has never blinked.',
+    'I could narrate your day like a nature documentary, tuned in from the next room.',
+    'I could check your queue again, just to see if it changed.',
+    'I could draft a strongly worded letter to a pigeon. It would wait for your yes.',
+    'I could sort your parked cards into "might matter someday" and "let it go", then sort them again.',
+    'I could time how long you can hold a pen like a mustache.',
+    'I could walk into the next card and forget why I went in, then tell you all about it.',
+    'I could repeat one word from your inbox until it stops meaning anything.',
+    'I could rate every chair in your meetings out of 10 and tell no one.',
+    'I could make you a playlist for a card you\'ve parked.',
+    'I could invent a secret handshake just for you. I\'d keep it between us.',
+    'I could re-check the one card you already finished, just to be sure.',
+    'I could admire your open tabs from a respectful distance.',
+    'I could give each of your emails a nickname and tell you which ones seem friendly.'
+  ];
   var JOKES = [
     'I put your tasks in a sitcom. Now every problem gets resolved in 22 minutes.',
     'I tried organizing your queue like Netflix. Unfortunately, it keeps asking if I\'m still working.',
@@ -315,7 +339,8 @@
     (function tick() {
       if (!alive()) return;
       var joking = i === BORED_LINES.length;
-      F.say(joking ? pickLine(JOKES, 'joke') : BORED_LINES[i], { type: false, cls: joking ? 'joke' : '' });
+      var line = joking ? pickLine(JOKES, 'joke') : BORED_LINES[i] === null ? pickLine(COULD, 'could') : BORED_LINES[i];
+      F.say(line, { type: false, cls: joking ? 'joke' : '' });
       i = joking ? 0 : i + 1;
       setTimeout(tick, joking ? 12000 : 4800);
     })();
