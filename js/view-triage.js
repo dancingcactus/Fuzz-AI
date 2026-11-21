@@ -802,7 +802,8 @@
       var mwhere = [MEM_SOURCE[p.source] || 'A message', p.from, p.title, p.ts ? String(p.ts).slice(0, 10) : ''].filter(Boolean).join(' · ');
       var mq = p.quote ? '“' + esc(p.quote) + '”' : '';
       if (/^https?:/.test(p.link || '')) mq = '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">' + (mq || 'Open it') + '</a>';
-      h += profileHTML(mwhere, '', '', '', mq ? '<span class="pquote">' + mq + '</span>' : '') +
+      /* a short label, and who, what and when in plain case underneath (not an 80-character capital line) */
+      h += profileHTML(MEM_SOURCE[p.source] || 'A message', '', [p.from, p.title, p.ts ? String(p.ts).slice(0, 10) : ''].filter(Boolean).join(' · '), '', mq ? '<span class="pquote">' + mq + '</span>' : '') +
         '<div class="dv-new"><label for="spot-ask">If there was something, what was it?</label><input id="spot-ask" type="text" autocomplete="off" placeholder="For example: send Dana the venue contract"></div>';
     } else if (it.cardKind === 'spot_run') {
       h += '<section class="dv-steps"><h3>' + esc(p.title || '') + '</h3>' +

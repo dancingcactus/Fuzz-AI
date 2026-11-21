@@ -1,7 +1,7 @@
 /* Fuzz character, card stack, stamps and check-in styles.
    Ported from the Fuzz Triage motion prototype. Colors come from theme tokens (see app.css). */
 .stats{display:flex;gap:8px;flex-wrap:wrap}
-.stat{display:flex;gap:6px;align-items:baseline;padding:4px 10px;border:var(--bw) solid var(--line);border-radius:999px;background:var(--surface);font-size:12.5px;color:var(--ink-2)}
+.stat{display:flex;gap:6px;align-items:baseline;padding:4px 10px;border:var(--bw) solid var(--line);border-radius:999px;background:var(--surface);font-size:13px;color:var(--ink-2)}
 .stat b{font-family:var(--font-display);font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums;display:inline-block}
 .stat.pop b{animation:statpop .45s cubic-bezier(.3,1.6,.5,1)}
 @keyframes statpop{0%{transform:scale(1)}40%{transform:scale(1.55) translateY(-2px);color:var(--terra)}100%{transform:scale(1)}}
@@ -161,13 +161,13 @@ textarea{width:100%;resize:none;background:var(--surface-2);border:var(--bw) sol
 .btn:disabled{opacity:.55;cursor:default}
 .sched{display:none;flex-wrap:wrap;gap:8px}
 .sched.open{display:flex}
-.chip{display:inline-flex;gap:6px;align-items:center;border:var(--bw) solid var(--line);background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:13.5px;font-weight:500;cursor:pointer;animation:chipin .45s cubic-bezier(.3,1.7,.5,1) backwards;animation-delay:calc(var(--i,0)*60ms)}
+.chip{display:inline-flex;gap:6px;align-items:center;border:var(--bw) solid var(--line);background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:500;cursor:pointer;animation:chipin .45s cubic-bezier(.3,1.7,.5,1) backwards;animation-delay:calc(var(--i,0)*60ms)}
 .chip.picked{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 @keyframes chipin{0%{transform:translateY(8px) scale(.6);opacity:0}}
 .chip svg{width:14px;height:14px}
 hr{border:0;border-top:var(--bw) solid var(--line);margin:2px 0}
 h2{margin:0;font-family:var(--font-display);font-size:22px;line-height:1.2;font-weight:800;text-wrap:balance}
-.meta{margin:0;color:var(--ink-2);font-size:13.5px}
+.meta{margin:0;color:var(--ink-2);font-size:14px}
 .quick{display:flex;flex-wrap:wrap;gap:8px}
 .quick:empty{display:none}
 .stamp{position:absolute;right:18px;top:50%;margin-top:-34px;border:4px solid var(--sage);color:var(--sage);border-radius:12px;padding:4px 16px;font-family:var(--font-display);font-weight:800;font-size:32px;letter-spacing:.08em;opacity:0;pointer-events:none;transform:rotate(-12deg)}
@@ -326,7 +326,7 @@ html.calm .tag.due{animation:none}
 .card[hidden]{display:none}
 .checkin{background:linear-gradient(180deg,var(--surface),var(--surface-2))}
 .moods{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.mood{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:var(--bw) solid var(--line);background:var(--surface);border-radius:14px;cursor:pointer;font-weight:600;font-size:13.5px;transition:transform .15s cubic-bezier(.3,1.6,.5,1),background .15s;animation:chipin .45s cubic-bezier(.3,1.7,.5,1) backwards;animation-delay:calc(var(--i,0)*70ms)}
+.mood{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:var(--bw) solid var(--line);background:var(--surface);border-radius:14px;cursor:pointer;font-weight:600;font-size:14px;transition:transform .15s cubic-bezier(.3,1.6,.5,1),background .15s;animation:chipin .45s cubic-bezier(.3,1.7,.5,1) backwards;animation-delay:calc(var(--i,0)*70ms)}
 .mood:hover{transform:translateY(-2px)}
 .mood[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .mood svg.fz{width:54px;height:47px;fill:none;stroke:none;transition:transform .2s}

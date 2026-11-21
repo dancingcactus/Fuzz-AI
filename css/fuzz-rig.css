@@ -23,7 +23,7 @@
 .tled { fill: var(--ok); }
 .vb { fill: #2a2622; stroke: var(--limb-o); stroke-width: 1; }
 .vl { fill: #f3ead7; }
-.vt { fill: #3a2c25; font-family: var(--font-display); font-weight: 700; }
+.vt { fill: #3a2c25; font-family: var(--font-display); font-weight: 600; }
 .vw { fill: #151311; }
 .vs { fill: #e4dccb; }
 .paper .sh { fill: #f8f2e4; stroke: var(--limb-o); stroke-width: .9; }
