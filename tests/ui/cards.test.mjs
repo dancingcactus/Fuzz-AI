@@ -142,9 +142,9 @@ test('⌘ Enter in the box hands it to Fuzz with what you wrote', async () => {
 test('a question card answers its headline with numbered answers', async () => {
   await show('room');
   assert.match(await ask(), /big room on 3 or the quiet one on 5/);
-  const answers = page.locator('.answers .ans');
-  assert.equal(await answers.count(), 3, 'two answers and Something else');
-  assert.doesNotMatch(await page.locator('#card [data-act="assign"]').first().getAttribute('class'), /primary/, 'the answers lead');
+  assert.equal(await page.locator('.card-actions [data-quick]').count(), 2, 'the two answers: one leads, one shares the row');
+  assert.match(await page.locator('.card-actions > .ca-ans').getAttribute('class'), /primary/, 'answer 1 is the lead');
+  assert.equal(await page.locator('#card [data-act="assign"]').count(), 0, 'no second hand-off beside the answers');
   await page.keyboard.press('2');
   await page.waitForFunction(() => !Store.inQueue('room'));
   assert.match(await page.evaluate(() => Store.item('room').instr), /quiet room on 5/);
@@ -163,9 +163,11 @@ test('a note goes along with the answer you pick', async () => {
   assert.match(instr, /and copy Ines/);
 });
 
-test('Something else opens the box', async () => {
+test('Tell Fuzz something is a link under the actions, not a numbered answer', async () => {
   await show('room');
   await page.keyboard.press('3');
+  assert.notEqual(await page.evaluate(() => document.activeElement.id), 'instr', '3 is not an answer here');
+  await page.locator('.addnote').click();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'instr');
 });
 

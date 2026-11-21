@@ -355,6 +355,30 @@ html.dragging-file .drop.over .dropbtn { border-color: var(--accent); background
 .actions:not(.working-actions):has(> .split-assign) { grid-template-columns: repeat(3, 1fr); }
 .actions:not(.working-actions) > .split-assign { grid-column: 1 / -1; }
 .split-assign .menu, .split-later .menu { left: 0; right: auto; } /* they start their row: open toward the card */
+/* The card's action area (js/card-actions.js, docs/card-actions.md): a full-width lead, then one row of up to three */
+.card-actions { display: flex; flex-direction: column; gap: 8px; }
+.card-actions .btn { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; }
+.card-actions .btn.primary { min-height: 52px; box-shadow: 0 4px 10px -4px color-mix(in srgb, #000 30%, transparent); }
+.ca-line { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+.ca-row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+.ca-row.ca-n1 { grid-template-columns: 1fr; }
+.ca-row.ca-n2 { grid-template-columns: repeat(2, 1fr); }
+.ca-row > * { min-width: 0; }
+.card-actions .split { width: 100%; }
+.card-actions .split .btn.split-main { flex: 1; min-width: 0; }
+.card-actions .ca-row .btn { padding-left: 8px; padding-right: 8px; overflow-wrap: normal; word-break: normal; hyphens: none; }
+.card-actions .ca-row .split .more-btn { width: 38px; padding: 0; }
+.card-actions .split .menu, .ca-row > .split:first-child .menu { left: 0; right: auto; }
+.ca-row > .split:not(:first-child) .menu { left: auto; right: 0; }
+.ca-lead .menu { left: 0; right: 0; width: auto; max-width: none; }
+.ca-ans { width: 100%; }
+.ca-row .ca-ans { min-height: 46px; padding: 6px 8px; gap: 8px; justify-content: center; }
+.ca-row .ca-ans small { display: none; }
+.ca-row .ca-ans b { font-size: 15px; }
+.ca-row .ca-ans .k { width: 22px; height: 22px; font-size: 12.5px; }
+.ca-ans.primary { background: var(--terra, var(--accent)); border-color: var(--terra, var(--accent)); color: var(--terra-ink, #fff); min-height: 56px; }
+.ca-ans.primary .k { background: transparent; border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.ca-ans.primary small { color: inherit; opacity: .85; }
 /* A draft waiting for your OK: who it goes to, the editable text, then the decision */
 .draft { display: flex; flex-direction: column; gap: 8px; }
 .draft-to { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14.5px; }
@@ -874,6 +898,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   .actions .split { grid-column: auto; }
   #actions > .actions:not(.ent):not(.review):not(.result) { grid-template-columns: 3fr 2fr; grid-template-areas: "assign done" "claude sched"; }
   #actions kbd { display: none; } /* no room for key hints in two tight rows */
+  #actions .card-actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   #actions > .actions > .split-assign, #actions > .actions > [data-act="assign"] { grid-area: assign; }
   #actions > .actions [data-act="assign"] { min-height: 46px; }
   #actions > .actions > .split-done { grid-area: done; }
@@ -887,7 +912,7 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
   /* The actions stick to the bottom of the screen, so their menus open upward */
   #actions .split .menu { top: auto; bottom: calc(100% + 8px); }
   /* The card's actions stay within thumb reach while you read on down the card */
-  #actions:has(> .actions) {
+  #actions:has(> .actions), #actions:has(> .card-actions) {
     position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2; margin: 0 -8px; padding: 8px; border-radius: 16px;
     background: var(--surface); box-shadow: 0 -6px 18px -12px color-mix(in srgb, var(--ink) 40%, transparent);
   }
