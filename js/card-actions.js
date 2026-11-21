@@ -49,7 +49,7 @@
     waiting:      { label: 'Waiting on someone', key: 'W', theme: 'clear', what: 'You’re blocked until they get back to you. Fuzz checks back.' },
     theirs:       { label: 'Not mine', key: 'X', theme: 'clear', what: 'It’s someone else’s to do. Fuzz lets it go, and brings it back if a new ask needs you.' },
     letgo:        { label: 'Let it go', key: 'L', theme: 'clear', icon: 'leaf', what: 'Off your list. You can bring it back from Let go.' },
-    keepparked:   { label: 'Keep it parked', key: null, theme: 'clear', what: 'Stays parked. Fuzz won’t ask again for a few weeks.' },
+    keepparked:   { label: 'Keep it parked', key: null, theme: 'when', what: 'Stays parked. Fuzz won’t ask again for a few weeks.' },
     clarify:      { label: 'Bring it back', key: null, theme: 'who', icon: 'back', what: 'It’s an ordinary card again, first in line.' },
     pause:        { label: 'Pause', key: 'Z', theme: 'when', what: 'Stop for now, with a line on where you left off.' },
     keepgoing:    { label: 'Keep going', key: 'K', theme: 'when', what: 'The block runs on a little, if your calendar is free.' },
@@ -125,6 +125,15 @@
     if (row.length > 3) flag('a row holds at most three sub-actions, not ' + row.length, spec);
     var visible = 1 + row.length;
     if (visible > 4) flag('at most four visible choices, not ' + visible, spec);
+    /* Rule 5: the row reads who does it, then when, then clear it from my plate. Answers have no theme. */
+    var RANK = { who: 0, when: 1, clear: 2 }, last = -1;
+    row.forEach(function (s) {
+      if (!s || s.answer) return;
+      var r = RANK[verbOf(s).theme];
+      if (r == null) return;
+      if (r < last) flag(verbOf(s).label + ' is out of order: who does it, then when, then clear it from my plate', spec);
+      last = Math.max(last, r);
+    });
     var keys = {};
     [spec.lead].concat(row).forEach(function (s) {
       if (!s) return;
@@ -142,8 +151,6 @@
   }
 
   window.CardActions = {
-    VERBS: VERBS, ICON: ICON, CHEVRON: CHEVRON, kbd: kbd, render: render, violations: violations,
-    /* the same menu markup, for the one place that still builds its own split (the review card) */
-    menu: menuHTML
+    VERBS: VERBS, ICON: ICON, CHEVRON: CHEVRON, kbd: kbd, render: render, violations: violations
   };
 })();

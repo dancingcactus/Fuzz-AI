@@ -32,12 +32,12 @@ afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); }
 
 async function show(id, flags) {
   await page.evaluate(([id, flags]) => {
-    const it = Store.item(id); Object.assign(it, flags || {});
+    const it = Store.item(id); const { __doNow, ...rest } = flags || {}; Object.assign(it, rest);
     if (!Store.inQueue(id)) Store.enqueue(it, 'front');
-    Store.pick(id); App.refresh();
+    Store.pick(id); if (__doNow) Store.doNow(id); App.refresh();
   }, [id, flags]);
   await page.waitForFunction((id) => Store.shown() === id, id);
-  await page.locator('#card .card-actions').first().waitFor();
+  await page.locator('#card .card-actions').first().waitFor({ timeout: 10000 });
 }
 
 /* Each card kind the doc names, as a way to bring one to the front */
@@ -52,6 +52,10 @@ const KINDS = [
   ['waiting check-in', 'vendor', { putOff: false, checkBack: true, waitingOn: 'Dana' }],
   ['keeps coming back', 'vendor'],
   ['stale check-in', 'naming', { stage: 'stale', handedBack: false, result: false, quick: null }],
+  ['working card', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, __doNow: true }],
+  ['join a waiting reply', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, joinReply: true, joinReason: 'A reply to this thread is waiting for your OK.' }],
+  ['parked check-in Fuzz leans to let go', 'vendor', { putOff: false, review: true, leansGo: true }],
+  ['What’s in the way?', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, inTheWay: true }],
 ];
 
 for (const [name, id, flags] of KINDS) {
@@ -87,7 +91,7 @@ test('a key means one verb across every card kind (rule 3)', async () => {
       bs.map(b => [b.getAttribute('aria-keyshortcuts'), b.dataset.act, b.textContent.replace(/[A-Z0-9]$/, '').trim()]));
     for (const [key, act, text] of pairs) {
       if (/^\d$/.test(key)) continue;   /* numbers are answers (rule 4) */
-      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule' }[act] || act;
+      const verbOf = { keep: 'stillmatters', keepwaiting: 'schedule', 'ent-later': 'schedule', 'way-notnow': 'schedule' }[act] || act;
       if (seen[key] && seen[key] !== verbOf) assert.fail(`${key} is ${seen[key]} and ${verbOf} (${name})`);
       seen[key] = verbOf;
     }

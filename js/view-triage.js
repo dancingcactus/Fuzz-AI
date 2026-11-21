@@ -300,17 +300,6 @@
   function schedOpts(it) { return Store.scheduleOptions(it).filter(function (o) { return o.anchor.type !== 'exact'; }); }
   /* The visible key hint. Screen readers get aria-keyshortcuts on the button instead. */
   function kbd(k) { return '<kbd aria-hidden="true">' + k + '</kbd>'; }
-  /* A split button: the main action, and its close cousin behind the arrow (Hand it to Fuzz / I'll do it,
-     Later / Book time). The cousin keeps its own key, so G and B work without opening the menu. */
-  var ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  function splitHTML(cls, main, menuId, label, items, primary) {
-    return '<div class="split ' + cls + '">' + main +
-      '<button type="button" class="btn more-btn' + (primary ? ' primary' : '') + '" data-act="more" data-menu="' + menuId + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + label + '" title="' + label + '">' + ARROW + '</button>' +
-      '<div class="menu" role="menu" id="' + menuId + '" hidden aria-label="' + label + '">' + items + '</div></div>';
-  }
-  function menuItem(act, key, name, what) {
-    return '<button type="button" role="menuitem" data-act="' + act + '"' + (key ? ' aria-keyshortcuts="' + key + '"' : '') + '><b>' + name + (key ? kbd(key) : '') + '</b><span>' + what + '</span></button>';
-  }
   /* Close every open split menu, except the one in keep (the split just clicked) */
   function closeMenus(keep) {
     if (!root) return;
@@ -368,14 +357,15 @@
         '<div class="sched-links"><button type="button" class="linkbtn" data-act="pause-cancel" aria-keyshortcuts="Escape">Back to it</button></div></form>';
     }
     if (wayOpen || it.inTheWay) {
-      /* What's in the way? Asked once when a card sits in front a while, or after two trips to the end of the list */
-      return '<div class="sched-panel way"><h3 id="way-h" tabindex="-1">What’s in the way?</h3><p class="meta">No wrong answer. Pick the closest.</p>' +
-        '<div class="when-grid">' +
-        '<button type="button" class="when" data-act="way-big" aria-keyshortcuts="1"><span>This is a big one' + kbd(1) + '</span><small>Do it now, book time, I’ll do it, after the others, or just the first step</small></button>' +
-        '<button type="button" class="when" data-act="way-decide" aria-keyshortcuts="2"><span>I can’t decide' + kbd(2) + '</span><small>Fuzz lays out the options with one it suggests</small></button>' +
-        '<button type="button" class="when" data-act="way-draft" aria-keyshortcuts="3"><span>I don’t want to write it' + kbd(3) + '</span><small>Fuzz drafts it for your OK</small></button>' +
-        '<button type="button" class="when" data-act="way-notnow" aria-keyshortcuts="4"><span>Not now' + kbd(4) + '</span><small>After the others, no penalty</small></button>' +
-        '</div>' + (it.inTheWay ? '' : '<div class="sched-links"><button type="button" class="linkbtn" data-act="way-dismiss" aria-keyshortcuts="Escape">Never mind</button></div>') + '</div>';
+      /* What's in the way? Asked once when a card sits in front a while, or after two trips to the end of the list.
+         Each cause picks the lead Fuzz would use (rule 14), in the same shape as every card: one lead, then three. */
+      return '<div class="way" id="way" tabindex="-1">' + CardActions.render({ cls: 'way-actions',
+        line: 'What’s in the way? No wrong answer. Pick the closest.',
+        lead: { answer: { n: 1, act: 'way-big', label: 'This is a big one', small: 'Do it now, book time, I’ll do it, after the others, or help me start' } },
+        row: [{ answer: { n: 2, act: 'way-decide', label: 'I can’t decide', small: 'Fuzz lays out the options with one it suggests' } },
+          { answer: { n: 3, act: 'way-draft', label: 'I don’t want to write it', small: 'Fuzz drafts it for your OK' } },
+          { verb: 'way-notnow', act: 'way-notnow', label: 'Not now', key: 'S', theme: 'when' }] }) +
+        (it.inTheWay ? '' : '<div class="sched-links"><button type="button" class="linkbtn" data-act="way-dismiss" aria-keyshortcuts="Escape">Never mind</button></div>') + '</div>';
     }
     var wi = 'Work in ' + Store.workIn;
     /* The standing menus (rule 15): one theme each, the same items wherever they appear */
@@ -384,9 +374,9 @@
     if (it.doing) {
       /* The working card is the calmest: Done leads. Pause (Keep going at the end of a block), Later, and Hand it to Fuzz */
       return CardActions.render({ cls: 'working-actions', lead: 'done', row: [
+        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }] } },
         it.blockEnd ? 'keepgoing' : 'pause',
-        LATER([{ verb: 'book', label: it.firstStepMode ? 'Book the rest' : 'Book time' }]),
-        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }] } }] });
+        LATER([{ verb: 'book', label: it.firstStepMode ? 'Book the rest' : 'Book time' }])] });
     }
     if (it.state === 'review') return reviewActionsHTML(it);
     /* A result: what Fuzz found is the thing you asked for, so Done leads and Hand it to Fuzz is the way to send him further.
@@ -2414,7 +2404,8 @@
       } else if (booking) {
         if (n > -1) b = card.querySelectorAll('[data-book]')[n];
       } else if (wayOpen || (cur() && cur().inTheWay)) {
-        if (n > -1) b = card.querySelectorAll('.way [data-act]')[n];
+        if (n > -1) b = card.querySelector('.way [data-num="' + (n + 1) + '"]');
+        else if (k === 's') b = card.querySelector('.way [data-act="way-notnow"]');
       } else if (scheduling) {
         if (n > -1) b = card.querySelectorAll('.when-grid .when')[n];
         else if (k === 'm') b = card.querySelector('[data-sched="more"]');

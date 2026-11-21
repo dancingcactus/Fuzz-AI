@@ -67,13 +67,13 @@ test('a memory card left in front keeps its own answers: What’s in the way? is
   await page.locator('#card [data-dv="first"]').waitFor();
   /* the stuck check runs every 15 seconds */
   await page.waitForTimeout(16500);
-  assert.equal(await page.locator('#way-h').count(), 0, 'no What’s in the way? on a memory card');
+  assert.equal(await page.locator('#way').count(), 0, 'no What’s in the way? on a memory card');
   assert.equal(await page.locator('#card [data-dv="first"]').count(), 1, 'its own answers stay');
   assert.equal(await page.locator('#card [data-act="assign"]').count(), 0, 'no task buttons');
   /* a task left in front still gets asked */
   const t = await page.evaluate(() => Store.get().queue.find(id => { const i = Store.item(id); return i && i.kind === 'task' && i.state === 'triage' && !i.doing; }));
   await show(t);
-  await page.locator('#way-h').waitFor({ timeout: 20000 });
+  await page.locator('#way').waitFor({ timeout: 20000 });
 });
 
 test('Fuzz’s spot checks draw like memory cards: the message, then what was there; the run, then what was off', async () => {
@@ -110,9 +110,10 @@ test('no Find out: a task card has Done, Q does nothing, and What’s in the way
   await page.keyboard.press('q');
   assert.equal(await page.evaluate(() => Store.shown()), t);
   await page.evaluate((id) => { Store.item(id).inTheWay = true; App.refresh(); }, t);
-  await page.locator('#way-h').waitFor();
-  const choices = await page.$$eval('.way .when', els => els.map(e => [e.dataset.act, e.getAttribute('aria-keyshortcuts')]));
-  assert.deepEqual(choices, [['way-big', '1'], ['way-decide', '2'], ['way-draft', '3'], ['way-notnow', '4']]);
+  await page.locator('#way').waitFor();
+  const choices = await page.$$eval('.way [data-act]', els => els.map(e => [e.dataset.act, e.getAttribute('aria-keyshortcuts')]));
+  /* the same shape as every card: one lead, then three, and Not now is S (rule 6) */
+  assert.deepEqual(choices, [['way-big', '1'], ['way-decide', '2'], ['way-draft', '3'], ['way-notnow', 'S']]);
   await page.keyboard.press('2');
   await page.waitForFunction((id) => !Store.inQueue(id), t);
   assert.equal(await page.evaluate((id) => Store.item(id).now, t), 'Laying out the options');
