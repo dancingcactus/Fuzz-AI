@@ -318,8 +318,8 @@ Defaults are marked. Ask before going a different way.
 
 ## Building and testing it
 
-- **Core tests:** `PYTHONPATH=core ~/.local/share/uv/tools/fuzz-core/bin/python -m unittest discover core/tests`
-  (system python lacks the deps).
+- **Core tests:** `PYTHONPATH=core ~/.local/share/uv/tools/fuzz-core/bin/python -m unittest discover -b core/tests`
+  (system python lacks the deps; `-b` shows a test's output only when it fails).
 - **UI tests:** `cd tests/ui && node --test`. Each file binds a random port in 8790–9690, so don't run a live core
   there while testing. Tests mostly check states, not words, but the nav markup (`#navcount`, `#dwcount`, `[data-nav]`)
   and Triage's empty state will need test updates.

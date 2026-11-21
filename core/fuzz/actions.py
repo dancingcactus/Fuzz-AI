@@ -126,6 +126,7 @@ def tick(core):
     out = scheduler.tick(core)
     out["series"] = suggest.tick(core)
     out["runs_reaped"] = runs.reap(core)
+    out["runs_pruned"] = runs.prune(core)
     return out
 
 

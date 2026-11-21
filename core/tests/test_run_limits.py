@@ -111,5 +111,43 @@ class Reap(CoreCase):
         self.assertEqual(actions.tick(self.core)["runs_reaped"], [rid])
 
 
+class Prune(CoreCase):
+    def _run(self, client="scripted", usage='{"none": true}'):
+        rid = runs.start(self.core, "executor", client)
+        runs.finish(self.core, rid, "ok")
+        with self.core.tx("system"):
+            self.core.q("UPDATE runs SET usage=? WHERE id=?", (usage, rid))
+        d = os.path.join(self.core.home, "runs", str(rid))
+        os.makedirs(d)
+        open(os.path.join(d, "transcript.log"), "w").close()
+        return rid, d
+
+    def test_old_folders_go_and_the_rows_stay(self):
+        old, old_dir = self._run()
+        self.clock.advance(days=runs.KEEP_DAYS + 1)
+        new, new_dir = self._run()
+        self.assertEqual(runs.prune(self.core, force=True), [old])
+        self.assertFalse(os.path.exists(old_dir))
+        self.assertTrue(os.path.exists(new_dir))
+        self.assertEqual(runs.get(self.core, old)["outcome"], "ok")
+
+    def test_a_transcript_whose_usage_isnt_read_yet_stays(self):
+        rid, d = self._run(client="copilot", usage=None)
+        self.clock.advance(days=runs.KEEP_DAYS + 1)
+        self.assertEqual(runs.prune(self.core, force=True), [])
+        self.assertTrue(os.path.exists(d))
+
+    def test_once_a_day(self):
+        self._run()
+        self.clock.advance(days=runs.KEEP_DAYS + 1)
+        self.assertEqual(len(runs.prune(self.core)), 1)
+        rid, _ = self._run()
+        with self.core.tx("system"):   # finished long ago, but prune looked an instant ago
+            self.core.q("UPDATE runs SET finished_at='2020-01-01T00:00:00Z' WHERE id=?", (rid,))
+        self.assertEqual(runs.prune(self.core), [], "looked within the day")
+        self.clock.advance(days=1)
+        self.assertEqual(len(runs.prune(self.core)), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

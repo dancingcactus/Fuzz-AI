@@ -2,10 +2,11 @@
 
 import json
 import os
+import shutil
 from datetime import timedelta
 
 from . import events
-from .db import FuzzError, parse_iso
+from .db import FuzzError, iso, parse_iso
 
 REAP_GRACE_MINUTES = 5    # a run this new is left alone, whatever its pid says
 ORPHAN_HOURS = 24         # a run from before pids were recorded is closed after this long
@@ -77,6 +78,29 @@ def reap(core, alive=alive):
                                                  if pid else f"no word for {ORPHAN_HOURS} hours"))
         closed.append(r["id"])
     return closed
+
+
+KEEP_DAYS = 60            # a run's folder (its transcript, argv and MCP config) is kept this long
+_pruned = {}              # (home, user) -> when prune last looked, so the clock does it once a day
+
+
+def prune(core, keep_days=KEEP_DAYS, force=False):
+    """Delete the folders of runs that finished more than keep_days ago, once their usage has been read
+    (usage.backfill reads it from the transcript). The rows stay. At most once a day unless force.
+    Returns the ids whose folders went."""
+    key, now = (core.home, core.user_id), core.now()
+    if not force and key in _pruned and now - _pruned[key] < timedelta(days=1):
+        return []
+    _pruned[key] = now
+    cutoff = iso(now - timedelta(days=keep_days))
+    gone = []
+    for r in core.all("SELECT id FROM runs WHERE user_id=? AND finished_at IS NOT NULL AND finished_at < ? "
+                      "AND (usage IS NOT NULL OR client NOT IN ('copilot', 'claude-code'))", (core.user_id, cutoff)):
+        d = os.path.join(core.home, "runs", str(r["id"]))
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+            gone.append(r["id"])
+    return gone
 
 
 def last(core, role=None, client=None):
