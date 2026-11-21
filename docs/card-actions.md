@@ -1,6 +1,6 @@
 # Card actions: principles
 
-Status: **proposal, 2026-11-21.** Rules 3, 9 and 12 and the Let it go and icon calls are the author's
+Status: **proposal, 2026-11-21.** Rules 3, 9, 12 and 14 and the Let it go and icon calls are the author's
 (2026-11-21). The rest is not yet signed off. Nothing is built. Part 3 checks the rules against ADHD
 practice, and Part 4 lists where the current cards break them. These come from common executive-function
 traits and from reading the code, not from testing. Nobody with ADHD has tried them, and nobody qualified in
@@ -92,6 +92,21 @@ go). Nothing typed is ever dropped, and no action asks the user to send the note
 a note is attached, so the user can see it will travel. Only the way out of the box itself (Escape, or
 clearing it) discards the text.
 
+**14. When Fuzz suspects a task is being avoided, the lead changes, not the layout.** Signals are a task
+rescheduled again and again, a long time in the queue, or a hand-off bounced back. The card then leads with
+the move that makes starting cheapest, picked by the likely cause: a big task leads with Just the first
+step, a decision leads with Fuzz's pick, a draft the user doesn't want to write leads with Fuzz drafting it,
+and an unknown cause leads with Help me start. The card says so in **one short, neutral line** above the
+lead, such as "This one keeps moving. Want a smaller first step?" Then it stays out of the way.
+- Rules 3, 6 and 12 hold: same keys, the free way out still there, a full-width lead with at most three
+  sub-actions. Rule 2's budget holds too, so nothing is added to the card, only swapped.
+- The line never accuses and never counts. No "you've put this off 4 times", nothing red, no streak (product
+  principle 2). It asks, or offers.
+- The line appears once per change of lead, not on every visit. Choosing Later again is allowed and is never
+  met with a nag or a sterner line.
+- The change is visible, never silent. Someone coming back after an interruption should be able to see why
+  the lead is not what it was.
+
 ### What the rules give each card kind
 
 Each row is the full-width lead, then at most three sub-actions (rule 12).
@@ -125,6 +140,12 @@ reviews it (the plan in `docs/fuzz-tone.md`).
 | **Delay aversion and time blindness.** Waiting without feedback loses attention. | Immediate, visible response; time in human terms. | 11 (and the existing time wording) | Reasonable. |
 | **Keyboard shortcuts.** Fast for those who learn them, but they depend on memory. | Visible hints on the button; never required. | 3, 4 | Mixed. Shortcuts help the repeat user and burden the new one, so the hint must always be on the button. |
 
+Avoidance is on the table too, as one more row:
+
+| ADHD challenge | What helps | Rules that carry it | Verdict |
+|---|---|---|---|
+| **Avoidance.** A task keeps getting pushed, usually because the first step is unclear, the task is big, or it carries emotional weight. It is rarely laziness. | Shrink the start; take over the decision; name the barrier without blame. | 14, 2, 6 | Reasonable. The risks are that the change feels like surveillance or shame, and that a shifting layout breaks muscle memory. Rule 14 swaps the lead only, in neutral words, which limits both. |
+
 Two cautions beyond the table.
 
 - **Fewer choices can also mean hidden choices.** Putting things behind a chevron works against "out of sight,
@@ -147,10 +168,11 @@ Found by reading `js/view-triage.js`, as it is on main.
 | 6 | Icons | Hand it to Fuzz (arrow), Later (clock) and Done (check) have icons. Work in Claude, It still matters, Let it go, Pause and the menu items have none. | 3 | Decided: every standing verb wears its icon, as a button and as a menu item. Needs icons for Work in Claude, It still matters, Let it go, Pause, Park, Waiting and Not mine. |
 | 7 | Result card | Done leads and "Ask me later" replaces Later. Same move, different word. | 3 | Keep one word, "Later". |
 | 8 | Check-in card (screenshot 1) | "Keep it parked" and "Let it go" sit next to each other at equal weight in the same row, and the lead is not full width. | 9, 12 | Decided: Let it go moves into Later's chevron, key L kept. Bring it back becomes the full-width lead, with Keep it parked and Later ▾ on the row below. |
-| 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
-| 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
 | 9 | Check-in card | "Check again later" is S on a waiting card, and Later is S elsewhere. | 3 | It is the same family and the same key, so allowed. Keep the label, and note it here. |
 | 10 | Layout | "Tell Fuzz something" sits above the row on the check-in card and inside the box on the "I'll do this" card. | 5 | One place for E: the link goes directly under the lead on every card. |
+| 11 | Every card with a lead | The lead and the sub-actions are the same width, or the lead is a numbered tile in a list, or the answers are stacked. | 12 | One full-width lead, then one row of up to three. Build it once as a shared card-actions component so no card lays out its own. |
+| 12 | Every action | Most actions already read the box (Done, Work in Claude, Later, Park, Let it go, and the check-in answers call `pendingNote`), but I haven't checked every one. Pause, Keep it parked, Check again later, Nudge them and the other menu items are unconfirmed. | 13 | Press every action with text in the box and fix any that drops it. A UI test (Part 5) would keep it so. |
+| 13 | Avoidance | The keeps-coming-back card already leads with Help me start and words it neutrally, and the "what’s in the way" sheet exists. But the lead swap only happens on that one card kind, the sheet is a separate stacked list of four tiles outside the rule 12 shape, and no card shows the one neutral line. I have not checked what an ordinary task does after several reschedules. | 14, 12 | Make the swap general: pick the lead by likely cause, add the one-line prompt above it, and fold the sheet into the lead and a row of three. |
 
 Screenshot 2 (the "I'll do this" card) is the closest to the target: a full-width fill, then one row of
 three, with chevrons on the verbs that have cousins. Screenshot 3 (Yes / No / Not sure yet) already has
@@ -165,6 +187,8 @@ Settled by the author, 2026-11-21:
   appear less and less over time.
 - **Icons** stay, on every standing verb, because they help comprehension.
 - **Layout** is rule 12: a full-width lead, then up to three sub-actions on the next row.
+- **Avoidance** (rule 14): the options change when a task seems to be avoided, and the card says so in one
+  short, neutral line.
 
 Still open:
 
