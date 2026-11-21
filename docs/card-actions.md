@@ -1,7 +1,8 @@
 # Card actions: principles
 
-Status: **proposal, 2026-11-21, now built** for the task, answer, result, big, join, working, check-in and
-entity cards (Part 6). Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
+Status: **proposal, 2026-11-21, built on every Triage card** (Part 6) and checked by `tests/ui/card-actions.test.mjs`.
+Still to do, and not mine to do: the author's sign-off on the rules not marked as theirs, the author's approval of
+the new icons and of Keep going on N, and a review of Part 3 by someone qualified in ADHD. Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
 (2026-11-21). The rest is not yet signed off. Part 3 checks the rules against ADHD
 practice, and Part 4 lists where the current cards break them. These come from common executive-function
 traits and from reading the code, not from testing. Nobody with ADHD has tried them, and nobody qualified in

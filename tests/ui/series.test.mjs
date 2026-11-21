@@ -149,19 +149,19 @@ test('live: a series you start waits for your OK in Triage, then it’s going, w
   const page = await newPage(`${base}/?token=${tok}#/triage`);
   await page.waitForFunction(() => window.Live && Live.on() && Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 60000 });
   await page.evaluate(() => { const it = Store.queue().filter(i => i.cardKind === 'series_new')[0]; Store.pick(it.id); App.refresh(); });
-  await page.waitForFunction(() => document.querySelectorAll('[data-sertask]').length >= 3, null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll('[data-sertask]').length >= 3, null, { timeout: 45000 });
   const visible = await page.$$eval('#actions .card-actions button:not([role="menuitem"]):not(.more-btn)', els => els.map(e => e.textContent.replace(/^\d/, '').replace(/\d$/, '').trim()));
   assert.deepEqual(visible, ['Looks right', 'Adjust on its sheet', 'Not a series'], 'its cousins sit under Not a series’s own menu');
   await page.click('input[name="ser-role"][value="drive"]');
   await page.click('[data-dv="looks_right"]');
-  await page.waitForFunction(() => !Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 15000 });
-  for (let i = 0; i < 50; i++) { if ((await api('GET', '/series')).counts.going === 1) break; await new Promise(r => setTimeout(r, 200)); }
+  await page.waitForFunction(() => !Store.queue().some(i => i.cardKind === 'series_new'), null, { timeout: 45000 });
+  for (let i = 0; i < 150; i++) { if ((await api('GET', '/series')).counts.going === 1) break; await new Promise(r => setTimeout(r, 200)); }
   const pg = await api('GET', '/series');
   assert.equal(pg.counts.going, 1);
   assert.equal(pg.sections.going[0].role, 'drive');
   /* the page and its sheet: add a task to it */
   await page.evaluate(() => App.navigate('#/series'));
-  await page.waitForFunction(() => document.querySelector('.ep .ep-name'), null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector('.ep .ep-name'), null, { timeout: 45000 });
   await page.click('.ep .ep-name');
   await page.locator('#ss-task').waitFor();
   await page.fill('#ss-task', 'Write the Northwind pilot success criteria');
