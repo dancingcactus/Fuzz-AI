@@ -55,6 +55,7 @@ def summary(core):
         "SELECT e.id, e.ts, e.actor, e.type, e.task_id, e.payload, t.title, t.state FROM events e "
         "JOIN tasks t ON t.id=e.task_id AND t.user_id=e.user_id "
         f"WHERE e.user_id=? AND e.ts>=? AND e.ts<=? AND e.actor IN ({','.join('?' * len(FUZZ))}) "
+        "AND COALESCE(t.variant_tags, '') NOT LIKE '%rhythm_holder%' "   # the holder that owns Focus time's holds is nothing you see
         f"AND e.type IN ({','.join('?' * len(KIND_OF))}) ORDER BY e.id DESC",
         (core.user_id, iso(since), now, *FUZZ, *KIND_OF))
     counts, best = {}, {}

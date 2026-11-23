@@ -79,6 +79,16 @@ class Booking(CoreCase):
         self.report(FOCUS)
         self.assertFalse(tools.whoami(self.core, "executor")["calendar"]["read_now"])
 
+    def test_book_time_still_offers_times_when_the_calendar_has_nothing_free(self):
+        # a report whose slots are all in the past (or no free time at all) must not leave the card with no times
+        past = {"start": "2026-10-19T10:00:00Z", "end": "2026-10-19T12:00:00Z", "title": "Focus time"}
+        self.report(past)
+        opts = booking.options(self.core, self.task(self.sized("Write the Q4 readout", 90)))
+        self.assertTrue(opts and all(o["source"] == "fuzz" for o in opts))
+        tid = self.sized("Draft the memo", 60)
+        self.assertTrue(self.view(tid)["book_options"], "the card has times to pick")
+        self.assertEqual(self.book_first(tid)["state"], "scheduled")
+
     # ---- sitting down to it from the hold's link (#/work/<id> on the Guide)
     def test_starting_deep_work_on_booked_time_uses_up_the_block(self):
         self.report(FOCUS)
@@ -171,7 +181,8 @@ class Booking(CoreCase):
         scheduler.tick(self.core)
         q = [x["title"] for _, x in cards.queue(self.core)]
         self.assertEqual(q[:2], ["Write the Q4 readout", "Sign the contract"])   # the block first, a deadline second
-        self.assertIn("doing", self.task(tid)["variant_tags"])
+        self.assertIn("block", self.task(tid)["variant_tags"])
+        self.assertNotIn("doing", self.task(tid)["variant_tags"], "there is no working card any more")
 
     def _in_block(self):
         self.report(FOCUS, {"start": "2026-10-21T11:30:00Z", "end": "2026-10-21T12:30:00Z"})

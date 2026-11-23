@@ -152,7 +152,7 @@ NOTE_MISSED = "You said Fuzz missed this. It's finding the message it came from.
 
 def capture(core, text, docs=None, actor="human", due=None, gather=False, uploading=False, missed=False,
             deep_work=False):
-    """deep_work: typed in a Deep Work session, so it goes straight to the pool, to work on now. Nothing to
+    """deep_work: typed in a Focus time session, so it goes straight into it, to work on now. Nothing to
     gather first (you're about to do it) and no card.
     gather: Fuzz looks the task up with its read-only tools before it reaches triage, so the card can
     show what it found. It waits as queued for Fuzz with the gather tag until then.
@@ -180,7 +180,7 @@ def capture(core, text, docs=None, actor="human", due=None, gather=False, upload
                 **({"notes": NOTE_MISSED} if missed else {}),
                 title_history=[], steps_used=0, attempts=0, deadline_level=0)
         events.emit(core, "task.captured", task_id=tid, changes=ch, data={"docs": docs, **({"missed": True} if missed else {})},
-                    log=("status", NOTE_MISSED if missed else "You started this in My work." if deep_work
+                    log=("status", NOTE_MISSED if missed else "You started this in Focus time." if deep_work
                          else "You captured this task." if actor == "human" else "Fuzz captured this task."))
         for d in docs:   # each upload fills its row (files.attach)
             core.q("INSERT INTO sources (user_id, task_id, role, title) VALUES (?,?,?,?)",
@@ -261,8 +261,9 @@ def session(core, task_id, card=None):
 
 
 def deep_work(core, task_id, card=None, left_off=None, log=None):
-    """I'll do it: yours, and it takes real time. Out of Triage into My work (state deepwork), for a Deep Work session you start
-    when you have the time. Triage only decides; the doing happens there.
+    """Focus time starts on this task: it moves into the session (state deepwork) from Triage or from booked time, and
+    leaves again when you wrap up (booked, put off or handed to Fuzz). There is no queue of "mine, someday"
+    (docs/book-then-work.md): a task is booked or postponed.
     left_off: on a task already in the pool, "Done for now" in a session keeps where you left off in its notes,
     and it goes to the back of the pool's order."""
     t = require(core, task_id)
@@ -273,13 +274,39 @@ def deep_work(core, task_id, card=None, left_off=None, log=None):
             ch = events.Changes()
             ch.task(t["id"], order_key=next_order(core), **f)
             return events.emit(core, "task.paused", task_id=t["id"], changes=ch,
-                               log=("guidance", f"Done for now in My work. Where you left off: {said}") if said
-                               else ("status", "Done for now in My work."))
+                               log=("guidance", f"Done for now in Focus time. Where you left off: {said}") if said
+                               else ("status", "Done for now in Focus time."))
     # booked time you sat down to (a calendar link opens it on the Guide): the block is spent, so it isn't booked any more
     sched = dict(schedule_anchor=None, schedule_fire_at=None, remove_tags=("booked",)) if t["state"] == "scheduled" else {}
     return _one(core, "human", "task.assigned", t, "deepwork",
-                log or ("status", "You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it."),
+                log or ("status", "You started on this in Focus time."),
                 card=card, option="deep_work", data={"to": "deepwork"}, question=None, **sched)
+
+
+MIGRATED_KEY = "queue_migrated"
+QUEUE_REASON = "This was waiting in a queue. Want a time for it?"
+
+
+def migrate_queue(core):
+    """docs/book-then-work.md: there is no queue. Tasks left waiting in the old My work (state deepwork) come back to
+    Triage asking for a time: the ask_book tag makes Book time the card's lead, and where you left off stays in the
+    notes. Once, guarded by a flag; returns how many came back."""
+    if core.one("SELECT 1 x FROM user_state WHERE user_id=? AND key=?", (core.user_id, MIGRATED_KEY)):
+        return 0
+    rows = core.all("SELECT * FROM tasks WHERE user_id=? AND state='deepwork' ORDER BY order_key, id", (core.user_id,))
+    for t in rows:
+        with core.tx("system"):
+            ch = events.Changes()
+            move(core, ch, t, "triage", add_tags=("ask_book",), reason=QUEUE_REASON, order_key=next_order(core))
+            events.emit(core, "task.came_back", task_id=t["id"], changes=ch,
+                        log=("status", "This was waiting in a queue, and there isn’t one any more. Fuzz is asking for a time."),
+                        data={"reason": QUEUE_REASON, "migrated": True})
+            cards.sync(core, t["id"], "back")
+    with core.tx("system"):
+        ch = events.Changes()
+        ch.state(MIGRATED_KEY, "1")
+        events.emit(core, "queue.migrated", changes=ch, data={"tasks": len(rows)})
+    return len(rows)
 
 
 def done(core, task_id, card=None, option="done"):
@@ -436,20 +463,6 @@ def book(core, task_id, anchor, card=None):
     return eid
 
 
-def do_now(core, task_id, card=None):
-    """Do it now: the task stays yours and opens as the working card (tag doing), the rest of the queue out
-    of view. Its ways out are Done, Pause, Hand to Fuzz and Work in Claude."""
-    t = require(core, task_id)
-    with core.tx("human"):
-        ch = events.Changes()
-        ch.task(t["id"], variant_tags=_tags(t, add=("doing",), remove=("after_others", "ask_book", "in_the_way")),
-                reason=None, pushes=0)
-        _answered(core, ch, card, "do_now")
-        eid = events.emit(core, "task.doing", task_id=t["id"], changes=ch, log=("status", "You started on this."))
-        cards.sync(core, t["id"], "front")
-    return eid
-
-
 def pause(core, task_id, card=None, left_off=None):
     """Pause the working card: back to the list, with "where I left off" notes for when you pick it up."""
     t = require(core, task_id)
@@ -457,7 +470,7 @@ def pause(core, task_id, card=None, left_off=None):
     f = {"notes": ((t.get("notes") or "") + f"\nWhere I left off: {said}").strip()} if said else {}
     with core.tx("human"):
         ch = events.Changes()
-        ch.task(t["id"], variant_tags=_tags(t, remove=("doing", "block", "first_step")), order_key=next_order(core), **f)
+        ch.task(t["id"], variant_tags=_tags(t, remove=("block", "first_step")), order_key=next_order(core), **f)
         _answered(core, ch, card, "pause", said or None)
         eid = events.emit(core, "task.paused", task_id=t["id"], changes=ch,
                           log=("guidance", f"You paused. Where you left off: {said}") if said else ("status", "You paused this."))
@@ -471,7 +484,7 @@ def after_others(core, task_id, card=None):
     t = require(core, task_id)
     with core.tx("human"):
         ch = events.Changes()
-        ch.task(t["id"], variant_tags=_tags(t, add=("after_others",), remove=("doing", "in_the_way", "ask_book")),
+        ch.task(t["id"], variant_tags=_tags(t, add=("after_others",), remove=("in_the_way", "ask_book")),
                 order_key=next_order(core))
         _answered(core, ch, card, "after_others")
         eid = events.emit(core, "card.postponed", task_id=t["id"], changes=ch, data={"kind": "task", "after_others": True},
@@ -486,7 +499,7 @@ FIRST_STEP = ("Write a step-by-step checklist for this task in the brief (contex
 
 def first_step(core, task_id, card=None):
     """Just the first step: Fuzz writes the checklist, you do step 1 now, and the rest gets booked. The task
-    goes to Fuzz briefly (tag first_step, gathered) and comes back next as the working card."""
+    goes to Fuzz briefly (tag first_step, gathered) and comes back next as a result with step 1 first."""
     t = require(core, task_id)
     with core.tx("human"):
         ch = events.Changes()
@@ -494,7 +507,7 @@ def first_step(core, task_id, card=None):
              notes=((t.get("notes") or "") + f"\nYou asked for the first step: {FIRST_STEP}").strip())
         _answered(core, ch, card, "first_step")
         eid = events.emit(core, "task.assigned", task_id=t["id"], changes=ch, data={"to": "fuzz", "first_step": True},
-                          log=("status", "Fuzz is writing the checklist. Step 1 comes back to you next."))
+                          log=("status", "Fuzz is writing the checklist. It comes back to you next, with step 1 first."))
     return eid
 
 
@@ -528,7 +541,7 @@ def bring_back(core, task_id, where="back", reason=None, type="task.came_back", 
         to, tags = "review", ()   # a draft, or a group reply that answers it, waits for your OK again
     elif t["state"] == "scheduled" and "booked" in (t.get("variant_tags") or []) and type in ("task.came_back", "task.block_started"):
         # booked time: first in the list, in work mode (and never a "keeps coming back")
-        where, tags = "front", ("returning", "doing", "block")
+        where, tags = "front", ("returning", "block")
     elif t["state"] == "scheduled" and type == "task.came_back" and put_off_again(core, t):
         tags, reason = tuple(tags) + ("put_off",), PUT_OFF_REASON
         log = log or ("status", "This came back at its time again. Fuzz is asking what’s in the way.")

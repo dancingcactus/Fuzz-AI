@@ -92,7 +92,8 @@ class Focus(CoreCase):
 
     def test_a_booked_block_stays_on_top_of_the_focus(self):
         focus.set_focus(self.core, "Northwind call")
-        tasks.do_now(self.core, self.deck, card=self.card_for(self.deck))
+        self.core.q("UPDATE tasks SET variant_tags=? WHERE id=?", (json.dumps(["doing", "block"]), self.deck))
+        cards.sync(self.core, self.deck, "front")
         self.assertEqual(self.front()[0], "Update the Q4 deck")
 
 

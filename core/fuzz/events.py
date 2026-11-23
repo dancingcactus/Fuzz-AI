@@ -34,6 +34,9 @@ EVENT_TYPES = {
     "task.doing", "task.paused",   # Do it now opened the working card; Pause put it back in the list
     "task.block_started", "task.block_ended", "task.block_missed", "task.block_extended",   # booked time
     "calendar.reported",   # the executor read the calendar: Focus time slots, free time and Fuzz's holds
+    # Focus time and Triage time on your calendar (rhythm.py): the question, the weekly plan, what was kept
+    "queue.migrated",   # what waited in the old queue came back to Triage, once
+    "rhythm.asked", "rhythm.best_set", "rhythm.planned", "rhythm.applied", "rhythm.evaluated", "rhythm.outcome",
     "focus.set", "focus.refined", "focus.cleared",
     "deliverable.created", "deliverable.linked", "deliverable.unlinked", "deliverable.renamed", "deliverable.tier_set",
     "deliverable.reviewed", "deliverable.done", "deliverable.reopened", "deliverable.dropped",

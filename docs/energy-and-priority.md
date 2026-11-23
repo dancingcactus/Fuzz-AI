@@ -48,8 +48,8 @@ Rules for every answer:
   it all back (as Hold the rest does now, `checkins.record`).
 - **Ties** keep today's order: the working card, group runs back to back, focus, then `order_key`.
 - **Deep work** (decided 2026-11-13): by energy. On a good day it comes right after Waiting; on an okay day
-  after the rest; when tired or overloaded, Deep work outside today's set goes to the Deep Work pool (not
-  tomorrow), in the same change as the rest, so one Undo brings it all back. "A few more" doesn't fetch it.
+  after the rest; when tired or overloaded, Deep work outside today's set waits for tomorrow morning with the rest, in the same change,
+  so one Undo brings it all back (there is no Deep Work pool any more: `docs/book-then-work.md`).
 
 ## Check-ins and the bar
 
@@ -92,7 +92,7 @@ on All clear instead of trailing on.
   Show them". Show them brings them back for the rest of that session. Fuzz says so once, on the first
   card after the switch.
 - Being away from Triage for **20 minutes** or more starts a new session. Coming back from Lineup doesn't.
-- Every All clear lists the **next three in My work**, in the Guide's order. Each one opens the Guide with
+- Every All clear lists the **next three ready to start**, in the Guide's order, never a card it just said can wait. Each one opens the Guide with
   that task picked (`#/work/<id>`).
 - UI only. The cards stay in the queue, and the core's order isn't changed: `Store.setDefer` moves them
   behind the rest, for the demo's sort and for live syncs (`Live.apply`). Code: `smaller()` and `syncWrap()`

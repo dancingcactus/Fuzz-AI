@@ -13,11 +13,12 @@ class DeepWork(CoreCase):
         super().setUp()
         self.tid = tasks.capture(self.core, "Outline the Q3 planning doc")
 
-    def test_the_task_card_offers_it(self):
-        self.assertIn("deep_work", cards.options(self.card_for(self.tid, "task"), self.task(self.tid)))
+    def test_the_task_card_no_longer_offers_it(self):
+        # docs/book-then-work.md: no "I'll do it" and no queue. A task is booked or postponed; Focus time starts a session.
+        self.assertNotIn("deep_work", cards.options(self.card_for(self.tid, "task"), self.task(self.tid)))
 
-    def test_answering_moves_it_to_the_pool_and_clears_the_card(self):
-        answers.answer(self.core, self.card_for(self.tid, "task")["id"], "deep_work")
+    def test_starting_focus_time_moves_it_into_the_session_and_clears_the_card(self):
+        tasks.deep_work(self.core, self.tid)
         t = self.task(self.tid)
         self.assertEqual((t["state"], t["assignee"]), ("deepwork", "human"))
         self.assertEqual(cards.open_cards(self.core, self.tid), [])

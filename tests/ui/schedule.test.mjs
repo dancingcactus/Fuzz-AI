@@ -26,7 +26,7 @@ beforeEach(async () => {
   page.errors = errors;
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   /* The session-focus question comes first; Esc skips it to the first card */
-  await page.locator('[data-act="schedule"]').first().waitFor();
+  await page.locator('#whenmenu [data-act="schedule"]').first().waitFor({ state: 'attached' });   /* Later is the first item behind Book time's chevron */
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });
 
@@ -41,8 +41,8 @@ async function openLater(n) {
       return out.concat(exact);
     };
   }, n);
-  /* The first card puts you in its instructions box, where letters type; Later is clicked instead */
-  await page.locator('[data-act="schedule"]').first().click();
+  /* The first card puts you in its instructions box, where letters type; Later is clicked instead (it sits behind Book time's chevron) */
+  await page.evaluate(() => document.querySelector('#whenmenu [data-act="schedule"]').click());
   await page.locator('.sched-panel').waitFor();
 }
 const tiles = () => page.locator('.sched-panel [data-when]');

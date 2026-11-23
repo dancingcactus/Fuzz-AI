@@ -258,6 +258,10 @@ class App:
             ("GET", r"/hours", self.hours_get),
             ("PUT", r"/hours", self.hours_put),
             ("GET", r"/deepwork", self.deepwork_get),
+            ("GET", r"/rhythm", self.rhythm_get),
+            ("PUT", r"/rhythm", self.rhythm_put),
+            ("POST", r"/rhythm/outcome", self.rhythm_outcome),
+            ("POST", r"/rhythm/seen", self.rhythm_seen),
             ("GET", r"/away", self.away_get),
             ("GET", r"/slots", self.slots_get),
             ("PUT", r"/slots", self.slots_put),
@@ -1016,6 +1020,26 @@ class App:
         """For starting a Deep Work session: when your free time ends (the next meeting), or null."""
         from . import booking
         return {"free_until": booking.free_until(core)}
+
+    def rhythm_get(self, core, m, body, q):
+        """Focus time and Triage time: your answer, the Triage time, what is coming up (Settings reads it)."""
+        from . import rhythm
+        return rhythm.view(core)
+
+    def rhythm_put(self, core, m, body, q):
+        """{best}: morning, afternoon, late or varies. Settings can say it without the card."""
+        from . import rhythm
+        return rhythm.set_best(core, body.get("best"))
+
+    def rhythm_seen(self, core, m, body, q):
+        """The Guide said the line about an automatic top-up."""
+        from . import rhythm
+        return rhythm.see(core)
+
+    def rhythm_outcome(self, core, m, body, q):
+        """{minutes, finished?}: how a Focus time session went, so the block it was in can be judged productive."""
+        from . import rhythm
+        return rhythm.outcome(core, body.get("minutes"), bool(body.get("finished")))
 
     def away_get(self, core, m, body, q):
         """For the Guide: what Fuzz did on its own while you were away (at least the last two hours)."""

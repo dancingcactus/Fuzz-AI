@@ -1,5 +1,9 @@
 # The Guide: one starting place, and the nav around it
 
+> **Superseded in part, 2026-11-23, by `docs/book-then-work.md`.** The Guide now has three doors (Triage, Something else,
+> New task); there is no My work queue (the session is Focus time, and a task is booked or postponed); inside a block a calendar
+> link starts the work by itself; "I'll do it" and Do it now are retired. Where this page differs, that doc wins.
+
 Decided on 2026-11-14, over six rounds in the spike at `spikes/nav-modes/` (open it with a static server at the repo
 root and go to `/spikes/nav-modes/`; it opens on option **E**, the one we chose). This document is the hand-off for
 building it into the app. It covers what we decided, how it should behave, where it fits in the code, what we tried and

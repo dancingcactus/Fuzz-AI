@@ -632,7 +632,7 @@
     if (sg) {
       var opt = sg.dataset.sug;
       Store.answerSeriesCard(+sg.dataset.card, opt, opt === 'not_needed' ? undefined : { title: sg.dataset.title }).then(function () {
-        Say.tell(opt === 'add' ? 'Added to Triage, part of ' + d.name + '.' : opt === 'mine' ? 'It’s in My work.' : 'Okay. Fuzz won’t suggest that again.');
+        Say.tell(opt === 'add' ? 'Added to Triage, part of ' + d.name + '.' : opt === 'mine' ? 'Okay, it’s a task for you.' : 'Okay. Fuzz won’t suggest that again.');
         loadPage(d.id);
       }, said);
       return;

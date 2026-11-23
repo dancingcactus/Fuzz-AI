@@ -352,14 +352,13 @@ show on the card; Assign is the suggested answer.)
 
 Every brief from Fuzz carries `effort_mins` and `steps` (`step_count`), and cards show the size
 ("≈ 1½ h · 6 steps"). A task is big at `work.big_minutes` (45) or `work.big_steps` (5); its card has
-`lead: [do_now, book, after_others, first_step]` and suggests `book`. **Later** is `schedule` and counts
+`lead: [book, after_others, first_step]` and suggests `book` (Do it now and I'll do it are retired: docs/book-then-work.md). **Later** is `schedule` and counts
 toward "keeps coming back". **Book time** is `book {anchor: {type: block, start, end}}` from the card's
 `book_options`: the task is `scheduled` (tag `booked`), never double-booked, and comes back first in the
-list as the working card (tags `doing`, `block`) without counting. `do_now` opens the working card
-(`done`, `pause {notes}`, `assign`, `session`, `book`); `after_others` sends it to the end
+list as the working card (tags `doing`, `block`) without counting. there is no working card any more: a started block is an ordinary card (tag `block`, first in the list) and `first_step` comes back as a result; `after_others` sends it to the end
 with no penalty, and back at your desk it asks to book time; `first_step` has Fuzz write the checklist
 and brings it back next as the working card. A task card sent to the end twice asks "What's in the way?"
-(`do_now`, `book`, `first_step`, `decide`, `draft_it`, `after_others`, `drop`). The UI posts
+(`book`, `first_step`, `decide`, `draft_it`, `after_others`, `drop`). The UI posts
 each card's time on screen to `POST /screen` (not an event).
 
 ### Booking time

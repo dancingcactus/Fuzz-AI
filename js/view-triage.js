@@ -190,7 +190,7 @@
   function keyRows(list) { return '<dl class="keylist">' + list.map(function (k) { return '<div><dt><kbd>' + k[0] + '</kbd></dt><dd>' + k[1] + '</dd></div>'; }).join('') + '</dl>'; }
   function keysHTML() {
     var g = [
-      ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['G', 'I’ll do it (yours, and it takes real time: it waits in My work, ready for when you sit down to it)'], ['B', 'Book time (hold the time; it opens first then)'], ['Z', 'On the working card: Pause']]],
+      ['On a task card', [['A', 'Hand it to Fuzz'], ['1 – 9', 'Answer the question on the card (each answer hands it over)'], ['I', 'Details: where it came from, people, sources'], ['C', 'Work in ' + Store.workIn], ['S', 'Later (pick a time by its number)'], ['D', 'Done'], ['P', 'Park it'], ['W', 'Waiting on someone'], ['X', 'Not mine'], ['B', 'Book time (hold the time; Focus time opens then)'], ['Z', 'On the working card: Pause']]],
       ['On a draft', [['E', 'Ask Fuzz to change it'], ['S', 'Not now'], ['D', 'Mark done (you send it yourself)']]],
       ['Choices on screen', [['1 – 9', 'Every choice on screen: an answer, a time (End of the list and Exact time too) or a mood'], ['E', 'Tell Fuzz: into the card’s box'], ['K', 'It still matters: on a card that comes back (quiet, parked, keeps coming back)'], ['S', 'Later, or Check again later: the same row on every card that comes back'], ['L', 'Let it go'], ['Esc', 'Leave the text box, back out, close a menu, or skip a check-in']]],
       ['Anywhere', [['F', 'Say what we’re working on (this session’s focus)'], ['N', 'New (Esc goes back)'], [Dictate.key, 'Hold to dictate into the box for Fuzz'], ['T', 'Park a stray thought (Esc closes it)'], ['?', 'This list']]]
@@ -281,7 +281,7 @@
      in front. Except a group's: while you work through one, the rest of it shows bound together under the card. */
   function updateStack(arriveLast) {
     stack.querySelectorAll('.ghost').forEach(function (g) { g.remove(); });
-    var q = Store.queue(), n = q[0] && q[0].doing ? 0 : Math.min(Math.max(q.length - 1, 0), 3), r = q[0] && runFor(q[0]);
+    var q = Store.queue(), n = q[0] && q[0].block ? 0 : Math.min(Math.max(q.length - 1, 0), 3), r = q[0] && runFor(q[0]);
     for (var i = n; i >= 1; i--) {
       var g = document.createElement('div'); g.className = 'ghost' + (r && q[i] && r.ids.indexOf(q[i].id) > -1 ? ' bound' : '');
       g.style.transform = 'translateY(-' + (i * 9) + 'px) scale(' + (1 - i * 0.035) + ')';
@@ -363,7 +363,7 @@
          Each cause picks the lead Fuzz would use (rule 14), in the same shape as every card: one lead, then three. */
       return '<div class="way" id="way" tabindex="-1">' + CardActions.render({ cls: 'way-actions',
         line: 'What’s in the way? No wrong answer. Pick the closest.',
-        lead: { answer: { n: 1, act: 'way-big', label: 'This is a big one', small: 'Do it now, book time, I’ll do it, after the others, or help me start' } },
+        lead: { answer: { n: 1, act: 'way-big', label: 'This is a big one', small: 'Book time, after the others, or help me start' } },
         row: [{ answer: { n: 2, act: 'way-decide', label: 'I can’t decide', small: 'Fuzz lays out the options with one it suggests' } },
           { answer: { n: 3, act: 'way-draft', label: 'I don’t want to write it', small: 'Fuzz drafts it for your OK' } },
           { verb: 'way-notnow', act: 'way-notnow', label: 'Not now', key: 'S', theme: 'when' }] }) +
@@ -372,13 +372,24 @@
     var wi = 'Work in ' + Store.workIn;
     /* The standing menus (rule 15): one theme each, the same items wherever they appear */
     var DONE = { theme: 'clear', items: ['park', 'waiting', 'theirs'] };
-    var LATER = function (items) { return { verb: 'schedule', menu: { theme: 'when', items: items } }; };
-    if (it.doing) {
-      /* The working card is the calmest: Done leads. Pause (Keep going at the end of a block), Later, and Hand it to Fuzz */
+    /* The time split button: Book time is the face when it's offered (docs/book-then-work.md), Later and the rest wait behind the chevron;
+       where Book time already leads the card, Later stays the face. */
+    var LATER = function (items) {
+      var at = items.indexOf('book');
+      return at < 0 ? { verb: 'schedule', menu: { theme: 'when', items: items } }
+        : { verb: 'book', menu: { theme: 'when', items: ['schedule'].concat(items.slice(0, at), items.slice(at + 1)) } };
+    };
+    if (it.blockEnd) {
+      /* Booked time is over ("How far did you get?"): Done leads; Keep going runs it on; the rest is booked or paused */
       return CardActions.render({ cls: 'working-actions', lead: 'done', row: [
-        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }] } },
-        it.blockEnd ? 'keepgoing' : 'pause',
-        LATER([{ verb: 'book', label: it.firstStepMode ? 'Book the rest' : 'Book time' }])] });
+        { verb: 'assign', menu: { theme: 'who', items: [{ verb: 'claude', label: wi }] } },
+        'keepgoing',
+        LATER([{ verb: 'book', label: 'Book the rest' }, 'pause'])] });
+    }
+    if (it.block) {
+      /* Booked time has started and you are in Triage: the calendar link starts Focus time, and so does this card */
+      return CardActions.render({ cls: 'working-actions', lead: 'startfocus', row: [
+        { verb: 'assign', menu: { theme: 'who', items: [{ verb: 'claude', label: wi }] } }, LATER(['afterothers']), { verb: 'done', menu: DONE }] });
     }
     if (it.state === 'review') return reviewActionsHTML(it);
     /* A result: what Fuzz found is the thing you asked for, so Done leads and Hand it to Fuzz is the way to send him further.
@@ -399,14 +410,14 @@
     if (join) {
       /* A late ask from a thread whose reply waits for your OK: joining that reply leads */
       return CardActions.render({ line: it.joinReason || 'A reply to this thread is waiting for your OK.', lead: 'joinreply', row: [
-        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }, 'donow'] } }, LATER(['book', 'afterothers']), { verb: 'done', menu: DONE }] });
+        { verb: 'assign', menu: { theme: 'who', items: [{ verb: 'claude', label: wi }] } }, LATER(['book', 'afterothers']), { verb: 'done', menu: DONE }] });
     }
     if (big) {
-      /* A big one is booked or pushed instead of ground through: Fuzz's suggested way leads, the other sits beside it, the rest wait behind the chevrons */
-      var first = it.suggested === 'do_now' ? 'donow' : 'book', other = first === 'donow' ? 'book' : 'donow';
-      return CardActions.render({ cls: 'big-choice', line: (it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. How do you want to take it?',
-        lead: { verb: first, menu: { theme: 'who', label: 'Take it another way', items: ['deepwork', 'helpstart', { verb: 'claude', label: wi }] } },
-        row: [other, LATER(['afterothers']), { verb: 'done', menu: DONE }] });
+      /* A big one is booked or pushed, never ground through in Triage (docs/book-then-work.md): Book time leads with Fuzz's
+         slot ready, Hand it to Fuzz sits beside it, and the other ways to take it wait behind the chevron */
+      return CardActions.render({ cls: 'big-choice', line: (it.sizeLabel ? it.sizeLabel + '. ' : '') + 'A big one. Want a time for it?',
+        lead: { verb: 'book', menu: { theme: 'who', label: 'Take it another way', items: ['helpstart', { verb: 'claude', label: wi }] } },
+        row: ['assign', LATER(['afterothers']), { verb: 'done', menu: DONE }] });
     }
     if (asks) {
       /* Fuzz's answers: the first leads (pressing it is the hand-off). The others share the row with Later and Done. */
@@ -418,10 +429,15 @@
     if (it.afterOthers && !it.result) {
       var say = !avoidSaid[it.id];
       return CardActions.render({ cls: 'avoided', line: say ? 'This one has waited its turn. Want a smaller first step?' : '', lead: 'helpstart', row: [
-        { verb: 'assign', menu: { theme: 'who', items: ['deepwork', { verb: 'claude', label: wi }, 'donow'] } }, LATER(['book']), { verb: 'done', menu: DONE }] });
+        { verb: 'assign', menu: { theme: 'who', items: [{ verb: 'claude', label: wi }] } }, LATER(['book']), { verb: 'done', menu: DONE }] });
     }
-    /* An ordinary task: hand it to Fuzz leads, with I'll do it and Do it now behind its chevron */
-    return CardActions.render({ lead: { verb: 'assign', menu: { theme: 'who', items: ['deepwork', 'donow'] } }, row: [
+    /* A task that waited in the old queue, or one Fuzz thinks needs a time (ask_book): Book time leads, with Fuzz's slot ready */
+    if (it.suggested === 'book' && !it.result) {
+      return CardActions.render({ lead: { verb: 'book', menu: { theme: 'who', label: 'Take it another way', items: ['helpstart', { verb: 'claude', label: wi }] } },
+        row: ['assign', LATER(['afterothers']), { verb: 'done', menu: DONE }] });
+    }
+    /* An ordinary task: hand it to Fuzz leads. A small one you do yourself: do it, then press Done */
+    return CardActions.render({ lead: 'assign', row: [
       { verb: 'claude', label: wi }, LATER(['book', 'afterothers']), { verb: 'done', menu: DONE }] });
   }
 
@@ -713,7 +729,7 @@
         row: (it.holdRemove ? [] : [{ verb: 'hold-always', act: 'hold-always', label: 'Always allow for my calendar' }]).concat([{ verb: 'hold-skip', act: 'hold-skip', label: it.holdRemove ? 'Keep it' : 'Skip', key: 'S' }]) }) + '</div>' + UI.idTag(it);
   }
   /* Deliverable cards: one decision each, like any question card */
-  var DV_LABEL = { keep_going: 'Keep going', make_active: 'Make it active', its_done: 'It’s done', let_go: 'Let it go',
+  var DV_LABEL = { morning: 'Mornings', afternoon: 'After lunch', late: 'Late afternoon', varies: 'It varies', not_now: 'Not now', approve: 'Put these on my calendar', always_allow: 'Always allow for my calendar', skip: 'Skip', keep_going: 'Keep going', make_active: 'Make it active', its_done: 'It’s done', let_go: 'Let it go',
     not_sure: 'Not sure yet', reopen: 'Reopen it', new_one: 'Start a new one', keep_these: 'Keep these', keep_steps: 'Keep these steps',
     not_now: 'Not now', track: 'Track it', no: 'No', yes: 'Yes',
     /* Fuzz's memory */
@@ -730,7 +746,7 @@
     if (!opts.length) return '';
     /* The suggested answer leads; the rest share one row (three at most, the last holding any extra behind its chevron) */
     var order = opts.slice().sort(function (a, b) { return (b === it.suggested) - (a === it.suggested); });
-    var ans = order.map(function (o, i) { return { n: i + 1, dv: o, also: o === 'not_sure' ? 'S' : undefined, label: (which && WHO_LABEL[o]) || DV_LABEL[o] || o }; });
+    var ans = order.map(function (o, i) { return { n: i + 1, dv: o, also: o === 'not_sure' ? 'S' : undefined, label: (which && WHO_LABEL[o]) || (it.rhythm && o === 'approve' && (it.payload || {}).via === 'file' ? 'Download the calendar file' : DV_LABEL[o]) || o }; });
     var rest = ans.slice(1).map(function (a) { return { answer: a }; });
     /* Not sure yet stays visible (it is S, the free way out); any extra answers wait behind the chevron of the one before it */
     var ns = rest.filter(function (x) { return x.answer.dv === 'not_sure'; }), others = rest.filter(function (x) { return x.answer.dv !== 'not_sure'; });
@@ -806,11 +822,22 @@
     }
     return h;
   }
+  /* Focus time and Triage time: when you get things done, and the weekly plan for your calendar (core/fuzz/rhythm.py) */
+  function rhythmHTML(it) {
+    var p = it.payload || {};
+    if (it.cardKind === 'rhythm_best') return '<p class="meta">I’ll look for open time on your calendar then. It’s a first guess, and I’ll adjust to what works.</p>' +
+      '<p class="meta"><b>What I keep track of:</b> whether you opened Focus time or Triage time when it started, and how many minutes you worked and whether you finished something. Nothing else, and nothing leaves this Mac. I only use it to choose when to put the next week. It isn’t a score: a block you skip is not a mark against you.</p>';
+    var lines = (p.lines || []).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('');
+    return '<section class="dv-steps rhythm-plan"><h3>Coming up</h3><ul class="rhythm-lines">' + lines + '</ul>' +
+      ((p.skipped || []).length ? '<p class="meta">No room for Triage time on ' + esc(p.skipped.length === 1 ? 'one day' : p.skipped.length + ' days') + '. I left those out rather than move it.</p>' : '') +
+      '<p class="meta">' + (p.via === 'file' ? 'No calendar tool is set up, so this downloads as a calendar file. Opening an event from your calendar starts the work.' : 'Fuzz adds these to your calendar. Opening an event starts the work.') + '</p></section>';
+  }
   function delivHTML(it) {
     var p = it.payload || {}, h = tagrow({ source: '' }, '<span class="tag tag--info">' + esc(it.source || 'Your deliverables') + '</span>') + askHTML(it.ask);
     h += whyHTML(it.incoming);
     if (it.memory) return h + memoryHTML(it) + dvButtons(it, it.cardOptions || []) + UI.idTag(it);
     if (it.series) return h + seriesHTML(it) + UI.idTag(it);
+    if (it.rhythm) return h + rhythmHTML(it) + dvButtons(it, (it.cardOptions || []).filter(function (o) { return !(o === 'always_allow' && (it.payload || {}).via === 'file'); })) + UI.idTag(it);   /* Always allow means nothing for a file you download */
     if (it.cardKind === 'week_plan' && p.steps) {
       h += (p.all || []).map(function (d) {
         return '<section class="dv-steps"><h3>' + esc(d.title) + '</h3>' + (d.open && d.open.length ? '<p class="meta">Open: ' + esc(d.open.slice(0, 4).join(' · ')) + '</p>' : '') +
@@ -999,8 +1026,8 @@
     var stale = isTask && !parkrev && !checkback && !putoff && it.stage === 'stale' && !keptStale[it.id] && !scheduling;
     /* The ADHD pass (#3): a card with answers leads with its question and numbered answers. An ordinary task
        with nothing to choose between leads with the task itself, and the move is handing it over. */
-    var ordinary = isTask && !parkrev && !checkback && !putoff && !stale && !it.doing && !it.result;
-    var answersOn = isTask && !parkrev && !checkback && !putoff && !stale && !it.doing && hasAnswers(it);   /* a result's follow-up too */
+    var ordinary = isTask && !parkrev && !checkback && !putoff && !stale && !it.block && !it.result;
+    var answersOn = isTask && !parkrev && !checkback && !putoff && !stale && !it.block && hasAnswers(it);   /* a result's follow-up too */
     var plain = ordinary && !answersOn && !it.handedBack && !it.joinReply;
     var back = checkback ? 'Has ' + (it.waitingOn || 'them') + ' gotten back to you?' : parkrev ? 'Still want this?' : putoff ? 'What’s in the way?' : stale ? 'Does this still matter?' : null;
     var h = (g ? g.html : '') + tagrow(it, '', true) + askHTML(plain ? it.title : back || it.ask) + titleHTML(it, plain) + duePanel(it);
@@ -1042,7 +1069,7 @@
 
     /* Where it came from, the first step, people and sources fold under Details (I), so the card holds one decision (#4) */
     var more = (isTask && !parkrev && !checkback && !putoff ? '<p class="incoming">' + UI.text(it.incoming) + '</p>' : '') + contextHTML(it, isTask, isTask ? !stale : !!it.aiNote, it.entity === 'is_task');
-    h += (isTask && !it.doing && !it.result ? '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, people, sources</span>' + kbd('I') + '</summary>' + more + '</details>' : more) + UI.idTag(it);
+    h += (isTask && !it.block && !it.result ? '<details class="card-details" id="details"><summary>Details <span class="meta">where it came from, people, sources</span>' + kbd('I') + '</summary>' + more + '</details>' : more) + UI.idTag(it);
     h += '<div class="stamp" aria-hidden="true">DONE</div>';
     return h;
   }
@@ -1116,7 +1143,7 @@
     lastTask = it; shownCard = { id: it.id, cardId: it.cardId, kind: it.kind }; Store.show(it.id); $('#checkin').hidden = true; $('#upnext').hidden = true;
     clearTimeout(rushTimer); card.getAnimations().forEach(function (a) { a.cancel(); });
     scheduling = false; askingWho = false; booking = false; pausing = false; wayOpen = false; if (tab && !richAvail(it).some(function (a) { return a[0] === tab; })) tab = null;
-    card.className = 'card' + (it.doing ? ' working' : ''); card.style.display = ''; card.style.visibility = '';
+    card.className = 'card' + (it.block ? ' working' : ''); card.style.display = ''; card.style.visibility = '';
     seen(it);
     card.innerHTML = cardHTML(it);
     if (it.afterOthers) avoidSaid[it.id] = true;
@@ -1177,7 +1204,7 @@
      deliverables, or the group you're working through. */
   var PRESSING = ['urgent', 'vip', 'returned', 'waiting', 'goal'];
   function smaller(it) {
-    if (!it || it.dueAt || it.doing || it.handedBack || it.kickoff || it.kickoffAsk || it.isNew || it.state === 'review' || it.needsPermission) return false;
+    if (!it || it.dueAt || it.block || it.handedBack || it.kickoff || it.kickoffAsk || it.isNew || it.state === 'review' || it.needsPermission) return false;
     var g = grun && Store.groupOf(it); if (g && g.id === grun.gid) return false;
     if (it.kind === 'deliv') return !(it.payload && it.payload.monday);
     if (it.kind === 'dup') return true;
@@ -1203,11 +1230,11 @@
     Fuzz.setMood('happy'); Fuzz.say(n === 1 ? 'Okay, one more.' : 'Okay, the rest of them.', { type: false });
     stats(); showNext();
   }
-  /* The next few in My work, as the Guide lists them: each opens the Guide with it picked */
+  /* The next few ready to start, as the Guide lists them: each opens the Guide with it picked */
   function upNextHTML() {
     var DW = window.DeepWorkView, ts = DW && DW.upNext ? DW.upNext(3) : [];
     if (!ts.length) return '';
-    return '<h3 class="ac-h">Next in My work</h3><ul class="g-list ac-next">' + ts.map(function (it, i) {
+    return '<h3 class="ac-h">Ready to start</h3><ul class="g-list ac-next">' + ts.map(function (it, i) {
       return '<li style="--i:' + i + '"><a class="g-row" href="#/work/' + encodeURIComponent(it.id) + '"><span class="g-t"><b>' + esc(it.title) + '</b><small>' + esc(DW.rowSub(it)) + '</small></span><span class="g-m">~' + DW.dur(DW.est(it)) + '</span></a></li>';
     }).join('') + '</ul>';
   }
@@ -1217,7 +1244,7 @@
   /* Never mid-rush: wait until the time-sensitive cards are handled. */
   function shouldCheckin(next) {
     /* In work mode it runs on time, not on cleared cards: you may be on one card for a long while */
-    if (next && next.doing) return ciCount ? Date.now() - ciLastAt >= CI_GAP_MIN * Math.pow(2, ciCount - 1) * 60000 : Date.now() - sessionAt >= CI_GAP_MIN * 2 * 60000;
+    if (next && next.block) return ciCount ? Date.now() - ciLastAt >= CI_GAP_MIN * Math.pow(2, ciCount - 1) * 60000 : Date.now() - sessionAt >= CI_GAP_MIN * 2 * 60000;
     /* Otherwise it comes when the boxes run out, or early when several in a row were put off */
     closeShown();
     /* nor while Fuzz is asking what he may read (the onboarding's last task): it waits until he's done */
@@ -1231,7 +1258,7 @@
     if (ciAnswer && !ciDemo) r = Store.checkin(ciAnswer, ciFollow);
     ciAnswer = null; ciFollow = null; ciLevel = null; ciMode = null;
     if (ciDemo) { ciDemo = false; return; }
-    if (r && r.held) offer(r.deep === r.held ? 'The big ones wait in My work.' : r.deep ? 'The rest can wait until tomorrow; the big ones in My work.' : 'The rest can wait until tomorrow morning.', r.change);
+    if (r && r.held) offer('The rest can wait until tomorrow morning.', r.change);
     /* Your answer sets the next stretch; Skip keeps the last one (or a middling one if there wasn't one).
        Counted after the rest has moved out, so it doesn't use up the boxes. */
     ciSize = level ? CI_STRETCH[level] : ciCount ? ciSize : CI_STRETCH_SKIP;
@@ -1334,7 +1361,7 @@
       var inRun = grun && grun.ids.indexOf(t.id) > -1, entered = inRun && enterRun();
       if (inRun && !entered && !Fuzz.isCalm()) Fuzz.fxOn('scan', 700);   /* still gathering */
       var g = t.kind === 'task' && Onboard.guide(t);
-      var rushing = t.doing && t.block && !saidRush[t.id] && Store.queue().filter(function (x) { return x !== t && x.dueAt; }).length;
+      var rushing = t.block && !saidRush[t.id] && Store.queue().filter(function (x) { return x !== t && x.dueAt; }).length;
       if (wrapNote && !entered && !rushing && !g) {
         wrapNote = false;
         var wl = 'We’ve been at this a while. Just what matters now; the small stuff can wait.';
@@ -1967,18 +1994,6 @@
   }
 
   /* Clear a card quickly without a full ceremony: park, wait, let go, drop. */
-  /* Do it now: the working card. The rest of the queue goes out of view; Fuzz stays beside it. */
-  async function doNow() {
-    var it = cur(); if (!it) return;
-    var nn = pendingNote(it);
-    var ch = Store.track([it.id], function () { if (nn) Store.tell(it.id, nn); Store.doNow(it.id); });
-    if (nn) { delete edits[it.id + ':instr']; delete planOpen[it.id]; }
-    offer('Started on “' + it.title + '”.', ch);
-    Fuzz.setMood('eager'); Fuzz.setArm('salute'); Fuzz.say('Let’s do it. I’ll keep the rest out of the way.', { type: false });
-    renderCard(cur()); updateStack(false); refocus(landing());
-    await sleep(900);
-    Fuzz.setArm('none'); Fuzz.setMood('idle');
-  }
   /* When a card has sat in front a while (3 minutes sorting; 25 in work mode with no sign of progress) while
      you're here, Fuzz asks what's in the way, once per card. The times on screen are kept for tuning. */
   var shown = null, lastInput = 0, awayFrom = 0, awayS = 0, asked = {}, saidRush = {};
@@ -1987,11 +2002,11 @@
     if (document.hidden) awayFrom = Date.now();
     else if (awayFrom) { awayS += (Date.now() - awayFrom) / 1000; awayFrom = 0; }
   });
-  function stuckAfter(it) { var w = Store.workConfig(); return (it && it.doing ? w.work : w.sort) * 60000; }
+  function stuckAfter(it) { var w = Store.workConfig(); return (it && it.block ? w.work : w.sort) * 60000; }
   function seen(it) {
     if (shown && shown.id === it.id) return;
     closeShown(true);
-    shown = { id: it.id, coreId: it.coreId, cardId: it.cardId, mode: it.doing ? 'work' : 'sort', at: Date.now() };
+    shown = { id: it.id, coreId: it.coreId, cardId: it.cardId, mode: it.block ? 'work' : 'sort', at: Date.now() };
     lastInput = Date.now(); awayS = 0; wayOpen = false;
   }
   /* The card that was on screen has left: keep its time and how it left, and count it toward the stretch's
@@ -2012,7 +2027,7 @@
     var it = cur();
     if (!alive || !taskButtons(it) || !shown || shown.id !== it.id || busy || ciOpen || scOpen || document.hidden || card.style.display === 'none') return;
     if (wayOpen || asked[it.id] || it.inTheWay || scheduling || booking || askingWho || pausing) return;
-    var quiet = Date.now() - (it.doing ? lastInput : shown.at) - awayS * 1000;
+    var quiet = Date.now() - (it.block ? lastInput : shown.at) - awayS * 1000;
     if (quiet < stuckAfter(it)) return;
     asked[it.id] = true; wayOpen = true; renderCardKeep();
     if (!Fuzz.isCalm()) Fuzz.setMood('caring');
@@ -2026,7 +2041,7 @@
   var foAsked = true, foOpen = false, foTimer = 0, foSeq = 0, foMatch = null, foNot = {}, foSaidAdded = '';
   function needFocus(q) {
     if (foAsked || foOpen || scOpen || ciOpen || q.length < 2) return false;
-    if (q[0].doing && q[0].block) { foAsked = true; return false; }   /* a booked block is the focus */
+    if (q[0].block) { foAsked = true; return false; }   /* a booked block is the focus */
     return true;
   }
   function focusHTML() {
@@ -2274,6 +2289,8 @@
       var dv = e.target.closest('[data-dv]');
       if (dv && card.contains(dv)) {
         var dit = cur(), dopt = dv.dataset.dv, dval = dv.dataset.why ? { why: dv.dataset.why } : dvValue(dit, dopt);
+        /* no calendar tool: approving the plan downloads it as a calendar file (a Triage habit is one repeating event) */
+        if (dit && dit.rhythm && dit.cardKind === 'rhythm_plan' && dopt !== 'skip' && (dit.payload || {}).via === 'file' && window.Ics) Ics.download(Ics.forSlots((dit.payload || {}).slots, (dit.payload || {}).skipped), 'Fuzz Focus time.ics', { name: 'Focus time' });
         if (dopt === 'define' && !dval) { var dd = $('#mem-def'); if (dd) dd.focus(); Fuzz.say('What does it mean? A few words is plenty.', { type: false }); return; }
         if (dopt === 'neither' && !dval) { var dn = $('#mem-neither'); if (dn) dn.focus(); Fuzz.say('What is it, then? Type it in and press Neither again.', { type: false }); return; }
         /* Something was off, with its list still folded: open it first, so you can say what */
@@ -2333,7 +2350,6 @@
       else if (a === 'waiting') { askingWho = true; renderCardKeep(); var wi = $('#wait-who'); if (wi) wi.focus(); Fuzz.setMood('eager'); Fuzz.say('Who are you waiting on?', { type: false }); }
       else if (a === 'book') { booking = true; pausing = false; wayOpen = false; renderCardKeep(); var bh = $('#book-h'); if (bh) bh.focus(); Fuzz.setMood('eager'); Fuzz.say('When will you do it? I’ll hold the time.', { type: false }); }
       else if (a === 'book-cancel') { booking = false; renderCardKeep(); Fuzz.setMood('idle'); }
-      else if (a === 'donow') moment(doNow);
       else if (a === 'serline') { var si = cur(); if (si && si.series && window.SeriesView) SeriesView.open(si.series.id, t); }
       else if (a === 'seriessheet') { var ss = cur(); if (ss && window.SeriesView) SeriesView.open((ss.payload || {}).series_id, t); }
       else if (a === 'forline') { var fi = cur(); if (fi && fi.deliverable && window.TasksView && TasksView.openDeliverable) TasksView.openDeliverable(fi.deliverable.id, t); }
@@ -2342,6 +2358,7 @@
         var opt = { 'hold-approve': 'approve', 'hold-always': 'always_allow', 'hold-skip': 'skip' }[a], hit = cur();
         return quickClear(opt === 'skip' ? 'No calendar change for' : 'Calendar hold for', opt === 'skip' ? 'No change to your calendar for “' + hit.title + '”.' : 'Fuzz will update your calendar for “' + hit.title + '”.', function (i) { Store.answerHold(i.id, opt); }, opt === 'skip' ? 'Okay, I’ll leave your calendar alone.' : 'On it. Your calendar, your events: I only touch the hold.');
       });
+      else if (a === 'startfocus') { var sf = cur(); if (sf && window.DeepWork) DeepWork.start(sf.id); }
       else if (a === 'pause') { pausing = true; renderCardKeep(); var pq = $('#pause-q'); if (pq) pq.focus(); }
       else if (a === 'pause-cancel') { pausing = false; renderCardKeep(); }
       else if (a === 'afterothers' || a === 'way-notnow') moment(function () { wayOpen = false; return quickClear('After the others:', 'After the others: “' + cur().title + '” waits until the rest are sorted. No penalty.', function (i) { Store.afterOthers(i.id); }, 'Sure. After the others.'); });
@@ -2350,7 +2367,6 @@
       else if (a === 'way-decide') moment(function () { wayOpen = false; return quickClear('Asked Fuzz to lay out the options for', 'Fuzz lays out the options with one it suggests. The card comes back right after this one.', function (i) { Store.decideFor(i.id); }, 'I’ll lay the options out, with my pick.'); });
       else if (a === 'way-draft') moment(function () { wayOpen = false; return quickClear('Fuzz is drafting', 'Fuzz drafts it. It comes to you for your OK before anything is sent.', function (i) { Store.draftIt(i.id); }, 'Leave it with me. I’ll draft it for your OK.'); });
       else if (a === 'way-dismiss') { wayOpen = false; renderCardKeep(); Fuzz.setMood('idle'); }
-      else if (a === 'deepwork') moment(function () { var dw = cur(); if (dw) dw.doing = false; return quickClear('You’ll do it:', '“' + cur().title + '” is in My work. It won’t come back to Triage, and Fuzz gets it ready for when you start.', function (i) { Store.deepWork(i.id); }, 'Got it, it’s yours. It’s in your work, and I’ll have it ready when you sit down to it.'); });
       else if (a === 'wait-cancel') { askingWho = false; renderCardKeep(); Fuzz.setMood('idle'); var mb2 = $('.more-btn'); if (mb2) mb2.focus(); }
       else if (a === 'gotit') { var gi = cur(); sendNote(gi); Store.gotIt(gi.id); renderCard(cur()); refocus(landing()); Fuzz.setMood('happy'); Fuzz.pAnim('hop'); Fuzz.say('Nice. What should happen to it now?', { type: false }); }
       else if (a === 'nudge') moment(function () { return quickClear('Nudging ' + (cur().waitingOn || 'them') + ' about', 'Fuzz is drafting a nudge. It comes to you for your OK before anything is sent.', function (i) { Store.nudgeThem(i.id); }, 'On it. I’ll draft something friendly.'); });
@@ -2395,7 +2411,7 @@
        (A assign, D done, S schedule, P park, W waiting, X not mine; K keep and L let go on a stale card). Numbers pick
        from whatever choice is on screen: a time while scheduling, an answer on an entity or duplicate
        card, a quick answer on a handback, a mood (then a follow-up) on a check-in. Escape backs out. */
-    var KEYS = { a: 'assign', d: 'done', s: 'schedule', p: 'park', c: 'claude', w: 'waiting', x: 'theirs', b: 'book', z: 'pause', g: 'deepwork', h: 'helpstart', n: 'keepgoing' }, REVIEW = { e: 'revise', s: 'notnow', d: 'sentself' };
+    var KEYS = { a: 'assign', d: 'done', s: 'schedule', p: 'park', c: 'claude', w: 'waiting', x: 'theirs', b: 'book', z: 'pause', h: 'helpstart', n: 'keepgoing' }, REVIEW = { e: 'revise', s: 'notnow', d: 'sentself' };
     docKey = function (e) {
       /* ⌘ Enter in the change box sends the draft back */
       if (alive && !busy && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target && e.target.id === 'revise-text' && card.contains(e.target)) {

@@ -38,7 +38,7 @@ Changing anything later happens on the Settings page (`#/settings`, see "As buil
 7. **A check-in on that task.** Twenty minutes to come back to it, once, at a time the user picks.
    Fuzz puts it on their calendar when he has a calendar tool to send with; otherwise it's a calendar
    file to open. Not now skips it.
-8. **The Guide, one part at a time.** Fuzz points at Triage, My work, Something else and the menu,
+8. **The Guide, one part at a time.** Fuzz points at Triage, Something else, New task and the menu,
    with a line on each, so the user knows where to start next time.
 9. **What's next.** One line saying that Fuzz only knows what they type until a source is connected.
    The onboarding ends here, Fuzz runs a first read, and setup cards take over.
@@ -247,7 +247,7 @@ that would be handling the request. The page has to survive that and reconnect.
   (`POST /onboarding/checkin`) makes an approved `calendar_hold` draft for the sender, since pressing the
   button was the yes; there's no hold card. Without one, Add to my calendar downloads a one-off `.ics`.
   Either way it's only the time: the task isn't booked or moved, so Fuzz keeps working on it. The event is
-  "Check in with Fuzz: <task>", and links to Triage (or to the task on the Guide when it's in My work).
+  "Check in with Fuzz: <task>", and links to Triage (or to the task on the Guide when it's yours to start).
 - **The tour** (step `tour`) runs on the Guide: a bubble beside each part in turn, the part ringed, Next
   (Enter) and Skip the tour. Leaving the Guide hides it; coming back picks it up again. Got it on the last
   one ends the onboarding: the Undo tip, and one line saying the next card is a task for Fuzz.

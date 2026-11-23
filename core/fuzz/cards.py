@@ -41,6 +41,10 @@ CARD_KINDS = {
                       suggested="approve", scheduled=True),
     "permission": CardKind("approval", "Can Fuzz use {resource}?", ("allow_once", "always_allow", "deny"),
                            suggested="allow_once"),
+    # Focus time (rhythm.py): when you usually get things done, and the weekly plan for your calendar. No task.
+    "rhythm_best": CardKind("question", "When do you usually get things done?", ("morning", "afternoon", "late", "varies", "not_now")),
+    "rhythm_plan": CardKind("approval", "Keep your Focus time and Triage time on your calendar?", ("approve", "always_allow", "skip"),
+                            suggested="approve"),
     # a hold on your calendar for booked time (or taking one off)
     "hold": CardKind("approval", "Add a hold for this to your calendar?", ("approve", "always_allow", "skip"),
                      suggested="approve"),
@@ -84,13 +88,12 @@ def kind_spec(name):
 
 
 # A task card's answers depend on why it's in front of you. schedule is Later (bring it back then); book is
-# Book time (hold the time). do_now, after_others and first_step are a big task's choices with book; decide
+# Book time (hold the time). after_others and first_step are a big task's choices with book; decide
 # and draft_it answer "What's in the way?"
-TASK_OPTIONS = ["assign", "deep_work", "session", "schedule", "done", "park", "wait", "someone_else", "drop",
-                "book", "do_now", "after_others", "first_step", "decide", "draft_it"]
-BIG_LEAD = ["do_now", "book", "after_others", "first_step"]   # a big task's card leads with these
-DOING_OPTIONS = ["done", "pause", "assign", "deep_work", "session", "book"]   # the working card's ways out
-WAY_OPTIONS = ["do_now", "deep_work", "book", "first_step", "decide", "draft_it", "after_others", "drop"]
+TASK_OPTIONS = ["assign", "session", "schedule", "done", "park", "wait", "someone_else", "drop",
+                "book", "after_others", "first_step", "decide", "draft_it"]
+BIG_LEAD = ["book", "after_others", "first_step"]   # a big task's card leads with these
+WAY_OPTIONS = ["book", "first_step", "decide", "draft_it", "after_others", "drop"]
 REVIEW_OPTIONS = ["keep_parked", "now", "schedule", "drop"]   # a parked task back to ask "Still want this?"
 CHECK_BACK_OPTIONS = ["got_it", "nudge", "keep_waiting", "drop"]   # a waiting task back to ask "Did they get back to you?"
 # a task you've scheduled again and again, back to ask what's in the way: unclear (Fuzz works out the
@@ -99,14 +102,14 @@ PUT_OFF_OPTIONS = ["unclear", "now", "book", "schedule", "park", "drop"]
 BLOCK_END_OPTIONS = ["done", "keep_going", "book", "pause"]   # a booked block ended: "How far did you get?"
 MISSED_OPTIONS = ["book", "schedule", "park", "drop", "done"]   # "The block for this went by. Find another time?"
 # The first of these tags a task has picks its card's answers; without one, TASK_OPTIONS (see task_options)
-TASK_VARIANTS = (("block_end", BLOCK_END_OPTIONS), ("missed_block", MISSED_OPTIONS), ("doing", DOING_OPTIONS),
+TASK_VARIANTS = (("block_end", BLOCK_END_OPTIONS), ("missed_block", MISSED_OPTIONS),
                  ("in_the_way", WAY_OPTIONS), ("review", REVIEW_OPTIONS), ("check_back", CHECK_BACK_OPTIONS),
                  ("put_off", PUT_OFF_OPTIONS))
 PUT_OFF_PROMPT = "This keeps coming back. Is something in the way?"
 
 # Variant tags that only make sense while the task sits in triage.
 TRIAGE_TAGS = {"handed_back", "result", "returning", "reopened", "stale", "review", "check_back", "put_off",
-               "found_out", "doing", "block", "after_others", "ask_book", "in_the_way", "first_step",
+               "found_out", "block", "after_others", "ask_book", "in_the_way", "first_step",
                "block_end", "missed_block"}
 
 
@@ -217,17 +220,16 @@ def sync(core, task_id, where="back"):
         if "missed_block" in tags:
             return create(core, "task", task_id, reason=t.get("reason"), prompt="The block for this went by. Find another time?",
                           suggested="book", where=where)
-        if "doing" in tags:   # the working card: Do it now, a booked block starting, or step 1 of a big one
-            return create(core, "task", task_id, reason=t.get("reason"), suggested="done",
-                          prompt="Step 1 is about two minutes. Then book the rest." if "first_step" in tags
-                          else "You’re on this one.", where="front" if where == "back" else where)
+        if "block" in tags:   # booked time has started and you're in Triage: the link on your calendar starts Focus time, and so does this card
+            return create(core, "task", task_id, reason=t.get("reason"), suggested="assign",
+                          prompt="Your booked time is starting.", where="front" if where == "back" else where)
         if "in_the_way" in tags:
             from .tasks import WAY_PROMPT
             return create(core, "task", task_id, reason=t.get("reason"), prompt=WAY_PROMPT, suggested="decide",
                           payload={"at_end": True}, where=where)
         if "ask_book" in tags or "after_others" in tags:
             return create(core, "task", task_id, reason=t.get("reason"),
-                          suggested="book" if "ask_book" in tags else "do_now",
+                          suggested="book" if "ask_book" in tags else "first_step",
                           payload={"at_end": True} if "after_others" in tags else None, where=where)
         return create(core, "task", task_id, reason=t.get("reason"),
                       prompt=PUT_OFF_PROMPT if "put_off" in tags else None,
@@ -388,9 +390,8 @@ def queue(core, front=None):
         elif m == "low":
             fits = 0 if (t and t.get("energy") == "low") else 1
         at_end = 1 if (c.get("payload") or {}).get("at_end") else 0
-        # the working card (Do it now, or a booked block that started) is first, ahead of deadlines; so are
-        # Monday's deliverable cards, that day
-        doing = 0 if ("doing" in tags and c["kind"] == "task") or (c.get("payload") or {}).get("monday") else 1
+        # a booked block that has started is first, ahead of deadlines; so are Monday's deliverable cards, that day
+        doing = 0 if ("block" in tags and c["kind"] == "task") or (c.get("payload") or {}).get("monday") else 1
         infocus = 0 if t and t["id"] in fids else 1
         inseries = 0 if t and t["id"] in moving else 1
         if level:   # today's set, then the order for your energy; ties keep focus, then a moving series, then order
@@ -505,7 +506,7 @@ def view(core, card, task=None):
             sz = booking.size(core, task)
             if sz:
                 out["size"] = sz
-            plain = not ({"review", "check_back", "put_off", "doing", "result", "handed_back"} & set(task.get("variant_tags") or []))
+            plain = not ({"review", "check_back", "put_off", "block", "result", "handed_back"} & set(task.get("variant_tags") or []))
             if sz and sz["big"] and plain:
                 out["lead"] = list(BIG_LEAD)
             if "book" in out["options"]:

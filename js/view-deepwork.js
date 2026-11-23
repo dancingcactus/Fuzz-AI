@@ -28,14 +28,14 @@
   var E = fresh();     /* the Guide: where to start, how long */
   /* pick: what's picked on the Guide ('triage', a task id, 'typed', or null for Fuzz's suggestion); typed: Something
      else's text; link: what a calendar link set (docs/nav-guide.md); recap: how the last session went, said once */
-  function fresh() { return { choice: null, budget: 50, query: '', alt: 0, want: null, hideClock: false, until: null, asked: false, pick: null, typed: '', link: null, linkUntil: false, gone: null, recap: null, next: null, more: false }; }
+  function fresh() { return { find: '', findAlt: 0, auto: null, choice: null, budget: 50, query: '', alt: 0, want: null, hideClock: false, until: null, asked: false, pick: null, typed: '', link: null, linkUntil: false, gone: null, recap: null, next: null, more: false }; }
   function inSession() { return !!S && (S.view === 'focus' || S.view === 'between'); }
 
   /* The pool, in Fuzz's order: where you left off first, then what fits the time, then the rest */
   function pool() { return Store.inState('deepwork'); }
   var CLOSED = ['done', 'dropped', 'letgo', 'resolved'];
   function isOpen(it) { return !!it && CLOSED.indexOf(it.state) < 0; }
-  /* What a link can start Deep Work on: already in My work, or one the core can move there (in Triage, or booked
+  /* What a link can start Deep Work on: already in Focus time, or one the core can move there (in Triage, or booked
      and scheduled). One Fuzz is working on, or waiting on someone, isn't yours to start. */
   var STARTABLE = ['deepwork', 'triage', 'scheduled'];
   /* How long it takes: the core's estimate; the demo's minutes; else about half an hour (a live task with no estimate) */
@@ -70,7 +70,7 @@
   }
   function setChoice(v) {
     var cs = chips(), pick = function (x) { return cs.filter(function (c) { return c.v === x; })[0]; };
-    var c = pick(v) || pick('cal') || pick(50) || cs[0];
+    var cal = pick('cal'), c = pick(v) || (cal && cal.min <= 90 ? cal : null) || pick(50) || cal || cs[0];   /* a gap of hours isn't the time you have: 90 min at most */
     E.choice = c.v; E.budget = c.min;
   }
   /* Breaks are planned into the time you give, in one line */
@@ -91,17 +91,33 @@
     return est(it) <= left ? UI.pill('Fits', 'ok') : UI.pill('First part fits', 'muted');
   }
 
-  /* ---------- What to work on: one box, Fuzz's pick in the placeholder ---------- */
+  /* ---------- What to work on: what is ready to start, and a search over it ---------- */
+  /* There is no queue (docs/book-then-work.md). What can be started now: tasks you left mid-session, booked tasks whose
+     time you could use early, and tasks in Triage that are yours to do. Fuzz's order is below. */
+  function workable() {
+    var seen = {}, out = [];
+    var add = function (it) { if (it && !seen[it.id]) { seen[it.id] = 1; out.push(it); } };
+    Store.inState('deepwork').forEach(add);
+    Store.inState('scheduled').filter(function (it) { return !!it.booked; }).forEach(add);
+    /* A plain task card, yours to start: not a draft waiting for your OK, an answer, a question about the task, a group run,
+       Fuzz's own first task, or someone you are waiting on. Starting one of those would be refused by the core. */
+    Store.queue().filter(function (it) {
+      return it.kind === 'task' && it.state === 'triage' && (!it.cardKind || it.cardKind === 'task') &&
+        !it.handedBack && !it.result && !it.review && !it.checkBack && !it.foundOut && !it.blockEnd &&
+        !it.kickoff && !it.group && !it.joinReply && !it.needsPermission && !it.nudged;
+    }).forEach(add);
+    return out;
+  }
   function ready(exclude) {
     var left = S && inSession() ? leftMin() : (E.budget > 0 ? E.budget : Infinity);
-    var c = pool().filter(function (it) { return !exclude || it.id !== exclude.id; });
-    /* the one you came for (a calendar link, Work on this) goes first, whatever its open state: a booked task
-       is scheduled, or back in Triage, when its block starts */
+    var c = workable().filter(function (it) { return !exclude || it.id !== exclude.id; });
+    /* the one you came for (a calendar link, Work on this) goes first, whatever its open state */
     var w = E.want && Store.item(E.want), want = w && STARTABLE.indexOf(w.state) > -1 && (!exclude || w.id !== exclude.id) ? [w] : [];
     c = c.filter(function (it) { return want.indexOf(it) < 0; });
-    var res = c.filter(function (it) { return it.leftOff; }), rest = c.filter(function (it) { return !it.leftOff; });
-    var fit = rest.filter(function (it) { return est(it) <= left; }), big = rest.filter(function (it) { return est(it) > left; });
-    return want.concat(res, fit, big);
+    /* what fits the time you have comes first (where you left off first among those), then the bigger ones as a first piece */
+    var byLeft = function (a, b) { return (b.leftOff ? 1 : 0) - (a.leftOff ? 1 : 0); };
+    var fit = c.filter(function (it) { return est(it) <= left; }).sort(byLeft), big = c.filter(function (it) { return est(it) > left; }).sort(byLeft);
+    return want.concat(fit, big);
   }
   var MOODS = [[/^(something )?(light|easy|quick|small|short)( one| thing)?$/i, 'light'], [/^(anything|any|you pick|whatever|surprise me|idk|dunno|fuzz'?s pick)$/i, 'any']];
   var STOP = ['the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'about', 'some', 'work', 'doc'];
@@ -119,40 +135,51 @@
       var hay = (it.title + ' ' + (it.nextStep || '')).toLowerCase();
       return { t: it, score: words.filter(function (w) { return new RegExp('\\b' + w).test(hay); }).length };
     }).filter(function (x) { return x.score >= need; }).sort(function (a, b) { return b.score - a.score; })
-      .map(function (x) { return { t: x.t, why: x.t.leftOff ? 'Picks up where you left off' : 'In My work' }; });
+      .map(function (x) { return { t: x.t, why: x.t.leftOff ? 'Picks up where you left off' : 'A match' }; });
     return hits.concat([{ free: q, why: 'A new task, started now' }]);
   }
-  function current() { var c = candidates(E.query); return c.length ? c[((E.alt % c.length) + c.length) % c.length] : null; }
-  function boxHTML() {
-    var d = candidates('')[0];
-    var ph = d ? (d.t.leftOff ? 'Pick up “' + d.t.title + '”? Or type anything…' : '“' + d.t.title + '”? Or type anything…') : 'Type what you want to work on…';
-    return '<label class="dw-askwhat" for="dw-what">What do you want to work on?</label>' +
-      '<input class="dw-what" id="dw-what" value="' + esc(E.query) + '" placeholder="' + esc(ph) + '" autocomplete="off" aria-describedby="dw-match">' +
-      '<div class="dw-match" id="dw-match" aria-live="polite">' + matchHTML() + '</div>';
+  /* A task is moved into the session when you start it (from Triage, or booked time used early) */
+  function pickTask(it) {
+    if (it.state !== 'deepwork') { Store.deepWork(it.id); it = Store.item(it.id) || it; }
+    return it;
   }
-  function matchHTML() {
-    var c = candidates(E.query), it = current(); if (!it) return '<p class="dw-msub">Nothing is in My work yet. Type anything to start on it, or say “I’ll do it” to a task in Triage (G).</p>';
-    var i = ((E.alt % c.length) + c.length) % c.length;
-    var more = c.length > 1 ? '<span class="dw-cycle">↓ another · ' + (i + 1) + ' of ' + c.length + '</span>' : '';
-    if (it.free) return '<button type="button" class="dw-mrow" id="dw-mrow"><span class="dw-mt">“' + esc(it.free) + '”</span>' + UI.pill('New', 'accent') + '</button><div class="dw-msub">' + esc(it.why) + more + '</div>';
-    return '<button type="button" class="dw-mrow" id="dw-mrow"><span class="dw-mt">' + esc(it.t.title) + '</span>' + fits(it.t) + '<span class="dw-est">~' + dur(est(it.t)) + '</span></button>' +
-      '<div class="dw-msub">' + esc(it.why) + (it.t.leftOff && /^Pick/.test(it.why) ? ': ' + esc(it.t.leftOff) : '') + more + '</div>';
+  /* The search under Something else, and after a task finishes: a box, with Fuzz's suggestions listed under it. Typing
+     filters; with no match, it offers to make the text a new task. */
+  var SEARCH_SHOWN = 5;
+  function resultRows(q, alt, picked) {
+    var c = candidates(q).slice(0, SEARCH_SHOWN);
+    if (!c.length) return '<li class="g-none">Nothing is ready to start. Type what you want to work on.</li>';
+    return c.map(function (x, i) {
+      var on = i === ((alt % c.length) + c.length) % c.length;
+      if (x.free) return '<li role="none"><button type="button" class="g-res' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-new="1"><span class="g-t"><b>“' + esc(x.free) + '”</b><small>' + esc(x.why) + '</small></span>' + UI.pill('New', 'accent') + '</button></li>';
+      return '<li role="none"><button type="button" class="g-res' + (on ? ' on' : '') + (picked === x.t.id ? ' picked' : '') + '" role="option" aria-selected="' + on + '" data-task="' + esc(x.t.id) + '"><span class="g-t"><b>' + esc(x.t.title) + '</b><small>' + esc(rowSub(x.t)) + '</small></span><span class="g-m">~' + dur(est(x.t)) + '</span></button></li>';
+    }).join('');
   }
-  function pickCurrent(onPick) {
-    var it = current(); if (!it) { var w = $('#dw-what'); if (w) w.focus(); return; }
-    onPick(it.free ? Store.captureDeep(it.free) : it.t);
+  function searchHTML(q, alt, picked, id) {
+    return '<div class="g-search"><label class="sr" for="' + id + '">Search your tasks</label>' +
+      '<input class="dw-what g-find" id="' + id + '" value="' + esc(q) + '" placeholder="Search your tasks, or type anything" autocomplete="off" aria-controls="' + id + '-list">' +
+      '<ul class="g-results" id="' + id + '-list" role="listbox" aria-label="Tasks Fuzz suggests">' + resultRows(q, alt, picked) + '</ul></div>';
   }
-  function wireBox(onPick) {
-    var input = $('#dw-what'); if (!input) return;
-    function refresh() { $('#dw-match').innerHTML = matchHTML(); var m = $('#dw-mrow'); if (m) m.onclick = function () { pickCurrent(onPick); }; }
-    input.oninput = function () { E.query = input.value; E.alt = 0; refresh(); };
+  /* Wire a search: get/set keep the text and the highlighted row; onTask and onNew say what picking does */
+  function wireSearch(id, st, picked, onTask, onNew) {
+    var input = $('#' + id), list = $('#' + id + '-list'); if (!input) return;
+    function paint() { list.innerHTML = resultRows(st.q, st.alt, picked()); }
+    function pickAt() {
+      var rows = [].slice.call(list.querySelectorAll('.g-res')); if (!rows.length) return;
+      var b = rows[((st.alt % rows.length) + rows.length) % rows.length];
+      if (b.dataset.new) onNew(st.q.trim()); else onTask(b.dataset.task);
+    }
+    input.oninput = function () { st.q = input.value; st.alt = 0; paint(); };
     input.onkeydown = function (e) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); E.alt++; refresh(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); E.alt--; refresh(); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); pickCurrent(onPick); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); st.alt++; paint(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); st.alt--; paint(); }
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); pickAt(); }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.blur(); }
     };
-    refresh();
+    list.onclick = function (e) {
+      var b = e.target.closest('.g-res'); if (!b) return;
+      if (b.dataset.new) onNew(st.q.trim()); else onTask(b.dataset.task);
+    };
   }
 
   /* ---------- Fuzz ---------- */
@@ -160,7 +187,7 @@
   /* Only from this page's perch: a break that ends while you're on Triage mustn't talk through its Fuzz */
   function say(text, mood) { if (!root) return; Fuzz.say(text, { type: false }); if (mood) Fuzz.setMood(mood); }
   function settle(ms) { clearTimeout(settleT); settleT = setTimeout(function () { if (root && S && S.view === 'focus' && !S.sheet && !S.take) Fuzz.setMood('idle'); }, ms || 1500); }
-  function paintPool() { var p = $('.dw-pool'), n = pool().length + ' in My work'; if (p && p.textContent !== n) p.textContent = n; }
+  function paintPool() { var p = $('.dw-pool'), n = pool().length ? pool().length + ' in Focus time' : ''; if (p && p.textContent !== n) { p.textContent = n; p.hidden = !n; } }
   function $(s) { return root ? root.querySelector(s) : null; }
 
   /* ---------- Views ---------- */
@@ -170,7 +197,7 @@
     var v = S ? S.view : 'entry';
     root.querySelector('.dw').classList.toggle('dw-focus', v === 'focus');
     root.querySelector('.dw').classList.toggle('dw-guide', v === 'entry');
-    $('#dw-mode').textContent = { entry: 'Guide', focus: 'My work', between: 'My work', wrap: 'My work: wrapping up' }[v];
+    $('#dw-mode').textContent = { entry: 'Guide', focus: 'Focus time', between: 'Focus time', wrap: 'Focus time: wrapping up' }[v];
     ({ entry: vGuide, focus: vFocus, between: vBetween, wrap: vWrap })[v]();
     if (window.App && App.paintLabel) App.paintLabel();
     paintFoot(v === 'focus');
@@ -253,7 +280,7 @@
       var note = $('#dw-telltext').value.trim(); $('#dw-telltext').value = '';
       closeForm('dw-tellform', 'dw-tellbtn', true); S.sheet = null;
       var ch = Store.track([it.id], function () { if (note) Store.tell(it.id, note); Store.handToFuzz(it.id); });
-      Say.offerUndo('Handed “' + it.title + '” to Fuzz from My work.', function () { return ch.undo(); }, null, ch.blocked);
+      Say.offerUndo('Handed “' + it.title + '” to Fuzz from Focus time.', function () { return ch.undo(); }, null, ch.blocked);
       toBetween('handed');
     };
     $('#dw-noteit').onclick = function () {
@@ -267,35 +294,37 @@
 
   /* ---------- The Guide: the one starting place (docs/nav-guide.md) ----------
      Fuzz's line on top suggests where to start; then one question, "Where do you want to start?", over one list:
-     Triage, the top of My work, and Something else, with the rest of My work behind a button. Picking a task or
-     Something else asks how long. */
-  var GUIDE_ROWS = 3;   /* rows before Something else, Triage included */
+     Triage, Something else and New task. Something else opens a search with Fuzz's suggestions; picking a task or
+     New task asks how long. */
+  /* Three doors: Triage, Something else (a search over what's ready), New task (typed). Picked: 'triage', 'else' (nothing chosen yet),
+     a task id (chosen under Something else), or 'typed' (New task). */
   function triageN() { return Store.get().queue.length + (Onboard.hasQuestion() && !Store.get().queue.length ? 1 : 0); }
   function triageUrgent() { return Store.queue().some(function (it) { return !!it.dueAt; }); }
   function short(t) { var w = (t || '').split(/\s+/); return w.length > 5 ? w.slice(0, 5).join(' ') + '…' : t; }
-  /* The rows under My work, in Fuzz's order: the one you came for, where you left off, then what fits the time */
+  /* What Something else suggests, in Fuzz's order: the one you came for, then what fits the time, then a first piece of the bigger ones */
   function guideTasks() { return ready(null); }
+  function fitsNow(it) { return est(it) <= (E.budget > 0 ? E.budget : Infinity); }
   /* Fuzz reads the moment and suggests where to start */
   function suggestion() {
     var n = triageN(), urgent = triageUrgent(), tasks = guideTasks(), r = E.recap || E.ended;   /* how the last session ended, until you leave the Guide */
-    var top = tasks[0] ? tasks[0].id : null, triage = n ? 'triage' : top || 'typed';
-    var deep = top || (n ? 'triage' : 'typed');
+    var top = tasks.filter(fitsNow)[0] || null, triage = n ? 'triage' : top ? top.id : 'typed';
     if (r && r.why === 'meeting') return { pick: triage, why: 'Go, your ' + (r.at || 'meeting') + ' is starting. Triage will be here when you’re back.' };
     if (r && r.why === 'time') return { pick: triage, why: 'Good stretch. Take a break, then a quick look at Triage.' };
     if (urgent) return { pick: 'triage', why: 'Something has a time on it. Let’s clear Triage first. It’s quick.' };
-    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Clear Triage first, then you’ll have room to get into your work.' };
-    if (top) return { pick: top, why: (meetingIn() != null ? 'You’ve got until ' + fmt(E.until) + ' and nothing urgent.' : 'Nothing urgent.') + ' Good time to get into your work.' };
-    if (n) return { pick: 'triage', why: 'Nothing big waiting. A quick look at Triage and you’re clear.' };
-    return { pick: deep, why: 'Nothing is waiting on you. What do you want to work on? Tell me and I’ll make it a task.' };
+    if (n >= 5) return { pick: 'triage', why: 'A few things are waiting. Clear Triage first, then you’ll have room for your own work.' };
+    if (top) return { pick: top.id, why: (meetingIn() != null ? 'You’ve got until ' + fmt(E.until) + ' and nothing urgent.' : 'Nothing urgent.') + ' “' + short(top.title) + '” fits, if you want it.' };
+    if (n) return { pick: 'triage', why: 'Nothing small enough to fit is ready. A quick look at Triage and you’re clear.' };
+    return { pick: 'typed', why: 'Nothing is waiting on you. Want to start something new? Tell me and I’ll make it a task.' };
   }
   function picked(sug) {
     var p = E.pick;
     if (p === 'none') return null;   /* a work link with no task: the time is set, and nothing is picked */
     if (p === 'triage' && !triageN()) p = null;   /* Triage cleared while you were looking */
-    if (p && p !== 'triage' && p !== 'typed' && !guideTasks().some(function (it) { return it.id === p; })) p = null;
+    if (p && p !== 'triage' && p !== 'typed' && p !== 'else' && !guideTasks().some(function (it) { return it.id === p; })) p = null;
     return p || (sug || suggestion()).pick;
   }
-  function pickedTask(p) { return p && p !== 'triage' && p !== 'typed' ? Store.item(p) : null; }
+  function pickedTask(p) { return p && p !== 'triage' && p !== 'typed' && p !== 'else' ? Store.item(p) : null; }
+  function doorOf(p) { return p === 'triage' ? 'triage' : p === 'typed' ? 'typed' : p ? 'else' : null; }
   function tag(on) { return on ? '<span class="g-tag">Fuzz suggests</span>' : ''; }
   function radio(id, on, inner, attrs) {
     return '<li role="none"><div role="radio" class="g-row" tabindex="' + (on ? 0 : -1) + '" aria-checked="' + on + '" data-pick="' + esc(id) + '"' + (attrs || '') + '><span class="g-radio" aria-hidden="true"></span>' + inner + '</div></li>';
@@ -313,6 +342,7 @@
   function startLabel(p) {
     if (p === 'triage') return 'Start Triage';
     if (p === 'typed') return E.typed.trim() ? 'Start: ' + short(E.typed.trim()) : 'Tell me what first';
+    if (p === 'else') return 'Pick something to start';
     var it = pickedTask(p); return it ? 'Start: ' + short(it.title) : 'Pick where to start';
   }
   function fitLine(p) {
@@ -440,46 +470,40 @@
       '</details></aside>';
   }
   function rowSub(it) {
-    return it.leftOff ? 'Where you left off: ' + it.leftOff : it.state !== 'deepwork' ? (it.state === 'scheduled' ? 'Booked for this time' : 'Ready when you are') : it.aiNote ? 'Fuzz got it ready' : it.nextStep ? 'Next: ' + it.nextStep : 'Fuzz gets it ready as you start';
+    var big = it.state !== 'deepwork' && est(it) > (E.budget > 0 ? E.budget : Infinity);
+    return it.leftOff ? 'Where you left off: ' + it.leftOff
+      : it.state === 'scheduled' ? 'Booked for later. Starting now frees that time.'
+      : it.state === 'triage' ? (big ? 'A first piece fits' + (it.nextStep ? '. Next: ' + it.nextStep : '') : 'Ready when you are')
+      : it.aiNote ? 'Fuzz got it ready' : it.nextStep ? 'Next: ' + it.nextStep : 'Fuzz gets it ready as you start';
   }
   function vGuide() {
     var sug = suggestion(), n = triageN(), tasks = guideTasks();
     if (E.link && E.link.pick && (E.link.pick === 'typed' || tasks.some(function (it) { return it.id === E.link.pick; }))) sug = { pick: E.link.pick, why: sug.why };   /* what your calendar booked the time for */
-    var p = picked(sug), deep = p && p !== 'triage';
+    var p = picked(sug), door = doorOf(p), deep = p && p !== 'triage', sugDoor = doorOf(sug.pick);
     if (!E.asked) { say(guideLine(sug, p), E.recap && !E.recap.finished ? 'proud' : 'eager'); E.recap = null; E.gone = null; }
     E.asked = true;
-    var typedOn = p === 'typed', txt = E.typed.trim();
-    var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sug.pick === 'triage') + '</b><small>' +
-      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span>' + (n ? '' : '<span class="g-m">Clear</span>'),
-      n ? '' : ' aria-disabled="true"');
-    /* The top of My work, so the list stays short; what's picked always shows (a link or Work on this can pick
-       one further down), in place of the last one */
-    var shown = tasks;
-    if (!E.more && tasks.length > GUIDE_ROWS - 1) {
-      shown = tasks.slice(0, GUIDE_ROWS - 1);
-      var byId = function (id) { return function (it) { return it.id === id; }; };
-      if (p && !shown.some(byId(p))) { var further = tasks.filter(byId(p))[0]; if (further) shown[shown.length - 1] = further; }
-    }
-    var hidden = tasks.length - shown.length;
-    var taskRows = shown.map(function (it) {
-      return radio(it.id, p === it.id, '<span class="g-t"><b>' + esc(it.title) + tag(sug.pick === it.id) + '</b><small>' + esc(rowSub(it)) + '</small></span><span class="g-m">~' + dur(est(it)) + '</span>');
-    }).join('');
-    /* Something else: picked, its title becomes the field, so you type right where "Something else" was */
+    var typedOn = p === 'typed', txt = E.typed.trim(), chosen = pickedTask(p);
+    var triageRow = radio('triage', p === 'triage', '<span class="g-t"><b>Triage' + tag(sugDoor === 'triage') + '</b><small>' +
+      (n ? (triageUrgent() ? 'One has a time on it. ' : '') + 'Quick decisions, I do the rest' : 'Nothing is waiting on you') + '</small></span>' + (n ? '' : '<span class="g-m">Clear</span>') + '<kbd class="g-key" aria-hidden="true">1</kbd>',
+      ' aria-keyshortcuts="1"' + (n ? '' : ' aria-disabled="true"'));
+    /* Something else: work on a task that already exists. Picked, it opens a search with Fuzz's suggestions listed. */
+    var elseRow = radio('else', door === 'else', '<span class="g-t"><b>' + (chosen ? esc(chosen.title) : 'Something else') + tag(sugDoor === 'else') + '</b><small>' +
+      (chosen ? 'Something else, picked' : tasks.length ? 'Work on a task Fuzz has ready' : 'Nothing ready right now') + '</small></span>' + (chosen ? '<span class="g-m">~' + dur(est(chosen)) + '</span>' : '') + '<kbd class="g-key" aria-hidden="true">2</kbd>', ' aria-keyshortcuts="2"');
+    /* New task: picked, its title becomes the field, so you type right where "New task" was */
     var typedRow = typedOn
       ? '<li role="none"><div role="radio" class="g-row g-typed" tabindex="-1" aria-checked="true" data-pick="typed"><span class="g-radio" aria-hidden="true"></span><span class="g-t">' +
         '<input type="text" class="g-field" id="g-typed" autocomplete="off" aria-label="Tell me what you want to work on" placeholder="Tell me what you want to work on" value="' + esc(E.typed) + '" aria-describedby="g-hint">' +
         '<small class="g-hint" id="g-hint" aria-live="polite">' + typedHint(E.typed) + '</small></span></div></li>'
-      : radio('typed', false, '<span class="g-t"><b>' + (txt ? esc(txt) : 'Something else') + tag(sug.pick === 'typed') + '</b><small>' + (txt ? 'Something else, in your words' : 'Not on the list? Tell me') + '</small></span>');
-    var can = p && (p !== 'typed' || txt);
+      : '';   /* New task is a button below (it opens the New dialog); the typed row only appears for a calendar link or a search with no match */
+    var can = p && p !== 'else' && (p !== 'typed' || txt);
     view.innerHTML = '<div class="dw-panel g-panel"><h1 class="dw-title g-q" id="g-q">Where do you want to start?</h1>' +
-      '<ul class="g-list" role="radiogroup" aria-labelledby="g-q">' +
-        '<li class="g-grp" role="presentation">Keep things moving</li>' + triageRow +
-        '<li class="g-grp" role="presentation">My work</li>' + taskRows + typedRow + '</ul>' +
-      (hidden ? '<button type="button" class="linkbtn g-more" id="g-more" aria-expanded="false">More from My work (' + hidden + ')</button>' : '') +
+      '<ul class="g-list" role="radiogroup" aria-labelledby="g-q">' + triageRow + elseRow + typedRow + '</ul>' +
+      (door === 'else' ? searchHTML(E.find, E.findAlt, chosen && chosen.id, 'g-find') : '') +
       (deep ? '<h2 class="dw-q">How long do you have?</h2><div class="dw-times" role="group" aria-label="How long do you have">' + chips().map(function (c) {
         return '<button type="button" class="dw-time" data-v="' + c.v + '" aria-pressed="' + (c.v === E.choice) + '"><b>' + esc(c.l) + '</b><span>' + esc(c.sub) + '</span></button>';
       }).join('') + '</div><p class="dw-planline" id="g-fit">' + esc(fitLine(p)) + '</p>' : '') +
-      '<div class="dw-row"><button type="button" class="btn primary" id="dw-go"' + (can ? '' : ' disabled') + '>' + esc(startLabel(p)) + '<kbd aria-hidden="true">Enter</kbd></button></div>' +
+      '<div class="dw-row"><button type="button" class="btn primary" id="dw-go"' + (can ? '' : ' disabled') + '>' + esc(startLabel(p)) + '<kbd aria-hidden="true">Enter</kbd></button>' +
+        '<button type="button" class="btn" id="g-new" aria-keyshortcuts="N">New task' + (sugDoor === 'typed' ? ' <span class="g-tag">Fuzz suggests</span>' : '') + '<kbd aria-hidden="true">N</kbd></button></div>' +
       (deep ? '<details class="dw-optfold"><summary>Options</summary><label class="dw-toggle"><input type="checkbox" id="dw-hide"' + (E.hideClock ? ' checked' : '') + '> Hide the clock (breaks still happen)</label></details>' : '') + '</div>' + awayHTML();
     wireGuide(p);
   }
@@ -487,12 +511,13 @@
     if (id === 'triage' && !triageN()) return;
     E.pick = id; E.gone = null; render();
     if (id === 'typed') { var f = $('#g-typed'); if (f) { f.focus(); f.selectionStart = f.value.length; } return; }
+    if (id === 'else' && focus !== 'row') { var sf = $('#g-find'); if (sf) sf.focus(); return; }
     if (focus !== false) { var r = view.querySelector('.g-row[aria-checked="true"]'); if (r) r.focus(); }
   }
   function rows() { return [].slice.call(view.querySelectorAll('.g-row')).filter(function (r) { return r.getAttribute('aria-disabled') !== 'true'; }); }
   function moveBy(d) {
     var rs = rows(), at = rs.indexOf(view.querySelector('.g-row[aria-checked="true"]'));
-    var nx = rs[Math.max(0, Math.min(rs.length - 1, at + d))]; if (nx) choose(nx.dataset.pick);
+    var nx = rs[Math.max(0, Math.min(rs.length - 1, at + d))]; if (nx) choose(nx.dataset.pick, 'row');
   }
   function wireGuide(p) {
     var list = view.querySelector('.g-list');
@@ -525,25 +550,24 @@
     view.querySelectorAll('.dw-time[data-v]').forEach(function (b) { b.onclick = function () { setChoice(b.dataset.v === 'cal' ? 'cal' : +b.dataset.v); render(); var t = view.querySelector('.dw-time[aria-pressed="true"]'); if (t) t.focus(); }; });
     var hide = $('#dw-hide'); if (hide) hide.onchange = function () { E.hideClock = this.checked; };
     $('#dw-go').onclick = go;
-    var more = $('#g-more');
-    if (more) more.onclick = function () {
-      var seen = [].map.call(view.querySelectorAll('.g-row'), function (r) { return r.dataset.pick; });
-      E.more = true; render();
-      var nx = rows().filter(function (r) { return seen.indexOf(r.dataset.pick) < 0; })[0];
-      if (nx) { nx.tabIndex = 0; nx.focus(); }
-    };
+    $('#g-new').onclick = function () { App.navigate('#/capture'); };
+    /* the search under Something else: picking a result picks the task; no match offers a new task */
+    var st = { get q() { return E.find; }, set q(v) { E.find = v; }, get alt() { return E.findAlt; }, set alt(v) { E.findAlt = v; } };
+    wireSearch('g-find', st, function () { return pickedTask(p) && pickedTask(p).id; },
+      function (id) { choose(id); },
+      function (text) { E.typed = text; E.find = ''; choose('typed'); });
   }
-  /* Start what's picked: Triage, a task (moved into My work first, if a link brought one from elsewhere), or what
+  /* Start what's picked: Triage, a task (moved into the session first, if it came from Triage or booked time), or what
      you typed (a new task, started now; Fuzz gathers in the background) */
   function go() {
     var p = picked();
     if (p === 'triage') { E.pick = null; return App.navigate('#/triage'); }
+    if (p === 'else') { var sf = $('#g-find'); if (sf) sf.focus(); return; }
     if (p === 'typed') { var t = E.typed.trim(); if (!t) { var f = $('#g-typed'); if (f) f.focus(); return; } E.typed = ''; return startSession(Store.captureDeep(t)); }
     var it = pickedTask(p); if (!it) return;
-    if (it.state !== 'deepwork') { Store.deepWork(it.id); it = Store.item(it.id) || it; }
-    startSession(it);
+    startSession(pickTask(it));
   }
-  /* Take in where you came from: the plain Guide, the old #/deepwork (the top of My work picked), Work on this,
+  /* Take in where you came from: the plain Guide, the old #/deepwork (the top of what's ready picked), Work on this,
      or a calendar link (#/work[/<taskId>]?until=HH:MM&what=…) */
   function arrive(info) {
     info = info || { name: 'guide', arg: null, params: {} };
@@ -557,8 +581,12 @@
     var m = /^(\d{1,2}):(\d{2})$/.exec(q.until || '');
     if (m && +m[1] < 24 && +m[2] < 60) {
       var d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
-      if (d > Date.now()) { L.until = d; E.until = d; E.linkUntil = true; E.choice = 'cal'; }   /* a time already past is ignored */
+      if (d > Date.now()) { L.until = d; E.until = d; E.linkUntil = true; E.choice = 'cal'; }
+      else L.past = true;   /* the block is over: nothing starts by itself */
     }
+    /* a link opened before its block (it carries the start as from=HH:MM) doesn't start the work early */
+    var mf = /^(\d{1,2}):(\d{2})$/.exec(q.from || '');
+    if (mf && L.until && +mf[1] < 24 && +mf[2] < 60) { var fd = new Date(); fd.setHours(+mf[1], +mf[2], 0, 0); if (fd - Date.now() > 10 * 60000 && fd < L.until) L.early = fd; }
     if (L.task) {
       var it = Store.item('t' + L.task) || Store.item(L.task);
       if (it && STARTABLE.indexOf(it.state) > -1) { E.want = it.id; E.pick = it.id; }
@@ -566,11 +594,32 @@
       else E.gone = it ? (it.state === 'done' ? 'That one’s already done.' : 'That one’s been let go.') + ' Where do you want to start?' : 'I can’t find that task any more. Where do you want to start?';
     } else if (L.what) { E.typed = L.what; E.pick = 'typed'; }
     else if (L.until) E.pick = 'none';
+    /* Inside the block the work just starts (docs/book-then-work.md): a block booked for a task starts that task; an open
+       Focus time block starts on what fits it best. Past the block, the Guide says so. */
+    if (L.until && !L.past && L.early) {
+      if (!E.gone) E.gone = 'Your Focus time starts at ' + fmt(L.early) + '. Want to get a head start? Where do you want to start?';
+    } else if (L.until && !L.past) {
+      var tk = L.task && (Store.item('t' + L.task) || Store.item(L.task));
+      if (tk && STARTABLE.indexOf(tk.state) > -1) E.auto = tk.id;
+      else if (!L.task && !L.what) E.auto = 'best';
+    } else if (L.past && !E.gone) E.gone = 'That time has gone by. Where do you want to start?';
     if (!L.task) L.task = null;
     L.pick = E.pick && E.pick !== 'none' ? E.pick : null;
     E.link = L;
   }
 
+  function autoStart() {
+    var a = E.auto; E.auto = null; if (!a || S) return false;
+    var it = null;
+    if (a === 'best') {
+      it = guideTasks().filter(fitsNow)[0];
+      if (!it) { E.gone = 'Your Focus time is here, but nothing ready fits it yet. Triage, or a new task?'; return false; }
+    } else it = Store.item(a);
+    if (!it || STARTABLE.indexOf(it.state) < 0) return false;
+    startSession(pickTask(it));
+    say('Your Focus time is starting. “' + short(it.title) + '” is ready.', 'eager');
+    return true;
+  }
   function startSession(it) {
     var mt = meetingIn();
     S = { view: 'focus', task: null, clock: 0, workClock: 0, workSince: 0, sinceRealBreak: 0, breaksTaken: 0, pending: null, pendingAt: 0, forceAt: null,
@@ -634,7 +683,7 @@
     if (S.sheet || S.take) return;
     var it = task(); if (!it) return;
     var ch = Store.track([it.id], function () { Store.markDone(it.id); });
-    Say.offerUndo('Finished “' + it.title + '” in My work.', function () { return ch.undo(); }, null, ch.blocked);
+    Say.offerUndo('Finished “' + it.title + '” in Focus time.', function () { return ch.undo(); }, null, ch.blocked);
     S.entry.finished = true;
     toBetween('finished');
   }
@@ -666,13 +715,13 @@
     if (k === 3) {
       S.sheet = null;
       var ch = Store.track([it.id], function () { Store.handToFuzz(it.id); });
-      Say.offerUndo('Handed “' + it.title + '” to Fuzz from My work.', function () { return ch.undo(); }, null, ch.blocked);
+      Say.offerUndo('Handed “' + it.title + '” to Fuzz from Focus time.', function () { return ch.undo(); }, null, ch.blocked);
       return toBetween('handed');
     }
     if (k === 4) {
       S.sheet = null;
       var cb = Store.track([it.id], function () { Store.bringBack(it.id, 'front'); });
-      Say.offerUndo('Sent “' + it.title + '” back to Triage from My work.', function () { return cb.undo(); }, null, cb.blocked);
+      Say.offerUndo('Sent “' + it.title + '” back to Triage from Focus time.', function () { return cb.undo(); }, null, cb.blocked);
       return toBetween('sentback');
     }
   }
@@ -680,10 +729,9 @@
   /* ---------- Between tasks: a win beat, then one next thing ---------- */
   function nextOffer() {
     var left = leftMin(), from = S.between && S.between.from;
-    var c = pool().filter(function (it) { return !from || it.id !== from.id; });
+    var c = ready(from);   /* what fits what's left of the session first, then a first piece of the bigger ones */
     if (S.between && S.between.kind === 'switched') c.sort(function (a, b) { return est(a) - est(b); });
-    else c.sort(function (a, b) { return (b.leftOff ? 1 : 0) - (a.leftOff ? 1 : 0) || ((est(a) <= left ? 0 : 1) - (est(b) <= left ? 0 : 1)); });
-    return c[0] || null;
+    return c.filter(function (it) { return est(it) <= left; })[0] || c[0] || null;
   }
   function toBetween(kind) {
     S.between = { kind: kind, from: task() || S.task }; S.task = null; S.view = 'between'; S.picking = false; E.query = ''; E.alt = 0;
@@ -695,26 +743,29 @@
     if (S.pending) fire();
   }
   function vBetween() {
-    var b = S.between, t = b.from, n = b.offer && Store.item(b.offer.id) && Store.item(b.offer.id).state === 'deepwork' ? Store.item(b.offer.id) : nextOffer(), left = leftMin();
+    var b = S.between, t = b.from, keep = b.offer && Store.item(b.offer.id), n = keep && workable().indexOf(keep) > -1 ? keep : nextOffer(), left = leftMin();
     b.offer = n;
     var head = {
       finished: '<div class="dw-beat"><div class="dw-check" aria-hidden="true">✓</div><h1 class="dw-title" tabindex="-1">Done: ' + esc(t.title) + '</h1><p class="meta">It moves to Finished. Undo is in the header if it isn’t really done.</p></div>',
-      switched: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Switched away from “' + esc(t.title) + '”</h1><p class="meta">Your place is kept. It waits in My work.</p></div>',
+      switched: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Switched away from “' + esc(t.title) + '”</h1><p class="meta">Your place is kept. Find it again under Something else.</p></div>',
       handed: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">Fuzz has “' + esc(t.title) + '”</h1><p class="meta">Find it in Lineup, under With Fuzz.</p></div>',
       sentback: '<div class="dw-beat soft"><h1 class="dw-title" tabindex="-1">“' + esc(t.title) + '” is back in Triage</h1><p class="meta">It’s first there, to decide again.</p></div>'
     }[b.kind];
     var out = isFinite(left) && left <= 1;
     var timeLine = isFinite(left) ? (left > 1 ? 'About ' + dur(Math.round(left / 5) * 5) + ' left.' : 'You’re out of time for this session.') : 'No end time set.';
     view.innerHTML = '<div class="dw-panel">' + head + '<p class="dw-cap">' + timeLine + '</p>' +
-      (n ? '<div class="dw-offer"><div class="dw-lbl">Next, if you want it</div><div class="dw-txt">' + esc(n.title) + '</div><p class="meta">' + fits(n) + ' ~' + dur(est(n)) + (n.leftOff ? ' · Picks up where you left off.' : '') + '</p></div>' : '<p class="meta">That’s everything in My work. Nice.</p>') +
-      (S.picking ? '<div class="dw-otherbox">' + boxHTML() + '</div>' : '') +
+      (n ? '<div class="dw-offer"><div class="dw-lbl">Next, if you want it</div><div class="dw-txt">' + esc(n.title) + '</div><p class="meta">' + fits(n) + ' ~' + dur(est(n)) + (n.leftOff ? ' · Picks up where you left off.' : '') + '</p></div>' : '<p class="meta">Nothing else is ready to start. Nice.</p>') +
+      (S.picking ? '<div class="dw-otherbox">' + searchHTML(E.query, E.alt, null, 'dw-find') + '</div>' : '') +
       '<div class="dw-row">' + (n && !S.picking ? '<button type="button" class="btn' + (out ? '' : ' primary') + '" id="dw-go">Go' + (out ? '' : '<kbd aria-hidden="true">Enter</kbd>') + '</button><button type="button" class="btn" id="dw-other">Something else<kbd aria-hidden="true">O</kbd></button>' : '') +
-      (!n && !S.picking ? '<button type="button" class="btn" id="dw-other">Something new<kbd aria-hidden="true">O</kbd></button>' : '') +
+      (!n && !S.picking ? '<button type="button" class="btn" id="dw-other">New task<kbd aria-hidden="true">O</kbd></button>' : '') +
       '<button type="button" class="btn' + (n && !out ? '' : ' primary') + '" id="dw-stop">Stop here<kbd aria-hidden="true">' + (n && !out ? 'Esc' : 'Enter') + '</kbd></button></div></div>';
-    if ($('#dw-go')) $('#dw-go').onclick = function () { beginTask(n); };
-    if ($('#dw-other')) $('#dw-other').onclick = function () { S.picking = true; E.query = ''; E.alt = 0; render(); $('#dw-what').focus(); };
+    if ($('#dw-go')) $('#dw-go').onclick = function () { beginTask(pickTask(n)); };
+    if ($('#dw-other')) $('#dw-other').onclick = function () { S.picking = true; E.query = ''; E.alt = 0; render(); $('#dw-find').focus(); };
     $('#dw-stop').onclick = doneForNow;
-    if (S.picking) wireBox(beginTask);
+    if (S.picking) {
+      var st = { get q() { return E.query; }, set q(v) { E.query = v; }, get alt() { return E.alt; }, set alt(v) { E.alt = v; } };
+      wireSearch('dw-find', st, function () { return null; }, function (id) { var it = Store.item(id); if (it) beginTask(pickTask(it)); }, function (text) { beginTask(Store.captureDeep(text)); });
+    }
     else { var h = view.querySelector('.dw-title'); if (h) h.focus({ preventScroll: true }); }
   }
 
@@ -773,7 +824,7 @@
       o = opt(1, 'I’m good, keep going', '') + opt(3, 'Take a break', '5 minutes', 'primary') + opt(4, 'Stop here', '');
     }
     el.className = 'dw-take' + (k.kind === 'break' ? ' dw-take--break' : '') + (k.armed ? '' : ' arming');
-    el.innerHTML = '<div class="dw-take-in" role="alertdialog" aria-modal="true" aria-label="My work">' + h + '<div class="dw-opts">' + o + '</div>' +
+    el.innerHTML = '<div class="dw-take-in" role="alertdialog" aria-modal="true" aria-label="Focus time">' + h + '<div class="dw-opts">' + o + '</div>' +
       '<p class="dw-guard">' + (k.armed ? '' : 'One moment, so a stray keystroke doesn’t pick for you…') + '</p></div>';
     el.hidden = false; document.body.classList.add('dw-taken');
     el.querySelectorAll('[data-k]').forEach(function (b) { b.disabled = !k.armed; b.onclick = function () { takeOpt(+b.dataset.k); }; });
@@ -822,21 +873,26 @@
   /* Every way out lands on one wrap-up, then the Guide: Stop for now, Time's up, a meeting in 5 */
   function doneForNow(why) {
     S.wrapWhy = typeof why === 'string' ? why : 'stop';
-    S.after = 'keep';
+    S.after = 'book';   /* no queue: the task is booked, handed to Fuzz or postponed, never left waiting */
     S.wrapFrom = S.view === 'between' ? 'between' : 'focus';
     S.sheet = null; closeTake(); S.pending = null; S.forceAt = null;
+    /* Nothing to decide (the task is done, or there was none): the Guide's recap says how it went, so no second screen */
+    var w = wrapState(); if (!w.open) return finishWrap(w);
     S.view = 'wrap'; render();
   }
+  function wrapState() {
+    var it = S.wrapFrom === 'focus' ? task() : null, seen = [];
+    return { it: it, open: !!(it && it.state === 'deepwork'), fin: S.log.filter(function (e) { return e.finished; }),
+      rows: S.log.filter(function (e) { if (seen.indexOf(e.task.id) > -1) return false; seen.push(e.task.id); return true; }) };
+  }
   function vWrap() {
-    var it = S.wrapFrom === 'focus' ? task() : null, open = it && it.state === 'deepwork';
-    var fin = S.log.filter(function (e) { return e.finished; });
+    var w = wrapState(), it = w.it, open = w.open, fin = w.fin, rows = w.rows;
     say(fin.length ? 'Good session. I’ll keep your place warm.' : 'That’s okay. Opening it counts. I kept your place.', 'proud');
-    var seen = [], rows = S.log.filter(function (e) { if (seen.indexOf(e.task.id) > -1) return false; seen.push(e.task.id); return true; });
     var head = { meeting: 'Your ' + (E.until ? fmt(E.until) : 'meeting') + ' is in 5 minutes', time: 'That’s your time', stop: 'Stopping here' }[S.wrapWhy] || 'Stopping here';
-    /* What happens to the task you were on: back in My work (with your place kept), the rest to Fuzz, or booked
-       time to finish it (Book time's slots, opened right here) */
+    /* What happens to the task you were on, each a choice: booked time to finish it (Book time's slots, opened right here),
+       Later (tomorrow morning), or the rest to Fuzz. Your place is kept either way. */
     var then = open ? '<h2 class="dw-q" id="dw-then-h">Then what?</h2><div class="dw-then" role="radiogroup" aria-labelledby="dw-then-h">' +
-      [['keep', 'Back in my work'], ['fuzz', 'Hand the rest to Fuzz'], ['book', 'Book time to finish']].map(function (c) { return '<button type="button" role="radio" class="dw-time" data-after="' + c[0] + '" aria-checked="' + (S.after === c[0]) + '"><b>' + c[1] + '</b></button>'; }).join('') + '</div>' +
+      [['book', 'Book time to finish'], ['later', 'Later'], ['fuzz', 'Hand the rest to Fuzz']].map(function (c) { return '<button type="button" role="radio" class="dw-time" data-after="' + c[0] + '" aria-checked="' + (S.after === c[0]) + '"><b>' + c[1] + '</b></button>'; }).join('') + '</div>' +
       '<div id="dw-book"></div>' : '';
     view.innerHTML = '<div class="dw-panel"><h1 class="dw-title" id="dw-wrap-h" tabindex="-1">' + esc(head) + '</h1>' +
       '<p class="dw-lead">' + sessionLine() + '</p>' +
@@ -854,17 +910,30 @@
       paintBook(it);
     }; });
     paintBook(it);
-    $('#dw-save').onclick = function () {
+    $('#dw-save').onclick = function () { finishWrap(w); };
+    $('#dw-backwork').onclick = function () { S.view = S.wrapFrom || 'focus'; render(); if (S.view === 'focus') { stepAnim(); settle(); } say('Back at it. Nothing was lost.', 'happy'); };
+    var c = $('#dw-crumb'); if (c) { c.focus(); c.select(); } else { var h = $('#dw-wrap-h'); if (h) h.focus(); }
+  }
+  /* Save and leave: the task you were on is booked, Later or with Fuzz, your place is kept, and the Guide gives the recap */
+  function finishWrap(w) {
+    var it = w.it, open = w.open, fin = w.fin, rows = w.rows;
+    {
       var slot = S.after === 'book' && S.bookOpts ? S.bookOpts[S.bookPick] : null;
-      if (open && S.after === 'book' && !slot) {   /* Book time to finish needs a time first */
-        var first = view.querySelector('#dw-book [data-slot]'); if (first) first.focus();
-        say(S.bookOpts && !S.bookOpts.length ? 'No free time before it’s due. Back in my work keeps it ready.' : 'Pick a time first.', 'idle'); return;
+      if (open && S.after === 'book' && !slot) {
+        /* Never stall on a time that hasn't come: with no slots (still loading, none free, or the load failed) it's Later,
+           tomorrow morning, and Fuzz says so. Slots that are showing but not picked can't happen: the best one is picked. */
+        S.after = 'later';
+        say(S.bookOpts && !S.bookOpts.length ? 'No free time before it’s due, so it’s Later: tomorrow morning.' : 'I couldn’t get a time in time, so it’s Later: tomorrow morning.', 'idle');
       }
       if (open) {
-        var note = $('#dw-crumb').value.trim(); if (note !== (it.leftOff || '')) Store.deepWorkLeftOff(it.id, note);
+        var cf = $('#dw-crumb'), note = cf ? cf.value.trim() : (it.leftOff || ''); if (note !== (it.leftOff || '')) Store.deepWorkLeftOff(it.id, note);
         if (S.after === 'fuzz') {
           var ch = Store.track([it.id], function () { Store.handToFuzz(it.id); });
           Say.offerUndo('Handed the rest of “' + it.title + '” to Fuzz.', function () { return ch.undo(); }, null, ch.blocked);
+        }
+        if (S.after === 'later') {
+          var cl = Store.track([it.id], function () { Store.schedule(it.id, Sched.tomorrowMorning()); });
+          Say.offerUndo('“' + it.title + '” is for tomorrow morning.', function () { return cl.undo(); }, null, cl.blocked);
         }
         if (slot) {
           var cb = Store.track([it.id], function () { Store.book(it.id, slot); });
@@ -877,12 +946,12 @@
       E.recap = main ? { title: main.title, mins: Math.round(S.clock / 60), finished: fin.length > 0 && !open, why: S.wrapWhy, at: E.until ? fmt(E.until) : null, booked: slot ? slot.label : null,
         came: came.length, urgent: came.some(function (q) { return !!q.dueAt; }) } : null;
       var recap = E.recap;
+      /* how it went, so the Focus time block you were in can be judged productive (the core's rhythm) */
+      if (window.Live && Live.on() && Live.rhythmOutcome && S.clock >= 60) { try { Live.rhythmOutcome(Math.round(S.clock / 60), fin.length > 0).catch(function () {}); } catch (e) { /* not worth a message */ } }
       endSession();
       E.recap = recap; E.ended = recap ? { why: recap.why, at: recap.at } : null;
       toGuide();
-    };
-    $('#dw-backwork').onclick = function () { S.view = S.wrapFrom || 'focus'; render(); if (S.view === 'focus') { stepAnim(); settle(); } say('Back at it. Nothing was lost.', 'happy'); };
-    var c = $('#dw-crumb'); if (c) { c.focus(); c.select(); } else { var h = $('#dw-wrap-h'); if (h) h.focus(); }
+    }
   }
   /* Book time to finish: Book time's slots under the choice, loaded once (the core's for a task with no card, or the
      demo's). Painted on its own, so what you typed in Where you left off stays. */
@@ -894,15 +963,15 @@
       if (!S.bookLoading) {
         S.bookLoading = true;
         var load = window.Live && Live.on() && it.coreId != null ? Live.bookOptions(it.coreId) : Promise.resolve(Store.bookOptions(it));
-        load.then(function (opts) { if (!S) return; S.bookOpts = opts || []; S.bookPick = S.bookOpts.length ? 0 : -1; paintBook(it); });
+        load.catch(function () { return []; }).then(function (opts) { if (!S) return; S.bookOpts = opts || []; S.bookPick = S.bookOpts.length ? 0 : -1; paintBook(it); });
       }
       return;
     }
-    if (!S.bookOpts.length) { el.innerHTML = '<p class="meta">No free time before it’s due. Back in my work keeps it ready for your next session.</p>'; return; }
+    if (!S.bookOpts.length) { el.innerHTML = '<p class="meta">No free time before it’s due. Pick Later, or hand the rest to Fuzz.</p>'; return; }
     el.innerHTML = '<h2 class="dw-q" id="dw-book-h">When will you finish it?</h2><div class="dw-then" role="radiogroup" aria-labelledby="dw-book-h">' +
       S.bookOpts.map(function (o, n) {
         return '<button type="button" role="radio" class="dw-time" data-slot="' + n + '" aria-checked="' + (n === S.bookPick) + '"><b>' + esc(o.label) + '</b><span>' + esc(o.focus ? 'In a Focus time slot' : o.note || 'Not a focus slot') + '</span></button>';
-      }).join('') + '</div><p class="meta">Fuzz holds the time, and it opens first in Triage when it starts.</p>';
+      }).join('') + '</div><p class="meta">Fuzz holds the time, and the link on your calendar starts it when the time comes.</p>';
     el.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () {
       S.bookPick = +b.dataset.slot; el.querySelectorAll('[data-slot]').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); });
     }; });
@@ -920,7 +989,7 @@
     if (S.take && S.take.kind === 'break') sub = 'On a break';
     else {
       var mins = isFinite(left) ? Math.max(1, Math.ceil(left)) + ' min' : Math.max(1, Math.round(S.clock / 60)) + ' min in';
-      sub = (S.view === 'between' ? 'Between tasks' : it ? short(it.title) : 'My work') + ' · ' + mins;
+      sub = (S.view === 'between' ? 'Between tasks' : it ? short(it.title) : 'Focus time') + ' · ' + mins;
     }
     var ring = isFinite(S.budgetEnd) && S.budgetEnd > 0 ? Math.min(100, Math.round(S.clock / S.budgetEnd * 100)) : Math.min(100, Math.round(S.workSince / WORK * 100));
     return { session: true, sub: sub, ring: ring };
@@ -1023,7 +1092,7 @@
       /* Esc in a footer box closes it, back to its link, as in Triage */
       if (k === 'Escape' && e.target.id === 'dw-telltext') { e.preventDefault(); closeForm('dw-tellform', 'dw-tellbtn'); return; }
       if (k === 'Escape' && e.target.id === 'dw-parktext') { e.preventDefault(); closeForm('dw-parkform', 'dw-parkbtn'); return; }
-      if (k === 'Escape' && e.target.id !== 'dw-what' && e.target.id !== 'g-typed') e.target.blur();
+      if (k === 'Escape' && e.target.id !== 'dw-find' && e.target.id !== 'g-find' && e.target.id !== 'g-typed') e.target.blur();
       if (k === 'Enter' && e.target.id === 'dw-crumb') { e.preventDefault(); $('#dw-save').click(); }
       return;
     }
@@ -1032,8 +1101,8 @@
     if (v === 'entry') {
       /* The Guide: Enter starts what's picked, a number picks a row (like Triage's choices), / is Something else */
       if (k === 'Enter' && !onBtn) { e.preventDefault(); go(); }
-      else if (/^[1-9]$/.test(k)) { var r = rows()[+k - 1]; if (r) { e.preventDefault(); choose(r.dataset.pick); } }
-      else if (k === '/') { e.preventDefault(); choose('typed'); }
+      else if (/^[1-9]$/.test(k)) { var r = rows()[+k - 1]; if (r) { e.preventDefault(); choose(r.dataset.pick, 'row'); } }
+      else if (k === '/') { e.preventDefault(); choose('else'); }
     } else if (v === 'focus') {
       if (S.sheet) {
         if (/^[0-4]$/.test(k)) { var sb = $('#dw-sheet [data-k="' + k + '"]'); if (sb) { e.preventDefault(); sheetOpt(+k); } }
@@ -1063,8 +1132,8 @@
   var lastSig = '';
   V.mount = function (container, info) {
     root = container;
-    root.innerHTML = '<section class="dw" aria-labelledby="dw-mode"><div class="dw-top"><span class="dw-mode sr" id="dw-mode">My work</span>' +
-      '<a class="dw-pool" href="#/tasks">' + pool().length + ' in My work</a></div>' +
+    root.innerHTML = '<section class="dw" aria-labelledby="dw-mode"><div class="dw-top"><span class="dw-mode sr" id="dw-mode">Focus time</span>' +
+      '<a class="dw-pool" href="#/tasks"' + (pool().length ? '' : ' hidden') + '>' + (pool().length ? pool().length + ' in Focus time' : '') + '</a></div>' +
       '<div class="stage dw-stage" id="stage"><div class="fx" id="fx"></div>' +
       '<div class="perch" id="perch"><div class="pwrap" id="pwrap" aria-hidden="true">' + window.FUZZ_SVG + '</div><div class="bubble" id="bubble"></div></div>' +
       '<div id="dw-view"></div></div>' + footHTML() + '</section>';
@@ -1082,7 +1151,7 @@
          a session view doesn't re-render under you */
       if (S) return;
       var a = document.activeElement, sig = guideSig();
-      if (sig === lastSig || (a && a.id === 'g-typed')) return;
+      if (sig === lastSig || (a && (a.id === 'g-typed' || a.id === 'g-find'))) return;
       lastSig = sig;
       var hadFocus = a && view && view.contains(a);
       render();
@@ -1097,16 +1166,23 @@
     }
     arrive(info || (window.App && App.here()));
     setChoice(E.choice);
+    if (autoStart()) return;
     lastSig = guideSig();
     render();
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); if (!(document.activeElement && document.activeElement.id === 'g-typed')) render(); } });
     loadAway().then(paintAway);
+    /* an automatic top-up of Focus time says so once, here (core/fuzz/rhythm.py) */
+    if (window.Live && Live.on() && Live.rhythm) Live.rhythm().then(function (r) {
+      if (root && !S && r && r.notice && !r.notice.seen) { say(r.notice.text, 'happy'); Live.rhythmSeen(); }
+    }, function () { /* nothing to say */ });
   };
   /* A new link while the Guide is on screen (the logo from a work link, one work link to another) */
   V.arrive = function (info) {
     if (!root) return;
     if (S) { if (S.view !== 'wrap' && S.take == null) render(); return; }
-    arrive(info); setChoice(E.choice); lastSig = guideSig(); render();
+    arrive(info); setChoice(E.choice);
+    if (autoStart()) return;
+    lastSig = guideSig(); render();
     var h = $('#g-q'); if (h) h.focus({ preventScroll: true });
     loadUntil().then(function () { if (root && !S) { setChoice(E.choice); render(); } });
     loadAway().then(paintAway);
@@ -1118,7 +1194,7 @@
   V.refresh = function () {
     if (!root) return;
     if (S) { if (S.view !== 'wrap' && !S.take) render(); return; }
-    if (document.activeElement && document.activeElement.id === 'g-typed') return;
+    if (document.activeElement && (document.activeElement.id === 'g-typed' || document.activeElement.id === 'g-find')) return;
     lastSig = guideSig(); render();
   };
   V.unmount = function () {
@@ -1138,8 +1214,8 @@
   V.active = function () { return inSession(); };
   V.dur = dur;
   V.est = est;
-  /* The top of My work in the Guide's order, for Triage's All clear (js/view-triage.js) */
-  V.upNext = function (n) { return guideTasks().slice(0, n); };
+  /* What's ready to start, in the Guide's order, for Triage's All clear (js/view-triage.js) */
+  V.upNext = function (n) { return guideTasks().filter(function (it) { return !(it.state === 'triage' && Store.isDeferred(it)); }).slice(0, n); };   /* never what All clear just said can wait */
   /* What the Guide says under a task's name */
   V.rowSub = rowSub;
 

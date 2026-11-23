@@ -67,7 +67,6 @@ TASK_ANSWERS = {
     "add_to_reply": lambda core, card, t, value, hold: drafts.add_to_reply(core, card, t),
     # working sessions: a big task's four choices, the working card's Pause, and "What's in the way?"
     "book": lambda core, card, t, value, hold: tasks.book(core, t["id"], _field(value, "anchor"), card=card),
-    "do_now": lambda core, card, t, value, hold: tasks.do_now(core, t["id"], card=card),
     "pause": lambda core, card, t, value, hold: tasks.pause(core, t["id"], card=card, left_off=value),
     "after_others": lambda core, card, t, value, hold: tasks.after_others(core, t["id"], card=card),
     "first_step": lambda core, card, t, value, hold: tasks.first_step(core, t["id"], card=card),
@@ -82,8 +81,6 @@ TASK_ANSWERS = {
                                                               hold=hold),
     "quick": _quick,
     "session": lambda core, card, t, value, hold: tasks.session(core, t["id"], card=card),
-    # yours, and it takes real time: it waits for a Deep Work session
-    "deep_work": lambda core, card, t, value, hold: tasks.deep_work(core, t["id"], card=card),
     "schedule": lambda core, card, t, value, hold: tasks.schedule(core, t["id"], _dict(value).get("anchor"), card=card,
                                                                   instructions=_dict(value).get("instructions"),
                                                                   gather=gathers(core.config)),
@@ -273,6 +270,16 @@ def _hold(core, card, t, option, value):
     return booking.answer_hold(core, card, option)
 
 
+def _rhythm_best(core, card, t, option, value):
+    from . import rhythm
+    return rhythm.answer_best(core, card, t, option, value)
+
+
+def _rhythm_plan(core, card, t, option, value):
+    from . import rhythm
+    return rhythm.answer_plan(core, card, t, option, value)
+
+
 def _deliverable(core, card, t, option, value):
     from . import deliverables
     return deliverables.answer(core, card, option, value)
@@ -286,7 +293,7 @@ def _series(core, card, t, option, value):
 HANDLERS = {"series_new": _series, "series_role": _series, "series_next": _series, "series_season": _series,
             "task": _task_answer, "duplicate": _duplicate, "entity_person": _entity_person,
             "entity_term": _entity_term, "is_task": _is_task, "draft": _draft, "nudge": _draft,
-            "permission": _permission, "hold": _hold, "part_of": _deliverable, "deliverable": _deliverable,
+            "permission": _permission, "hold": _hold, "rhythm_best": _rhythm_best, "rhythm_plan": _rhythm_plan, "part_of": _deliverable, "deliverable": _deliverable,
             "deliverable_new": _deliverable, "week_plan": _deliverable, "decision": _decision,
             "fact_conflict": _fact_conflict, "missed": _missed, "spot_message": _spot, "spot_run": _spot}
 

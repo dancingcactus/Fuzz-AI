@@ -57,6 +57,9 @@ DEFAULTS = {
     # are this week's; per_day is how many background ones get a weekday card, by check-in. new_min tasks
     # sharing a ticket or a document make Fuzz suggest a deliverable.
     "deliverables": {"review_day": "monday", "active_max": 3, "per_day": {"good": 3, "okay": 1}, "new_min": 3},
+    # Focus time and Triage time (docs/book-then-work.md): weeks_ahead of them stay on your calendar, focus_per_week blocks
+    # of focus_minutes a week (at most 120), and a triage_minutes slot at the same time on working days.
+    "rhythm": {"weeks_ahead": 2, "focus_per_week": 3, "focus_minutes": 90, "triage_minutes": 30},
     "booking": {"slot_titles": ["Focus time"], "refresh_hours": 12, "prep_minutes": 30, "extend_minutes": 30,
                 "ui_url": "http://127.0.0.1:8765/"},
     # The connector tools the sender may call to send an approved draft, per client, as that client

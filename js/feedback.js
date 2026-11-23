@@ -68,7 +68,7 @@
       var st = Store.get();
       data.push(st.queue.length + ' in triage');
       var dw = window.DeepWork && DeepWork.label && DeepWork.label();
-      if (dw && dw.session) data.push('My work session running');
+      if (dw && dw.session) data.push('Focus time session running');
     } catch (e) { /* the store isn't up yet */ }
     var p = (window.App && App.prefs && App.prefs()) || {};
     var look = [window.App && App.shownTheme ? App.shownTheme() : p.theme, p.theme === 'random' ? '(random)' : '', p.mode, 'contrast ' + p.contrast, p.calm ? 'calm' : ''].filter(Boolean).join(', ');
