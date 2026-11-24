@@ -5,6 +5,9 @@ Status: built, steps 1 to 6 of the order of work, in `js/onboarding.js`, `core/f
 tip wording hasn't been reviewed by someone qualified in ADHD yet. The code facts below were checked
 against `claude/ask-me-later` at `895ecd3`.
 
+A new flow (Triage meeting first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
+below describes what's built today, until that flow replaces it.
+
 ## Goal
 
 A new user goes from nothing to working a real card, in the browser, in one short sitting. On the way
@@ -13,7 +16,101 @@ Fuzz introduces himself, sets up what he needs, and teaches how to be effective 
 This replaces the old four-step guided setup (`js/setup.js`, now removed) as the first-run experience.
 Changing anything later happens on the Settings page (`#/settings`, see "As built").
 
-## The flow
+## The flow (proposed, not built)
+
+Drafted 2026-11-24 in conversation; open to iteration. It replaces the current flow (kept below as
+[The flow today](#the-flow-today)) once it's settled. Everything here is a hypothesis, like the principles.
+
+### The arc
+
+The sitting teaches four ideas, in this order:
+
+1. **Safe.** Nothing goes out without a yes, there is an Undo, and missing a session loses nothing.
+2. **Decide in one place.** Triage is where decisions happen, at a fixed time.
+3. **Get it out of your head.** The dump.
+4. **Let Fuzz carry it.** He works while you're away, and finds asks you'd otherwise have to remember.
+
+Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let Fuzz carry it.
+
+### Rules for the order
+
+1. **Each step leaves the user with something done.** A calendar event after the meeting, cards after the dump.
+2. **Ask for access when it buys something on screen.** Calendar pays off at step 5. Email and IM don't until step 10.
+3. **Optional things branch off and never block.** No calendar means a calendar file, not a dead end.
+4. **Teach the action when the card needs it.** The first card teaches Assign, the next teaches Later, and so on.
+5. **Stakes go up slowly.** A calendar event, then the user's own words, then reading their mail.
+
+### The steps
+
+| # | Step | Goal (what we achieve) | Practice (what they learn) |
+| --- | --- | --- | --- |
+| 1 | **One paste, then the short form** (name, app) | No stall points, and Fuzz is running | None. Principle 9: one paste, then the browser |
+| 2 | **Fuzz introduces himself**, with the trust promise | They can repeat what they agreed to | None. Fuzz works for you, and nothing goes out without a yes |
+| 3 | **The three guilt-free tips** | Lower the stakes before asking for anything | One queue, not a pile. Ask Fuzz to change things or hand a task back. Missing a session loses nothing |
+| 4 | **Working hours**, as the first Triage card | An easy first win, and Fuzz can place a time | Your time has edges, and Fuzz adapts to yours |
+| 5 | **Fuzz's task: schedule a 30-minute Triage meeting** | A recurring event on their calendar, and the first trust moment | Decide at a fixed time and place; consistent beats optimal. Safety tools: Assign and Undo |
+| 5a | *Branch:* **calendar check**, only when there's no calendar access | Calendar works, or the calendar file | None. Access comes when it buys something |
+| 6 | **The New task page, with Dump mode** | The user's own content in Fuzz's hands | Get it out of your head. Don't sort while you dump. A small dump counts |
+| 7 | **The wait** | Don't lose them at the hand-off | Check Triage instead of holding it in mind. Fuzz works while you're away |
+| 8 | **The first dump cards** | Their first real decisions | Decide small, one card at a time. Later is a real outcome |
+| 9 | **The Guide, one part at a time** | They know where to start tomorrow | Start from the Guide, not from the pile |
+| 10 | **Sources: email, then IM** (Fuzz's "Let me find your asks" task) | Fuzz finds asks they'd have to remember | Don't be the memory. Each source is answered on its own |
+| 11 | **Hand-over** | End on a start, with no setup debt | None. Setup cards and later tips take over |
+
+### Notes on each step
+
+- **Step 3 comes before step 5 on purpose.** "Missing a session loses nothing" is what keeps the first booked
+  appointment from being one more thing to fail at.
+- **Step 4 stays before the meeting,** because Fuzz needs working hours to pick a time.
+- **Step 5 replaces "type one real task" and the 20-minute check-in.** The meeting is Fuzz's own task, so Assign has
+  something to teach, and it becomes the Triage habit slot from `docs/book-then-work.md`: a recurring event, linking
+  to `#/triage?until=HH:MM`. Without a calendar tool it's one calendar file with a weekday repeat (`js/ics.js`).
+  Fuzz explains what Triage time is for: this is where decisions happen, so you don't have to hold them in your head.
+- **Placing the slot** with nothing learned yet uses working hours: one time, outside the start of the day, then kept
+  fixed. Moving it is the user's call.
+- **Step 5a** asks for calendar only. It's skipped when access already exists, and falling back to the calendar file
+  means a user who says no still finishes the step.
+- **Step 6** is the first time the user hands Fuzz their own words. Dump mode is a toggle on the New task page (N), so
+  there's no new screen. Fuzz asks for three things, not everything, with "add more any time". Nothing is committed
+  until the user has seen Fuzz's split.
+- **Step 8** may produce few cards, or none. If the dump has nothing to act on, Fuzz says what he did with it ("nothing
+  needed doing, I've kept it") and goes on to step 9. The meeting task is still in Triage, so nobody ends on a blank screen.
+- **Step 9 moves the tour here** from after the first card, so it has something to point at.
+- **Step 10 is the existing kickoff task,** so it needs no new mechanism. Email and IM are asked here, one permission
+  card per source, reading only, after the dump has shown what Fuzz can carry.
+- **Colour theme and output folder stay setup cards.** The "when do you get things done" card from `docs/book-then-work.md`
+  is the first thing in the slow reveal, not the first sitting.
+
+### Dump mode
+
+A mode of the New task box, not a new place. The user writes or dictates in one box, then presses Enter once.
+
+- **Fuzz splits first, and commits nothing.** The text comes back as a list of candidate items, grouped as real tasks,
+  things to keep as a note, things for later, and things already done or not theirs. The user can accept all, untick
+  items, or tell Fuzz to change something.
+- **A dump may produce few tasks, or none.** Twenty thoughts must not become twenty cards. A calm "I've got it all,
+  nothing is lost" matters more than the count.
+- **Items go through Fuzz before Triage,** like any captured task, so the user sees finished decisions, not raw lines.
+- **No grades, word counts or streaks.** Nothing about the dump is scored.
+- **Tone:** "a lot of people find it easier to think once it's out of their head", never "you should".
+- **Later homes for the practice:** the empty-queue state ("Want to get things out of your head?"), the start of the Triage
+  slot once the habit exists, and the weekly look-back.
+
+### Open questions for this flow
+
+1. **Email and IM at step 10, or in the tech check?** Recommended: step 10, after value is shown.
+2. **Does the Triage meeting replace the 20-minute check-in?** Recommended: yes.
+3. **Does the dump ask say "three things" or "everything"?** Recommended: three.
+4. **Is the raw dump kept?** Keeping it lets Fuzz say "you mentioned this on Tuesday", but it's the most personal text in
+   the system, and test data falls under the public-repo rule (no real names).
+5. **Does Fuzz take personal items,** like "call the dentist", or stay a work tool?
+6. **Step 7's wait** needs a real executor run for the dump. Is the first card quick enough that tips aren't needed?
+7. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
+8. **Where does the first Triage slot go** when working hours are "no fixed hours"?
+
+## The flow today
+
+This is what's built (see "As built" at the end). The proposed flow above replaces it.
 
 1. **One paste.** A single command, copied from the README, installs the core, initialises it, starts `fuzz serve` and
    opens the browser, already signed in. The user never copies a token or opens a log file, and never
@@ -190,6 +287,10 @@ yet, so treat them as hypotheses until someone with ADHD tries the flow.
 | Identity from a connector | Nothing | Needed before Slack IDs and other emails can stay unasked |
 | Resume and Show me around again | Reopening setup starts at step 1; closing it stops it reopening | Saved progress, and a Settings entry |
 | First-card walkthrough | Nothing | Both landing paths |
+| *Proposed flow:* Fuzz's Triage-meeting task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
+| *Proposed flow:* calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
+| *Proposed flow:* Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
+| *Proposed flow:* tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
 
 **Installing restarts the server.** `fuzz install` reloads the launchd jobs, including the `fuzz serve`
 that would be handling the request. The page has to survive that and reconnect.
