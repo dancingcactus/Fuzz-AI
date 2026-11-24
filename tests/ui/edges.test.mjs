@@ -89,11 +89,13 @@ test('a result keeps its follow-up answer, and its brief isn’t folded', async 
   assert.equal(await page.locator('#details').count(), 0);
 });
 
-test('the working card isn’t folded', async () => {
+test('the card for booked time isn’t folded, and has no working card, Pause or Do it now', async () => {
   await show('naming', { stage: 'fresh' });
-  await page.evaluate(() => { Store.doNow('naming'); App.refresh(); });
+  await page.evaluate(() => { Object.assign(Store.item('naming'), { block: true }); App.refresh(); });
   await page.locator('.working-actions').waitFor();
   assert.equal(await page.locator('#details').count(), 0);
+  assert.equal(await page.locator('#card [data-act="startfocus"]').count(), 1, 'Start Focus time leads');
+  assert.equal(await page.locator('#card [data-act="pause"], #card [data-act="donow"]').count(), 0);
 });
 
 test('an entity card: numbers answer it, and the note is a link (E)', async () => {

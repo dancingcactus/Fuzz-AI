@@ -4,7 +4,7 @@
 
      CardActions.render({
        line: 'One short, neutral line above the lead (rule 14), optional',
-       lead: { verb: 'assign', menu: { theme: 'who', items: ['deepwork', 'donow'] } },
+       lead: { verb: 'assign', menu: { theme: 'who', items: ['helpstart'] } },
        row:  [ 'claude', { verb: 'schedule', menu: { theme: 'when', items: ['book', 'afterothers'] } }, ... up to 3 ]
      })
 
@@ -32,12 +32,10 @@
   var CHEVRON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
   /* theme: who (who does it), when, clear (clear it from my plate). A menu holds one theme (rule 15). */
-  var DEEP_WHAT = 'Yours, and it takes real time. It waits in My work, and Fuzz gets it ready for when you sit down to it.';
   var VERBS = {
     assign:       { label: 'Hand it to Fuzz', key: 'A', theme: 'who', icon: 'arrow', what: 'Fuzz does the work and brings it back.' },
     claude:       { label: 'Work in Claude', key: 'C', theme: 'who', what: 'Open it in Claude, with the task as the first message.' },
-    deepwork:     { label: 'I’ll do it', key: 'G', theme: 'who', what: DEEP_WHAT },
-    donow:        { label: 'Do it now', key: null, theme: 'who', icon: 'play', what: 'Open it as your working card, with the rest of the list out of view.' },
+    startfocus:   { label: 'Start Focus time', key: null, theme: 'who', icon: 'play', what: 'Your booked time is here. Open it and start on it.' },
     helpstart:    { label: 'Help me start', key: 'H', theme: 'who', icon: 'step', what: 'Fuzz works out what it needs and a two-minute first step.' },
     schedule:     { label: 'Later', key: 'S', theme: 'when', what: 'Pick a rough time. It comes back then.' },
     book:         { label: 'Book time', key: 'B', theme: 'when', icon: 'cal', what: 'Hold time on your calendar to do it. It doesn’t count as putting it off.' },

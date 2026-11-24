@@ -55,6 +55,19 @@ test('Settings → Who comes first saves to the core', { skip: !HAVE_UV && 'need
   await page.evaluate(() => App.navigate('#/'));
 });
 
+test('Settings → Focus time says what is tracked, and saves when you get things done to the core', { skip: !HAVE_UV && 'needs uv' }, async () => {
+  await page.evaluate(() => App.navigate('#/settings'));
+  await page.locator('#sec-rhythm').waitFor({ timeout: 15000 });
+  const text = await page.locator('#sec-rhythm').textContent();
+  assert.match(text, /What I keep track of/);
+  assert.match(text, /not a mark against you/);
+  assert.match(text, /Every one asks first, until you say always/);
+  await page.locator('#sec-rhythm [data-rbest="afternoon"]').click();
+  await page.waitForFunction(() => document.querySelector('#sec-rhythm [data-rbest="afternoon"]').getAttribute('aria-checked') === 'true', null, { timeout: 10000 });
+  assert.equal((await api('GET', '/rhythm')).best, 'afternoon');
+  await page.evaluate(() => App.navigate('#/'));
+});
+
 test('a tired check-in holds the rest in the core, and a few more brings a stretch back', { skip: !HAVE_UV && 'needs uv' }, async () => {
   await page.evaluate(() => Store.checkin('tired'));
   await page.waitForFunction(() => Store.queue().length === 0, null, { timeout: 10000 });
@@ -69,7 +82,7 @@ test('a tired check-in holds the rest in the core, and a few more brings a stret
   assert.deepEqual(page.errors, []);
 });
 
-test('a calendar link opens the Guide on the task, and Start moves it into My work in the core', { skip: !HAVE_UV && 'needs uv' }, async () => {
+test('a calendar link opens the Guide on the task, and Start moves it into Focus time in the core', { skip: !HAVE_UV && 'needs uv' }, async () => {
   const made = await api('POST', '/tasks', { text: 'Draft the launch email' });
   const tid = made.task_id;
   assert.ok(tid, 'the core made the task');
@@ -77,10 +90,30 @@ test('a calendar link opens the Guide on the task, and Start moves it into My wo
   const errors = []; p.on('pageerror', e => errors.push(e.message));
   /* opened cold, as from the invite: the first sync lands before the Guide looks the task up */
   await p.goto(`${base}/?token=${tok}#/work/${tid}`);
-  await p.waitForFunction((id) => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 't' + id; }, tid, { timeout: 30000 });
+  await p.waitForFunction((id) => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 'else' && /Start: Draft the launch/.test(document.getElementById('dw-go').textContent); }, tid, { timeout: 30000 });
   assert.equal(await p.locator('#dw-step').count(), 0, 'one tap from Start, not started');
   await p.click('#dw-go');
   await p.locator('#dw-step').waitFor();
+  let state;
+  for (let i = 0; i < 50 && state !== 'deepwork'; i++) {
+    state = (await api('GET', '/tasks/' + tid)).state;
+    if (state !== 'deepwork') await new Promise(r => setTimeout(r, 200));
+  }
+  assert.equal(state, 'deepwork');
+  assert.deepEqual(errors, []);
+  await p.close();
+});
+
+test('a calendar link inside its block starts Focus time by itself, with no tap, and the core task moves into the session', { skip: !HAVE_UV && 'needs uv' }, async () => {
+  const made = await api('POST', '/tasks', { text: 'Write the launch plan' });
+  const tid = made.task_id;
+  const p = await browser.newPage();
+  const errors = []; p.on('pageerror', e => errors.push(e.message));
+  /* the block ends an hour from now (or at 23:59 close to midnight): the link carries only the time of day */
+  const end = new Date(Date.now() + 60 * 60000); if (end.getDate() !== new Date().getDate()) end.setHours(23, 59, 0, 0);
+  const until = String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0');
+  await p.goto(`${base}/?token=${tok}#/work/${tid}?until=${until}`);
+  await p.locator('#dw-step').waitFor({ timeout: 30000 });
   let state;
   for (let i = 0; i < 50 && state !== 'deepwork'; i++) {
     state = (await api('GET', '/tasks/' + tid)).state;

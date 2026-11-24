@@ -49,8 +49,8 @@
 
   function load() {
     return Promise.all([Live.me(), Live.engine(), Live.hours(), Live.setup(true), Live.slots().catch(function () { return null; }),
-      Live.lessons().catch(function () { return null; }), Live.vips(), Live.voice()]).then(function (r) {   /* a core from before lessons has no /lessons, nor VIPs, nor voice */
-      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null, vips: r[6], voice: r[7] };
+      Live.lessons().catch(function () { return null; }), Live.vips(), Live.voice(), Live.rhythm().catch(function () { return null; })]).then(function (r) {   /* a core from before lessons has no /lessons, nor VIPs, nor voice */
+      data = { me: r[0], engine: r[1], hours: r[2], setup: r[3], slots: r[4], lessons: r[5] ? r[5].lessons : null, vips: r[6], voice: r[7], rhythm: r[8] };
       return data;
     });
   }
@@ -65,15 +65,15 @@
     var y = window.scrollY;
     root.innerHTML = '<section class="settings" aria-labelledby="set-h">' + backHTML() + '<h1 id="set-h">Settings</h1>' +
       '<p class="meta">What I know about you, what I may do, and how I look. Each part saves on its own.</p>' +
-      meHTML() + vipsHTML() + appHTML() + hoursHTML() + sourcesHTML() + folderHTML() + learnedHTML() + voiceHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
+      meHTML() + vipsHTML() + appHTML() + hoursHTML() + rhythmHTML() + sourcesHTML() + folderHTML() + learnedHTML() + voiceHTML() + lookHTML() + queueHTML() + againHTML() + '</section>';
     window.scrollTo(0, y);
   }
   /* Redraw one section, so what you're typing in another stays put; focus comes back to the same control */
   var FN = null;
   function repaint(id) {
-    FN = FN || { me: meHTML, vips: vipsHTML, app: appHTML, hours: hoursHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML, voice: voiceHTML };
+    FN = FN || { me: meHTML, vips: vipsHTML, app: appHTML, hours: hoursHTML, rhythm: rhythmHTML, slots: slotsHTML, sources: sourcesHTML, folder: folderHTML, look: lookHTML, learned: learnedHTML, voice: voiceHTML };
     var el = root && root.querySelector('#sec-' + id); if (!el) return;
-    var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
+    var a = document.activeElement, key = a && el.contains(a) ? ['id', 'data-src', 'data-tool', 'data-hmode', 'data-rbest', 'data-slots', 'data-app', 'data-list', 'data-choose', 'data-look-theme', 'data-look-mode', 'data-look-contrast'].map(function (k) { return a.getAttribute(k) ? '[' + k + '="' + a.getAttribute(k) + '"]' : ''; }).join('') : '';
     var grp = a && a.getAttribute && a.getAttribute('data-group');
     el.outerHTML = FN[id]();
     if (key) { var back = root.querySelector('#sec-' + id + ' ' + (key.indexOf('[id=') === 0 ? '#' + a.id : key) + (grp ? '[data-group="' + grp + '"]' : '')); if (back) back.focus({ preventScroll: true }); }
@@ -180,6 +180,19 @@
       }).join('') + '</div>' +
       (e.mode === 'none' ? '<p class="meta">Then I read around the clock.</p>' : '<div class="onb-times"><label for="h-from">From</label>' + sel('h-from', e.from, true) + '<label for="h-until">until</label>' + sel('h-until', e.until, false) + '</div>') +
       saveBtn('hours') + '</form>');
+  }
+  /* Focus time and Triage time (docs/book-then-work.md): when you get things done, what is coming up, and plainly what Fuzz tracks */
+  var RHYTHM_BEST = [['morning', 'Mornings'], ['afternoon', 'After lunch'], ['late', 'Late afternoon'], ['varies', 'It varies']];
+  function rhythmHTML() {
+    var r = data.rhythm; if (!r) return '';   /* a core from before Focus time */
+    var up = (r.upcoming || []).length, aimed = r.learned && r.learned !== r.best ? (RHYTHM_BEST.filter(function (x) { return x[0] === r.learned; })[0] || [])[1] : null;
+    return section('rhythm', 'Focus time', 'When you usually get things done. I keep the next two weeks of Focus time and a Triage time on your calendar, and add a week each week. Every one asks first, until you say always.',
+      '<div class="segrow" role="radiogroup" aria-label="When you get things done">' + RHYTHM_BEST.map(function (m) {
+        return '<button type="button" class="seg" role="radio" data-rbest="' + m[0] + '" aria-checked="' + (r.best === m[0]) + '" aria-pressed="' + (r.best === m[0]) + '">' + m[1] + '</button>';
+      }).join('') + '</div>' +
+      '<p class="meta">' + (r.triage ? 'Triage time is at ' + esc(r.triage.at) + ' on working days, and stays there. ' : '') + (up ? up + ' coming up on your calendar. ' : 'Nothing is on your calendar yet. ') +
+        (aimed ? 'Lately I’ve been aiming at ' + esc(aimed.toLowerCase()) + ' instead, because that’s where the time has been used.' : '') + '</p>' +
+      '<p class="meta"><b>What I keep track of:</b> whether you opened Focus time or Triage time when it started, and how many minutes you worked and whether you finished something. Nothing else, and nothing leaves this Mac. I only use it to choose when to put the next week. It never changes what is already on your calendar, and it isn’t a score: a block you skip is not a mark against you.</p>');
   }
   function saveHours() {
     var e = hoursEdit;
@@ -428,6 +441,7 @@
     if (b.dataset.app) return appAction(b.dataset.app, b.dataset.client);
     if (b.dataset.lesson) return lessonAction(b.dataset.lesson, parseInt(b.dataset.id, 10));
     if (b.dataset.voice) return voiceAction(b.dataset.voice);
+    if (b.dataset.rbest) { var rb = b.dataset.rbest; return Live.rhythmSet(rb).then(function (r2) { data.rhythm = r2; repaint('rhythm'); }, function (err) { Say.tell('That didn’t save: ' + err.message, { stay: true }); }); }
     if (b.dataset.hmode) { hoursEdit.mode = b.dataset.hmode; repaint('hours'); return; }
     if (b.dataset.slots) { var n = (slotsEdit || data.slots.slots) + parseInt(b.dataset.slots, 10); slotsEdit = Math.max(1, Math.min(data.slots.max, n)); repaint('slots'); return; }
     if (b.dataset.list) return listAgain();

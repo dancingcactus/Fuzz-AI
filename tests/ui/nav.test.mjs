@@ -42,6 +42,13 @@ const label = () => page.evaluate(() => {
 });
 const checked = () => page.evaluate(() => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r ? r.dataset.pick : null; });
 const goText = () => page.evaluate(() => document.getElementById('dw-go').firstChild.textContent);
+/* Something else opens a search with Fuzz's suggestions; this picks the first suggestion (or the given id) and returns its item */
+async function pickElse(id) {
+  await page.click('.g-row[data-pick="else"]');
+  id = id || await page.$eval('.g-res[data-task]', e => e.dataset.task);
+  await page.click(`.g-res[data-task="${id}"]`);
+  return page.evaluate((i) => Store.item(i), id);
+}
 const bubble = () => page.evaluate(() => document.getElementById('bubble').textContent);
 /* Links with an until: the page's clock is pinned to 10am, so a block ending at noon is always ahead */
 async function morning() { const d = new Date(); d.setHours(10, 0, 0, 0); await page.clock.setFixedTime(d); }
@@ -55,18 +62,13 @@ test('the app opens on the Guide, with no tabs and no Settings gear', async () =
   assert.equal(await page.textContent('#g-q'), 'Where do you want to start?');
 });
 
-test('one list: Triage, then My work, then Something else; one is picked and tagged Fuzz suggests', async () => {
+test('three doors: Triage and Something else are choices, New task is a button; one choice is picked and tagged Fuzz suggests', async () => {
   await open('#/guide');
-  const groups = await page.$$eval('.g-grp', els => els.map(e => e.textContent));
-  assert.deepEqual(groups, ['Keep things moving', 'My work']);
   const picks = await page.$$eval('.g-row', els => els.map(e => e.dataset.pick));
-  const pool = await page.evaluate(() => Store.inState('deepwork').map(i => i.id));
-  assert.equal(picks[0], 'triage');
-  assert.equal(picks[picks.length - 1], 'typed');
-  /* three rows before Something else (Triage and the top two of My work); the rest wait behind More */
-  assert.equal(picks.length, 4);
-  assert.equal(picks.slice(1, -1).filter(id => pool.includes(id)).length, 2);
-  assert.equal(await page.textContent('#g-more'), `More from My work (${pool.length - 2})`);
+  assert.deepEqual(picks, ['triage', 'else']);
+  assert.equal(await page.locator('button#g-new').count(), 1, 'New task is a button, not a choice');
+  assert.equal(await page.locator('.g-grp').count(), 0);
+  assert.deepEqual(await page.$$eval('.g-row kbd', els => els.map(e => e.textContent)), ['1', '2'], 'the keys that pick them are shown');
   assert.equal(await page.locator('.g-row[aria-checked="true"]').count(), 1);
   /* the demo has something with a time on it, so Fuzz suggests Triage */
   assert.equal(await checked(), 'triage');
@@ -74,6 +76,7 @@ test('one list: Triage, then My work, then Something else; one is picked and tag
   assert.match(await bubble(), /Something has a time on it/);
   assert.equal(await goText(), 'Start Triage');
   assert.equal(await page.locator('.dw-times').count(), 0);   /* no time question for Triage */
+  assert.equal(await page.locator('.g-search').count(), 0);   /* and no search until Something else */
 });
 
 test('under the Guide, one quiet folded line says how much Fuzz did while you were away; opening it shows the counts and the list', async () => {
@@ -97,18 +100,26 @@ test('under the Guide, one quiet folded line says how much Fuzz did while you we
   const [panel, away] = await page.$$eval('.g-panel, .g-away-fold summary', els => els.map(e => { const r = e.getBoundingClientRect(); return { top: r.top, left: r.left }; }));
   assert.ok(away.top > panel.top);
   assert.ok(away.left >= panel.left);
-  await page.click('.g-row[data-pick="typed"]');
+  await page.click('.g-row[data-pick="else"]');
   assert.equal(await page.locator('.g-away-item').first().isVisible(), true);
 });
 
-test('picking a task asks how long and names it on Start; Start Triage opens Triage, and the label leads back', async () => {
+test('Something else opens a search with suggestions; picking one asks how long and names it on Start; Start Triage opens Triage, and the label leads back', async () => {
   await open('#/guide');
-  const id = await page.$$eval('.g-row', els => els[1].dataset.pick);   /* the first task on the short list */
-  await page.click(`.g-row[data-pick="${id}"]`);
-  assert.equal(await checked(), id);
+  await page.click('.g-row[data-pick="else"]');
+  assert.equal(await checked(), 'else');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'g-find');
+  const n = await page.locator('.g-res[data-task]').count();
+  assert.ok(n >= 1 && n <= 5, 'a short list of suggestions');
+  assert.equal(await page.locator('.dw-times').count(), 1);   /* how long, as soon as Something else is picked, so the form doesn't seem to go on */
+  assert.equal(await goText(), 'Pick something to start');
+  assert.equal(await page.locator('#dw-go').isDisabled(), true);
+  const t = await pickElse();
+  assert.equal(await checked(), 'else');
   assert.equal(await page.locator('.dw-times').count(), 1);
   assert.match(await page.textContent('#g-fit'), /^(Fits in your time\.|Won’t fit in one go\. I’ll stop you at a good place\.)/);
   assert.match(await goText(), /^Start: /);
+  assert.match(await page.textContent('.g-row[data-pick="else"]'), new RegExp(t.title.slice(0, 12)));
   await page.click('.g-row[data-pick="triage"]');
   await page.click('#dw-go');
   await page.locator('#card').waitFor();
@@ -121,36 +132,41 @@ test('picking a task asks how long and names it on Start; Start Triage opens Tri
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
 });
 
-test('More from My work shows the rest and focuses the first new row; a task picked from further down always shows', async () => {
+test('the search filters as you type, with what fits first; no match offers a new task', async () => {
   await open('#/guide');
-  const store = await page.evaluate(() => Store.inState('deepwork').map(i => i.id));
-  const before = await page.$$eval('.g-row', els => els.map(e => e.dataset.pick));
-  await page.click('#g-more');
-  const pool = (await page.$$eval('.g-row', els => els.map(e => e.dataset.pick))).slice(1, -1);   /* Fuzz's order */
-  assert.deepEqual(pool.slice().sort(), store.slice().sort());
-  assert.deepEqual(pool.slice(0, 2), before.slice(1, -1));
-  assert.equal(await page.locator('#g-more').count(), 0);
-  assert.equal(await page.evaluate(() => document.activeElement.dataset.pick), pool[2]);
-  await page.click(`.g-row[data-pick="${pool[pool.length - 1]}"]`);
-  assert.equal(await checked(), pool[pool.length - 1]);
-  /* back on the Guide with that one picked (as Work on this does): the short list, with it on it */
-  const last = pool[pool.length - 1];
-  await page.evaluate(() => { location.hash = '#/tasks'; });
-  await page.waitForFunction(() => document.body.dataset.view === 'tasks');
-  await page.evaluate((id) => DeepWork.start(id), last);
-  await page.locator('#g-q').waitFor();
-  const short = await page.$$eval('.g-row', els => els.map(e => e.dataset.pick));
-  assert.equal(short.length, 4);
-  assert.ok(short.includes(last));
-  assert.equal(await checked(), last);
-  assert.equal(await page.textContent('#g-more'), `More from My work (${pool.length - 2})`);
+  await page.click('.g-row[data-pick="else"]');
+  const titles = await page.$$eval('.g-res[data-task] b', els => els.map(e => e.textContent));
+  assert.ok(titles.length >= 2);
+  await page.fill('#g-find', titles[0].split(' ').slice(0, 3).join(' '));
+  assert.equal(await page.textContent('.g-res[data-task] b'), titles[0]);
+  await page.fill('#g-find', 'zzzz unmatched thing');
+  assert.equal(await page.locator('.g-res[data-task]').count(), 0);
+  assert.equal(await page.locator('.g-res[data-new]').count(), 1);
+  await page.click('.g-res[data-new]');
+  assert.equal(await checked(), 'typed');
+  assert.equal(await page.inputValue('#g-typed'), 'zzzz unmatched thing');
 });
 
-test('arrow keys move through the list, a number picks a row, and Enter starts', async () => {
+test('what fits comes first: a big task is offered as a first piece, never at the top', async () => {
+  await open('#/guide');
+  /* a task much bigger than the time before the meeting, left mid-session, still isn't ahead of what fits */
+  const ests = await page.evaluate(() => {
+    const items = Store.inState('deepwork'); items[0].leftOff = 'Drafted the outline'; items[0].effortMins = 600;
+    return DeepWork.upNext(10).map(i => ({ id: i.id, est: DeepWork.est(i) }));
+  });
+  const bigAt = ests.findIndex(x => x.est === 600);
+  assert.ok(bigAt > 0, 'the first suggestion is not the big one');
+  assert.ok(ests.slice(0, bigAt).every(x => x.est <= 600) && ests.slice(bigAt + 1).every(x => x.est >= 5), 'listed');
+  const small = ests.findIndex(x => x.est <= 30);
+  assert.ok(small < bigAt, 'what is small enough comes before it');
+});
+
+test('arrow keys move through the doors, a number picks one, and Enter starts', async () => {
   await open('#/guide');
   await page.focus('.g-row[aria-checked="true"]');
   await page.keyboard.press('ArrowDown');
   const second = await page.$$eval('.g-row', els => els[1].dataset.pick);
+  assert.equal(second, 'else');
   assert.equal(await checked(), second);
   assert.equal(await page.evaluate(() => document.activeElement.dataset.pick), second);
   await page.keyboard.press('1');
@@ -160,16 +176,28 @@ test('arrow keys move through the list, a number picks a row, and Enter starts',
   assert.equal(await page.locator('#focuscard').isHidden(), true);
 });
 
-test('Something else edits inline: new text, a match with Use that, the text stays, empty can’t start', async () => {
+test('New task is a button that opens the New box', async () => {
   await open('#/guide');
-  await page.click('.g-row[data-pick="typed"]');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'g-typed');
-  assert.equal(await page.getAttribute('#g-typed', 'placeholder'), 'Tell me what you want to work on');
-  assert.equal(await page.locator('.dw-times').count(), 1);   /* how long, as soon as it's picked */
+  assert.equal(await page.textContent('#g-new kbd'), 'N');
+  await page.keyboard.press('n');   /* the shortcut does what the button does */
+  await page.waitForFunction(() => location.hash === '#/capture');
+  await open('#/guide');
+  await page.click('#g-new');
+  await page.waitForFunction(() => location.hash === '#/capture');
+  await page.waitForFunction(() => document.title === 'New · Fuzz');
+});
+
+test('a search with no match can still start a new task in your words: edits inline, a match with Use that, empty can’t start', async () => {
+  await open('#/guide');
+  await page.click('.g-row[data-pick="else"]');
+  await page.fill('#g-find', 'zzzz unmatched thing');
+  await page.click('.g-res[data-new]');
+  assert.equal(await page.inputValue('#g-typed'), 'zzzz unmatched thing');
+  assert.equal(await page.locator('.dw-times').count(), 1);
+  await page.fill('#g-typed', '');
   assert.equal(await goText(), 'Tell me what first');
   assert.equal(await page.locator('#dw-go').isDisabled(), true);
-
-  await page.keyboard.type('Plan the garden party');
+  await page.fill('#g-typed', 'Plan the garden party');
   assert.match(await page.textContent('#g-hint'), /^New\. I’ll make it a task/);
   assert.equal(await goText(), 'Start: Plan the garden party');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'g-typed');   /* typing never redraws the field */
@@ -178,16 +206,15 @@ test('Something else edits inline: new text, a match with Use that, the text sta
   await page.fill('#g-typed', t.title.split(' ').slice(0, 4).join(' '));
   assert.match(await page.textContent('#g-hint'), /That sounds like “.*”, and it’s ready\. Use that/);
   await page.click('#g-hint [data-use]');
-  assert.equal(await checked(), (await page.evaluate(() => document.querySelector('.g-row[aria-checked="true"]').dataset.pick)));
   assert.notEqual(await checked(), 'typed');
-  /* your words stay on the row */
-  assert.match(await page.textContent('.g-row[data-pick="typed"]'), /Something else, in your words/);
 });
 
-test('starting Something else makes it a task and starts the session on it', async () => {
+test('starting a new task from a search makes it a task and starts the session on it', async () => {
   await open('#/guide');
-  await page.click('.g-row[data-pick="typed"]');
-  await page.keyboard.type('Plan the garden party');
+  await page.click('.g-row[data-pick="else"]');
+  await page.fill('#g-find', 'zzzz unmatched thing');
+  await page.click('.g-res[data-new]');
+  await page.fill('#g-typed', 'Plan the garden party');
   await page.keyboard.press('Enter');
   await page.locator('#dw-step').waitFor();
   assert.equal(await page.textContent('.dw-taskline span'), 'Plan the garden party');
@@ -236,15 +263,14 @@ test('Keys and help opens the page’s own key guide, or the short list', async 
   assert.equal(await page.evaluate(() => document.getElementById('appkeys').open), true);
 });
 
-test('in a session the label is My work · Back to the Guide like any page; it leads out through the wrap-up, and only something that can’t wait lights the dot', async () => {
+test('in a session the label is Focus time · Back to the Guide like any page; it leads out through the wrap-up, and only something that can’t wait lights the dot', async () => {
   await open('#/guide');
-  const t = await page.evaluate(() => Store.item(document.querySelectorAll('.g-row')[1].dataset.pick));
-  await page.click(`.g-row[data-pick="${t.id}"]`);
+  const t = await pickElse();
   await page.click('#dw-go');
   await page.locator('#dw-step').waitFor();
-  assert.equal(await page.title(), 'My work · Fuzz');
+  assert.equal(await page.title(), 'Focus time · Fuzz');
   let l = await label();
-  assert.equal(l.text, 'My work · Back to the Guide');
+  assert.equal(l.text, 'Focus time · Back to the Guide');
   assert.equal(l.current, null);
   assert.equal(await page.locator('#where .where-ring').count(), 0);
   assert.equal(await page.evaluate(() => document.getElementById('dw-mode').getBoundingClientRect().width <= 1), true);   /* no title above Fuzz (screen readers still get it): the label says where you are */
@@ -269,7 +295,7 @@ test('in a session the label is My work · Back to the Guide like any page; it l
   /* on the session, the label is a way out: the wrap-up, where Actually, keep going goes back */
   await page.click('#where');
   await page.locator('#dw-save').waitFor();
-  assert.equal((await label()).text, 'My work · Back to the Guide');
+  assert.equal((await label()).text, 'Focus time · Back to the Guide');
   await page.click('#dw-backwork');
   await page.locator('#dw-step').waitFor();
   /* and so is the logo */
@@ -284,17 +310,32 @@ test('every way out lands on one wrap-up, then the Guide with a recap', async ()
   const title = await page.textContent('.dw-taskline span');
   await page.keyboard.press('Escape');
   await page.locator('#dw-save').waitFor();
-  assert.equal((await label()).text, 'My work · Back to the Guide');
+  assert.equal((await label()).text, 'Focus time · Back to the Guide');
   assert.equal(await page.textContent('#dw-save'), 'Wrap upEnter');
-  assert.deepEqual(await page.$$eval('[data-after] b', els => els.map(e => e.textContent)), ['Back in my work', 'Hand the rest to Fuzz', 'Book time to finish']);
+  /* no queue: each way out is a choice, and booking is the one that's picked */
+  assert.deepEqual(await page.$$eval('[data-after] b', els => els.map(e => e.textContent)), ['Book time to finish', 'Later', 'Hand the rest to Fuzz']);
+  await page.locator('#dw-book [data-slot]').first().waitFor();
   await page.click('#dw-save');
   await page.locator('#g-q').waitFor();
   assert.equal(await page.evaluate(() => location.hash), '#/guide');
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
   /* the bubble may fold a long line, so look at what Fuzz said */
   assert.match(await page.evaluate(() => document.getElementById('bubble').getAttribute('aria-label') || document.getElementById('bubble').dataset.full || document.getElementById('bubble').textContent), /^Nice: .+ on “/);
-  /* it stays yours, with your place kept */
-  assert.equal(await page.evaluate((t) => Store.inState('deepwork').some(i => i.title === t), title), true);
+  /* it's booked to finish, never left waiting in a queue */
+  assert.equal(await page.evaluate((t) => Store.get().items.some(i => i.title === t && i.state === 'scheduled' && i.booked), title), true);
+  assert.equal(await page.evaluate((t) => Store.inState('deepwork').some(i => i.title === t), title), false);
+});
+
+test('after a task is done, Stop here goes straight to the Guide: there is nothing left to decide, so no wrap-up screen', async () => {
+  await open('#/deepwork');
+  await page.click('#dw-go');
+  await page.locator('#dw-step').waitFor();
+  await page.click('#dw-done');
+  await page.locator('#dw-stop').waitFor();
+  await page.click('#dw-stop');
+  await page.locator('#g-q').waitFor();
+  assert.equal(await page.locator('#dw-save').count(), 0);
+  assert.equal(await page.evaluate(() => location.hash), '#/guide');
 });
 
 test('Hand the rest to Fuzz, from the wrap-up', async () => {
@@ -332,7 +373,7 @@ test('Book time to finish, from the wrap-up: Book time’s slots open in place, 
   assert.match(await page.evaluate(() => document.getElementById('bubble').textContent), /booked to finish/);
 });
 
-test('switching back from Book time to finish closes the slots, and nothing is booked', async () => {
+test('Later, from the wrap-up, closes the slots and puts it off to tomorrow morning', async () => {
   await open('#/deepwork');
   await page.click('#dw-go');
   await page.locator('#dw-step').waitFor();
@@ -340,17 +381,19 @@ test('switching back from Book time to finish closes the slots, and nothing is b
   await page.keyboard.press('Escape');
   await page.click('[data-after="book"]');
   await page.locator('#dw-book [data-slot]').first().waitFor();
-  await page.click('[data-after="keep"]');
+  await page.click('[data-after="later"]');
   assert.equal(await page.locator('#dw-book [data-slot]').count(), 0);
   await page.click('#dw-save');
   await page.locator('#g-q').waitFor();
-  assert.equal(await page.evaluate((t) => Store.get().items.find(i => i.title === t).state, title), 'deepwork');
+  const it = await page.evaluate((t) => Store.get().items.find(i => i.title === t), title);
+  assert.equal(it.state, 'scheduled');
+  assert.ok(!it.booked, 'Later is not a booking');
 });
 
-test('the old #/deepwork opens the Guide with the top of My work picked', async () => {
+test('the old #/deepwork opens the Guide with the top of what is ready picked', async () => {
   await open('#/deepwork');
-  const top = await page.evaluate(() => document.querySelectorAll('.g-row')[1].dataset.pick);
-  assert.equal(await checked(), top);
+  assert.equal(await checked(), 'else');
+  assert.match(await goText(), /^Start: /);
   assert.deepEqual(await label(), { text: 'Guide', dot: null, current: 'page' });
 });
 
@@ -360,7 +403,7 @@ test('Lineup’s Work on this opens the Guide with that task picked', async () =
   await page.getByText(t.title, { exact: true }).first().click();
   await page.getByRole('button', { name: 'Work on this' }).click();
   await page.locator('#g-q').waitFor();
-  assert.equal(await checked(), t.id);
+  assert.equal(await checked(), 'else');
   assert.equal(await goText(), 'Start: ' + (t.title.split(' ').length > 5 ? t.title.split(' ').slice(0, 5).join(' ') + '…' : t.title));
 });
 
@@ -369,8 +412,7 @@ test('an old calendar hold’s #tasks/<id> opens that task on the Guide', async 
   /* a live task's UI id is 't' + its core id; give a demo task one so the old link can find it */
   const title = await page.evaluate(() => { const t = Store.inState('deepwork')[2]; t.id = 't42'; t.coreId = 42; return t.title; });
   await page.evaluate(() => { location.hash = '#tasks/42'; });
-  await page.waitForFunction(() => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 't42'; });
-  assert.match(await page.textContent('.g-row[aria-checked="true"]'), new RegExp(title.slice(0, 12)));
+  await page.waitForFunction((t) => { const r = document.querySelector('.g-row[aria-checked="true"]'); return r && r.dataset.pick === 'else' && r.textContent.indexOf(t.slice(0, 12)) > -1; }, title);
 });
 
 test('a link to a task Fuzz is working on isn’t started from the Guide', async () => {
@@ -392,30 +434,80 @@ test('#/triage?until= opens Triage straight away, with the end time on the label
   assert.equal((await label()).text, 'Triage · Back to the Guide');
 });
 
-test('#/work?until= opens the Guide with the time set to the block and nothing picked', async () => {
+test('#/work?until= inside the block starts on what fits it best, with no Guide', async () => {
   await morning();
   await open('#/work?until=' + '12:00');
-  assert.equal(await checked(), null);
-  assert.match(await bubble(), /^This is your work time, until .+\. Where do you want to start\?$/);
-  assert.equal(await page.locator('#dw-go').isDisabled(), true);
-  const id = await page.$$eval('.g-row', els => els[1].dataset.pick);
-  await page.click(`.g-row[data-pick="${id}"]`);
-  const chip = await page.textContent('.dw-time[aria-pressed="true"]');
-  assert.match(chip, /^Until .+~.+ · your calendar block$/);
+  await page.locator('#dw-step').waitFor();
+  assert.match(await bubble(), /^Your Focus time is starting\. “.+” is ready\.$/);
+  assert.equal((await label()).text, 'Focus time · Back to the Guide');
 });
 
-test('#/work/<taskId>?until= picks the task, even one booked or back in Triage, one tap from Start', async () => {
+test('#/work?until= with nothing that fits says so and opens the Guide', async () => {
+  await morning();
+  await open('#/guide');
+  await page.evaluate(() => { Store.inState('deepwork', 'scheduled').forEach(i => { i.effortMins = 600; }); Store.queue().forEach(i => { i.effortMins = 600; }); });
+  await page.evaluate(() => { location.hash = '#/work?until=10:30'; });
+  await page.waitForFunction(() => /nothing ready fits it/.test(document.getElementById('bubble').textContent));
+  assert.equal(await page.locator('#dw-step').count(), 0);
+});
+
+test('a link whose time has gone by opens the Guide and starts nothing', async () => {
+  await morning();
+  await open('#/work?until=' + '09:00');
+  await page.locator('#g-q').waitFor();
+  assert.match(await bubble(), /^That time has gone by\./);
+  assert.equal(await page.locator('#dw-step').count(), 0);
+});
+
+test('#/work/<taskId>?until= starts that task inside the block, even one booked or back in Triage', async () => {
   await morning();
   await open('#/guide');
   const t = await page.evaluate(() => Store.queue().find(i => i.kind === 'task' && i.state === 'triage'));
   await open('#/work/' + t.id + '?until=' + '12:00');
-  assert.equal(await checked(), t.id);
-  assert.match(await bubble(), /^Your calendar has this time for “.+”, until .+\. Everything’s ready\.$/);
-  assert.equal(await page.locator('#dw-step').count(), 0);   /* it doesn't start by itself */
+  await page.locator('#dw-step').waitFor();   /* it starts by itself: the block is the yes */
+  assert.equal(await page.textContent('.dw-taskline span'), t.title);
+  assert.equal(await page.evaluate((id) => Store.item(id).state, t.id), 'deepwork');
+});
+
+test('#/work/<taskId> with no time still picks the task, one tap from Start', async () => {
+  await open('#/guide');
+  const t = await page.evaluate(() => Store.queue().find(i => i.kind === 'task' && i.state === 'triage'));
+  await open('#/work/' + t.id);
+  assert.equal(await checked(), 'else');
+  assert.equal(await page.locator('#dw-step').count(), 0);
   await page.click('#dw-go');
   await page.locator('#dw-step').waitFor();
   assert.equal(await page.textContent('.dw-taskline span'), t.title);
-  assert.equal(await page.evaluate((id) => Store.item(id).state, t.id), 'deepwork');
+});
+
+test('Something else never offers what is not yours to start: a draft for your OK, Fuzz’s first task, a group run, a permission or an answer', async () => {
+  await open('#/guide');
+  const bad = await page.evaluate(() => {
+    const flags = [{ review: true }, { kickoff: true }, { group: 'g1' }, { needsPermission: true }, { joinReply: true }, { nudged: true }, { handedBack: true }, { result: true }, { cardKind: 'hold' }, { cardKind: 'is_task' }];
+    const ids = [];
+    flags.forEach((f, i) => {
+      const id = 'bad' + i;
+      Store.get().items.push(Object.assign({ id, kind: 'task', state: 'triage', title: 'Not yours ' + i, source: 'Test', who: 'Test', age: '1 day', log: [], sources: [], people: [], effortMins: 5 }, f));
+      Store.enqueue(Store.item(id), 'back'); ids.push(id);
+    });
+    const offered = DeepWork.upNext(50).map(i => i.id);
+    return ids.filter(id => offered.includes(id));
+  });
+  assert.deepEqual(bad, []);
+});
+
+test('a link opened before its block doesn’t start the work early, and says when it starts', async () => {
+  await morning();   /* 10:00 */
+  await open('#/work?until=12:00&from=11:30');
+  await page.locator('#g-q').waitFor();
+  assert.equal(await page.locator('#dw-step').count(), 0);
+  assert.match(await bubble(), /^Your Focus time starts at 11:30/);
+});
+
+test('a link inside its block, with the start already past, starts the work', async () => {
+  await morning();
+  await open('#/work?until=12:00&from=09:30');
+  await page.locator('#dw-step').waitFor();
 });
 
 test('#/work?what= fills in Something else', async () => {

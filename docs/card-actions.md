@@ -1,5 +1,11 @@
 # Card actions: principles
 
+> **2026-11-23: I'll do it (G) and Do it now are retired** (`docs/book-then-work.md`). There is no queue: a task that needs time
+> is booked or postponed, and a small one you do yourself is done, then marked Done. Rows below that name them are history.
+> The big-task card leads with Book time, and a task that waited in the old queue (`ask_book`) does too. "My work" is
+> now Focus time. The working card is retired too: booked time that has started leads with Start Focus time, and a block's end keeps
+> its own card.
+
 Status: **proposal, 2026-11-21, built on every Triage card** (Part 6) and checked by `tests/ui/card-actions.test.mjs`.
 Still to do, and not mine to do: the author's sign-off on the rules not marked as theirs, the author's approval of
 the new icons and of Keep going on N, and a review of Part 3 by someone qualified in ADHD. Rules 3, 9, 12, 14 and 15 and the Let it go and icon calls are the author's
@@ -39,7 +45,7 @@ removed: what doesn't fit goes behind the chevron of the standing verb it is clo
 **3. A verb keeps its word, key and place.** If Later is S, third in the row on one card,
 it is that on every card that has it. A card that needs a different meaning gets a different word and a
 different key. It never reuses one. The letter keys are the standing verbs: A hand off, C work in Claude,
-G I'll do it, H help me start, S later, D done, K it still matters, N keep going, L let it go, P park, W waiting, X not mine, E tell Fuzz.
+H help me start, S later, D done, K it still matters, N keep going, L let it go, P park, W waiting, X not mine, E tell Fuzz.
 **Only the lead carries an icon.** The main button wears the icon of its verb (arrow for Hand it to Fuzz,
 check for Done), because it is the one thing every card asks the user to recognise at a glance. Sub-actions and
 menu items are words and a key hint only, which keeps the row quiet. A verb keeps the same icon whenever it
@@ -58,8 +64,8 @@ it go. The card above the row changes, and the row does not move. After an inter
 the same spot. It is a default: when a card's lead is itself one of those moves (Done leading on a result),
 the remaining themes keep their relative order, and no sub-action jumps ahead of another.
 
-**6. Every card has a free way out.** Later, Not sure yet or Not now: always visible, always S, always
-described as no penalty. A card that can only be answered "yes" is a trap. The way out is never red, never
+**6. Every card has a free way out.** Later, Not sure yet or Not now: always S, always
+described as no penalty. Later is a visible button, or the first item behind the chevron of the time split button when Book time is its face (an ordinary task card). A card that can only be answered "yes" is a trap. The way out is never red, never
 counted, and never a dialog.
 
 **7. Close verbs act at once and are undoable.** Done and Let it go do not ask "are you sure?". Fuzz says what
@@ -69,8 +75,8 @@ hand-off: the card leaves, with no second Hand it to Fuzz step (existing rule, 2
 
 **8. Say what happens, in the user's words, two to four words.** Start with a verb or a plain state: "Hand it
 to Fuzz", "I'll do it", "Done", "Bring it back". The consequence goes in the small line under the label or in
-the menu, not on the button. Vocabulary follows `docs/nav-guide.md`: the session and queue are "My work",
-the buttons are "Work on…", the action is "I'll do it".
+the menu, not on the button. Vocabulary follows `docs/nav-guide.md`: the session is "Focus time",
+the buttons are "Work on…", and there is no "I'll do it" (a task is booked or postponed).
 
 **9. Weight says importance, never alarm.** The lead is filled. Standing verbs are outlined and the same
 size. A chevron shares the weight of the button it belongs to. Nothing on a card is red, and Let it go is
@@ -115,8 +121,8 @@ lead, such as "This one keeps moving. Want a smaller first step?" Then it stays 
 
 **15. A menu holds one theme.** Everything behind a chevron is the same kind of move as the button it hangs
 from, so the user can guess what is inside before opening it. There are three themes:
-- **Who does it** (Hand it to Fuzz ▾): I'll do it, Do it now, Help me start (H), and Work in Claude (C).
-- **When** (Later ▾): Book time, After the others, Check again later, It still matters.
+- **Who does it** (Hand it to Fuzz ▾): Help me start (H) and Work in Claude (C). (I'll do it and Do it now are retired.)
+- **When** (Book time ▾ on a task card, Later ▾ elsewhere): Later, After the others, Check again later, It still matters. Where Book time is offered it is the face and Later is the first item behind the chevron.
 - **Clear it from my plate** (Done ▾): Park it, Waiting on someone, Not mine, Let it go.
 
 The order is the same on every card (rule 5): who does it, when, clear it from my plate.
@@ -135,7 +141,7 @@ Each row is the full-width lead, then at most three sub-actions (rule 12).
 
 | Card kind | Lead (full width, filled) | Sub-actions (one row, up to 3) | Depth |
 |---|---|---|---|
-| Ordinary task | Hand it to Fuzz ▾ | Work in Claude · Later ▾ · Done ▾ | Who does it: I'll do it (G), Do it now. When: Book time, After the others. Clear it: Park it, Waiting on someone, Not mine |
+| Ordinary task | Hand it to Fuzz ▾ | Work in Claude · Book time ▾ · Done ▾ | Who does it: Help me start. When: Later, After the others. Clear it: Park it, Waiting on someone, Not mine |
 | Choice or entity question | Answer 1 | The other answers; Not sure yet is always one of them | Something else (E) |
 | Fuzz's answers (a handback) | Answer 1 | Other answers · Later ▾ · Done ▾ | Tell Fuzz (E), Other ways |
 | Parked check-in | Bring it back | Keep it parked · Later ▾ · Done ▾ | When: Book time. Clear it: Let it go (L), Not mine |

@@ -289,9 +289,9 @@
       /* working sessions: the size and whether it's big, Book time's options, the working card, "What's in the way?" */
       size: c && c.size || null, sizeLabel: c && c.size ? c.size.label : '', suggested: c ? c.suggested : null,
       bookOptions: c && c.book_options ? c.book_options : null,
-      doing: tags.indexOf('doing') > -1 && state === 'triage', firstStepMode: tags.indexOf('first_step') > -1 && state === 'triage',
       inTheWay: tags.indexOf('in_the_way') > -1 && state === 'triage', afterOthers: tags.indexOf('after_others') > -1,
       /* booked time: in the block, at its end ("How far did you get?"), and a hold for your OK */
+      booked: tags.indexOf('booked') > -1 && state === 'scheduled',
       block: tags.indexOf('block') > -1 && state === 'triage', blockEnd: tags.indexOf('block_end') > -1 && state === 'triage',
       holdPrompt: c && c.kind === 'hold' ? c.prompt : '', holdWhen: c && c.kind === 'hold' ? c.reason || '' : '',
       holdRemove: !!(c && c.kind === 'hold' && c.payload && c.payload.kind === 'calendar_remove'),
@@ -320,7 +320,7 @@
     else if (state === 'review') f.now = 'Draft ready to review';
     else if (state === 'sending') f.now = 'Sending' + (f.sendTo ? ' to ' + f.sendTo.to : '');
     else if (state === 'session') f.now = t.next_step ? 'Next: ' + t.next_step : 'Open in ' + Store.workIn;
-    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'In My work, ready when you start';
+    else if (state === 'deepwork') f.now = f.leftOff ? 'Left off: ' + f.leftOff : t.next_step ? 'Next: ' + t.next_step : 'Ready for Focus time';
     else if (state === 'done') f.now = 'Done';
     else if (state === 'letgo') f.now = f.theirs ? 'Someone else’s' : 'Let go';
     else f.now = '';
@@ -460,6 +460,8 @@
 
   /* Series cards about no single task: one you started, your part, a suggestion, season 2 */
   var SERIES_KINDS = ['series_new', 'series_role', 'series_next', 'series_season'];
+  /* Focus time and Triage time: when you get things done, and the weekly plan for your calendar (core/fuzz/rhythm.py). No task. */
+  var RHYTHM_KINDS = FuzzVocab.rhythmKinds || [];
   function apply(list, cards, moment, groups) {
     var st = Store.get(), byTask = {};
     cards.forEach(function (c) { if (c.task && !byTask[c.task.id]) byTask[c.task.id] = c; });
@@ -476,14 +478,14 @@
        Fuzz's memory (same person?, what is this?, was this a decision?, which is right?) */
     cards.forEach(function (c) {
       var check = CHECK_KINDS.indexOf(c.kind) > -1, memory = check || MEMORY_KINDS.indexOf(c.kind) > -1;
-      var series = SERIES_KINDS.indexOf(c.kind) > -1;
-      if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory && !series)) return;
+      var series = SERIES_KINDS.indexOf(c.kind) > -1, rhythm = RHYTHM_KINDS.indexOf(c.kind) > -1;
+      if (c.task || (['deliverable', 'week_plan', 'deliverable_new'].indexOf(c.kind) < 0 && !memory && !series && !rhythm)) return;
       var id = 'c' + c.id;
       /* "Same as an existing one" needs a picker this card doesn't have yet; Not sure yet is the way out */
       var opts = (c.options || []).filter(function (o) { return !(memory && o === 'same_as'); });
-      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory, series: series,
+      items.push({ id: id, kind: 'deliv', cardKind: c.kind, cardId: c.id, cardOptions: opts, state: 'triage', memory: memory, series: series, rhythm: rhythm,
         title: c.prompt, ask: c.prompt, incoming: c.reason || '', payload: c.payload || {}, suggested: c.suggested,
-        source: check ? 'Fuzz’s spot check' : memory ? 'Fuzz’s memory' : series ? 'Your series' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
+        source: check ? 'Fuzz’s spot check' : memory ? 'Fuzz’s memory' : series ? 'Your series' : rhythm ? 'Your Focus time' : 'Your deliverables', who: '', age: '', log: [], sources: [], people: [], context: [], conversation: [], code: [] });
       keep[id] = true;
     });
     var order = [], seen = {};
@@ -588,9 +590,9 @@
     wrap('mine', function (id) { return decide(S.item(id), 'session', undefined, 'session'); });
     /* Work in Claude: the task moves to Current, then the core opens a Terminal session on it */
     wrap('session', function (id) { var it = S.item(id); return then(decide(it, 'session', undefined, 'session'), function () { return openSession(it); }); });
-    /* Deep Work: yours, and it takes real time, so it waits in the pool for a session. Done for now keeps
-       where you left off; stuck sends it back to Triage. */
-    wrap('deepWork', function (id) { return decide(S.item(id), 'deep_work', undefined, 'deep_work'); });
+    /* Focus time starts on a task: it moves into the session. Wrapping up keeps where you left off, then books, postpones
+       or hands the task on; stuck sends it back to Triage. */
+    wrap('deepWork', function (id) { return decide(S.item(id), null, undefined, 'deep_work'); });   /* the verb, never a card's answer: Focus time starts on it */
     wrap('deepWorkLeftOff', function (id, note) { var it = S.item(id); return it && function () { return api('POST', '/tasks/' + it.coreId + '/deep_work', { left_off: (note || '').trim() }); }; });
     /* Tell Fuzz: the note goes first, so it's in the notes when the choice after it lands */
     wrap('tell', function (id, text) { var it = S.item(id); return it && it.coreId && (text || '').trim() ? function () { return api('POST', '/tasks/' + it.coreId + '/note', { text: text.trim() }); } : null; });
@@ -641,10 +643,9 @@
     wrap('wrapUp', function (id) { return groupCall(S.group(id), 'wrap'); });
     /* A late ask joins the thread's reply waiting for your OK: Fuzz rewrites it to cover this too */
     wrap('joinReply', function (id) { var it = S.item(id); return it && decide(it, 'add_to_reply'); });
-    /* Working sessions: Book time, Do it now, Pause, After the others, Just the first step, and two
+    /* Working sessions: Book time, Pause, After the others, Just the first step, and two
        answers to "What's in the way?" (lay out the options; draft it for my OK) */
     wrap('book', function (id, opt) { var it = S.item(id); return it && opt && decide(it, 'book', { anchor: opt.anchor }, 'book', { anchor: opt.anchor }); });
-    wrap('doNow', function (id) { var it = S.item(id); return it && decide(it, 'do_now'); });
     wrap('pause', function (id, note) { var it = S.item(id); return it && decide(it, 'pause', (note || '').trim() || undefined); });
     wrap('afterOthers', function (id) { var it = S.item(id); return it && decide(it, 'after_others'); });
     wrap('firstStep', function (id) { var it = S.item(id); return it && decide(it, 'first_step'); });
@@ -868,6 +869,11 @@
     /* Lineup's Open again, for a task that's already in Claude */
     /* Deep Work: when the free time you're in ends (your next meeting), from the calendar Fuzz last read */
     deepWorkInfo: function () { return api('GET', '/deepwork'); },
+    /* How a Focus time session went, so the block it was in can be judged productive (core/fuzz/rhythm.py) */
+    rhythm: function () { return api('GET', '/rhythm'); },
+    rhythmSet: function (best) { return api('PUT', '/rhythm', { best: best }); },
+    rhythmSeen: function () { return api('POST', '/rhythm/seen', {}).catch(function () {}); },
+    rhythmOutcome: function (minutes, finished) { return api('POST', '/rhythm/outcome', { minutes: minutes, finished: !!finished }); },
     /* The Guide: what Fuzz did on its own while you were away (at least the last two hours) */
     awaySummary: function () { return api('GET', '/away'); },
     openSession: function (id) { var it = Store.item(id); return openSession(it).catch(function (e) { Say.tell('It didn’t open: ' + e.message); }); },

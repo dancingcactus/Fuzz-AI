@@ -5,7 +5,7 @@
    wait     the task goes to Fuzz first; meanwhile, the three first tips
    card     the first card, on Triage, with one lesson: Assign, or what Fuzz already did
    checkin  20 minutes to come back to that task: Fuzz puts it on your calendar, or you get a calendar file
-   tour     the Guide, one part at a time: Triage, My work, Something else, the menu
+   tour     the Guide, one part at a time: Triage, Something else, New task, the menu
    done     one line on what's next, a first read, and setup cards take over
 
    It's a page (#/welcome), not a locked dialog: the header and Settings stay reachable throughout.
@@ -368,7 +368,7 @@
   var TIPS = [
     { key: 'sessions', title: 'I keep everything and help you prioritize it.',
       line: 'Whatever comes in, I put the most important things at the front. When you sit down, the Guide asks where you want to start.',
-      why: 'You don’t have to work out what comes first on your own: I bring the most important things to the front, so even a short stretch is enough to make real progress. Quick decisions go to Triage, and work that’s yours goes to My work, so you always know where to look.' },
+      why: 'You don’t have to work out what comes first on your own: I bring the most important things to the front, so even a short stretch is enough to make real progress. Quick decisions go to Triage, and work that’s yours gets a time on your calendar, so you always know where to look.' },
     { key: 'context', title: 'I collect everything a task needs into one place.',
       line: 'The emails, threads, notes and links behind a task end up on its card, wherever they started.',
       why: 'Hunting for the right email or message is often what makes a task feel heavy. With the context and resources already together, you can start right away instead of digging through your inbox first.' },
@@ -472,7 +472,7 @@
     var opts = ci.options || [];
     root.innerHTML = '<section class="onb onb-intro onb-ci" aria-labelledby="onb-h">' +
       '<div class="onb-top">' + fzHTML(true) + '<div><h1 id="onb-h">' + (mine ? 'It’s yours now. When will you start?' : 'I’m on it. Come back in a bit?') + '</h1>' +
-        '<p class="meta">' + (mine ? '“' + esc(ci.task) + '” is in My work. Twenty minutes is enough to make a start.'
+        '<p class="meta">' + (mine ? '“' + esc(ci.task) + '” is yours to start. Twenty minutes is enough to make a start.'
           : '“' + esc(ci.task) + '” is with me. Twenty minutes is enough to see what I found and decide what’s next.') + '</p></div></div>' +
       (opts.length ? '<div class="onb-ci-times" role="group" aria-label="When">' + opts.map(function (o, i) {
         return '<button type="button" class="seg" data-citime="' + i + '" aria-pressed="' + (i === ci.pick) + '">' + esc(o.label) + '</button>';
@@ -485,23 +485,12 @@
     react('standHappy', 'thumb', 2400);
     heading(true);
   }
+  /* The check-in's calendar file: js/ics.js makes it (it makes Focus time's too) */
   function icsText(ev, now) {
-    now = now || new Date();
-    function two(n) { return ('0' + n).slice(-2); }
-    function utc(d) { return d.getUTCFullYear() + two(d.getUTCMonth() + 1) + two(d.getUTCDate()) + 'T' + two(d.getUTCHours()) + two(d.getUTCMinutes()) + two(d.getUTCSeconds()) + 'Z'; }
-    function text(s) { return s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Fuzz//Check-in//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
-      'UID:fuzz-checkin-' + now.getTime() + '@fuzz.local', 'DTSTAMP:' + utc(now), 'DTSTART:' + utc(new Date(ev.start)), 'DTEND:' + utc(new Date(ev.end)),
-      'SUMMARY:' + text(ev.title),
-      'DESCRIPTION:' + text('See where it stands with Fuzz and decide what’s next.\nOpen Fuzz: ' + ev.link),
-      'URL:' + ev.link, 'TRANSP:OPAQUE', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
+    return Ics.text([{ uid: 'fuzz-checkin-' + (now || new Date()).getTime(), title: ev.title, start: ev.start, end: ev.end, link: ev.link,
+      description: 'See where it stands with Fuzz and decide what’s next.' }], { name: 'Check-in', now: now });
   }
-  function downloadIcs(ev) {
-    var blob = new Blob([icsText(ev)], { type: 'text/calendar' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Fuzz check-in.ics';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-  }
+  function downloadIcs(ev) { Ics.download([{ title: ev.title, start: ev.start, end: ev.end, link: ev.link, description: 'See where it stands with Fuzz and decide what’s next.' }], 'Fuzz check-in.ics', { name: 'Check-in' }); }
   function addCheckin() {
     var o = ci && ci.options[ci.pick]; if (!o || ci.busy) return;
     ci.busy = true; paintCheckin();
@@ -520,10 +509,10 @@
   var TOUR = [
     { sel: '.g-row[data-pick="triage"]', title: 'Triage',
       line: 'I bring you things to decide here, one card at a time: your tasks once I’ve looked into them, and my questions. Quick decisions; I do the rest.' },
-    { sel: '.g-list .g-grp:nth-of-type(2), .g-list li.g-grp ~ li.g-grp', title: 'My work',
-      line: 'When a task is yours and takes real time, say “I’ll do it” in Triage and it lands here. Pick one, say how long you have, and I’ll keep you on it, breaks included.' },
-    { sel: '.g-row[data-pick="typed"]', title: 'Something else',
-      line: 'Not on the list? Tell me what you want to work on, in your own words, and start there.' },
+    { sel: '.g-row[data-pick="else"]', title: 'Something else',
+      line: 'Got spare time? Pick a task I have ready, or search for one. When a task is big, book a time for it in Triage instead, and your calendar link starts it for you.' },
+    { sel: '#g-new', title: 'New task',
+      line: 'Not a task yet? This opens the New box: tell me what you want to do, in your own words.' },
     { sel: '#menubtn', title: 'Everything else',
       line: 'Lineup shows who has the ball on every task. Artifacts is what I’ve made. Settings is in here too. New (N) is always at the top.' }
   ];

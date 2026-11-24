@@ -33,7 +33,7 @@ RETURNED_TAGS = {"handed_back", "result", "found_out"}
 COMING_BACK_TAGS = {"put_off", "stale", "in_the_way"}
 # A card asking its own question (a handback, a result, "Still want this?", "Did they get back to you?", a
 # booked block, "What's in the way?") would lose it if a check-in moved it: it stays, last, instead
-KEEP_TAGS = {"handed_back", "result", "found_out", "review", "check_back", "put_off", "in_the_way", "doing",
+KEEP_TAGS = {"handed_back", "result", "found_out", "review", "check_back", "put_off", "in_the_way",
              "block", "block_end", "missed_block"}
 HOLD_TAG = "checkin_hold"   # held by a check-in: it comes back tomorrow as an ordinary card, not a "coming back"
 

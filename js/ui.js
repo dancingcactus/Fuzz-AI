@@ -14,7 +14,7 @@
   };
   /* Where a task stands, said the same way everywhere (Triage, Lineup, Series, the group sheet): [label, tone] */
   var STATUS = { triage: ['In Triage', 'accent'], queued: ['Next up', 'muted'], working: ['With Fuzz', 'accent'], review: ['Needs your OK', 'warn'],
-    sending: ['Sending', 'accent'], mine: ['With you', 'accent'], deepwork: ['My work', 'accent'], scheduled: ['Later', 'muted'],
+    sending: ['Sending', 'accent'], mine: ['With you', 'accent'], deepwork: ['In Focus time', 'accent'], scheduled: ['Later', 'muted'],
     waiting: ['Waiting on others', 'warn'], parked: ['Parked', 'muted'], done: ['Done', 'ok'], letgo: ['Let go', 'muted'] };
   function status(state) {
     if (state === 'session') return ['In ' + ((window.Store && window.Store.workIn) || 'Claude'), 'muted'];

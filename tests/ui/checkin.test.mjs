@@ -141,14 +141,14 @@ test('a quick tired stretch asks for a few more, and Sure brings some back', asy
   assert.ok(await page.evaluate(() => Store.queue().length) > 0, 'some came back from tomorrow');
 });
 
-test('tired: a big one goes to Deep Work, not tomorrow, and one Undo brings it back', async () => {
+test('tired: a big one waits for tomorrow like the rest (there is no queue), and one Undo brings it back', async () => {
   await start(9, 5);
   const big = await page.evaluate(() => { const it = Store.queue()[8]; it.mins = 60; return it.id; });
   await clear(); await clear();
   await answer('3'); await answer('2');
   await page.waitForFunction(() => document.querySelector('#checkin').hidden);
   await page.locator('#card [data-act]').first().waitFor();
-  assert.equal(await page.evaluate((id) => Store.item(id).state, big), 'deepwork');
+  assert.equal(await page.evaluate((id) => Store.item(id).state, big), 'scheduled');
   await page.evaluate(() => { Say.undoList()[0].run(); });
   await page.waitForFunction((id) => Store.item(id).state === 'triage', big);
 });
