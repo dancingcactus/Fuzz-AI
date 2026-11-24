@@ -51,7 +51,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 | 5 | **Fuzz's task: schedule a 30-minute Triage meeting** | A recurring event on their calendar, and the first trust moment | Decide at a fixed time and place; consistent beats optimal. Safety tools: Assign and Undo |
 | 5a | *Branch:* **calendar check**, only when there's no calendar access | Calendar works, or the calendar file | None. Access comes when it buys something |
 | 6 | **The New task page, with Dump mode** | The user's own content in Fuzz's hands | Get it out of your head. Don't sort while you dump. A small dump counts |
-| 7 | **The wait** | Don't lose them at the hand-off | Check Triage instead of holding it in mind. Fuzz works while you're away |
+| 7 | **The wait: Fuzz gets to know you, then what you can do with a task** | Don't lose them at the hand-off, and Fuzz learns what he can't read from a source | Check Triage instead of holding it in mind. Fuzz works while you're away. Every card asks the same three things: who does it, when, can it go |
 | 8 | **The first dump cards** | Their first real decisions | Decide small, one card at a time. Later is a real outcome |
 | 9 | **The Guide, one part at a time** | They know where to start tomorrow | Start from the Guide, not from the pile |
 | 10 | **Sources: email, then IM** (Fuzz's "Let me find your asks" task) | Fuzz finds asks they'd have to remember | Don't be the memory. Each source is answered on its own |
@@ -73,6 +73,26 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 - **Step 6** is the first time the user hands Fuzz their own words. Dump mode is a toggle on the New task page (N), so
   there's no new screen. Fuzz asks for three things, not everything, with "add more any time". Nothing is committed
   until the user has seen Fuzz's split.
+- **Step 7 is two parts, both in Triage, while Fuzz works on the dump.** The Triage tab is ringed, as built.
+  - **Part 1, a few cards that help Fuzz get to know you.** Two or three, one tap each, in this order. Each is skippable
+    (Esc), and answering counts as progress while skipping never counts against anyone. They are the setup-card kind:
+    "Not now" comes back at most once, and nothing builds up. If the dump lands first, the unanswered ones wait and
+    come back later as setup cards, so they never delay step 8.
+    - **What usually gets in your way?** Starting, remembering, too many things at once, or being interrupted. Fuzz
+      can't read this from any source. It sets which practices he offers first in the slow reveal (see its open
+      question on who gets first offer).
+    - **How do you like me to write?** Short and to the point, or a bit fuller; and plain or warm. It's a starting guess
+      for drafts that Voice and style refines later (`docs/voice.md`).
+    - **Pick a look** (colour theme, with the live preview). It's the one with an effect on screen, so it's a small
+      reward in the wait. It moves here from "a light card a few days in".
+  - **Part 2, what you can do with a task.** One short card from Fuzz, once the questions are done or skipped, and
+    before the dump lands. It says that **every card asks the same three things, in the same order: who does it, when,
+    and can it go**, and that **E lets you tell Fuzz anything about a card**. That's the standing row of
+    `docs/card-actions.md` described in everyday words. Step 5 already taught Assign and Undo, so this adds Book time
+    and Later (when), Done, Park and Let it go (can it go), and Tell Fuzz. It names them and teaches nothing by
+    drilling: step 8 is where they're used.
+  - **Left out on purpose:** the "When do you usually get things done?" card, which stays in the slow reveal, after some
+    real work; and any question that needs a source, like other email addresses or Slack IDs.
 - **Step 8** may produce few cards, or none. If the dump has nothing to act on, Fuzz says what he did with it ("nothing
   needed doing, I've kept it") and goes on to step 9. The meeting task is still in Triage, so nobody ends on a blank screen.
 - **Step 9 moves the tour here** from after the first card, so it has something to point at.
@@ -104,7 +124,10 @@ A mode of the New task box, not a new place. The user writes or dictates in one 
 4. **Is the raw dump kept?** Keeping it lets Fuzz say "you mentioned this on Tuesday", but it's the most personal text in
    the system, and test data falls under the public-repo rule (no real names).
 5. **Does Fuzz take personal items,** like "call the dentist", or stay a work tool?
-6. **Step 7's wait** needs a real executor run for the dump. Is the first card quick enough that tips aren't needed?
+6. **Step 7's wait** needs a real executor run for the dump. How long is it, and is two or three cards the right number?
+   If the dump is back in seconds, part 1 is skipped and part 2 moves into step 8, on the first card.
+   Part 2 also tells before it teaches by doing, which principle 10 would rather avoid. Is naming the three questions
+   once enough, with step 8 reinforcing each on first use?
 7. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
 8. **Where does the first Triage slot go** when working hours are "no fixed hours"?
 
@@ -400,6 +423,8 @@ yet, so treat them as hypotheses until someone with ADHD tries the flow.
 | *Proposed flow:* Fuzz's Triage-meeting task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
 | *Proposed flow:* calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
 | *Proposed flow:* Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
+| *Proposed flow:* get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
+| *Proposed flow:* "what you can do with a task" (step 7) | The tour covers the Guide, not the standing row | One card in Fuzz's words, drawn from the standing row in `docs/card-actions.md` |
 | *Proposed flow:* tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
 
 **Installing restarts the server.** `fuzz install` reloads the launchd jobs, including the `fuzz serve`
