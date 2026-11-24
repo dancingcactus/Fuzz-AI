@@ -182,7 +182,7 @@ the terms of what's gone (a decision, something to carry), and it's the source f
 | **Look back weekly** | A short recap of what got done, and what carried over | You stop keeping score in your head | Pair | After about two weeks |
 | **Work in Claude together** | The hand-off, with the task handed over | Everything it needs is in one place, so you can just start | Capability only | A task comes back handed over |
 | **Voice and style** | Drafts that sound like the user. See `docs/voice.md` | You edit less | Capability only | About five approved drafts |
-| **Series** | Fuzz finds a workstream across their tasks | The whole thing is in one place, not five | Capability only | The workstream shows up |
+| **Give big work a home** | Series: Fuzz finds a workstream, keeps its tasks together, suggests the next one and says when it's done | Less context switching, and you focus on the work, not the planning | Pair | The first "Is this the series?" card, then the first "Next in …" suggestion, then the first wrap |
 
 Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
 line isn't said twice. The rows after "Look back weekly" are new since the first draft of this table and need triggers
@@ -218,7 +218,9 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
 | Look back weekly | "Here's what got done this week, and what carried over. It's written down, so you can stop keeping it in your head." |
 | Work in Claude together | "This one's for the two of us in Claude. I've put everything it needs in one place, so you can just start." |
 | Voice and style | "I've got a feel for how you write. Drafts will sound like you, so you edit less." |
-| Series | "These tasks belong together, so I've grouped them. You'll see the whole thing in one place, not five." |
+| Give big work a home: the first series card | "I've kept these together to reduce context switching effort." |
+| Give big work a home: the first "Next in …" | "I try to find what's next so you can focus on work, not planning." |
+| Give big work a home: the first wrap | "That's all the [series] items for now. Let me know if there are more." |
 
 ### What it must not become
 
@@ -237,10 +239,13 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
    few would open it, so it may be worth removing there too, with each tip's line carrying the benefit.
 5. **Does a missed Triage or Focus block get its own line,** saying the practice still holds, as in "Looks like 3 got away
    from you. That's fine. Same time tomorrow?" It would use the existing `missed_block` signal.
-6. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
-7. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
+6. **Series teaches one practice at three moments** (above). The role card ("I'm driving it, I'm helping, just keeping up")
+   carries a fourth message, that not everything needs you to lead, without a line from Fuzz. The Episodes page shows done
+   dots and a folded count; nothing teaches it, since a count sits close to principle 6. Is that right?
+7. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
+8. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
    the practices.
-8. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
+9. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
    own gentle card, not a Settings row.
 
 ## The flow today
