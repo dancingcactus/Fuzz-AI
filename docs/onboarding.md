@@ -2,7 +2,7 @@
 
 Status: built, steps 1 to 6 of the order of work, in `js/onboarding.js`, `core/fuzz/onboarding.py`,
 `install.sh` and `docs/fuzz-tone.md`. Step 7, trying it with someone who has ADHD, hasn't happened, and the
-tip wording hasn't been reviewed by someone qualified in ADHD yet. The code facts below were checked
+tip wording hasn't been tried with real users yet. The code facts below were checked
 against `claude/ask-me-later` at `895ecd3`.
 
 A new flow (Triage meeting first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
@@ -11,7 +11,7 @@ below describes what's built today, until that flow replaces it.
 ## Goal
 
 A new user goes from nothing to working a real card, in the browser, in one short sitting. On the way
-Fuzz introduces himself, sets up what he needs, and teaches how to be effective with ADHD.
+Fuzz introduces himself, sets up what he needs, and teaches practices for getting things done.
 
 This replaces the old four-step guided setup (`js/setup.js`, now removed) as the first-run experience.
 Changing anything later happens on the Settings page (`#/settings`, see "As built").
@@ -120,33 +120,49 @@ extends [Later tips](#later-tips), which are one-line, one-time lines, into prac
   streaks, and removing every practice wouldn't add a step.
 - **Triggered by behaviour, not the calendar.** "Day 3" means nothing. "You've opened Triage at four different times this
   week" does.
-- **Show, then name.** Fuzz does the thing first (proposes a Focus block, sets up the Triage slot), then says in one line
-  why it helps. "Helps a lot of people", never "proven" and never "you should".
+- **Do it, then say it in one line.** Fuzz sets the thing up (proposes a Focus block, puts the Triage slot on the
+  calendar), then says what he did and why it's useful, in plain words. "I've put Triage on your calendar at 3 every
+  working day, so you never have to decide when. Move it if it doesn't suit you." He doesn't name a technique, ask
+  the user to agree to a concept first, or say "you should".
+- **Fuzz is opinionated, not a coach.** He says how he works, as a fact about himself. He doesn't cite evidence, name a
+  condition, or say "helps a lot of people". People find out it works by using it. These are practices for getting things done.
 - **Offers retire quietly.** "Not now" comes back at most once, like setup cards. Ignoring one never counts against anyone.
 - **Graduation.** A practice stops being offered once the user does it without a prompt.
 - **Visible only if asked.** An opt-in "What else can Fuzz do?" page (Settings or the menu) can list the practices, as a
   reference and never a checklist. It carries no badges, counts or progress.
-- **Wording review.** Someone qualified in ADHD reviews each line before it ships, as with the first tips.
+- **Wording.** Each line follows `docs/fuzz-tone.md`, and reads fine to someone who is tired or already knows all this.
 
 ### The practices
 
-| Practice | Trigger | How Fuzz shows it |
-| --- | --- | --- |
-| **Triage in a fixed slot** | A few days of opening Triage at scattered times | Offers the recurring slot: "consistent beats optimal" |
-| **Book time, don't queue** | The first time they would have said "I'll do it" | Book time with a pre-picked slot, one tap. See `docs/book-then-work.md` |
-| **Find Focus time** | After some real work | The "When do you usually get things done?" card, then proposed blocks |
-| **Start small** | A task sits untouched for several days | Offers Help me start: a five-minute first step |
-| **Park a stray thought** (T) | The first time they leave a card to chase something | One line, once |
-| **Let it go** | The first stale card | Says that letting go is a real outcome |
-| **Say how you're doing** | The first check-in | Shows that the queue changes to match |
-| **Work in Claude together** | A task comes back handed over | Explains the hand-off |
-| **Dump again** | The queue is empty, or the Triage slot starts | "Want to get things out of your head?" The Dump mode practice from step 6, returned to |
-| **A weekly look-back** | After about two weeks | A short recap of what got done, and what carried over |
-| **Voice and style** | About five approved drafts | "Want drafts to sound more like you?" See `docs/voice.md` |
-| **Series** | Fuzz finds a workstream across their tasks | The series card explains itself |
+Each practice is a habit, and Fuzz's capability is what makes it nearly free. Rows are of three kinds:
+
+- **Pair:** a practice and the capability that serves it. Most rows.
+- **Practice only:** no feature is needed, just a line from Fuzz at the right moment.
+- **Capability only:** serves the work, not a habit, so nothing is framed as a practice.
+
+| Practice (the habit) | Capability (what Fuzz does) | Kind | Trigger |
+| --- | --- | --- | --- |
+| **Decide at a fixed time** | The recurring Triage slot on the calendar (step 5), kept in one place | Pair | A few days of opening Triage at scattered times |
+| **Book it, don't queue it** | Book time, with a pre-picked slot, one tap. See `docs/book-then-work.md` | Pair | The first time they would have said "I'll do it" |
+| **Find your good hours** | The "When do you usually get things done?" card, then proposed Focus blocks | Pair | After some real work |
+| **Start small** | Help me start: a five-minute first step | Pair | A task sits untouched for several days |
+| **Park a stray thought** (T) | The park shortcut | Pair | The first time they leave a card to chase something |
+| **Get it out of your head** | Dump mode, returned to from step 6 | Pair | The queue is empty, or the Triage slot starts |
+| **Work alongside someone** | Focus time with Fuzz present: a session he's part of, not just a calendar block | Pair | The first Focus block |
+| **Put a clear end on it** | Short sessions and a wrap-up that says what got done | Pair | A session runs long, or the first short triage |
+| **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Pair | The first booked block |
+| **See how long things take** | A recap of time worked, in the session wrap-up and look-back | Pair | After a few booked blocks |
+| **Let it go** | Let it go, as a real outcome | Practice only | The first stale card |
+| **Say how you're doing** | The queue changes to match | Pair | The first check-in |
+| **Look back weekly** | A short recap of what got done, and what carried over | Pair | After about two weeks |
+| **Work in Claude together** | The hand-off, with the task handed over | Capability only | A task comes back handed over |
+| **Voice and style** | Drafts that sound like the user. See `docs/voice.md` | Capability only | About five approved drafts |
+| **Series** | Fuzz finds a workstream across their tasks | Capability only | The workstream shows up |
 
 Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
-line isn't said twice.
+line isn't said twice. The rows after "Look back weekly" are new since the first draft of this table and need triggers
+checked against what exists: the work-alongside, warm-up and time rows depend on the session and wrap-up in
+`js/view-deepwork.js`.
 
 ### What it must not become
 
@@ -161,12 +177,10 @@ line isn't said twice.
    nudge. Notifications are the riskiest for shame.
 2. **Is "What else can Fuzz do?" worth having,** or does any list turn into a checklist?
 3. **Should the Triage slot open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
-4. **Is a practice taught as advice or just set up?** "I put it at the same time each day" reads as service. "Triage at a
-   consistent time" reads as advice.
-5. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
-6. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
+4. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
+5. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
    the practices.
-7. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
+6. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
    own gentle card, not a Settings row.
 
 ## The flow today
@@ -251,8 +265,8 @@ Each is said once, when it first becomes relevant, by Fuzz, in a line or two:
 
 ### How to word them
 
-- Say "helps a lot of people", not "proven". Evidence varies by strategy.
-- Someone qualified in ADHD reviews the lines before they ship.
+- Fuzz is opinionated. He says how he works, as a fact, and doesn't cite evidence or name a condition.
+- Say what he did and why it's useful, not what technique it is.
 - No medical advice, and no assumption of a diagnosis. `PRODUCT.md` also includes people with heavy
   executive-function load.
 
@@ -445,4 +459,4 @@ Not built yet:
   draft back when no send tools are allowed. The guided setup in Settings picks them.
 - **Identity from a connector.** Other emails and Slack IDs are no longer asked up front, but nothing reads
   them from a connector yet, so they still come from Settings › About you or `fuzz me add`.
-- **Step 7.** No one with ADHD has tried the flow, and the tips haven't had the qualified review.
+- **Step 7.** No one with ADHD has tried the flow, and the tip wording hasn't been tried with real users.
