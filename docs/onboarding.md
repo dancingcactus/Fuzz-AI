@@ -157,30 +157,32 @@ extends [Later tips](#later-tips), which are one-line, one-time lines, into prac
 
 ### The practices
 
-Each practice is a habit, and Fuzz's capability is what makes it nearly free. Rows are of three kinds:
+Each practice is a habit, and Fuzz's capability is what makes it nearly free. The benefit is what the user gets, in
+the terms of what's gone (a decision, something to carry), and it's the source for Fuzz's line in
+[Saying how it helps](#saying-how-it-helps). Rows are of three kinds:
 
 - **Pair:** a practice and the capability that serves it. Most rows.
 - **Practice only:** no feature is needed, just a line from Fuzz at the right moment.
 - **Capability only:** serves the work, not a habit, so nothing is framed as a practice.
 
-| Practice (the habit) | Capability (what Fuzz does) | Kind | Trigger |
-| --- | --- | --- | --- |
-| **Decide at a fixed time** | The recurring Triage slot on the calendar (step 5), kept in one place | Pair | A few days of opening Triage at scattered times |
-| **Book it, don't queue it** | Book time, with a pre-picked slot, one tap. See `docs/book-then-work.md` | Pair | The first time they would have said "I'll do it" |
-| **Find your good hours** | The "When do you usually get things done?" card, then proposed Focus blocks | Pair | After some real work |
-| **Start small** | Help me start: a five-minute first step | Pair | A task sits untouched for several days |
-| **Park a stray thought** (T) | The park shortcut | Pair | The first time they leave a card to chase something |
-| **Get it out of your head** | Dump mode, returned to from step 6 | Pair | The queue is empty, or the Triage slot starts |
-| **Work alongside someone** | Focus time with Fuzz present: a session he's part of, not just a calendar block | Pair | The first Focus block |
-| **Put a clear end on it** | Short sessions and a wrap-up that says what got done | Pair | A session runs long, or the first short triage |
-| **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Pair | The first booked block |
-| **See how long things take** | A recap of time worked, in the session wrap-up and look-back | Pair | After a few booked blocks |
-| **Let it go** | Let it go, as a real outcome | Practice only | The first stale card |
-| **Say how you're doing** | The queue changes to match | Pair | The first check-in |
-| **Look back weekly** | A short recap of what got done, and what carried over | Pair | After about two weeks |
-| **Work in Claude together** | The hand-off, with the task handed over | Capability only | A task comes back handed over |
-| **Voice and style** | Drafts that sound like the user. See `docs/voice.md` | Capability only | About five approved drafts |
-| **Series** | Fuzz finds a workstream across their tasks | Capability only | The workstream shows up |
+| Practice (the habit) | Capability (what Fuzz does) | Benefit (how it helps you) | Kind | Trigger |
+| --- | --- | --- | --- | --- |
+| **Decide at a fixed time** | The recurring Triage slot on the calendar (step 5), kept in one place | You never decide when to deal with new things | Pair | A few days of opening Triage at scattered times |
+| **Book it, don't queue it** | Book time, with a pre-picked slot, one tap. See `docs/book-then-work.md` | A task has a moment, so it stops sitting in a pile | Pair | The first time they would have said "I'll do it" |
+| **Find your good hours** | The "When do you usually get things done?" card, then proposed Focus blocks | Your best hours go to the work that needs them | Pair | After some real work |
+| **Start small** | Help me start: a five-minute first step | Starting costs five minutes, not a whole task | Pair | A task sits untouched for several days |
+| **Park a stray thought** (T) | The park shortcut | You keep your place and don't carry the thought | Pair | The first time they leave a card to chase something |
+| **Get it out of your head** | Dump mode, returned to from step 6 | You stop holding it all, and nothing is lost | Pair | The queue is empty, or the Triage slot starts |
+| **Work alongside someone** | Focus time with Fuzz present: a session he's part of, not just a calendar block | It's easier to stay with the work | Pair | The first Focus block |
+| **Put a clear end on it** | Short sessions and a wrap-up that says what got done | You know where it stops, so starting is easier | Pair | A session runs long, or the first short triage |
+| **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Picking it up later costs nothing | Pair | The first booked block |
+| **See how long things take** | A recap of time worked, in the session wrap-up and look-back | You plan around how long things really take | Pair | After a few booked blocks |
+| **Let it go** | Let it go, as a real outcome | Room for what matters | Practice only | The first stale card |
+| **Say how you're doing** | The queue changes to match | Today asks for what you've got | Pair | The first check-in |
+| **Look back weekly** | A short recap of what got done, and what carried over | You stop keeping score in your head | Pair | After about two weeks |
+| **Work in Claude together** | The hand-off, with the task handed over | Everything it needs is in one place, so you can just start | Capability only | A task comes back handed over |
+| **Voice and style** | Drafts that sound like the user. See `docs/voice.md` | You edit less | Capability only | About five approved drafts |
+| **Series** | Fuzz finds a workstream across their tasks | The whole thing is in one place, not five | Capability only | The workstream shows up |
 
 Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
 line isn't said twice. The rows after "Look back weekly" are new since the first draft of this table and need triggers
