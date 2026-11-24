@@ -120,10 +120,10 @@ extends [Later tips](#later-tips), which are one-line, one-time lines, into prac
   streaks, and removing every practice wouldn't add a step.
 - **Triggered by behaviour, not the calendar.** "Day 3" means nothing. "You've opened Triage at four different times this
   week" does.
-- **Do it, then say it in one line.** Fuzz sets the thing up (proposes a Focus block, puts the Triage slot on the
-  calendar), then says what he did and why it's useful, in plain words. "I've put Triage on your calendar at 3 every
-  working day, so you never have to decide when. Move it if it doesn't suit you." He doesn't name a technique, ask
-  the user to agree to a concept first, or say "you should".
+- **Do it, then say how it helps you, in one line.** Fuzz sets the thing up (proposes a Focus block, puts the Triage
+  slot on the calendar), then says what he did and how it helps the user, in plain words. See
+  [Saying how it helps](#saying-how-it-helps). He doesn't name a technique, ask the user to agree to a concept first,
+  or say "you should". There's no folded "why" for these: a line most people wouldn't open isn't worth the extra UI.
 - **Fuzz is opinionated, not a coach.** He says how he works, as a fact about himself. He doesn't cite evidence, name a
   condition, or say "helps a lot of people". People find out it works by using it. These are practices for getting things done.
 - **Offers retire quietly.** "Not now" comes back at most once, like setup cards. Ignoring one never counts against anyone.
@@ -164,6 +164,37 @@ line isn't said twice. The rows after "Look back weekly" are new since the first
 checked against what exists: the work-alongside, warm-up and time rows depend on the session and wrap-up in
 `js/view-deepwork.js`.
 
+### Saying how it helps
+
+Ruled 2026-11-24: one line, in the line itself. Not a "why", and not folded away.
+
+- **Shape:** what Fuzz did, then how it helps the user. One or two sentences, in the order *did, then helps*.
+- **About the user's day,** not the technique. "You'll never have to decide when" works. "Consistency builds habits" is a coach.
+- **Each line says what's gone,** where it can: a decision they don't have to make, something they don't have to carry
+  or remember. That's the strongest form of "how it helps".
+- **No counts, no scores, no "you should".** Skipping the offer costs nothing.
+
+Draft lines, for iteration. Each has to be true when it's said, so the capability has to exist first.
+
+| Practice | Fuzz says |
+| --- | --- |
+| Decide at a fixed time | "I've put Triage on your calendar at 3, every working day. You'll never have to decide when to deal with new things; it's already set." |
+| Book it, don't queue it | "Booked: Thursday, 10 to 11. It's on your calendar now, so it won't sit in a pile waiting for a moment that never comes." |
+| Find your good hours | "Tell me when you think best and I'll put your focus time there. Your best hours go to the work that needs them." |
+| Start small | "I've cut this to a five-minute first step: open the doc and write the heading. Once you've started, keeping going is easier than starting was." |
+| Park a stray thought | "Parked. It's safe here, so you can get back to what you were doing without carrying it." |
+| Get it out of your head | "Anything on your mind? Dump it here and I'll sort it, so you can stop holding it." |
+| Work alongside someone | "I'm here while you work on this. Having me in the session makes it easier to stay with it." |
+| Put a clear end on it | "Twenty minutes, then I'll call time and tell you what got done. You know where it stops, so starting is easier." |
+| Warm up and wind down | "Here's where you left off. When you finish, I'll note where you stopped, so picking it up later costs nothing." |
+| See how long things take | "That took 25 minutes. Next time I can plan around how long things really take." |
+| Let it go | "Let go. It's off your plate, and you've got room for what matters." |
+| Say how you're doing | "Thanks. I'll lighten your queue to match, so today asks for what you've got." |
+| Look back weekly | "Here's what got done this week, and what carried over. It's written down, so you can stop keeping it in your head." |
+| Work in Claude together | "This one's for the two of us in Claude. I've put everything it needs in one place, so you can just start." |
+| Voice and style | "I've got a feel for how you write. Drafts will sound like you, so you edit less." |
+| Series | "These tasks belong together, so I've grouped them. You'll see the whole thing in one place, not five." |
+
 ### What it must not become
 
 1. **A curriculum.** Every practice is an offer attached to a real moment. If it could be a lesson list, it's wrong.
@@ -177,10 +208,14 @@ checked against what exists: the work-alongside, warm-up and time rows depend on
    nudge. Notifications are the riskiest for shame.
 2. **Is "What else can Fuzz do?" worth having,** or does any list turn into a checklist?
 3. **Should the Triage slot open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
-4. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
-5. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
+4. **Does the folded "Why this helps" on the first tips stay?** It's built (see "As built"). The same reasoning applies:
+   few would open it, so it may be worth removing there too, with each tip's line carrying the benefit.
+5. **Does a missed Triage or Focus block get its own line,** saying the practice still holds, as in "Looks like 3 got away
+   from you. That's fine. Same time tomorrow?" It would use the existing `missed_block` signal.
+6. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
+7. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
    the practices.
-6. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
+8. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
    own gentle card, not a Settings row.
 
 ## The flow today

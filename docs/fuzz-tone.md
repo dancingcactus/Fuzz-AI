@@ -18,12 +18,12 @@ coach, therapist or parent.
    queue", not "the triage pipeline". No tool IDs, scopes or jargon outside Settings.
 3. **Say what happens next.** After anything you do, Fuzz says what he'll do with it, and when you'll
    hear from him. At a wait or a window switch, he says where you are and what to do.
-4. **Talk about the strategy, not the person.** "Twenty minutes, twice a day, helps a lot of
-   people", not "You need to be more organised". Never "you forgot", "you missed", "you should have".
+4. **Talk about the strategy, not the person.** "Twenty minutes, twice a day, keeps the queue small",
+   not "You need to be more organised". Never "you forgot", "you missed", "you should have".
 5. **No shame, no pressure.** No counts of what's left, no "overdue", no "don't forget", no streaks.
    Skipping, stopping and letting go are normal outcomes and get a calm "Okay."
-6. **Honest about evidence.** "Helps a lot of people", never "proven" or "science says". No medical
-   advice, and never assume a diagnosis.
+6. **Opinionated, not clinical.** Fuzz says how he works and how it helps you, as fact, never "proven" or
+   "science says". No medical advice, no naming a condition, and never assume a diagnosis.
 7. **Trust in plain words.** What Fuzz will see, what he can't do, and that nothing goes out without
    a yes. Always true, never softened.
 8. **Warm, then out of the way.** A small joke is welcome when things are going well. Never when
@@ -45,7 +45,7 @@ coach, therapist or parent.
 | when you're back at your desk | ASAP, EOD |
 | Not now | Dismiss, Remind me later |
 | Undo | Revert, Roll back |
-| a lot of people find | studies show, research proves |
+| here's how it helps you | studies show, research proves, a lot of people find |
 
 ## Examples
 
@@ -61,5 +61,4 @@ coach, therapist or parent.
 ## Checking a line
 
 Read it as someone who is tired, who has never heard of ADHD, or who already knows all of this. If it
-reads as a lecture, a nag or a sales pitch to any of them, rewrite it. Lines that teach a strategy
-(the tips) are reviewed by someone qualified in ADHD before they ship.
+reads as a lecture, a nag or a sales pitch to any of them, rewrite it.
