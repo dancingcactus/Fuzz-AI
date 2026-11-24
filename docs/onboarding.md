@@ -108,6 +108,67 @@ A mode of the New task box, not a new place. The user writes or dictates in one 
 7. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
 8. **Where does the first Triage slot go** when working hours are "no fixed hours"?
 
+## The slow reveal (proposed, not built)
+
+Drafted 2026-11-24. The first sitting ends at step 11. After that Fuzz keeps teaching, slowly, one practice at a time,
+inside the moment where it applies. The practices come first and the features are the tools that serve them. This
+extends [Later tips](#later-tips), which are one-line, one-time lines, into practices that Fuzz sets up for the user.
+
+### How it works
+
+- **One new idea a day, at most,** delivered in context. Principles 6 and 10 are the guard: no lesson counts, no
+  streaks, and removing every practice wouldn't add a step.
+- **Triggered by behaviour, not the calendar.** "Day 3" means nothing. "You've opened Triage at four different times this
+  week" does.
+- **Show, then name.** Fuzz does the thing first (proposes a Focus block, sets up the Triage slot), then says in one line
+  why it helps. "Helps a lot of people", never "proven" and never "you should".
+- **Offers retire quietly.** "Not now" comes back at most once, like setup cards. Ignoring one never counts against anyone.
+- **Graduation.** A practice stops being offered once the user does it without a prompt.
+- **Visible only if asked.** An opt-in "What else can Fuzz do?" page (Settings or the menu) can list the practices, as a
+  reference and never a checklist. It carries no badges, counts or progress.
+- **Wording review.** Someone qualified in ADHD reviews each line before it ships, as with the first tips.
+
+### The practices
+
+| Practice | Trigger | How Fuzz shows it |
+| --- | --- | --- |
+| **Triage in a fixed slot** | A few days of opening Triage at scattered times | Offers the recurring slot: "consistent beats optimal" |
+| **Book time, don't queue** | The first time they would have said "I'll do it" | Book time with a pre-picked slot, one tap. See `docs/book-then-work.md` |
+| **Find Focus time** | After some real work | The "When do you usually get things done?" card, then proposed blocks |
+| **Start small** | A task sits untouched for several days | Offers Help me start: a five-minute first step |
+| **Park a stray thought** (T) | The first time they leave a card to chase something | One line, once |
+| **Let it go** | The first stale card | Says that letting go is a real outcome |
+| **Say how you're doing** | The first check-in | Shows that the queue changes to match |
+| **Work in Claude together** | A task comes back handed over | Explains the hand-off |
+| **Dump again** | The queue is empty, or the Triage slot starts | "Want to get things out of your head?" The Dump mode practice from step 6, returned to |
+| **A weekly look-back** | After about two weeks | A short recap of what got done, and what carried over |
+| **Voice and style** | About five approved drafts | "Want drafts to sound more like you?" See `docs/voice.md` |
+| **Series** | Fuzz finds a workstream across their tasks | The series card explains itself |
+
+Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
+line isn't said twice.
+
+### What it must not become
+
+1. **A curriculum.** Every practice is an offer attached to a real moment. If it could be a lesson list, it's wrong.
+2. **Advice about the person.** Each line is about the strategy, never "you've been doing it wrong" (principle 11).
+3. **A debt.** Nothing is owed. A user who ignores every offer should see no sign of it (principle 6).
+4. **Too many at once.** If testing shows overload, cut the number per week before cutting the practices.
+
+### Open questions for the slow reveal
+
+1. **How does a day-2 return feel?** A quiet "here's where you left off", a Fuzz line waiting in Triage, or a calendar
+   nudge. Notifications are the riskiest for shame.
+2. **Is "What else can Fuzz do?" worth having,** or does any list turn into a checklist?
+3. **Should the Triage slot open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
+4. **Is a practice taught as advice or just set up?** "I put it at the same time each day" reads as service. "Triage at a
+   consistent time" reads as advice.
+5. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
+6. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
+   the practices.
+7. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
+   own gentle card, not a Settings row.
+
 ## The flow today
 
 This is what's built (see "As built" at the end). The proposed flow above replaces it.
