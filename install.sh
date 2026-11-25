@@ -1,7 +1,7 @@
 #!/bin/sh
 # Fuzz, in one paste:
 #
-#   curl -fsSL https://raw.githubusercontent.com/dancingcactus/Task-Fuzz/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/dancingcactus/Fuzz-AI/main/install.sh | sh
 #
 # Downloads Fuzz, installs the core in its own Python environment, sets up the store, starts
 # `fuzz serve` (a launchd job on a Mac, so it survives a restart) and opens your browser already signed
@@ -11,7 +11,7 @@
 # your data goes (default: ~/Library/Application Support/Fuzz on a Mac, ~/.local/share/fuzz elsewhere).
 set -eu
 
-REPO="dancingcactus/Task-Fuzz"
+REPO="dancingcactus/Fuzz-AI"
 REF="${FUZZ_REF:-main}"
 if [ "$(uname -s)" = "Darwin" ]; then
   DATA="$HOME/Library/Application Support/Fuzz"
