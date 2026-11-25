@@ -6,10 +6,12 @@ import { test, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
 import { chromium } from 'playwright-core';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const PORT = 9390 + Math.floor(Math.random() * 100);
+/* A free port from the OS, so parallel test files never collide */
+const PORT = await new Promise((res, rej) => { const srv = createServer(); srv.listen(0, '127.0.0.1', () => { const { port } = srv.address(); srv.close(() => res(port)); }); srv.on('error', rej); });
 let server, browser, page;
 
 before(async () => {
@@ -106,7 +108,7 @@ test('taking the offer shows the split, and nothing is made until you keep it', 
   assert.deepEqual((await calls()).find(c => c[0] === 'commit')[1].sort(), [1, 3, 4]);
   await page.locator('#cap-compose').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#cap-text').inputValue(), '');
-  assert.match(await page.locator('#bubble').textContent(), /Kept\. 3 are waiting/);
+  assert.match(await page.locator('#bubble').textContent(), /Kept\. They’re waiting in Triage/);
 });
 
 test('in the onboarding, a dump counts as the first capture: its first task goes on to the wait', async () => {
@@ -148,6 +150,22 @@ test('a split that fails says your words are safe and offers one task', async ()
   assert.match(await page.locator('#cap-review').textContent(), /Your words are safe/);
   await page.locator('[data-dump="one"]').click();
   await page.waitForFunction(() => window.calls.some(c => c[0] === 'one'));
+});
+
+test('with a real Focus time session running, New still knows it, so the dump goes in with no review', async () => {
+  /* nothing about the session is stubbed: the session survives a visit to another page, and so does active() */
+  await page.evaluate(() => App.navigate('#/deepwork'));
+  await page.locator('#dw-go').click();
+  await page.locator('#dw-step').waitFor();
+  await page.keyboard.press('n');
+  await page.locator('#cap-text').waitFor();
+  assert.equal(await page.evaluate(() => DeepWorkView.active()), true, 'the session is still running on New');
+  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', items: [] }; });
+  await paste(DUMP);
+  await page.locator('#cap-split').click();
+  await page.waitForFunction(() => document.getElementById('cap-text').value === '');
+  assert.deepEqual((await calls())[0], ['start', DUMP, true]);
+  assert.equal(await page.locator('#cap-keep').count(), 0);
 });
 
 test('in Focus time there is no review: the words go in, and the box clears', async () => {

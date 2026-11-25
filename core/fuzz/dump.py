@@ -171,7 +171,7 @@ def commit(core, dump_id, accept=None):
             tid = None
             if i["group"] in TASK_GROUPS:
                 tid = tasks.capture(core, i["text"], gather=gather, deep_work=bool(r["deep_work"]))
-                if i["group"] == "later" and not r["deep_work"]:
+                if i["group"] == "later":   # in Focus time too: a someday thing doesn't join the session
                     tasks.park(core, tid)
                 made.append(tid)
             core.q("INSERT INTO dump_items (dump_id, user_id, grp, text, task_id) VALUES (?,?,?,?,?)",

@@ -80,7 +80,8 @@ The New task box has a **Dump mode** button (Live only: the split needs the core
   a line break or dictation leaves three or more lines, once per draft, and goes with the text. Typing mid-line never
   brings it up. Enter still captures one task, as before.
 - **Focus time:** when a session is running, the same offer and mode run the split at once, with no review. The items are
-  made as the split returns, as Focus time tasks, and one Undo takes them back.
+  made as the split returns, as Focus time tasks (a "later" item is parked, not put in the session), and one Undo takes
+  them back. They are in the same state as any task typed in Focus time, so they're in the Guide and Lineup.
 - **The eval** is `fuzz eval dump` (`dump_evals.py`, `eval_seeds/dump.json`, eight invented cases): few tasks not one
   per line, nothing lost, personal items in, done is done, worry may be no tasks, instructions in a dump are data, a change
   is followed and the rest kept, a calm line. It's on the Evals page. The splitter's runs are counted in usage as "Sorting".

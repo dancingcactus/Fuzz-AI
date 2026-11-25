@@ -95,7 +95,7 @@ class Dump(CoreCase):
         did, out = self.split(deep_work=True)
         self.assertEqual(out["state"], "committed")
         made = {self.task(t)["title"]: self.task(t)["state"] for t in dump.view(self.core, did)["task_ids"]}
-        self.assertEqual(set(made.values()), {"deepwork"})   # the later one goes in too: no review to park it from
+        self.assertEqual(sorted(made.values()), ["deepwork", "deepwork", "parked"])   # a someday thing doesn't join the session
         self.assertEqual(len(made), 3)
         actions.undo(self.core)   # one Undo takes the whole dump back there too
         self.assertEqual(titles(self.core), [])

@@ -361,7 +361,7 @@
     function finishDump(r, one) {
       var n = (r.task_ids || []).length, id = dump && dump.id;
       dump = null; ta.value = ''; draft = ''; attached = []; dumpOn = false; offerSeen = false; sync(); showReview(false); paintFiles(); paintMode();
-      confirm = one ? 'Captured. It’s waiting in your triage queue.' : n ? 'Kept. ' + (n === 1 ? 'One is' : n + ' are') + ' waiting in your triage queue.' : 'Kept. There was nothing to do in it, and it’s all safe.';
+      confirm = one ? 'Captured. It’s waiting in your triage queue.' : n ? 'Kept. ' + (n === 1 ? 'It’s' : 'They’re') + ' waiting in Triage.' : 'Kept. There was nothing to do in it, and it’s all safe.';
       paintSay(); paintList(); Say.announce(confirm); Fuzz.pAnim('hop'); Fuzz.checkGlyph(1300); moodFor('happy', 1400); ta.focus();
       /* The onboarding's first capture can be a dump: the first task it made goes on to the wait, as a typed one does */
       var first = (r.task_ids || [])[0], made = first && Store.item('t' + first);
