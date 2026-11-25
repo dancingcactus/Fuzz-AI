@@ -24,7 +24,8 @@ Drafted 2026-11-24 in conversation; open to iteration. It replaces the current f
 The sitting teaches four ideas, in this order:
 
 1. **Safe.** Nothing goes out without a yes, anything you do inside Fuzz can be undone, and missing a session loses nothing.
-   Undo doesn't reach things that have left Fuzz, like a sent message, which is why nothing goes out without a yes.
+   Undo doesn't reach things that have left Fuzz, like a sent message, which is why nothing goes out without a yes
+   (app principle 6 in `docs/principles.md`).
 2. **Decide in one place.** Triage is where decisions happen, at a fixed time.
 3. **Get it out of your head.** The dump.
 4. **Let Fuzz carry it.** He works while you're away, and finds asks you'd otherwise have to remember.
@@ -45,7 +46,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 
 | # | Step | Goal (what we achieve) | Practice (what they learn) |
 | --- | --- | --- | --- |
-| 1 | **One paste, then the short form** (name, app) | No stall points, and Fuzz is running | None. Principle 9: one paste, then the browser |
+| 1 | **One paste, then the short form** (name, app) | No stall points, and Fuzz is running | None. Onboarding principle 9: one paste, then the browser |
 | 2 | **Fuzz introduces himself**, with the trust promise | They can repeat what they agreed to | None. Fuzz works for you. Nothing goes out without a yes, and what you do inside Fuzz can be undone |
 | 3 | **The three guilt-free tips** | Lower the stakes before asking for anything | One queue, not a pile. Ask Fuzz to change things or hand a task back. Missing a session loses nothing |
 | 4 | **Working hours**, as the first Triage card | An easy first win, and Fuzz can place a time | Your time has edges, and Fuzz adapts to yours |
@@ -140,7 +141,7 @@ extends [Later tips](#later-tips), which are one-line, one-time lines, into prac
 
 ### How it works
 
-- **One new idea a day, at most,** delivered in context. Principles 6 and 10 are the guard: no lesson counts, no
+- **One new idea a day, at most,** delivered in context. Onboarding principles 6 and 10 are the guard: no lesson counts, no
   streaks, and removing every practice wouldn't add a step.
 - **Triggered by behaviour, not the calendar.** "Day 3" means nothing. "You've opened Triage at four different times this
   week" does.
@@ -227,8 +228,8 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
 ### What it must not become
 
 1. **A curriculum.** Every practice is an offer attached to a real moment. If it could be a lesson list, it's wrong.
-2. **Advice about the person.** Each line is about the strategy, never "you've been doing it wrong" (principle 11).
-3. **A debt.** Nothing is owed. A user who ignores every offer should see no sign of it (principle 6).
+2. **Advice about the person.** Each line is about the strategy, never "you've been doing it wrong" (onboarding principle 11).
+3. **A debt.** Nothing is owed. A user who ignores every offer should see no sign of it (onboarding principle 6).
 4. **Too many at once.** If testing shows overload, cut the number per week before cutting the practices.
 
 ### Open questions for the slow reveal
@@ -241,7 +242,7 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
    from you. That's fine. Same time tomorrow?" It would use the existing `missed_block` signal.
 5. **Series teaches one practice at three moments** (above). The role card ("I'm driving it, I'm helping, just keeping up")
    carries a fourth message, that not everything needs you to lead, without a line from Fuzz. The Episodes page shows done
-   dots and a folded count; nothing teaches it, since a count sits close to principle 6. Is that right?
+   dots and a folded count; nothing teaches it, since a count sits close to onboarding principle 6. Is that right?
 6. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
 7. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
    the practices.
@@ -320,7 +321,7 @@ the slow reveal.
 1. **Does a pointer ever need no title?** The title-and-sentence shape is the default; a very short one may be a sentence only.
 2. **Step 8:** does Tell Fuzz stay in the first sitting, or move to the slow reveal with Later and Book time?
 3. **Does a pointer need a dimmed backdrop** anywhere? Step 7's action row and the Guide parts are the likeliest. Otherwise ring and bubble are enough.
-4. **Do all first-use pointers in the slow reveal stay,** or only the first of a kind? Every first use may read as a drill (principle 10).
+4. **Do all first-use pointers in the slow reveal stay,** or only the first of a kind? Every first use may read as a drill (onboarding principle 10).
 5. **The selectors are unconfirmed.** Only New (`.nav-cta`, `#fab`) and the Triage label (`#where`) are known to exist as
    stable targets. Assign, Undo, the Dump toggle, the action row, Book time, Later, park and the Guide parts each need
    checking before it's built.
@@ -391,12 +392,14 @@ Everything after the form arrives as a card in the queue:
 - "Not now" means it. The card goes away quietly and comes back at most once. It never builds up.
 - Answering one counts as progress. Ignoring one never counts against them.
 - The lookup source card leaves the browser, because connectors sign in through Claude or Copilot. It
-  needs principle 5 most: instructions that stay visible, and a way back.
+  needs onboarding principle 5 most: instructions that stay visible, and a way back.
 
-## Principles
+## Onboarding principles
 
 These add to the Product Principles in `PRODUCT.md` and the numbered principles in `docs/principles.md`, and
-don't replace them.
+don't replace them. When this doc says "principle N", it means these; the app-wide ones are named "app principle N".
+The closest pairs: onboarding 11 (talk about the strategy, not the person) and app principle 11 (no shame spirals), and
+the Safe idea in [the arc](#the-arc) and app principle 6 (humans approve what can't be undone, and every change has Undo).
 
 1. **Show value before asking for effort.** Interest is the fuel, and first-session novelty burns off
    fast. *Test:* before the user hands over anything of their own, Fuzz has shown he takes work off their plate
