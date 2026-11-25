@@ -30,7 +30,7 @@ The sitting teaches four ideas, in this order:
 3. **Get it out of your head.** The dump.
 4. **Let Fuzz carry it.** He works while you're away, and finds asks you'd otherwise have to remember.
 
-Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let Fuzz carry it.
+Steps 1 to 4 set up Safe: the promise (2) and the tips (3) say it, and working hours (4) is an easy first win that costs nothing to get wrong. Step 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let Fuzz carry it.
 
 ### Rules for the order
 
@@ -68,7 +68,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
   something to teach, and it becomes the triage habit slot in `docs/book-then-work.md`, which the user knows as Triage time: a recurring event, linking
   to `#/triage?until=HH:MM`. Without a calendar tool it's one calendar file with a weekday repeat (`js/ics.js`).
   Fuzz explains what Triage time is for: this is where decisions happen, so you don't have to hold them in your head.
-- **Placing Triage time** with nothing learned yet uses working hours: one time, outside the start of the day, then kept
+- **Placing Triage time** with nothing learned yet uses working hours: one time later in the working day, not at its start (that's the likeliest place for their best hours), then kept
   fixed. Moving it is the user's call.
 - **Step 5a** asks for calendar only. It's skipped when access already exists, and falling back to the calendar file
   means a user who says no still finishes the step.
@@ -180,7 +180,7 @@ the terms of what's gone (a decision, something to carry), and it's the source f
 | **Put a clear end on it** | Short sessions and a wrap-up that says what got done | You know where it stops, so starting is easier | Pair | A session runs long, or the first short triage |
 | **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Picking it up later costs nothing | Pair | The first booked block |
 | **See how long things take** | A recap of time worked, in the session wrap-up and look-back | You plan around how long things really take | Pair | After a few booked blocks |
-| **Let it go** | Let it go, as a real outcome | Room for what matters | Practice only | The first stale card |
+| **Let it go** | Let it go, as a real outcome | Room for what matters | Pair | The first stale card |
 | **Say how you're doing** | The queue changes to match | Today asks for what you've got | Pair | The first check-in |
 | **Look back weekly** | A short recap of what got done, and what carried over | You stop keeping score in your head | Pair | After about two weeks |
 | **Work in Claude together** | The hand-off, with the task handed over | Everything it needs is in one place, so you can just start | Capability only | A task comes back handed over |
@@ -195,7 +195,8 @@ line isn't said twice. The work-alongside, warm-up and time rows depend on the s
 
 Ruled 2026-11-24: one line, in the line itself. Not a "why", and not folded away.
 
-- **Shape:** what Fuzz did, then how it helps the user. One or two sentences, in the order *did, then helps*.
+- **Shape:** what Fuzz did, then how it helps the user. One or two sentences, in the order *did, then helps*. The exception is a practice where the user acts first
+  (Get it out of your head): there the line asks, then says how it helps.
 - **About the user's day,** not the technique. "You'll never have to decide when" works. "Consistency builds habits" is a coach.
 - **Each line says what's gone,** where it can: a decision they don't have to make, something they don't have to carry
   or remember. That's the strongest form of "how it helps".
@@ -209,19 +210,19 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
 | Book it, don't queue it | "Booked: Thursday, 10 to 11. It's on your calendar now, so it won't sit in a pile waiting for a moment that never comes." |
 | Not now is an answer | "Later it is. I'll bring it back, so you don't have to remember it." |
 | Find your good hours | "Tell me when you think best and I'll put your focus time there. Your best hours go to the work that needs them." |
-| Start small | "I've cut this to a five-minute first step: open the doc and write the heading. Once you've started, keeping going is easier than starting was." |
+| Start small | "I've cut this to a five-minute first step: open the doc and write the heading. That's all you have to face right now, not the whole task." |
 | Park a stray thought | "Parked. It's safe here, so you can get back to what you were doing without carrying it." |
 | Get it out of your head | "Anything on your mind? Dump it here and I'll sort it, so you can stop holding it." |
 | Work alongside someone | "I'm here while you work on this. Having me in the session makes it easier to stay with it." |
 | Put a clear end on it | "Twenty minutes, then I'll call time and tell you what got done. You know where it stops, so starting is easier." |
 | Warm up and wind down | "Here's where you left off. When you finish, I'll note where you stopped, so picking it up later costs nothing." |
-| See how long things take | "That took 25 minutes. Next time I can plan around how long things really take." |
+| See how long things take | "That took 25 minutes. I'll plan around that, so you don't have to guess how long things take." |
 | Let it go | "Let go. It's off your plate, and you've got room for what matters." |
 | Say how you're doing | "Thanks. I'll lighten your queue to match, so today asks for what you've got." |
 | Look back weekly | "Here's what got done this week, and what carried over. It's written down, so you can stop keeping it in your head." |
 | Work in Claude together | "This one's for the two of us in Claude. I've put everything it needs in one place, so you can just start." |
 | Voice and style | "I've got a feel for how you write. Drafts will sound like you, so you edit less." |
-| Give big work a home: the first series card | "I've kept these together to reduce context switching effort." |
+| Give big work a home: the first series card | "I've kept these together, so you can stay on one thing instead of hopping between them." |
 | Give big work a home: the first "Next in …" | "I try to find what's next so you can focus on work, not planning." |
 | Give big work a home: the first wrap | "That's all the [series] items for now. Let me know if there are more." |
 
