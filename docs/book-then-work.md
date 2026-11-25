@@ -47,12 +47,12 @@ starting guess, not a setting; the card says so ("I'll watch what works and adju
 
 ### 3. Two weeks stay scheduled, and one week is added each week
 
-**Ruled.** Fuzz keeps the next two weeks of Focus time and the Triage slot on your calendar, and once a week it adds the week that has just come into view.
+**Ruled.** Fuzz keeps the next two weeks of Focus time and Triage time on your calendar, and once a week it adds the week that has just come into view.
 
 - **One card a week,** short, through the same approval gate: "Here's Focus time for the week after next. Put it on your calendar?" With Always allow for your own calendar, it just happens and Fuzz says so once.
 - **The learning applies to the new week only.** What's already on your calendar stays where it is; a change of pattern shows up as the next proposal, never as events moving under you.
 - **Keeping the window full** also covers misses and moves: a block that went by, or was moved by you, doesn't leave a hole, since the next top-up fills to two weeks again.
-- **The Triage slot** is a recurring event where the calendar tool can do it, so it needs no weekly top-up. Where it can't, it follows the same two-week window.
+- **Triage time** is a recurring event where the calendar tool can do it, so it needs no weekly top-up. Where it can't, it follows the same two-week window.
 - **With the ICS fallback,** a weekly top-up means a weekly download, which is easy to ignore. Open (see below): a two-week file first, then a "Add next week" card.
 
 ### 4. Triage time is a habit slot
@@ -63,7 +63,7 @@ starting guess, not a setting; the card says so ("I'll watch what works and adju
 - Default for placement (not ruled): a time outside your best hours, so Triage doesn't spend the good time.
 - Moving it is the user's call, or Fuzz's after sustained misses (below), and it asks first.
 - **Ruled:** when the calendar tool can't make the slot (no tool, or it can't do recurrence), Fuzz generates an **ICS file to download**.
-  A recurring Triage slot is one ICS with a weekday recurrence rule. Work blocks use the same fallback, one event each. This replaces
+  Recurring Triage time is one ICS with a weekday recurrence rule. Work blocks use the same fallback, one event each. This replaces
   today's "Add it to your calendar yourself; it's booked in Fuzz" (`tasks.book`); the onboarding already has a browser-side ICS maker
   to reuse (`js/onboarding.js`).
 
@@ -83,7 +83,7 @@ Adapting, kept slow on purpose:
 - A part of the day with several kept and productive blocks ranks higher next time. One with several misses ranks lower.
 - **A change is proposed, never silent,** and only on a sustained pattern: "Mornings have been hard to get to. Want to try
   after lunch?" A single miss changes nothing. Nobody is told how many they missed.
-- Triage time works differently: **a missed Triage slot does not move it,** because the habit is the point. After a run of
+- Triage time works differently: **a missed Triage time does not move it,** because the habit is the point. After a run of
   misses Fuzz asks whether the time is wrong, once.
 - The learning is a hypothesis about when you work best, and it can be wrong. People misjudge their own best time, so the
   first answer is a guess the data can overrule.
@@ -189,7 +189,7 @@ Why this matters:
 |---|---|---|
 | **Starting** | When and how are decided earlier, when you're calm; the block arrives with a prepped first step | Strong |
 | **Queues that grow into shame** | No "yours, someday" pile: a task has a time or is postponed, and postponing is neutral | Strong in principle. Risk: a booking that feels like a promise. Wording and Later's weight matter. |
-| **Habit** | A consistent triage slot at a fixed time, the habit-forming part | Reasonable. Consistency matters more than the exact time. |
+| **Habit** | A consistent Triage time at a fixed hour, the habit-forming part | Reasonable. Consistency matters more than the exact time. |
 | **Time blindness, planning fallacy** | The block sets the real time; blocks cap at 120 minutes | Reasonable |
 | **Self-knowledge** | Ask first, then adjust from what's kept and productive | Reasonable. The guess is revised by evidence. |
 | **Avoidance** | A missed block returns to Triage with the existing neutral card, and repeated misses lead with Help me start | Reasonable. The risk is booking as polite deferral, which the miss counter catches. |
@@ -205,13 +205,13 @@ Why this matters:
 3. ~~Names~~ **Ruled:** the session and the blocks are **Focus time** (the Guide's doors stay Triage, Something else, New task). This reverses the
    2026-11-15 "My work" ruling. In this doc, "work block" means a Focus time block. Fuzz's blocks are titled "Focus time", so `booking.is_focus` already
    treats them as the first place to book into, and an empty one is a slot a task can be booked into. The wrap-up's "Back in my work" becomes Book time or Later.
-4. **Triage slot placement:** outside your best hours (my default) or right before the work block?
+4. **Triage time placement:** outside your best hours (my default) or right before the work block?
 5. ~~Recurring events~~ **Ruled:** if the calendar tool can't do it, Fuzz offers an ICS download.
 6. ~~Links that start the work by themselves (nav-guide Q3)~~ **Ruled:** inside a block, the link starts the work (see the Guide section).
    This reverses the nav-guide default of one tap from Start.
 7. ~~A pick behind Something else~~ Settled in the Guide section: it asks, with the right chip picked.
 8. **ICS fallback and the rolling window:** a two-week file, then an "Add next week" card, or a weekly download? Default: the first.
-9. **Triage slot placement:** still open (item 4).
+9. **Triage time placement:** still open (item 4).
 
 ## What was built, and what was not
 
@@ -247,7 +247,7 @@ Not built, or built differently from what this doc says:
   calendar link does the same); a block's end keeps its own card (Done, Keep going, Book the rest, Pause under Later) because booked blocks still end.
 - **The question has four answers plus Not now** (Mornings, After lunch, Late afternoon, It varies), which the card shows as a lead, a row and a chevron.
 - **Settings has a Focus time section** (when you get things done, the Triage time, what is coming up, and plainly what is tracked). The sender skill is
-  unchanged: with a calendar tool, the Triage slot is individual events; the repeating rule is only in the calendar file.
+  unchanged: with a calendar tool, Triage time is individual events; the repeating rule is only in the calendar file.
 - **Your own Focus time events** are used as the first choice of slot, but Fuzz still adds its own hold (with the link) in them; it can't edit yours.
 - **What is tracked** is said plainly in three places: on the first question card, in the weekly plan's copy, and in Settings › Focus time.
 - **Tasks left mid-session** when you close the app stay in the session state; they show first under Something else ("Where you left off") instead of
