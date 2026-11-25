@@ -143,7 +143,7 @@
         '<p class="cap-offer" id="cap-offer" aria-live="polite"></p>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          (Live.on() ? '<button type="button" class="btn cap-dumpmode" id="cap-dumpmode" aria-pressed="false" title="Pour it all out: Fuzz splits it into a short list, and nothing is made until you keep it">Dump mode</button>' : '') +
+          (Live.on() ? '<button type="button" role="switch" aria-checked="false" class="cap-switch" id="cap-dumpmode" title="Pour it all out: Fuzz splits it into a short list, and nothing is made until you keep it"><span class="cap-track" aria-hidden="true"><span class="cap-knob"></span></span><span>Dump mode</span></button>' : '') +
           '</div></div>' +
         '<div id="cap-review" class="cap-review" hidden></div>' +
       '</div></div>' +
@@ -297,8 +297,8 @@
       offerSeen = true; paintOffer();
     }
     function paintMode() {
-      var b = $('#cap-dumpmode'); if (b) { b.setAttribute('aria-pressed', String(dumpOn)); b.classList.toggle('on', dumpOn); }
-      go.lastChild.textContent = dumpOn ? 'Sort it' : 'Capture';
+      var b = $('#cap-dumpmode'); if (b) b.setAttribute('aria-checked', String(dumpOn));
+      go.lastChild.textContent = dumpOn ? 'Sort it out' : 'Capture';
       ta.placeholder = dumpOn ? 'Everything on your mind, in any order. I’ll sort it.' : 'For example: send Sam the slides from Tuesday';
       paintOffer();
     }
@@ -383,7 +383,7 @@
     $('#cap-review').addEventListener('click', reviewClick);
     $('#cap-review').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.id === 'cap-change') { e.preventDefault(); reviewClick({ target: $('#cap-review [data-dump="change"]') }); } });
     var modeBtn = $('#cap-dumpmode');
-    if (modeBtn) modeBtn.addEventListener('click', function () { dumpOn = !dumpOn; paintMode(); ta.focus(); });
+    if (modeBtn) modeBtn.addEventListener('click', function (e) { dumpOn = !dumpOn; paintMode(); if (e.detail) ta.focus(); });   /* a mouse click goes back to the words; a key press stays on the switch, so Space flips it back */
     $('#cap-offer').addEventListener('click', function (e) {
       if (!e.target.closest('#cap-split')) return;
       dumpOn = true; paintMode(); submit();   /* taking it keeps your text and shows the split */

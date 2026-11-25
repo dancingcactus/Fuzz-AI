@@ -120,6 +120,20 @@ test('in the onboarding, a dump counts as the first capture: its first task goes
   assert.deepEqual((await calls()).find(c => c[0] === 'onboard'), ['onboard', 't11']);
 });
 
+test('Dump mode is a switch: it holds where you leave it, and the button says Sort it out while it is on', async () => {
+  const sw = page.locator('#cap-dumpmode');
+  assert.equal(await sw.getAttribute('role'), 'switch');
+  assert.equal(await sw.getAttribute('aria-checked'), 'false');
+  assert.equal((await page.locator('#cap-go').textContent()).trim(), 'Capture');
+  await sw.focus();
+  await page.keyboard.press('Space');
+  assert.equal(await sw.getAttribute('aria-checked'), 'true');
+  assert.equal((await page.locator('#cap-go').textContent()).trim(), 'Sort it out');
+  await page.keyboard.press('Space');
+  assert.equal(await sw.getAttribute('aria-checked'), 'false');
+  assert.equal((await page.locator('#cap-go').textContent()).trim(), 'Capture');
+});
+
 test('Esc in the review goes back to your words and drops the dump', async () => {
   await page.evaluate(() => { document.getElementById('cap-dumpmode').click(); });
   await page.fill('#cap-text', DUMP);

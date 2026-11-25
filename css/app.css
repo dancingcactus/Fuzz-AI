@@ -861,7 +861,14 @@ dialog.dlg::backdrop { background: color-mix(in srgb, var(--ink) 48%, transparen
 /* Dump mode (docs/dump-mode.md). The offer keeps its line whether or not it's showing, so it never moves what you're typing. */
 .cap-offer { min-height: 28px; margin: 6px 2px 0; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .cap-offer .linkbtn { padding: 0 2px; min-height: 28px; }
-.cap-dumpmode[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* A switch, not a button: it stays where you left it until you flip it back */
+.cap-switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; justify-self: start; }
+.cap-track { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--line); border: 2px solid var(--edge, var(--line)); flex: none; transition: background .15s; }
+.cap-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface, #fff); box-shadow: 0 1px 2px rgba(0,0,0,.35); transition: transform .15s; }
+.cap-switch[aria-checked="true"] .cap-track { background: var(--accent); }
+.cap-switch[aria-checked="true"] .cap-knob { transform: translateX(18px); }
+.cap-switch:focus-visible .cap-track { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cap-track, .cap-knob { transition: none; } }
 .cap-review { display: flex; flex-direction: column; gap: 14px; }
 .cap-review .cap-title { margin: 0; }
 .cap-ditems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

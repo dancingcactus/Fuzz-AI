@@ -61,7 +61,7 @@ capture already works.
 
 ## As built
 
-The New task box has a **Dump mode** button (Live only: the split needs the core). Everything below is live and tested.
+The New task box has a **Dump mode** switch (Live only: the split needs the core). While it's on, the Capture button reads **Sort it out**. Everything below is live and tested.
 
 - **The splitter** is a short run of a new `split` role (`core/skills/fuzz-split`, `prompt_version split-0.1`), started by
   `POST /dumps` and read with `GET /dumps/<id>`. It reads the text with `get_dump` (as data: the prompt names the dump, never
