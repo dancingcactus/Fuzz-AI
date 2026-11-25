@@ -3,8 +3,8 @@
 Status: the current flow is built, in `js/onboarding.js`, `core/fuzz/onboarding.py`, `install.sh` and
 `docs/fuzz-tone.md`. Nobody with ADHD has tried it yet, and the tip wording hasn't been tried with real users.
 
-A new flow (Triage time first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
-below describes what's built today, until that flow replaces it.
+A new flow (Triage time first, then Dump mode) is proposed under [Proposed changes](#proposed-changes); everything else
+in this document describes what's built today, until that flow replaces it.
 
 ## Goal
 
@@ -14,318 +14,15 @@ Fuzz introduces himself, sets up what he needs, and teaches practices for gettin
 This replaces the old four-step guided setup (`js/setup.js`, now removed) as the first-run experience.
 Changing anything later happens on the Settings page (`#/settings`, see "As built").
 
-## The flow (proposed, not built)
+## Proposed changes
 
-Drafted 2026-11-24 in conversation; open to iteration. It replaces the current flow (described under
-[As built](#as-built)) once it's settled. Everything here is a hypothesis, like the principles.
+The first sitting and what follows are being redesigned. Each is a hypothesis, kept in its own document:
 
-### The arc
-
-The sitting teaches four ideas, in this order:
-
-1. **Safe.** Nothing goes out without a yes, anything you do inside Fuzz can be undone, and missing a session loses nothing.
-   Undo doesn't reach things that have left Fuzz, like a sent message, which is why nothing goes out without a yes
-   (app principle 6 in `docs/principles.md`).
-2. **Decide in one place.** Triage is where decisions happen, at a fixed time.
-3. **Get it out of your head.** The dump.
-4. **Let Fuzz carry it.** He works while you're away, and finds asks you'd otherwise have to remember.
-
-Steps 1 to 4 set up Safe: the promise (2) and the tips (3) say it, and working hours (4) is an easy first win that costs nothing to get wrong. Step 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let Fuzz carry it.
-
-### Rules for the order
-
-1. **Each step leaves the user with something done.** A calendar event once Triage time is booked, cards after the dump.
-2. **Ask for access when it buys something on screen.** Calendar pays off at step 5. Email and IM don't until step 10.
-3. **Optional things branch off and never block.** No calendar means a calendar file, not a dead end.
-4. **Teach the action when the card needs it.** Step 5 teaches Assign on Fuzz's own task and shows Undo in use. Later and Book time
-   are offered in the slow reveal, the first time Fuzz thinks a card suits one. Until then the first cards are chosen so
-   that only the actions already taught make sense.
-5. **Stakes go up slowly.** A calendar event, then the user's own words, then reading their mail.
-
-### The steps
-
-| # | Step | Goal (what we achieve) | Practice (what they learn) |
-| --- | --- | --- | --- |
-| 1 | **One paste, then the short form** (name, app) | No stall points, and Fuzz is running | None. Onboarding principle 9: one paste, then the browser |
-| 2 | **Fuzz introduces himself**, with the trust promise | They can repeat what they agreed to | None. Fuzz works for you. Nothing goes out without a yes, and what you do inside Fuzz can be undone |
-| 3 | **The three guilt-free tips** | Lower the stakes before asking for anything | One queue, not a pile. Ask Fuzz to change things or hand a task back. Missing a session loses nothing |
-| 4 | **Working hours**, as the first Triage card | An easy first win, and Fuzz can place a time | Your time has edges, and Fuzz adapts to yours |
-| 5 | **Fuzz's task: schedule 30 minutes of Triage time** | A recurring event on their calendar, and the first trust moment | Decide at a fixed time and place; consistent beats optimal. The first action: Assign. Undo is shown in use |
-| 5a | *Branch:* **calendar check**, only when there's no calendar access | Calendar works, or the calendar file | None. Access comes when it buys something |
-| 6 | **The New task page, with Dump mode** | The user's own content in Fuzz's hands | Get it out of your head. Don't sort while you dump. A small dump counts |
-| 7 | **The wait: Fuzz gets to know you, then what you can do with a task** | Don't lose them at the hand-off, and Fuzz learns what he can't read from a source | Check Triage instead of holding it in mind. Fuzz works while you're away. Every card is one choice. Hand it to Fuzz, or tell him anything about it |
-| 8 | **The first dump cards** | Their first real decisions | Decide small, one card at a time. Later and Book time come in the slow reveal, when Fuzz thinks a card suits one |
-| 9 | **The Guide, one part at a time** | They know where to start tomorrow | Start from the Guide, not from the pile |
-| 10 | **Sources: email, then IM** (Fuzz's "Let me find your asks" task) | Fuzz finds asks they'd have to remember | Don't be the memory. Each source is answered on its own |
-| 11 | **Hand-over** | End on a start, with no setup debt | None. Setup cards and later tips take over |
-
-### Notes on each step
-
-- **Step 3 comes before step 5 on purpose.** "Missing a session loses nothing" is what keeps the first booked
-  appointment from being one more thing to fail at.
-- **Step 4 stays before booking Triage time,** because Fuzz needs working hours to pick a time.
-- **Step 5 replaces "type one real task" and the 20-minute check-in.** Triage time is Fuzz's own task, so Assign has
-  something to teach, and it becomes the triage habit slot in `docs/book-then-work.md`, which the user knows as Triage time: a recurring event, linking
-  to `#/triage?until=HH:MM`. Without a calendar tool it's one calendar file with a weekday repeat (`js/ics.js`).
-  Fuzz explains what Triage time is for: this is where decisions happen, so you don't have to hold them in your head.
-- **Placing Triage time** with nothing learned yet uses working hours: one time later in the working day, not at its start (that's the likeliest place for their best hours), then kept
-  fixed. Moving it is the user's call.
-- **Step 5a** asks for calendar only. It's skipped when access already exists, and falling back to the calendar file
-  means a user who says no still finishes the step.
-- **Step 6** is the first time the user hands Fuzz their own words. Dump mode is a toggle on the New task page (N), so
-  there's no new screen. Fuzz asks for three things, not everything, with "add more any time". Nothing is committed
-  until the user has seen Fuzz's split.
-- **Step 7 is two parts, both in Triage, while Fuzz works on the dump.** The Triage tab is ringed, as built.
-  - **Part 1, a few cards that help Fuzz get to know you.** Two or three, one tap each, in this order. Each is skippable
-    (Esc), and answering counts as progress while skipping never counts against anyone. They are the setup-card kind:
-    "Not now" comes back at most once, and nothing builds up. If the dump lands first, the unanswered ones wait and
-    come back later as setup cards, so they never delay step 8.
-    - **What usually gets in your way?** Starting, remembering, too many things at once, or being interrupted. Fuzz
-      can't read this from any source. It sets which practices he offers first in the slow reveal (see its open
-      question on who gets first offer).
-    - **How do you like me to write?** Short and to the point, or a bit fuller; and plain or warm. It's a starting guess
-      for drafts that Voice and style refines later (`docs/voice.md`).
-    - **Pick a look** (colour theme, with the live preview). It's the one with an effect on screen, so it's a small
-      reward in the wait. It moves here from "a light card a few days in".
-  - **Part 2, what you can do with a task.** One short card from Fuzz, once the questions are done or skipped, and
-    before the dump lands. It says that **every card is one choice, and you can hand it to Fuzz**, and that **Tell
-    Fuzz (E) lets you say anything about a card**. This is the action row (the standing row in `docs/card-actions.md`). Step 5 already taught Assign, so this teaches nothing by drilling:
-    step 8 is where it's used. **Later and Book time are not named here.** The first dump cards are chosen so only
-    Assign and Tell Fuzz make sense, and Fuzz offers Later and Book time in the slow reveal, the first time he thinks a
-    card suits one (see [Pointing at things](#pointing-at-things)). The card says what you can do; the pointer on the
-    row says why it helps (rule 9), so neither repeats the other.
-  - **Left out on purpose:** the "When do you usually get things done?" card, which stays in the slow reveal, after some
-    real work; and any question that needs a source, like other email addresses or Slack IDs.
-- **Step 8 controls which cards come first.** Fuzz puts forward cards where Assign or Tell Fuzz is the natural move, so
-  the user isn't shown Later or Book time before they've been offered. This needs a rule for ordering the first
-  cards, which is a build item.
-- **Step 8** may produce few cards, or none. If the dump has nothing to act on, Fuzz says what he did with it ("nothing
-  needed doing, I've kept it") and goes on to step 9. Fuzz's Triage time task is still in Triage, so nobody ends on a blank screen.
-- **Step 9 moves the tour here** from after the first card, so it has something to point at.
-- **Step 10 is the existing kickoff task,** so it needs no new mechanism. Email and IM are asked here, one permission
-  card per source, reading only, after the dump has shown what Fuzz can carry.
-- **Output folder stays a setup card. Colour theme moves to step 7** (part 1). A "Pick a look" card that's skipped comes
-  back once as a setup card, like the other get-to-know-you cards. The "when do you get things done" card from
-  `docs/book-then-work.md` is the first thing in the slow reveal, not the first sitting.
-
-### Dump mode
-
-A mode of the New task box, not a new place. The user writes or dictates in one box, then presses Enter once.
-
-- **Fuzz splits first, and commits nothing.** The text comes back as a list of candidate items, grouped as real tasks,
-  things to keep as a note, things for later, and things already done or not theirs. The user can accept all, untick
-  items, or tell Fuzz to change something.
-- **A dump may produce few tasks, or none.** Twenty thoughts must not become twenty cards. A calm "I've got it all,
-  nothing is lost" matters more than the count.
-- **Items go through Fuzz before Triage,** like any captured task, so the user sees finished decisions, not raw lines.
-- **No grades, word counts or streaks.** Nothing about the dump is scored.
-- **Tone:** "a lot of people find it easier to think once it's out of their head", never "you should".
-- **Later homes for the practice:** the empty-queue state ("Want to get things out of your head?"), the start of Triage
-  time once the habit exists, and the weekly look-back.
-
-### Open questions for this flow
-
-1. **Is the raw dump kept?** Keeping it lets Fuzz say "you mentioned this on Tuesday", but it's the most personal text in
-   the system, and test data falls under the public-repo rule (no real names).
-2. **Does Fuzz take personal items,** like "call the dentist", or stay a work tool?
-3. **Step 7's wait** needs a real executor run for the dump. How long is it, and is two or three cards the right number?
-   If the dump is back in seconds, part 1 is skipped and part 2 moves into step 8, on the first card.
-4. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
-5. **Where does the first Triage time go** when working hours are "no fixed hours"?
-
-## The slow reveal (proposed, not built)
-
-Drafted 2026-11-24. The first sitting ends at step 11. After that Fuzz keeps teaching, slowly, one practice at a time,
-inside the moment where it applies. The practices come first and the features are the tools that serve them. This
-extends [Later tips](#later-tips), which are one-line, one-time lines, into practices that Fuzz sets up for the user.
-
-### How it works
-
-- **One new idea a day, at most,** delivered in context. Onboarding principles 6 and 10 are the guard: no lesson counts, no
-  streaks, and removing every practice wouldn't add a step.
-- **Triggered by behaviour, not the calendar.** "Day 3" means nothing. "You've opened Triage at four different times this
-  week" does.
-- **Do it, then say how it helps you, in one line.** Fuzz sets the thing up (proposes a Focus block, puts the Triage
-  slot on the calendar), then says what he did and how it helps the user, in plain words. See
-  [Saying how it helps](#saying-how-it-helps). He doesn't name a technique, ask the user to agree to a concept first,
-  or say "you should". There's no folded "why" for these: a line most people wouldn't open isn't worth the extra UI.
-- **Fuzz is opinionated, not a coach.** He says how he works, as a fact about himself. He doesn't cite evidence, name a
-  condition, or say "helps a lot of people". People find out it works by using it. These are practices for getting things done.
-- **Offers retire quietly.** "Not now" comes back at most once, like setup cards. Ignoring one never counts against anyone.
-- **Graduation.** A practice stops being offered once the user does it without a prompt.
-- **Visible only if asked.** An opt-in "What else can Fuzz do?" page (Settings or the menu) can list the practices, as a
-  reference and never a checklist. It carries no badges, counts or progress.
-- **Wording.** Each line follows `docs/fuzz-tone.md`, and reads fine to someone who is tired or already knows all this.
-
-### The practices
-
-Each practice is a habit, and Fuzz's capability is what makes it nearly free. The benefit is what the user gets, in
-the terms of what's gone (a decision, something to carry), and it's the source for Fuzz's line in
-[Saying how it helps](#saying-how-it-helps). Rows are of three kinds:
-
-- **Pair:** a practice and the capability that serves it. Most rows.
-- **Practice only:** no feature is needed, just a line from Fuzz at the right moment.
-- **Capability only:** serves the work, not a habit, so nothing is framed as a practice.
-
-| Practice (the habit) | Capability (what Fuzz does) | Benefit (how it helps you) | Kind | Trigger |
-| --- | --- | --- | --- | --- |
-| **Decide at a fixed time** | The recurring Triage time on the calendar (step 5), kept in one place | You never decide when to deal with new things | Pair | A few days of opening Triage at scattered times |
-| **Book it, don't queue it** | Book time, with a pre-picked slot, one tap. See `docs/book-then-work.md` | A task has a moment, so it stops sitting in a pile | Pair | Fuzz thinks a card suits a block of time, the first time (his judgment of the card, not a count) |
-| **Not now is an answer** | Later, as a real outcome: Fuzz brings it back | You don't have to remember it, and it isn't a failure | Pair | Fuzz thinks a card isn't ready, such as one waiting on someone else, the first time |
-| **Find your good hours** | The "When do you usually get things done?" card, then proposed Focus blocks | Your best hours go to the work that needs them | Pair | After some real work |
-| **Start small** | Help me start: a five-minute first step | Starting costs five minutes, not a whole task | Pair | A task sits untouched for several days |
-| **Park a stray thought** (T) | The park shortcut | You keep your place and don't carry the thought | Pair | The first time they leave a card to chase something |
-| **Get it out of your head** | Dump mode, returned to from step 6 | You stop holding it all, and nothing is lost | Pair | The queue is empty, or Triage time starts |
-| **Work alongside someone** | Focus time with Fuzz present: a session he's part of, not just a calendar block | It's easier to stay with the work | Pair | The first Focus block |
-| **Put a clear end on it** | Short sessions and a wrap-up that says what got done | You know where it stops, so starting is easier | Pair | A session runs long, or the first short triage |
-| **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Picking it up later costs nothing | Pair | The first booked block |
-| **See how long things take** | A recap of time worked, in the session wrap-up and look-back | You plan around how long things really take | Pair | After a few booked blocks |
-| **Let it go** | Let it go, as a real outcome | Room for what matters | Pair | The first stale card |
-| **Say how you're doing** | The queue changes to match | Today asks for what you've got | Pair | The first check-in |
-| **Look back weekly** | A short recap of what got done, and what carried over | You stop keeping score in your head | Pair | After about two weeks |
-| **Work in Claude together** | The hand-off, with the task handed over | Everything it needs is in one place, so you can just start | Capability only | A task comes back handed over |
-| **Voice and style** | Drafts that sound like the user. See `docs/voice.md` | You edit less | Capability only | About five approved drafts |
-| **Give big work a home** | Series: Fuzz finds a workstream, keeps its tasks together, suggests the next one and says when it's done | Less context switching, and you focus on the work, not the planning | Pair | The first "Is this the series?" card, then the first "Next in …" suggestion, then the first wrap |
-
-Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
-line isn't said twice. The work-alongside, warm-up and time rows depend on the session and wrap-up in
-`js/view-deepwork.js`, so check their triggers against what exists.
-
-### Saying how it helps
-
-Ruled 2026-11-24: one line, in the line itself. Not a "why", and not folded away.
-
-- **Shape:** what Fuzz did, then how it helps the user. One or two sentences, in the order *did, then helps*. The exception is a practice where the user acts first
-  (Get it out of your head): there the line asks, then says how it helps.
-- **About the user's day,** not the technique. "You'll never have to decide when" works. "Consistency builds habits" is a coach.
-- **Each line says what's gone,** where it can: a decision they don't have to make, something they don't have to carry
-  or remember. That's the strongest form of "how it helps".
-- **No counts, no scores, no "you should".** Skipping the offer costs nothing.
-
-Draft lines, for iteration. Each has to be true when it's said, so the capability has to exist first.
-
-| Practice | Fuzz says |
-| --- | --- |
-| Decide at a fixed time | "I've put Triage on your calendar at 3, every working day. You'll never have to decide when to deal with new things; it's already set." |
-| Book it, don't queue it | "Booked: Thursday, 10 to 11. It's on your calendar now, so it won't sit in a pile waiting for a moment that never comes." |
-| Not now is an answer | "Later it is. I'll bring it back, so you don't have to remember it." |
-| Find your good hours | "Tell me when you think best and I'll put your focus time there. Your best hours go to the work that needs them." |
-| Start small | "I've cut this to a five-minute first step: open the doc and write the heading. That's all you have to face right now, not the whole task." |
-| Park a stray thought | "Parked. It's safe here, so you can get back to what you were doing without carrying it." |
-| Get it out of your head | "Anything on your mind? Dump it here and I'll sort it, so you can stop holding it." |
-| Work alongside someone | "I'm here while you work on this. Having me in the session makes it easier to stay with it." |
-| Put a clear end on it | "Twenty minutes, then I'll call time and tell you what got done. You know where it stops, so starting is easier." |
-| Warm up and wind down | "Here's where you left off. When you finish, I'll note where you stopped, so picking it up later costs nothing." |
-| See how long things take | "That took 25 minutes. I'll plan around that, so you don't have to guess how long things take." |
-| Let it go | "Let go. It's off your plate, and you've got room for what matters." |
-| Say how you're doing | "Thanks. I'll lighten your queue to match, so today asks for what you've got." |
-| Look back weekly | "Here's what got done this week, and what carried over. It's written down, so you can stop keeping it in your head." |
-| Work in Claude together | "This one's for the two of us in Claude. I've put everything it needs in one place, so you can just start." |
-| Voice and style | "I've got a feel for how you write. Drafts will sound like you, so you edit less." |
-| Give big work a home: the first series card | "I've kept these together, so you can stay on one thing instead of hopping between them." |
-| Give big work a home: the first "Next in …" | "I try to find what's next so you can focus on work, not planning." |
-| Give big work a home: the first wrap | "That's all the [series] items for now. Let me know if there are more." |
-
-### What it must not become
-
-1. **A curriculum.** Every practice is an offer attached to a real moment. If it could be a lesson list, it's wrong.
-2. **Advice about the person.** Each line is about the strategy, never "you've been doing it wrong" (onboarding principle 11).
-3. **A debt.** Nothing is owed. A user who ignores every offer should see no sign of it (onboarding principle 6).
-4. **Too many at once.** If testing shows overload, cut the number per week before cutting the practices.
-
-### Open questions for the slow reveal
-
-1. **How does a day-2 return feel?** A quiet "here's where you left off", a Fuzz line waiting in Triage, or a calendar
-   nudge. Notifications are the riskiest for shame.
-2. **Is "What else can Fuzz do?" worth having,** or does any list turn into a checklist?
-3. **Should Triage time open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
-4. **Does a missed Triage or Focus block get its own line,** saying the practice still holds, as in "Looks like 3 got away
-   from you. That's fine. Same time tomorrow?" It would use the existing `missed_block` signal.
-5. **Series teaches one practice at three moments** (above). The role card ("I'm driving it, I'm helping, just keeping up")
-   carries a fourth message, that not everything needs you to lead, without a line from Fuzz. The Episodes page shows done
-   dots and a folded count; nothing teaches it, since a count sits close to onboarding principle 6. Is that right?
-6. **Who gets first offer when two are due the same day?** Proposed: the one nearest to what they're doing now.
-7. **What does a week away do?** A recovery path that doesn't scold ("welcome back, nothing is lost") and doesn't restart
-   the practices.
-8. **How does the first send work?** Send tools are never pre-ticked, so the first send is a trust moment. It may need its
-   own gentle card, not a Settings row.
-9. **What makes Fuzz think a card suits Later or Book time?** Both are offered on his judgment of the card, not a count
-   or a day. A first rule: Later when a card waits on someone else or has no near date, Book time when it's a task that
-   needs a block. They may both fit on the same day, which the one-idea-a-day limit then has to arbitrate (see question 6).
-
-## Pointing at things (proposed, not built)
-
-Drafted 2026-11-25. Fuzz points at the control the user needs next, and says why it's worth using and what it saves them.
-Today a ring and a one-word pill exist for two targets (New, and the Triage label); see "As built". This section says what
-is ringed and what the pointer says, for the first sitting and the slow reveal. Nothing here changes how the flow works.
-
-### Rules
-
-1. **Point only at what the user does next.** The ring means "touch this".
-2. **One ring at a time.** The pointer has a short title and one or two sentences, under about 120 characters in all.
-3. **The pointer says why and what it gives you,** in terms of what's gone: a decision, something to remember or carry.
-   It follows [Saying how it helps](#saying-how-it-helps). It is not a name for the control.
-4. **It comes from Fuzz.**
-   - A small Fuzz face (the existing sprites) beside the title, in the mood of the moment.
-   - A speech-bubble shape, with the tail toward the target.
-   - First person: "me", "I'll". The title can be too.
-   - No "Tip:" or "Fuzz says:" label. A label makes it read as the system talking about him.
-   - Drop the face when the pointer would sit over his own card, so it doesn't crowd.
-5. **The ring clears when the user acts,** or when the card changes. It never waits for a "got it".
-6. **A missing target means no ring,** never a broken step. On a phone, New is the floating button.
-7. **Nothing pulses** in calm mode or under reduced motion, as built, and nothing nags (`docs/nav-guide.md`).
-8. **Never ring something that sends or deletes.** Assign is fine; Send is not.
-9. **The step's card and the pointer don't repeat each other.** The card says what's happening; the pointer says why this
-   control helps.
-
-Wording is draft, for a pass against `docs/fuzz-tone.md`. Each line has to be true when it's said, so the behaviour it
-promises has to exist first.
-
-### Pointers in the first sitting
-
-| Step | Highlight | Title | Pointer says |
-| --- | --- | --- | --- |
-| 1 to 4 | Nothing. These are the terminal and Fuzz's own cards. | | |
-| 5 | **Assign** on the Triage-time card | **Hand it to me** | … and it's off your list. I'll do it, and if I have questions I'll ask. |
-| 5 | **Undo**, once it lands | **Changed your mind?** | One tap puts it back. |
-| 6 | **New** (the floating button on a phone) | **Anything on your mind** | Type it and it's out of your head, and I'll keep track of it. |
-| 6 | The **Dump mode** toggle | **Got a lot?** | Put it all in one box. I'll sort it, so you don't have to sort while you write. |
-| 7 | The **Triage** label | **Decisions wait here** | You don't have to hold them in your head. |
-| 7 part 2 | The action row on the first card | **One choice per card** | Hand it to me and it's off your mind. If something's different, tell me and I'll update the card. |
-| 8 | **Tell Fuzz** (E) | **Tell me anything** | Who it's really for, or what's changed. I'll update the card. (Open: stays in step 8, or moves to the slow reveal.) |
-| 9 | Each part of the Guide, one at a time | **Start here tomorrow** | I've put the most important thing first, so you don't have to work out where to begin. |
-| 10 | The permission card's **Allow** | Nothing; the card is already the focus | |
-| 11 | Nothing | | |
-
-The New and Triage rows exist as built, with one-word labels. They would change to these.
-
-### Pointers in the slow reveal
-
-Most practices need no ring: Fuzz acts and says one line from [Saying how it helps](#saying-how-it-helps). A ring is for when the
-user has to find a control.
-
-| Practice | Highlight | Title | Pointer says |
-| --- | --- | --- | --- |
-| Not now is an answer | **Later** on a card Fuzz thinks isn't ready | **Not now is an answer** | I'll bring it back, so you don't have to remember it. |
-| Book it, don't queue it | **Book time** on a card Fuzz thinks needs a block | **Give it a moment** | It goes on your calendar, so it stops sitting in a pile. |
-| Park a stray thought | The park control (T) | **Something pulled you away?** | Park it here. It's safe, and you keep your place. |
-| Get it out of your head | The **Dump** toggle | **Anything still on your mind?** | Put it here and I'll sort it, so you can stop holding it. |
-| Give big work a home | The series row, then **Next in …** | **These belong together** | I've kept them in one place. You focus on the work, not the planning. |
-| Look back weekly | The look-back entry | **Here's your week** | What got done and what carried over is written down, so you can stop keeping score. |
-| The rest (fixed time, good hours, start small, and so on) | Nothing | | The line from Fuzz does the work. |
-
-**Later and Book time are offered on Fuzz's judgment of the card,** not on a count or a day. See open question 9 under
-the slow reveal.
-
-### Open questions for pointing
-
-1. **Does a pointer ever need no title?** The title-and-sentence shape is the default; a very short one may be a sentence only.
-2. **Step 8:** does Tell Fuzz stay in the first sitting, or move to the slow reveal with Later and Book time?
-3. **Does a pointer need a dimmed backdrop** anywhere? Step 7's action row and the Guide parts are the likeliest. Otherwise ring and bubble are enough.
-4. **Do all first-use pointers in the slow reveal stay,** or only the first of a kind? Every first use may read as a drill (onboarding principle 10).
-5. **The selectors are unconfirmed.** Only New (`.nav-cta`, `#fab`) and the Triage label (`#where`) are known to exist as
-   stable targets. Assign, Undo, the Dump toggle, the action row, Book time, Later, park and the Guide parts each need
-   checking before it's built.
+- [`onboarding-flow.md`](onboarding-flow.md): the proposed first sitting, from the paste to the hand-over, in 11 steps.
+- [`dump-mode.md`](dump-mode.md): the New task box as a place to get everything out of your head.
+- [`slow-reveal.md`](slow-reveal.md): the practices Fuzz teaches after the first sitting, one at a time.
+- [`pointing.md`](pointing.md): how Fuzz points at the control the user needs next, and says why.
+- [What needs building](#what-needs-building-the-proposed-flow) lists the work across all four.
 
 ## What Fuzz teaches
 
@@ -400,7 +97,7 @@ Everything after the form arrives as a card in the queue:
 These add to the Product Principles in `PRODUCT.md` and the numbered principles in `docs/principles.md`, and
 don't replace them. When this doc says "principle N", it means these; the app-wide ones are named "app principle N".
 The closest pairs: onboarding 11 (talk about the strategy, not the person) and app principle 11 (no shame spirals), and
-the Safe idea in [the arc](#the-arc) and app principle 6 (humans approve what can't be undone, and every change has Undo).
+the Safe idea in [the arc](onboarding-flow.md#the-arc) and app principle 6 (humans approve what can't be undone, and every change has Undo).
 
 1. **Show value before asking for effort.** Interest is the fuel, and first-session novelty burns off
    fast. *Test:* before the user hands over anything of their own, Fuzz has shown he takes work off their plate
@@ -457,7 +154,7 @@ yet, so treat them as hypotheses until someone with ADHD tries the flow.
 | Get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
 | "What you can do with a task" (step 7) | The tour covers the Guide, not the action row | One card in Fuzz's words, drawn from the action row in `docs/card-actions.md` |
 | Tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
-| Pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](#pointing-at-things) |
+| Pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](pointing.md) |
 | Tips without the fold | Each of the three first tips has "Why this helps" folded away | Drop the fold. Each tip is one line from Fuzz that says how it helps |
 | Later and Book time offered by Fuzz's judgment | Offered on the card, always | A rule for when a card suits each, and a pointer the first time |
 | First dump cards chosen to fit what's taught | The first card is the one the user captured | A rule for ordering the first cards, so Assign or Tell Fuzz is the natural move and Later or Book time isn't shown yet |
