@@ -1,9 +1,7 @@
 # Onboarding: requirements
 
-Status: built, steps 1 to 6 of the order of work, in `js/onboarding.js`, `core/fuzz/onboarding.py`,
-`install.sh` and `docs/fuzz-tone.md`. Step 7, trying it with someone who has ADHD, hasn't happened, and the
-tip wording hasn't been tried with real users yet. The code facts below were checked
-against `claude/ask-me-later` at `895ecd3`.
+Status: the current flow is built, in `js/onboarding.js`, `core/fuzz/onboarding.py`, `install.sh` and
+`docs/fuzz-tone.md`. Nobody with ADHD has tried it yet, and the tip wording hasn't been tried with real users.
 
 A new flow (Triage meeting first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
 below describes what's built today, until that flow replaces it.
@@ -126,18 +124,13 @@ A mode of the New task box, not a new place. The user writes or dictates in one 
 
 ### Open questions for this flow
 
-1. **Email and IM at step 10, or in the tech check?** Recommended: step 10, after value is shown.
-2. **Does the Triage meeting replace the 20-minute check-in?** Recommended: yes.
-3. **Does the dump ask say "three things" or "everything"?** Recommended: three.
-4. **Is the raw dump kept?** Keeping it lets Fuzz say "you mentioned this on Tuesday", but it's the most personal text in
+1. **Is the raw dump kept?** Keeping it lets Fuzz say "you mentioned this on Tuesday", but it's the most personal text in
    the system, and test data falls under the public-repo rule (no real names).
-5. **Does Fuzz take personal items,** like "call the dentist", or stay a work tool?
-6. **Step 7's wait** needs a real executor run for the dump. How long is it, and is two or three cards the right number?
+2. **Does Fuzz take personal items,** like "call the dentist", or stay a work tool?
+3. **Step 7's wait** needs a real executor run for the dump. How long is it, and is two or three cards the right number?
    If the dump is back in seconds, part 1 is skipped and part 2 moves into step 8, on the first card.
-   Part 2 also tells before it teaches by doing, which principle 10 would rather avoid. Is naming the three questions
-   once enough, with step 8 reinforcing each on first use?
-7. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
-8. **Where does the first Triage slot go** when working hours are "no fixed hours"?
+4. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
+5. **Where does the first Triage slot go** when working hours are "no fixed hours"?
 
 ## The slow reveal (proposed, not built)
 
@@ -194,9 +187,8 @@ the terms of what's gone (a decision, something to carry), and it's the source f
 | **Give big work a home** | Series: Fuzz finds a workstream, keeps its tasks together, suggests the next one and says when it's done | Less context switching, and you focus on the work, not the planning | Pair | The first "Is this the series?" card, then the first "Next in …" suggestion, then the first wrap |
 
 Some of these already exist as one-time tips in [Later tips](#later-tips). Each practice would replace its tip, so a
-line isn't said twice. The rows after "Look back weekly" are new since the first draft of this table and need triggers
-checked against what exists: the work-alongside, warm-up and time rows depend on the session and wrap-up in
-`js/view-deepwork.js`.
+line isn't said twice. The work-alongside, warm-up and time rows depend on the session and wrap-up in
+`js/view-deepwork.js`, so check their triggers against what exists.
 
 ### Saying how it helps
 
@@ -451,44 +443,28 @@ Everything comes from Fuzz, in his tone, and Calm mode is respected, as `PRODUCT
 These principles come from common ADHD traits and the code, not from testing. There are no real users
 yet, so treat them as hypotheses until someone with ADHD tries the flow.
 
-## What needs building
+## What needs building (the proposed flow)
 
 | Need | Today | Work |
 | --- | --- | --- |
-| Tone guide for Fuzz's writing | Lines scattered through the UI | Write it first; the intro and tips depend on it |
-| One-paste bootstrap | Four commands, then a token link | A script that does it all and opens the browser signed in, with the command in the README |
-| Install from the browser | `POST /engine/clients/{client}/install` exists; the UI doesn't call it | UI only, but see below |
-| Choosing the app | `PUT /engine` exists; the UI doesn't call it | UI only |
-| Repairing a client | The `repair` action exists; the UI doesn't call it | UI only |
-| Working hours | `extract.hours` and `extract.weekends` in config, no route | A small backend route |
-| First read | `POST /engine/run` with role `extractor` | Call it at the end of the flow |
-| Calendar file | Nothing | Generate an `.ics` in the browser |
-| Setup cards | Nothing; check-ins and permission cards are the precedent | A new card type |
-| Identity from a connector | Nothing | Needed before Slack IDs and other emails can stay unasked |
-| Resume and Show me around again | Reopening setup starts at step 1; closing it stops it reopening | Saved progress, and a Settings entry |
-| First-card walkthrough | Nothing | Both landing paths |
-| *Proposed flow:* Fuzz's Triage-meeting task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
-| *Proposed flow:* calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
-| *Proposed flow:* Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
-| *Proposed flow:* get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
-| *Proposed flow:* "what you can do with a task" (step 7) | The tour covers the Guide, not the standing row | One card in Fuzz's words, drawn from the standing row in `docs/card-actions.md` |
-| *Proposed flow:* tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
-| *Proposed flow:* pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](#pointing-at-things) |
-| *Proposed flow:* tips without the fold | Each of the three first tips has "Why this helps" folded away | Drop the fold. Each tip is one line from Fuzz that says how it helps |
-| *Proposed flow:* Later and Book time offered by Fuzz's judgment | Offered on the card, always | A rule for when a card suits each, and a pointer the first time |
-
-**Installing restarts the server.** `fuzz install` reloads the launchd jobs, including the `fuzz serve`
-that would be handling the request. The page has to survive that and reconnect.
+| Fuzz's Triage-meeting task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
+| Calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
+| Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
+| Get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
+| "What you can do with a task" (step 7) | The tour covers the Guide, not the standing row | One card in Fuzz's words, drawn from the standing row in `docs/card-actions.md` |
+| Tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
+| Pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](#pointing-at-things) |
+| Tips without the fold | Each of the three first tips has "Why this helps" folded away | Drop the fold. Each tip is one line from Fuzz that says how it helps |
+| Later and Book time offered by Fuzz's judgment | Offered on the card, always | A rule for when a card suits each, and a pointer the first time |
+| First dump cards chosen to fit what's taught | The first card is the one the user captured | A rule for ordering the first cards, so Assign or Tell Fuzz is the natural move and Later or Book time isn't shown yet |
 
 ## Order of work
 
-1. Write the tone guide.
-2. Build the one-paste bootstrap and browser sign-in.
-3. Build the form, including the install path, its three outcomes and the restart.
-4. Build the intro, New task step, tips and first card.
-5. Build the calendar file.
-6. Build setup cards and later tips.
-7. Try the flow with someone who has ADHD.
+The current flow is built: the tone guide, the one-paste bootstrap, the form with install and repair, the intro and
+tips, the first card, the calendar file, setup cards and later tips. Next, in this order:
+
+1. Try the current flow with someone who has ADHD.
+2. Build the proposed flow from the table above.
 
 ## As built
 
@@ -570,7 +546,7 @@ Not built yet:
   draft back when no send tools are allowed. The guided setup in Settings picks them.
 - **Identity from a connector.** Other emails and Slack IDs are no longer asked up front, but nothing reads
   them from a connector yet, so they still come from Settings › About you or `fuzz me add`.
-- **Step 7.** No one with ADHD has tried the flow, and the tip wording hasn't been tried with real users.
+- **Trying it with someone who has ADHD.** No one has tried the flow, and the tip wording hasn't been tried with real users.
 
 ### The first read
 
