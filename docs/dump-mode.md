@@ -30,7 +30,7 @@ practice both need a named mode the user can find and be taught.
   - Pressing Enter without answering it captures the text as one task, as the box does today. Ignoring it is a
     complete answer, and it isn't shown again for that text.
   - Taking it (a click, or one key) switches to Dump mode with the text kept, and shows Fuzz's split for review.
-  - It's off in Deep Work, where capture goes straight to the pool and the user is protecting their focus.
+  - It behaves the same everywhere, Deep Work included. There is no special case for now.
 
 ## Decisions
 
@@ -43,6 +43,12 @@ practice both need a named mode the user can find and be taught.
    split like any other item. Handling them more elegantly (their own home, separate from work) is planned, but is not
    part of this work.
 3. **No rapid-fire variant.** One line per Enter isn't built. The single box is the whole feature.
+
+## Still open
+
+- **Splitting in Deep Work.** Capture there goes straight to the pool without Fuzz, so taking the offer would be the one
+  place a Deep Work capture calls Fuzz. Decide whether the split runs at once or waits until Deep Work ends. The offer
+  itself stays the same.
 
 ## What needs building
 
