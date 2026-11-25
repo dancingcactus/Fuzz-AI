@@ -3,7 +3,7 @@
 Status: the current flow is built, in `js/onboarding.js`, `core/fuzz/onboarding.py`, `install.sh` and
 `docs/fuzz-tone.md`. Nobody with ADHD has tried it yet, and the tip wording hasn't been tried with real users.
 
-A new flow (Triage meeting first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
+A new flow (Triage time first, then Dump mode) is proposed under "The flow (proposed, not built)"; everything else
 below describes what's built today, until that flow replaces it.
 
 ## Goal
@@ -33,7 +33,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 
 ### Rules for the order
 
-1. **Each step leaves the user with something done.** A calendar event after the meeting, cards after the dump.
+1. **Each step leaves the user with something done.** A calendar event once Triage time is booked, cards after the dump.
 2. **Ask for access when it buys something on screen.** Calendar pays off at step 5. Email and IM don't until step 10.
 3. **Optional things branch off and never block.** No calendar means a calendar file, not a dead end.
 4. **Teach the action when the card needs it.** Step 5 teaches Assign on Fuzz's own task and shows Undo in use. Later and Book time
@@ -49,7 +49,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 | 2 | **Fuzz introduces himself**, with the trust promise | They can repeat what they agreed to | None. Fuzz works for you. Nothing goes out without a yes, and what you do inside Fuzz can be undone |
 | 3 | **The three guilt-free tips** | Lower the stakes before asking for anything | One queue, not a pile. Ask Fuzz to change things or hand a task back. Missing a session loses nothing |
 | 4 | **Working hours**, as the first Triage card | An easy first win, and Fuzz can place a time | Your time has edges, and Fuzz adapts to yours |
-| 5 | **Fuzz's task: schedule a 30-minute Triage meeting** | A recurring event on their calendar, and the first trust moment | Decide at a fixed time and place; consistent beats optimal. The first action: Assign. Undo is shown in use |
+| 5 | **Fuzz's task: schedule 30 minutes of Triage time** | A recurring event on their calendar, and the first trust moment | Decide at a fixed time and place; consistent beats optimal. The first action: Assign. Undo is shown in use |
 | 5a | *Branch:* **calendar check**, only when there's no calendar access | Calendar works, or the calendar file | None. Access comes when it buys something |
 | 6 | **The New task page, with Dump mode** | The user's own content in Fuzz's hands | Get it out of your head. Don't sort while you dump. A small dump counts |
 | 7 | **The wait: Fuzz gets to know you, then what you can do with a task** | Don't lose them at the hand-off, and Fuzz learns what he can't read from a source | Check Triage instead of holding it in mind. Fuzz works while you're away. Every card is one choice. Hand it to Fuzz, or tell him anything about it |
@@ -62,12 +62,12 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
 
 - **Step 3 comes before step 5 on purpose.** "Missing a session loses nothing" is what keeps the first booked
   appointment from being one more thing to fail at.
-- **Step 4 stays before the meeting,** because Fuzz needs working hours to pick a time.
-- **Step 5 replaces "type one real task" and the 20-minute check-in.** The meeting is Fuzz's own task, so Assign has
-  something to teach, and it becomes the Triage habit slot from `docs/book-then-work.md`: a recurring event, linking
+- **Step 4 stays before booking Triage time,** because Fuzz needs working hours to pick a time.
+- **Step 5 replaces "type one real task" and the 20-minute check-in.** Triage time is Fuzz's own task, so Assign has
+  something to teach, and it becomes the triage habit slot in `docs/book-then-work.md`, which the user knows as Triage time: a recurring event, linking
   to `#/triage?until=HH:MM`. Without a calendar tool it's one calendar file with a weekday repeat (`js/ics.js`).
   Fuzz explains what Triage time is for: this is where decisions happen, so you don't have to hold them in your head.
-- **Placing the slot** with nothing learned yet uses working hours: one time, outside the start of the day, then kept
+- **Placing Triage time** with nothing learned yet uses working hours: one time, outside the start of the day, then kept
   fixed. Moving it is the user's call.
 - **Step 5a** asks for calendar only. It's skipped when access already exists, and falling back to the calendar file
   means a user who says no still finishes the step.
@@ -87,8 +87,8 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
     - **Pick a look** (colour theme, with the live preview). It's the one with an effect on screen, so it's a small
       reward in the wait. It moves here from "a light card a few days in".
   - **Part 2, what you can do with a task.** One short card from Fuzz, once the questions are done or skipped, and
-    before the dump lands. It says that **every card is one choice, and you can hand it to Fuzz**, and that **E lets
-    you tell Fuzz anything about a card**. Step 5 already taught Assign, so this teaches nothing by drilling:
+    before the dump lands. It says that **every card is one choice, and you can hand it to Fuzz**, and that **Tell
+    Fuzz (E) lets you say anything about a card**. This is the action row (the standing row in `docs/card-actions.md`). Step 5 already taught Assign, so this teaches nothing by drilling:
     step 8 is where it's used. **Later and Book time are not named here.** The first dump cards are chosen so only
     Assign and Tell Fuzz make sense, and Fuzz offers Later and Book time in the slow reveal, the first time he thinks a
     card suits one (see [Pointing at things](#pointing-at-things)). The card says what you can do; the pointer on the
@@ -99,7 +99,7 @@ Steps 1 to 4 are Safe, 5 is Decide, 6 to 8 are Get it out, and 9 to 11 are Let F
   the user isn't shown Later or Book time before they've been offered. This needs a rule for ordering the first
   cards, which is a build item.
 - **Step 8** may produce few cards, or none. If the dump has nothing to act on, Fuzz says what he did with it ("nothing
-  needed doing, I've kept it") and goes on to step 9. The meeting task is still in Triage, so nobody ends on a blank screen.
+  needed doing, I've kept it") and goes on to step 9. Fuzz's Triage time task is still in Triage, so nobody ends on a blank screen.
 - **Step 9 moves the tour here** from after the first card, so it has something to point at.
 - **Step 10 is the existing kickoff task,** so it needs no new mechanism. Email and IM are asked here, one permission
   card per source, reading only, after the dump has shown what Fuzz can carry.
@@ -119,8 +119,8 @@ A mode of the New task box, not a new place. The user writes or dictates in one 
 - **Items go through Fuzz before Triage,** like any captured task, so the user sees finished decisions, not raw lines.
 - **No grades, word counts or streaks.** Nothing about the dump is scored.
 - **Tone:** "a lot of people find it easier to think once it's out of their head", never "you should".
-- **Later homes for the practice:** the empty-queue state ("Want to get things out of your head?"), the start of the Triage
-  slot once the habit exists, and the weekly look-back.
+- **Later homes for the practice:** the empty-queue state ("Want to get things out of your head?"), the start of Triage
+  time once the habit exists, and the weekly look-back.
 
 ### Open questions for this flow
 
@@ -130,7 +130,7 @@ A mode of the New task box, not a new place. The user writes or dictates in one 
 3. **Step 7's wait** needs a real executor run for the dump. How long is it, and is two or three cards the right number?
    If the dump is back in seconds, part 1 is skipped and part 2 moves into step 8, on the first card.
 4. **Does Dump mode need a rapid-fire variant,** one line per Enter, or is the single box enough?
-5. **Where does the first Triage slot go** when working hours are "no fixed hours"?
+5. **Where does the first Triage time go** when working hours are "no fixed hours"?
 
 ## The slow reveal (proposed, not built)
 
@@ -168,13 +168,13 @@ the terms of what's gone (a decision, something to carry), and it's the source f
 
 | Practice (the habit) | Capability (what Fuzz does) | Benefit (how it helps you) | Kind | Trigger |
 | --- | --- | --- | --- | --- |
-| **Decide at a fixed time** | The recurring Triage slot on the calendar (step 5), kept in one place | You never decide when to deal with new things | Pair | A few days of opening Triage at scattered times |
+| **Decide at a fixed time** | The recurring Triage time on the calendar (step 5), kept in one place | You never decide when to deal with new things | Pair | A few days of opening Triage at scattered times |
 | **Book it, don't queue it** | Book time, with a pre-picked slot, one tap. See `docs/book-then-work.md` | A task has a moment, so it stops sitting in a pile | Pair | Fuzz thinks a card suits a block of time, the first time (his judgment of the card, not a count) |
 | **Not now is an answer** | Later, as a real outcome: Fuzz brings it back | You don't have to remember it, and it isn't a failure | Pair | Fuzz thinks a card isn't ready, such as one waiting on someone else, the first time |
 | **Find your good hours** | The "When do you usually get things done?" card, then proposed Focus blocks | Your best hours go to the work that needs them | Pair | After some real work |
 | **Start small** | Help me start: a five-minute first step | Starting costs five minutes, not a whole task | Pair | A task sits untouched for several days |
 | **Park a stray thought** (T) | The park shortcut | You keep your place and don't carry the thought | Pair | The first time they leave a card to chase something |
-| **Get it out of your head** | Dump mode, returned to from step 6 | You stop holding it all, and nothing is lost | Pair | The queue is empty, or the Triage slot starts |
+| **Get it out of your head** | Dump mode, returned to from step 6 | You stop holding it all, and nothing is lost | Pair | The queue is empty, or Triage time starts |
 | **Work alongside someone** | Focus time with Fuzz present: a session he's part of, not just a calendar block | It's easier to stay with the work | Pair | The first Focus block |
 | **Put a clear end on it** | Short sessions and a wrap-up that says what got done | You know where it stops, so starting is easier | Pair | A session runs long, or the first short triage |
 | **Warm up and wind down** | A line at the start of a block and a wrap-up after it | Picking it up later costs nothing | Pair | The first booked block |
@@ -236,7 +236,7 @@ Draft lines, for iteration. Each has to be true when it's said, so the capabilit
 1. **How does a day-2 return feel?** A quiet "here's where you left off", a Fuzz line waiting in Triage, or a calendar
    nudge. Notifications are the riskiest for shame.
 2. **Is "What else can Fuzz do?" worth having,** or does any list turn into a checklist?
-3. **Should the Triage slot open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
+3. **Should Triage time open with a two-minute dump** once the habit exists, so the habit is dump, then triage?
 4. **Does a missed Triage or Focus block get its own line,** saying the practice still holds, as in "Looks like 3 got away
    from you. That's fine. Same time tomorrow?" It would use the existing `missed_block` signal.
 5. **Series teaches one practice at three moments** (above). The role card ("I'm driving it, I'm helping, just keeping up")
@@ -284,7 +284,7 @@ promises has to exist first.
 | Step | Highlight | Title | Pointer says |
 | --- | --- | --- | --- |
 | 1 to 4 | Nothing. These are the terminal and Fuzz's own cards. | | |
-| 5 | **Assign** on the Triage-meeting card | **Hand it to me** | … and it's off your list. I'll do it, and if I have questions I'll ask. |
+| 5 | **Assign** on the Triage-time card | **Hand it to me** | … and it's off your list. I'll do it, and if I have questions I'll ask. |
 | 5 | **Undo**, once it lands | **Changed your mind?** | One tap puts it back. |
 | 6 | **New** (the floating button on a phone) | **Anything on your mind** | Type it and it's out of your head, and I'll keep track of it. |
 | 6 | The **Dump mode** toggle | **Got a lot?** | Put it all in one box. I'll sort it, so you don't have to sort while you write. |
@@ -335,7 +335,7 @@ These three are the only tips in the onboarding itself:
    where to start. (This used to ask for a recurring daily slot on the calendar; since the Guide, the
    only calendar ask is the one check-in on the first task, after its card.)
 2. **Don't be afraid to ask Fuzz to change things, or to send a task back to him as often as you
-   like.** On a draft, E asks for a change. On other cards, E (Tell Fuzz) opens the card's box. Fuzz repeats
+   like.** On a draft, Tell Fuzz (E) asks for a change. On other cards, Tell Fuzz (E) opens the card's box. Fuzz repeats
    this on their first draft.
 3. **Missing a session loses nothing.** Nothing is lost, and stopping at 20 minutes with cards left is
    fine. This one matters most, because it stops the appointment becoming one more thing to fail at.
@@ -447,11 +447,11 @@ yet, so treat them as hypotheses until someone with ADHD tries the flow.
 
 | Need | Today | Work |
 | --- | --- | --- |
-| Fuzz's Triage-meeting task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
+| Fuzz's Triage time task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
 | Calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
 | Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
 | Get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
-| "What you can do with a task" (step 7) | The tour covers the Guide, not the standing row | One card in Fuzz's words, drawn from the standing row in `docs/card-actions.md` |
+| "What you can do with a task" (step 7) | The tour covers the Guide, not the action row | One card in Fuzz's words, drawn from the action row in `docs/card-actions.md` |
 | Tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
 | Pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](#pointing-at-things) |
 | Tips without the fold | Each of the three first tips has "Why this helps" folded away | Drop the fold. Each tip is one line from Fuzz that says how it helps |
