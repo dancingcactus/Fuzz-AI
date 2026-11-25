@@ -32,6 +32,21 @@ practice both need a named mode the user can find and be taught.
   - Taking it (a click, or one key) switches to Dump mode with the text kept, and shows Fuzz's split for review.
   - It behaves the same everywhere, Deep Work included. There is no special case for now.
 
+### In Deep Work
+
+The offer is the same, and the split runs at once. What differs is where the result goes, so it fits how Deep Work
+capture already works.
+
+- **No review step.** The split isn't shown for approval. The items are created as the split returns them, so nothing
+  blocks the user's focus.
+- **They go straight to the pool,** like any other task captured in Deep Work, and not through Fuzz or Triage first.
+  Triage sorts them later.
+- **Nothing is lost, and it can be taken back.** The raw dump is kept and each item links to it. One Undo takes back the
+  whole dump, as in the normal case.
+- **Fuzz still calls the splitter.** It's the one place a Deep Work capture runs Fuzz, and it runs in the background, so
+  typing and Enter are never held up. Items appear in the pool when it returns.
+- **Notes and "already done" items** are kept with the dump, as in the normal case. They don't become tasks.
+
 ## Decisions
 
 1. **The raw dump is kept.** Keeping it lets Fuzz say "you mentioned this on Tuesday", and means nothing a user typed is
@@ -44,16 +59,11 @@ practice both need a named mode the user can find and be taught.
    part of this work.
 3. **No rapid-fire variant.** One line per Enter isn't built. The single box is the whole feature.
 
-## Still open
-
-- **Splitting in Deep Work.** Capture there goes straight to the pool without Fuzz, so taking the offer would be the one
-  place a Deep Work capture calls Fuzz. Decide whether the split runs at once or waits until Deep Work ends. The offer
-  itself stays the same.
-
 ## What needs building
 
 - **A splitter:** a new role and prompt that return the four groups, and a route that returns the list without
   creating anything.
+- **A Deep Work path** that skips the review and commits the split straight to the pool.
 - **A commit step** that takes the accepted items and creates them in one transaction, so one Undo takes back the whole
   dump. It also stores the raw dump and links each item to it.
 - **The review screen,** reusing the Composer for "tell Fuzz to change it" (`docs/card-actions.md`), and the toggle on
