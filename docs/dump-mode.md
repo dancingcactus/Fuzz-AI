@@ -88,6 +88,11 @@ The New task box has a **Dump mode** button (Live only: the split needs the core
 - **Onboarding:** in the built flow, a dump taken on the first capture counts as that capture: its first task goes on
   to the wait. The rest of step 6 is the [proposed flow](onboarding-flow.md), which is still a proposal.
 
+**Checked end to end** (`tests/ui/dump-live.test.mjs`): a real core, the real page and the real `fuzz run split` headless
+path, with only the model stood in for by a `claude` on the PATH that hands the split to the scripted role through the
+real MCP tools. It covers the offer, the run, its usage record, the polling, the review, Keep, one Undo, and the Focus time
+path. What a real model writes is `fuzz eval dump`'s job (8 of 8 on sonnet, 2026-11-25).
+
 ### Not done
 
 - **The Focus time box.** Focus time's own "tell me what you want to work on" field is one line, so a dump can't be typed
