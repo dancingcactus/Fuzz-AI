@@ -164,7 +164,7 @@ def cmd_run(a):
                                               + data.get("signals", []))
         else:
             sigs = sigs + data if isinstance(sigs, list) else dict(sigs, signals=sigs.get("signals", []) + data)
-    ask = (a.ask_id, a.question) if a.role == "ask" else None
+    ask = (a.ask_id, a.question) if a.role in ("ask", "split") else None
     res = run_role(core, a.role, a.client, a.model, a.task, a.scripted, a.verbose, a.trigger, sigs, ask=ask)
     _print(res)
 
@@ -686,7 +686,7 @@ def parser():
     s.set_defaults(fn=cmd_start)
 
     s = sub.add_parser("mcp", help="run the MCP server over stdio (started by an AI client)")
-    s.add_argument("--role", required=True, choices=["executor", "extractor", "sender", "session", "recall", "ask"])
+    s.add_argument("--role", required=True, choices=["executor", "extractor", "sender", "session", "recall", "ask", "split"])
     s.add_argument("--run", type=int)
     s.add_argument("--task", type=int, help="the session role's one task")
     s.set_defaults(fn=cmd_mcp)
@@ -697,7 +697,7 @@ def parser():
     s.set_defaults(fn=cmd_session_closed)
 
     s = sub.add_parser("run", help="run a role headless, the same way launchd does")
-    s.add_argument("role", choices=["executor", "extractor", "sender", "ask"])
+    s.add_argument("role", choices=["executor", "extractor", "sender", "ask", "split"])
     s.add_argument("--client", choices=["claude-code", "copilot"])
     s.add_argument("--ask-id", help="ask: the id the answer goes back under")
     s.add_argument("--question", help="ask: the person's question")

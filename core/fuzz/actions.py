@@ -5,7 +5,7 @@ the command should start, which the interface hands to followups.run() once the 
 HTTP, the CLI and anything else that answers for you go through here, so they can't drift apart.
 """
 
-from . import answers, cards, config, engine, evals, events, matching, missed, onboarding, tasks
+from . import answers, cards, config, dump, engine, evals, events, matching, missed, onboarding, tasks
 from .db import FuzzError
 from .memory import facts as mfacts
 
@@ -114,6 +114,7 @@ UNDO_HOOKS = {
     "task.missed_confirmed": missed.undo_confirmed,
     # a spot check's answer taken back: its case and label go
     "eval.spot_checked": lambda core, e: _spot_undo(core, e),
+    "dump.committed": lambda core, e: dump.undo_committed(core, e),
     "engine.selected": lambda core, e: engine.restore_selection(core, e["payload"]["data"].get("prior")),
 }
 

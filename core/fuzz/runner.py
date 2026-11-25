@@ -24,10 +24,10 @@ def _prompt_version(adapter, role):
 
 def run_role(core, role, client=None, model=None, task_id=None, scripted_=False, verbose=False, trigger="manual",
              signals=None, say=print, ask=None):
-    if role not in ("executor", "extractor", "sender", "ask"):
-        raise FuzzError("role must be executor, extractor, sender or ask", "role")
-    if role == "ask" and not ask:
-        raise FuzzError("an ask run needs --ask-id and --question", "question")
+    if role not in ("executor", "extractor", "sender", "ask", "split"):
+        raise FuzzError("role must be executor, extractor, sender, ask or split", "role")
+    if role in ("ask", "split") and not ask:
+        raise FuzzError("an ask or split run needs --ask-id" + (" and --question" if role == "ask" else ""), "question")
     if task_id and role != "executor":
         raise FuzzError("--task works only for the executor", "task")
     if role == "sender" and not scheduler.sends_waiting(core):
@@ -64,6 +64,9 @@ def run_role(core, role, client=None, model=None, task_id=None, scripted_=False,
             elif role == "ask":
                 res = scripted.run_ask(core, ask, say_)
                 outcome = "ok"
+            elif role == "split":
+                res = scripted.run_split(core, ask, say_)
+                outcome = "ok"
             else:
                 res = scripted.run_extractor(core, signals, say_)
                 outcome = "ok"
@@ -76,6 +79,12 @@ def run_role(core, role, client=None, model=None, task_id=None, scripted_=False,
     finally:
         core.run = None
         done = runs.finish(core, rid, outcome, detail)
+        if role == "split" and ask:   # it ended without handing the split in: say so, the text is still kept
+            from . import dump
+            try:
+                dump.fail(core, int(ask[0]), detail.get("error") or "Fuzz couldn't split it this time")
+            except Exception:   # noqa: BLE001
+                pass
         if role == "executor" and outputs.folder(core):   # whatever the run left in a task's folder is on the task
             for tid in done.get("tasks") or []:
                 outputs.record(core, tid)

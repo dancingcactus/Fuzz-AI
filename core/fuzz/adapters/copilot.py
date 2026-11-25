@@ -102,7 +102,7 @@ class Copilot(Adapter):
         argv += ["--allow-tool", f"write({str(write_dir).rstrip('/')}/**)"] if write_dir else ["--deny-tool", "write"]
         for t in extra:
             argv += ["--allow-tool", allow_rule(t)]
-        if role in ("executor", "sender", "ask"):
+        if role in ("executor", "sender", "ask", "split"):
             available = [self.mcp_name(role)] + [available_name(t) for t in extra]
             if files_dir or write_dir:
                 available.append(READ_FILE_TOOL)

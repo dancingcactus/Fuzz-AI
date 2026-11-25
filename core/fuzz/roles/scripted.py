@@ -169,6 +169,37 @@ async def _ask(core, ask, say):
     return {"answered": ask_id}
 
 
+def split_lines(text):
+    """The dump as a script reads it: one item a line, a line's lead word picking the group. No meaning is read."""
+    import re
+    out = []
+    for line in text.splitlines():
+        line = re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", line).strip()
+        if not line:
+            continue
+        low = line.lower()
+        group = ("done" if low.startswith(("done:", "already ", "finished ")) else
+                 "note" if low.startswith(("note:", "fyi", "idea:", "remember that ")) else
+                 "later" if low.startswith(("later:", "someday", "maybe ", "eventually ")) else "task")
+        out.append({"group": group, "text": line})
+    return out
+
+
+async def _split(core, ask, say):
+    dump_id = int(ask[0])
+    async with Client(mcp_server.build(core, "split")) as c:
+        await _call(c, "whoami", {"prompt_version": PROMPT_VERSION, "client": "scripted"})
+        d = await _call(c, "get_dump", {"dump_id": dump_id})
+        items = split_lines(d["text"])[:d["max_items"]]
+        r = await _call(c, "submit_split", {"dump_id": dump_id, "items": items, "say": "I've got all of it."})
+        say(f"Split dump {dump_id} into {len(items)}")
+    return {"split": dump_id, **r}
+
+
+def run_split(core, ask, say=lambda s: None):
+    return asyncio.run(_split(core, ask, say))
+
+
 def run_ask(core, ask, say=lambda s: None):
     return asyncio.run(_ask(core, ask, say))
 

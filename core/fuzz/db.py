@@ -394,6 +394,30 @@ CREATE TABLE IF NOT EXISTS voice_state (   -- when Fuzz last asked the extractor
   asked_at TEXT,
   done_at TEXT                     -- the extractor found no older messages: stop asking
 );
+CREATE TABLE IF NOT EXISTS dumps (   -- what you poured into the New task box in Dump mode, and Fuzz's split of it (dump.py); not events
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  text TEXT NOT NULL,              -- the raw dump, kept until you delete it
+  state TEXT NOT NULL,             -- splitting | ready | failed | committed | undone
+  deep_work INTEGER NOT NULL DEFAULT 0,   -- typed in Focus time: no review, the items go straight in
+  items TEXT,                      -- Fuzz's split, json [{id, group, text, keep}]; what you ticked once committed
+  say TEXT,                        -- one calm line from Fuzz about it
+  instruction TEXT,                -- "Tell Fuzz to change it": what you asked for on the last pass
+  error TEXT,
+  created_at TEXT NOT NULL,
+  split_at TEXT,                   -- when the split last started or came back
+  decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS dump_items (   -- what each accepted item became: the link back to its dump
+  id INTEGER PRIMARY KEY,
+  dump_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  grp TEXT NOT NULL,               -- task | note | later | done
+  text TEXT NOT NULL,
+  task_id INTEGER                  -- none for a note, or for one that was already done
+);
+CREATE INDEX IF NOT EXISTS dump_items_dump ON dump_items (dump_id);
+CREATE INDEX IF NOT EXISTS dump_items_task ON dump_items (task_id);
 -- memory: entities' facts, knowledge and decisions (docs/memory-layers.md). facts, knowledge, decision_log and
 -- memory_links are projected (replayed from events); memory_files, fact_views and memory_refusals are derived.
 CREATE TABLE IF NOT EXISTS facts (

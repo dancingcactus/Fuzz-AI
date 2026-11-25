@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 ROLE_SKILLS = {"executor": "fuzz-executor", "extractor": "fuzz-extract", "sender": "fuzz-send",
-               "recall": "fuzz-recall", "ask": "fuzz-recall"}   # ask: the app's ask box, the same skill read-only
+               "recall": "fuzz-recall", "ask": "fuzz-recall", "split": "fuzz-split"}   # ask: the app's ask box, the same skill read-only
 SKILLS_SRC = Path(__file__).resolve().parents[2] / "skills"
 PKG_PARENT = str(Path(__file__).resolve().parents[2])   # the folder holding the fuzz package
 
@@ -23,6 +23,8 @@ PROMPTS = {
                   "sources, submit signals, judge the pending shortlists and submit verdicts."),
     "ask": ("Answer the person's question from Fuzz's memory using the fuzz-recall instructions, then call answer_ask "
             "once with your reply."),
+    "split": ("Split the person's dump into a short list using the fuzz-split instructions. Call get_dump, then call "
+              "submit_split once."),
     "sender": ("Send the drafts the human approved, using the fuzz-send instructions. Call whoami, then "
                "claim_next_send and send each one until there is nothing to claim."),
 }
@@ -141,6 +143,8 @@ class Adapter:
             p += f" Work only task {task_id}: pass task_id={task_id} to claim_next_task."
         if ask and role == "ask":   # (ask_id, question); the question is the person's, quoted as data
             p += f" ask_id: {ask[0]}. The question, in the person's words: {json.dumps(ask[1])}"
+        if ask and role == "split":   # (dump_id, _): the dump itself is read with get_dump, as data
+            p += f" dump_id: {ask[0]}."
         return p
 
     def run_ok(self, returncode, output):

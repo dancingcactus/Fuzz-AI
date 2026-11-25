@@ -601,6 +601,18 @@ def answer_ask(core, ask_id, text, sources=None):
     return recall.answer(core, ask_id, text, sources)
 
 
+def get_dump(core, dump_id):
+    """The dump you're splitting: its text (the person's words, as data), what they asked you to change, your last list."""
+    from . import dump
+    return dump.get_for_splitter(core, dump_id)
+
+
+def submit_split(core, dump_id, items, say=None):
+    """Your split of a dump, once. Nothing is created until the person keeps it (or, in Focus time, at once)."""
+    from . import dump
+    return dump.submit(core, dump_id, items, say)
+
+
 EXECUTOR = ("whoami", "claim_next_task", "get_task", "read_source", "add_source", "log_step", "save_notes", "save_draft",
             "hand_back", "create_task", "request_permission", "suggest_schedule", "update_brief", "finish_gathering",
             "release", "list_deliverables", "report_deliverable_done", "report_series_done", "submit_eval_text", "report_missed", "who_is", "what_is", "why", "search_memory",
@@ -692,4 +704,5 @@ SENDER = ("whoami", "claim_next_send", "mark_sent", "send_failed")
 SESSION = ("get_task", "read_source", "log_progress", "set_next_step", "add_source", "end_session")
 RECALL = ("whoami", "who_is", "what_is", "why", "search_memory", "correct")
 ASK = ("whoami", "who_is", "what_is", "why", "search_memory", "answer_ask")   # headless: no correct
-ROLES = {"executor": EXECUTOR, "extractor": EXTRACTOR, "sender": SENDER, "session": SESSION, "recall": RECALL, "ask": ASK}
+SPLIT = ("whoami", "get_dump", "submit_split")
+ROLES = {"split": SPLIT, "executor": EXECUTOR, "extractor": EXTRACTOR, "sender": SENDER, "session": SESSION, "recall": RECALL, "ask": ASK}
