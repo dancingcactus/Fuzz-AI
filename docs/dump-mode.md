@@ -1,6 +1,6 @@
-# Dump mode (proposed, not built)
+# Dump mode (built on the New task box, 2026-11-25)
 
-Drafted 2026-11-24, open questions settled 2026-11-25. Step 6 of [the proposed flow](onboarding-flow.md), and a practice Fuzz returns to in
+Drafted 2026-11-24, open questions settled 2026-11-25, built 2026-11-25 (see **As built** below). Step 6 of [the proposed flow](onboarding-flow.md), and a practice Fuzz returns to in
 [the slow reveal](slow-reveal.md) ("Get it out of your head"). Everything here is a hypothesis, like the onboarding principles.
 
 A mode of the New task box, not a new place. The user writes or dictates in one box, then presses Enter once.
@@ -59,16 +59,39 @@ capture already works.
    part of this work.
 3. **No rapid-fire variant.** One line per Enter isn't built. The single box is the whole feature.
 
-## What needs building
+## As built
 
-- **A splitter:** a new role and prompt that return the four groups, and a route that returns the list without
-  creating anything.
-- **A Deep Work path** that skips the review and commits the split straight to the pool.
-- **A commit step** that takes the accepted items and creates them in one transaction, so one Undo takes back the whole
-  dump. It also stores the raw dump and links each item to it.
-- **The review screen,** reusing the Composer for "tell Fuzz to change it" (`docs/card-actions.md`), and the toggle on
-  the New task page (N).
-- **The quiet offer,** per the rules above.
-- **An eval** that a messy dump gives few tasks, not twenty, with synthetic seeds, and the splitter counted in usage
-  tracking.
-- **Onboarding step 6** last, once the above exists.
+The New task box has a **Dump mode** button (Live only: the split needs the core). Everything below is live and tested.
+
+- **The splitter** is a short run of a new `split` role (`core/skills/fuzz-split`, `prompt_version split-0.1`), started by
+  `POST /dumps` and read with `GET /dumps/<id>`. It reads the text with `get_dump` (as data: the prompt names the dump, never
+  holds the words) and answers once with `submit_split`: items grouped task, note, later or done, and one calm line. At
+  most 40 items. It creates nothing. A run that ends without a split marks the dump failed, and the text is still kept.
+- **The raw dump** is kept in the `dumps` table (not an event), with each accepted item in `dump_items` linked back to
+  it (`dump.for_task`). `DELETE /dumps/<id>` removes the text and the links. The tasks it made stay.
+- **Keeping it** (`POST /dumps/<id>/commit {accept}`) makes what was ticked, in one transaction with one
+  `dump.committed` event, so one Undo takes back the whole dump. Tasks go to Triage, a "later" item is parked, a note or a
+  done item is only kept with the dump. Undo returns the dump to "undone", and it can be kept again.
+- **Changing it** (`POST /dumps/<id>/revise`) runs the splitter again with your words and its last list.
+  **Add it as one task** (`/one_task`) is the way out when a split fails.
+- **The review** replaces the box: groups with a tick each (what Fuzz would keep is ticked, "already done" is not), Keep
+  these, Back to my text (Esc, and the dump is dropped), Add it as one task, and Tell Fuzz to change it in the Composer.
+- **The quiet offer** is a reserved line under the box, a live region that never takes focus. It appears when a paste,
+  a line break or dictation leaves three or more lines, once per draft, and goes with the text. Typing mid-line never
+  brings it up. Enter still captures one task, as before.
+- **Focus time:** when a session is running, the same offer and mode run the split at once, with no review. The items are
+  made as the split returns, as Focus time tasks, and one Undo takes them back.
+- **The eval** is `fuzz eval dump` (`dump_evals.py`, `eval_seeds/dump.json`, eight invented cases): few tasks not one
+  per line, nothing lost, personal items in, done is done, worry may be no tasks, instructions in a dump are data, a change
+  is followed and the rest kept, a calm line. It's on the Evals page. The splitter's runs are counted in usage as "Sorting".
+- **Onboarding:** in the built flow, a dump taken on the first capture counts as that capture: its first task goes on
+  to the wait. The rest of step 6 is the [proposed flow](onboarding-flow.md), which is still a proposal.
+
+### Not done
+
+- **The Focus time box.** Focus time's own "tell me what you want to work on" field is one line, so a dump can't be typed
+  into it. The Focus time path is reached from the New task box while a session is running (`DeepWorkView.active()`).
+  Whether Focus time needs its own multi-line box is open.
+- **A line on the task** saying which dump it came from. The link is stored and readable (`dump.for_task`); nothing shows it.
+- **A way to see and delete old dumps.** Today a dump is deleted by the API only.
+- **Demo mode** has no splitter, so the button isn't there.

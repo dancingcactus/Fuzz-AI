@@ -9,6 +9,12 @@
      or about, a message or page Fuzz should read, something Fuzz already made: they join the task's sources. */
   var serPick = null, refs = { people: [], links: [], artifacts: [] }, plusOpen = false, panel = null, panelQ = '', outsideClick = null;
   var found = { people: [], artifacts: null }, findAsk = 0;
+  /* Dump mode (docs/dump-mode.md): a mode of this box. dump is the split in front of you ({id, state, items, say}); the
+     offer is the quiet "This looks like a few things" line, shown at most once for a draft and never over what you're typing. */
+  var dumpOn = false, dump = null, dumpPoll = 0, offerSeen = false;
+  var DUMP_GROUPS = [['task', 'To do'], ['later', 'For later'], ['note', 'To keep'], ['done', 'Already done, or not yours']];
+  function lineCount(t) { return String(t || '').split('\n').filter(function (l) { return l.trim(); }).length; }
+  function looksLikeAFew(t) { return lineCount(t) >= 3; }
   var PLUS_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
   var UP_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>';
   var PERSON_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
@@ -126,16 +132,20 @@
         '<h1 id="cap-h" class="cap-title">What is on your mind?</h1>' +
         /* The same box as Tell Fuzz on a Triage card: the field, with + and the mic inside it and what you added
            beside them. The field has focus; while a file is dragged over the page, the box is the drop zone. */
-        '<div class="cap-drop instr" id="drop"><label class="sr" for="cap-text">New</label>' +
+        '<div id="cap-compose"><div class="cap-drop instr" id="drop"><label class="sr" for="cap-text">New</label>' +
           Composer.box({ id: 'cap-text', rows: 4, placeholder: 'For example: send Sam the slides from Tuesday', describedBy: ob && ob.tip ? 'cap-tip' : '',
             tools: Composer.bar({ plus: '<span class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</span>', mic: { for: 'cap-text', label: 'Dictate', id: 'cap-mic' },
               after: '<ul class="files" id="files" aria-label="Attached documents and the series"></ul>' }),
             typing: [['⌘ Enter', 'Capture'], ['Esc', 'Back']] }) +
           '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div>' +
           '<input type="file" id="file" multiple hidden></div>' +
+        /* The quiet offer: a reserved line, so it never moves what you're typing. Never takes focus. */
+        '<p class="cap-offer" id="cap-offer" aria-live="polite"></p>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          '</div>' +
+          (Live.on() ? '<button type="button" class="btn cap-dumpmode" id="cap-dumpmode" aria-pressed="false" title="Pour it all out: Fuzz splits it into a short list, and nothing is made until you keep it">Dump mode</button>' : '') +
+          '</div></div>' +
+        '<div id="cap-review" class="cap-review" hidden></div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
         '<p class="fine">Tasks from email, Slack and meetings arrive in triage on their own, so you only need to capture the ones that start in your head.</p></section></section>';
@@ -224,7 +234,7 @@
     function paintList() { $('#cap-list').innerHTML = listHTML(); }
     /* What you've typed survives leaving the page, so Esc never costs you a half-written thought. */
     ta.value = draft;
-    ta.addEventListener('input', function () { draft = ta.value; sync(); nudge(); if (confirm) { confirm = ''; paintSay(); } });
+    ta.addEventListener('input', function (e) { draft = ta.value; sync(); nudge(); if (confirm) { confirm = ''; paintSay(); } maybeOffer(e); });
     ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
     function paintSay() { Fuzz.say(confirm || (ob && ob.back ? 'One real thing on your plate. I’m listening.' : IDLE_LINE), { type: false }); }
     /* Mood for a moment, then back to idle (unless something else has changed it since). */
@@ -268,20 +278,133 @@
     var mic = $('#cap-mic');
     function opts() {
       nudge(); clearTimeout(moodTimer);
-      return { done: 'Got all of that. Capture it when you’re ready.', onChange: function (on) { listening = on; mic.setAttribute('aria-pressed', String(on)); mic.setAttribute('aria-label', on ? 'Listening… (press to stop)' : 'Dictate'); } };
+      return { done: 'Got all of that. Capture it when you’re ready.', onChange: function (on) { if (!on) maybeOffer(); listening = on; mic.setAttribute('aria-pressed', String(on)); mic.setAttribute('aria-label', on ? 'Listening… (press to stop)' : 'Dictate'); } };
     }
     mic.addEventListener('click', function () { if (Dictate.active()) Dictate.stop(); else Dictate.start(ta, opts()); });
     unhold = Dictate.hold(function () { return ta; }, opts);
 
+    /* ---- Dump mode */
+    function paintOffer() {
+      var o = $('#cap-offer'); if (!o) return;
+      o.innerHTML = offerSeen && !dumpOn && !dump && ta.value.trim() ? '<span>This looks like a few things.</span> <button type="button" class="linkbtn inline" id="cap-split">Split it?</button>' : '';
+    }
+    /* It lands with a paste, a line break or dictation, never mid-word, and then it stays until you act or clear the box */
+    function maybeOffer(e) {
+      if (!Live.on() || dumpOn || dump) return;
+      if (!ta.value.trim()) { offerSeen = false; paintOffer(); return; }
+      if (offerSeen || !looksLikeAFew(ta.value)) return;
+      if (e && e.inputType === 'insertText') return;
+      offerSeen = true; paintOffer();
+    }
+    function paintMode() {
+      var b = $('#cap-dumpmode'); if (b) { b.setAttribute('aria-pressed', String(dumpOn)); b.classList.toggle('on', dumpOn); }
+      go.lastChild.textContent = dumpOn ? 'Sort it' : 'Capture';
+      ta.placeholder = dumpOn ? 'Everything on your mind, in any order. I’ll sort it.' : 'For example: send Sam the slides from Tuesday';
+      paintOffer();
+    }
+    function showReview(on) { $('#cap-compose').hidden = on; $('#cap-review').hidden = !on; }
+    function stopDumpPoll() { clearInterval(dumpPoll); dumpPoll = 0; }
+    function backToText() {
+      stopDumpPoll();
+      var old = dump; dump = null; showReview(false); paintMode();
+      if (old && old.id) Live.dumpDiscard(old.id);
+      ta.focus(); paintSay();
+    }
+    function reviewHTML() {
+      var d = dump, back = '<button type="button" class="btn" data-dump="back">Back to my text</button>';
+      if (d.state === 'splitting') return '<h1 class="cap-title">Reading it…</h1><p class="meta">Nothing is lost. Your words are kept just as you wrote them.</p><div class="actions">' + back + '</div>';
+      if (d.state === 'failed') return '<h1 class="cap-title">I couldn’t sort that this time</h1><p class="meta">Your words are safe. ' + esc(d.error || '') + '</p><div class="actions"><button type="button" class="btn primary" data-dump="retry">Try again</button><button type="button" class="btn" data-dump="one">Add it as one task</button>' + back + '</div>';
+      var items = d.items || [];
+      var groups = DUMP_GROUPS.map(function (g) {
+        var rows = items.filter(function (i) { return i.group === g[0]; });
+        return !rows.length ? '' : '<section class="cap-group" aria-labelledby="cap-g-' + g[0] + '"><h2 id="cap-g-' + g[0] + '" class="grp">' + g[1] + '</h2><ul class="cap-ditems">' + rows.map(function (i) {
+          return '<li><label class="cap-ditem"><input type="checkbox" data-item="' + i.id + '"' + (i.keep ? ' checked' : '') + '><span>' + esc(i.text) + '</span></label></li>';
+        }).join('') + '</ul></section>';
+      }).join('');
+      return '<h1 class="cap-title" id="cap-rh" tabindex="-1">Here’s how I’d keep it</h1>' + (items.length ? groups : '<p class="meta">There was nothing to do in it, and it’s all kept.</p>') +
+        '<div class="actions cap-ractions"><button type="button" class="btn primary" id="cap-keep" data-dump="keep">Keep these</button>' + back + '<button type="button" class="btn" data-dump="one">Add it as one task</button></div>' +
+        Composer.field({ id: 'cap-change', label: 'Tell Fuzz to change it', rows: 2, placeholder: 'For example: make the dentist a note',
+          tools: Composer.bar({ mic: { for: 'cap-change', label: 'Dictate', id: 'cap-change-mic' }, after: '<button type="button" class="btn small" data-dump="change">Change it</button>' }),
+          typing: [['⌘ Enter', 'Change it'], ['Esc', 'Back to my text']] });
+    }
+    function paintReview() {
+      showReview(true); $('#cap-review').innerHTML = reviewHTML();
+      if (dump.state === 'ready') { Fuzz.say(dump.say || 'I’ve got all of it. Here’s how I’d keep it.', { type: false }); Fuzz.setMood('happy'); var k = $('#cap-keep'); if (k) k.focus(); }
+      else if (dump.state === 'splitting') { Fuzz.setMood('thinking'); Fuzz.say('Reading it now. Nothing is lost.', { type: false }); }
+      else Fuzz.say('I couldn’t sort that one. Your words are safe.', { type: false });
+    }
+    function pollDump() {
+      stopDumpPoll();
+      var id = dump && dump.id, deep = dump && dump.deep;
+      dumpPoll = setInterval(function () {
+        Live.dumpGet(id).then(function (r) {
+          if (!dump || dump.id !== id) return;
+          if (r.state === 'splitting') return;
+          stopDumpPoll();
+          if (deep) {   /* Focus time: no review, the items were made as it came back */
+            dump = null; Live.sync();
+            confirm = r.state === 'committed' ? 'Sorted. It’s in your Focus time.' : 'I couldn’t sort that one. Your words are safe.'; paintSay(); Say.announce(confirm); return;
+          }
+          dump = r; dump.deep = false; paintReview();
+        }, function () { /* a blip: the next poll tries again */ });
+      }, 1200);
+    }
+    function startDump(text) {
+      var deep = !!(window.DeepWorkView && DeepWorkView.active && DeepWorkView.active());
+      Live.dumpStart(text, deep).then(function (r) {
+        offerSeen = false; Dictate.abort();
+        if (deep) { ta.value = ''; draft = ''; sync(); dumpOn = false; paintMode(); dump = { id: r.dump_id, deep: true, state: 'splitting' }; confirm = 'Got it. I’ll put what I find straight into your Focus time.'; paintSay(); Say.announce(confirm); pollDump(); return; }
+        dump = { id: r.dump_id, state: 'splitting', deep: false }; paintReview(); pollDump();
+      }, function (e) { Fuzz.say(e.message, { type: false }); ta.focus(); });
+    }
+    function ticked() { return Array.prototype.map.call($('#cap-review').querySelectorAll('input[data-item]:checked'), function (c) { return +c.dataset.item; }); }
+    function finishDump(r, one) {
+      var n = (r.task_ids || []).length, id = dump && dump.id;
+      dump = null; ta.value = ''; draft = ''; attached = []; dumpOn = false; offerSeen = false; sync(); showReview(false); paintFiles(); paintMode();
+      confirm = one ? 'Captured. It’s waiting in your triage queue.' : n ? 'Kept. ' + (n === 1 ? 'One is' : n + ' are') + ' waiting in your triage queue.' : 'Kept. There was nothing to do in it, and it’s all safe.';
+      paintSay(); paintList(); Say.announce(confirm); Fuzz.pAnim('hop'); Fuzz.checkGlyph(1300); moodFor('happy', 1400); ta.focus();
+      /* The onboarding's first capture can be a dump: the first task it made goes on to the wait, as a typed one does */
+      var first = (r.task_ids || [])[0], made = first && Store.item('t' + first);
+      if (made) Onboard.captured(made);
+      return id;
+    }
+    function reviewClick(e) {
+      var b = e.target.closest('[data-dump]'); if (!b || !dump) return;
+      var what = b.dataset.dump, id = dump.id;
+      if (what === 'back') backToText();
+      else if (what === 'keep') { b.disabled = true; Live.dumpCommit(id, ticked()).then(function (r) { finishDump(r, false); }, function (er) { b.disabled = false; Fuzz.say(er.message, { type: false }); }); }
+      else if (what === 'one') { b.disabled = true; Live.dumpOneTask(id).then(function (r) { finishDump(r, true); }, function (er) { b.disabled = false; Fuzz.say(er.message, { type: false }); }); }
+      else if (what === 'retry' || what === 'change') {
+        var said = what === 'retry' ? 'Try again.' : ($('#cap-change').value || '').trim();
+        if (!said) { $('#cap-change').focus(); return; }
+        Live.dumpRevise(id, said).then(function () { dump.state = 'splitting'; paintReview(); pollDump(); }, function (er) { Fuzz.say(er.message, { type: false }); });
+      }
+    }
+    $('#cap-review').addEventListener('click', reviewClick);
+    $('#cap-review').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.id === 'cap-change') { e.preventDefault(); reviewClick({ target: $('#cap-review [data-dump="change"]') }); } });
+    var modeBtn = $('#cap-dumpmode');
+    if (modeBtn) modeBtn.addEventListener('click', function () { dumpOn = !dumpOn; paintMode(); ta.focus(); });
+    $('#cap-offer').addEventListener('click', function (e) {
+      if (!e.target.closest('#cap-split')) return;
+      dumpOn = true; paintMode(); submit();   /* taking it keeps your text and shows the split */
+    });
+    dumpOn = false; dump = null; offerSeen = false;
+
     function submit() {
       var text = ta.value.trim();
       if (!text && !attached.length) return;
+      if (dumpOn && Live.on()) {
+        if (!text || attached.length || serPick || refs.people.length || refs.links.length || refs.artifacts.length) {
+          Fuzz.say('Dump mode takes only your words. Capture the files and links as a task.', { type: false }); ta.focus(); return;
+        }
+        return startDump(text);
+      }
       var picked = attached.slice(), docs = picked.map(function (f) { return f.name; }), into = serPick, extra = refs;
       if (into && into.start && !text) { Fuzz.say('Say what the series is about first: that note is where Fuzz starts.', { type: false }); ta.focus(); return; }
       var it = Store.capture(text, docs, picked, into, extra);
       serPick = null; refs = emptyRefs();
       Dictate.abort();
-      ta.value = ''; draft = ''; attached = []; paintFiles();
+      ta.value = ''; draft = ''; attached = []; paintFiles(); offerSeen = false; paintOffer();
       confirm = into && into.start ? 'Captured. I’m gathering the series: check it in Triage.' : into ? 'Captured, part of ' + into.name + '.'
         : docs.length ? 'Captured. I’m reading your ' + (docs.length === 1 ? 'document' : 'documents') + ' now.' : 'Captured. It’s waiting in your triage queue.';
       paintSay(); paintList(); ta.focus(); nudge();
@@ -302,6 +425,7 @@
     escKey = function (e) {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
       e.preventDefault();
+      if (dump && !dump.deep) { backToText(); return; }   /* in the review, Esc is back to your words */
       if (plusOpen && panel) { backToList(); return; }   /* in a panel, Esc goes back to the list first */
       if (plusOpen) { closePlus(true); return; }
       /* Escape stops listening first, keeping what was heard */
@@ -313,7 +437,7 @@
   V.unmount = function () {
     document.removeEventListener('keydown', escKey);
     if (outsideClick) document.removeEventListener('click', outsideClick); outsideClick = null;
-    plusOpen = false; panel = null; panelQ = '';
+    plusOpen = false; panel = null; panelQ = ''; clearInterval(dumpPoll); dumpPoll = 0;
     if (docDrag) Object.keys(docDrag).forEach(function (n) { window.removeEventListener(n, docDrag[n]); }); docDrag = null;
     if (unhold) unhold(); unhold = null; Dictate.abort(); listening = false;
     if (unsub) unsub(); unsub = null; clearInterval(timer); clearTimeout(moodTimer); clearTimeout(boredTimer);

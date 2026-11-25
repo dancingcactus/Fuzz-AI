@@ -150,7 +150,7 @@ yet, so treat them as hypotheses until someone with ADHD tries the flow.
 | --- | --- | --- |
 | Fuzz's Triage time task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
 | Calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
-| Dump mode | The New task box takes one task | A toggle on N, a quiet "split it?" offer for multi-line text, a splitter, a review list, and a "kept as a note" path |
+| Dump mode | **Built** (`docs/dump-mode.md`, "As built"): the toggle, the quiet "split it?" offer, the splitter, the review list and notes kept with the dump. In the built flow a dump counts as the first capture | The proposed step 6 itself: Fuzz asking for three things, and handling a dump with no tasks in the wait |
 | Get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
 | "What you can do with a task" (step 7) | The tour covers the Guide, not the action row | One card in Fuzz's words, drawn from the action row in `docs/card-actions.md` |
 | Tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |

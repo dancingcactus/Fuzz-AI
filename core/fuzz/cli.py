@@ -381,9 +381,9 @@ def _cmd_eval(a):
         if not run["gate_ok"]:
             sys.exit(1)
         return
-    if a.op in ("send", "recall"):   # the sender and recall, played through their own tools: invented cases, a model
-        from . import recall_evals, send_evals
-        mod = send_evals if a.op == "send" else recall_evals
+    if a.op in ("send", "recall", "dump"):   # the sender, recall and the dump splitter, played through their own tools: invented cases, a model
+        from . import dump_evals, recall_evals, send_evals
+        mod = {"send": send_evals, "recall": recall_evals, "dump": dump_evals}[a.op]
         run = mod.run(core, repeats=a.repeats or 2, client=a.client, model=a.model, against=a.against, ref=a.base_ref)
         _print(evals.summary(core, run))
         if not run["gate_ok"]:
@@ -797,7 +797,7 @@ def parser():
     s = sub.add_parser("eval", help="evals: list cases, score them, compare two versions head to head, rebaseline after "
                                     "changing the cases, or show a run")
     s.add_argument("op", choices=["seed", "cases", "run", "compare", "rebaseline", "show", "spots", "dupes", "senders", "drafts", "executor",
-                                  "send", "recall", "series", "priority", "copy", "copies", "approve", "reject"])
+                                  "send", "recall", "dump", "series", "priority", "copy", "copies", "approve", "reject"])
     s.add_argument("--history", action="store_true",
                    help="drafts: score the drafts Fuzz already wrote against what you sent, instead of writing new ones")
     s.add_argument("--voice", action="store_true",

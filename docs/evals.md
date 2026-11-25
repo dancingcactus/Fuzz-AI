@@ -20,6 +20,7 @@ than what we had before?**
 | `fuzz eval executor` | Invented tasks in invented worlds: gather, ask, hand back | Yes, 2 repeats |
 | `fuzz eval send` | The sender: the approved words exactly, once, only to the target, or send_failed | Yes, 2 repeats |
 | `fuzz eval recall` | Recall: trust labels in words, both sides of a dispute, "nothing" when there's nothing | Yes, 2 repeats |
+| `fuzz eval dump` | The dump splitter: a messy dump gives few tasks, nothing is lost, personal items stay in, a calm line | Yes, 2 repeats |
 | `fuzz eval series [--try <id>]` | Next steps in a series: invented series, and your answers through the lessons | No |
 | `fuzz eval priority` | What a check-in's answer does to the queue: today's set and its order | No |
 | `fuzz eval copy <case>` / `copies` / `approve <id>` / `reject <id>` | A personal case's invented copy, on its way to the repo | Yes |
@@ -356,6 +357,17 @@ for real (lease and all), and the connectors are stand-ins that record every sen
 `sent_exact` (the body, character for character), `only_to` (every send to just this address, no cc or bcc),
 `sent` (how many sends worked) and `max_calls` (attempts, so an overwrite that errored still counts). Not yet
 covered: replies in a thread, attachments, calendar holds.
+
+### Dump (global, a model)
+
+The splitter's job is a short, honest list (`eval_seeds/dump.json`, `dump_evals.py`, `core/skills/fuzz-split/SKILL.md`,
+`docs/dump-mode.md`). A messy dump gives few tasks, not one per sentence. Nothing the person said is lost. Personal items
+stay in. Something already done is listed as done. A dump of worry may make no tasks. Words in a dump that read like
+instructions are only things the person wrote. A "tell Fuzz to change it" is followed and the rest of the list kept. What
+Fuzz says is calm, with no count, score or "you should". Played through the splitter's own tools (`get_dump`,
+`submit_split`) against a fresh store; nothing is made from a split. Checks beyond the executor's: `cards_between`,
+`items_at_most`, `in_group`, `mentions` and `calm`. The splitter's runs in the app are counted in usage like any role's
+(`runs.usage`); an eval run is not.
 
 ### Recall (global, a model)
 

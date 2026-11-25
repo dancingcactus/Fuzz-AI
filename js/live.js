@@ -867,6 +867,13 @@
     },
     useDemo: function () { pick('demo'); },
     /* Lineup's Open again, for a task that's already in Claude */
+    /* Dump mode (docs/dump-mode.md): the split is a short run and makes nothing; keeping it makes the tasks, in one go */
+    dumpStart: function (text, deepWork) { return api('POST', '/dumps', { text: text, deep_work: !!deepWork }); },
+    dumpGet: function (id) { return api('GET', '/dumps/' + id); },
+    dumpRevise: function (id, instruction) { return api('POST', '/dumps/' + id + '/revise', { instruction: instruction }); },
+    dumpCommit: function (id, accept) { return api('POST', '/dumps/' + id + '/commit', { accept: accept }).then(function (r) { return syncThenRefresh().then(function () { return r; }, function () { return r; }); }); },
+    dumpOneTask: function (id) { return api('POST', '/dumps/' + id + '/one_task', {}).then(function (r) { return syncThenRefresh().then(function () { return r; }, function () { return r; }); }); },
+    dumpDiscard: function (id) { return api('DELETE', '/dumps/' + id).catch(function () {}); },
     /* Deep Work: when the free time you're in ends (your next meeting), from the calendar Fuzz last read */
     deepWorkInfo: function () { return api('GET', '/deepwork'); },
     /* How a Focus time session went, so the block it was in can be judged productive (core/fuzz/rhythm.py) */

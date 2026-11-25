@@ -15,7 +15,7 @@ import sys
 from .db import FuzzError
 
 OPS = {"extract": "run", "dupes": "dupes", "senders": "senders", "draft": "drafts", "executor": "executor",
-       "send": "send", "recall": "recall", "series_suggest": "series", "priority": "priority"}
+       "send": "send", "recall": "recall", "dump": "dump", "series_suggest": "series", "priority": "priority"}
 NO_MODEL = {"dupes", "senders", "series_suggest", "priority"}   # replays: no model to pin
 MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,99}$")   # a model id as a client takes it, one argv item
 PKG_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
