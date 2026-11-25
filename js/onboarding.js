@@ -1,14 +1,18 @@
 /* The onboarding (docs/onboarding.md): from nothing to working a real card, in one short sitting.
 
-   form     name, the app Fuzz works through (installed from here), working hours
-   intro    Fuzz says who he is and what he promises, then asks for one real task (N)
-   wait     the task goes to Fuzz first; meanwhile, the three first tips
+   intro    Fuzz says who he is and what he promises
+   form     name, and the app Fuzz works through (installed from here)
+   how      how Fuzz helps, guilt-free: the three first tips
+   question working hours, as Fuzz's first card in Triage; answering or skipping it goes on
+   capture  Fuzz asks for one real task (N)
+   wait     the task goes to Fuzz first; meanwhile, keep an eye on Triage
    card     the first card, on Triage, with one lesson: Assign, or what Fuzz already did
    checkin  20 minutes to come back to that task: Fuzz puts it on your calendar, or you get a calendar file
    tour     the Guide, one part at a time: Triage, My work, Something else, the menu
    done     one line on what's next, a first read, and setup cards take over
 
-   It's a page (#/welcome), not a locked dialog: the header and Settings stay reachable throughout.
+   It's a page (#/welcome), not a locked dialog. The header, Settings included, stays hidden through intro,
+   form and how, and appears with the Triage question.
    Where you are is kept by the core (GET/PUT /onboarding), so closing the page at any step comes back
    to it. In the demo, Settings > Show me around again runs the intro and tips on the demo data, and
    keeps its place in this browser instead.
