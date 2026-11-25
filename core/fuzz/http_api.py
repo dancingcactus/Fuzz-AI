@@ -471,12 +471,12 @@ class App:
         engine.run_now(core, "split", ask=(str(dump_id), ""))
 
     def dump_start(self, core, m, body, q):
-        """{text, deep_work?}: keep the text and start the split. Poll GET /dumps/<id>. In Focus time the items
-        are made as soon as the split comes back."""
+        """{text, deep_work?, review?}: keep the text and start the split. Poll GET /dumps/<id>. The items are made as
+        soon as the split comes back (a best guess, one Undo takes them back), unless review is set: then it waits for you."""
         if not config.role_engine(core.config, "split")[0]:
             raise FuzzError("Fuzz needs Claude Code or Copilot to split a dump. Set one up in Settings › Engine.",
                             "engine", 409)
-        dump_id = dump.start(core, body.get("text"), deep_work=bool(body.get("deep_work")))
+        dump_id = dump.start(core, body.get("text"), deep_work=bool(body.get("deep_work")), review=bool(body.get("review")))
         self._split_run(core, dump_id)
         return {"dump_id": dump_id}, 202
 

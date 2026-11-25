@@ -7,7 +7,7 @@ read like instructions are only things the person wrote; an instruction to chang
 is kept; and the line Fuzz says is calm, with no counts, scores or "you should".
 
 The harness is the executor's: a fresh store holds the case's dump, and the splitter's own tools (get_dump,
-submit_split) run for real against it. Nothing is made from a split, as in the app.
+submit_split) run for real against it. A case's dump waits for review, so nothing is made from a split.
 
 A case's input: {"text": the dump, "previous"?: [{group, text}] and "instruction"?: what they asked to change}.
 Checks: the executor's (called, not_called) on the record, and, on the split the run handed in,
@@ -44,7 +44,7 @@ def _store(case):
     config_mod.save(home, cfg)
     core = Core(home, 1)
     try:
-        did = dump.start(core, inp["text"])
+        did = dump.start(core, inp["text"], review=True)   # it waits: nothing is made from a case
         if inp.get("previous"):   # the list it made last time, and what the person asked to change
             dump.submit(core, did, inp["previous"])
             dump.revise(core, did, inp.get("instruction") or "Change it.")

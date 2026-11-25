@@ -399,7 +399,8 @@ CREATE TABLE IF NOT EXISTS dumps (   -- what you poured into the New task box in
   user_id INTEGER NOT NULL,
   text TEXT NOT NULL,              -- the raw dump, kept until you delete it
   state TEXT NOT NULL,             -- splitting | ready | failed | committed | undone
-  deep_work INTEGER NOT NULL DEFAULT 0,   -- typed in Focus time: no review, the items go straight in
+  deep_work INTEGER NOT NULL DEFAULT 0,   -- typed in Focus time (a flag the page sets when a session is running)
+  review INTEGER NOT NULL DEFAULT 0,      -- the split waits for you to keep it (off: the items are made as it comes back)
   items TEXT,                      -- Fuzz's split, json [{id, group, text, keep}]; what you ticked once committed
   say TEXT,                        -- one calm line from Fuzz about it
   instruction TEXT,                -- "Tell Fuzz to change it": what you asked for on the last pass
@@ -688,7 +689,8 @@ MIGRATIONS = {"runs": [("usage", "TEXT")],
                             ("seeds_commit", "TEXT"), ("seconds", "REAL"), ("stripped", "INTEGER NOT NULL DEFAULT 0"),
                             ("meta", "TEXT"), ("app_commit", "TEXT"), ("set_hash", "TEXT"), ("judge", "TEXT")],
               "eval_jobs": [("model", "TEXT"), ("lesson_id", "INTEGER")],
-              "lessons": [("eval_note", "TEXT")]}
+              "lessons": [("eval_note", "TEXT")],
+              "dumps": [("review", "INTEGER NOT NULL DEFAULT 0")]}
 
 
 def _migrate(conn):

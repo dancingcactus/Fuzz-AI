@@ -30,7 +30,9 @@ class SplitRuns(CoreCase):
         with mock.patch("fuzz.runner._headless", fake):
             out = runner.run_role(self.core, "split", ask=(str(did), ""))
         self.assertEqual(out["outcome"], "ok")
-        self.assertEqual(dump.view(self.core, did)["state"], "ready")
+        v = dump.view(self.core, did)
+        self.assertEqual((v["state"], len(v["task_ids"])), ("committed", 1), "the split is made at once")
+        self.assertEqual(v["text"], TEXT, "and the original is kept")
         today = usage.daily(self.core, days=1)["days"][0]["clients"]["claude-code"]
         self.assertEqual(today["roles"]["split"]["runs"], 1)
         self.assertEqual(today["roles"]["split"]["measured"], 1)

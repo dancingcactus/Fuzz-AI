@@ -30,9 +30,30 @@ def titles(core):
 
 
 class Dump(CoreCase):
-    def split(self, deep_work=False, items=ITEMS):
-        did = dump.start(self.core, TEXT, deep_work=deep_work)
+    def split(self, deep_work=False, items=ITEMS, review=True):
+        """A dump that waits for review (the verification step, not on the page yet), unless asked otherwise."""
+        did = dump.start(self.core, TEXT, deep_work=deep_work, review=review)
         return did, dump.submit(self.core, did, items, "I've got all of it.")
+
+    def test_by_default_the_split_is_made_into_tasks_at_once_best_guess_with_one_undo(self):
+        did, out = self.split(review=False)
+        self.assertEqual(out["state"], "committed")
+        made = {self.task(t)["title"]: self.task(t)["state"] for t in out["task_ids"]}
+        self.assertEqual(made, {"Send the budget numbers to the finance lead": "triage", "Call the dentist": "triage",
+                                "Learn to bake bread": "parked"})
+        v = dump.view(self.core, did)
+        self.assertEqual((v["state"], v["review"], len(v["task_ids"])), ("committed", False, 3))
+        self.assertEqual(events.check_replay(self.core), [])
+        actions.undo(self.core)
+        self.assertEqual(titles(self.core), [])
+        self.assertEqual(dump.view(self.core, did)["state"], "undone")
+
+    def test_the_original_text_is_stored_whatever_happens_to_the_items(self):
+        did, _ = self.split(review=False)
+        self.assertEqual(self.core.one("SELECT text FROM dumps WHERE id=?", (did,))["text"], TEXT.strip())
+        actions.undo(self.core)
+        self.assertEqual(self.core.one("SELECT text FROM dumps WHERE id=?", (did,))["text"], TEXT.strip())
+        self.assertEqual(self.core.one("SELECT COUNT(*) n FROM dump_items")["n"], 0)
 
     def test_a_dump_is_kept_and_the_split_creates_nothing(self):
         did, out = self.split()
@@ -92,7 +113,7 @@ class Dump(CoreCase):
         self.assertEqual([i["group"] for i in dump.view(self.core, did)["items"]][1], "note")
 
     def test_focus_time_commits_at_once_with_no_review_into_the_session(self):
-        did, out = self.split(deep_work=True)
+        did, out = self.split(deep_work=True, review=True)   # a Focus time dump never waits, even if asked to
         self.assertEqual(out["state"], "committed")
         made = {self.task(t)["title"]: self.task(t)["state"] for t in dump.view(self.core, did)["task_ids"]}
         self.assertEqual(sorted(made.values()), ["deepwork", "deepwork", "parked"])   # a someday thing doesn't join the session
@@ -101,7 +122,7 @@ class Dump(CoreCase):
         self.assertEqual(titles(self.core), [])
 
     def test_a_dump_must_not_become_a_pile_of_cards(self):
-        did = dump.start(self.core, TEXT)
+        did = dump.start(self.core, TEXT, review=True)
         with self.assertRaisesRegex(FuzzError, "At most 40"):
             dump.submit(self.core, did, [{"group": "task", "text": f"Thing {n}"} for n in range(41)])
         self.assertEqual(dump.view(self.core, did)["state"], "splitting")
@@ -109,12 +130,13 @@ class Dump(CoreCase):
     def test_bad_input_is_refused(self):
         with self.assertRaises(FuzzError):
             dump.start(self.core, "   ")
-        did = dump.start(self.core, TEXT)
+        did = dump.start(self.core, TEXT, review=True)
         for bad in ("nope", [{"group": "urgent", "text": "x"}], [{"group": "task", "text": ""}], [5]):
             with self.assertRaises(FuzzError):
                 dump.submit(self.core, did, bad)
         with self.assertRaises(FuzzError):
             dump.commit(self.core, did)   # nothing to keep yet
+        self.assertEqual(titles(self.core), [], "a bad split makes nothing, review or not")
 
     def test_a_split_that_never_comes_is_shown_as_failed_and_can_be_kept_as_one_task(self):
         did = dump.start(self.core, TEXT)
@@ -150,8 +172,9 @@ class Dump(CoreCase):
     def test_a_scripted_split_run_goes_through_the_real_tools(self):
         did = dump.start(self.core, TEXT)
         out = scripted.run_split(self.core, (str(did), ""))
-        self.assertEqual(out["state"], "ready")
+        self.assertEqual(out["state"], "committed")
         self.assertEqual(len(dump.view(self.core, did)["items"]), 5)
+        self.assertEqual(len(dump.view(self.core, did)["task_ids"]), 3)
 
 
 class DumpHttp(Server):
@@ -167,14 +190,23 @@ class DumpHttp(Server):
         did = body["dump_id"]
         self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "splitting")
         dump.submit(core, did, ITEMS, "Here you go.")
+        self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "committed", "made at once: no review by default")
+        self.req("POST", "/undo", {})
+        self.assertEqual([t for t in self.req("GET", "/tasks")[1]["tasks"] if t["state"] != "letgo"], [])
+        # the verification step, for later: a dump started with review waits
+        with mock.patch("fuzz.engine.run_now"):
+            did = self.req("POST", "/dumps", {"text": TEXT, "review": True})[1]["dump_id"]
+        dump.submit(core, did, ITEMS, "Here you go.")
+        self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "ready")
         self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["items"][0]["text"], ITEMS[0]["text"])
-        self.assertEqual(self.req("GET", "/tasks")[1]["tasks"], [])
+        alive = lambda: [t for t in self.req("GET", "/tasks")[1]["tasks"] if t["state"] != "letgo"]   # Undo lets a captured task go
+        self.assertEqual(alive(), [], "a dump that waits makes nothing yet")
         with mock.patch("fuzz.engine.run_now"):   # with an engine set, the new tasks wait for Fuzz to look them up
             status, out = self.req("POST", f"/dumps/{did}/commit", {"accept": [1, 2]})
         self.assertEqual((status, len(out["task_ids"])), (200, 2))
-        self.assertEqual(len(self.req("GET", "/tasks")[1]["tasks"]), 2)
+        self.assertEqual(len(alive()), 2)
         self.req("POST", "/undo", {})
-        self.assertEqual([t for t in self.req("GET", "/tasks")[1]["tasks"] if t["state"] != "letgo"], [])
+        self.assertEqual(alive(), [])
         self.assertEqual(self.req("DELETE", f"/dumps/{did}")[1], {"deleted": did})
         self.assertEqual(self.req("GET", f"/dumps/{did}")[0], 404)
 
@@ -188,7 +220,7 @@ class DumpHttp(Server):
         cfg = core.config
         cfg["engine"]["client"] = "claude-code"
         core.save_config(cfg)
-        did = dump.start(core, TEXT)
+        did = dump.start(core, TEXT, review=True)
         dump.submit(core, did, ITEMS)
         with mock.patch("fuzz.engine.run_now") as run:
             status, _ = self.req("POST", f"/dumps/{did}/revise", {"instruction": "Fewer tasks"})

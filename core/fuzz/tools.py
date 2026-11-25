@@ -608,7 +608,7 @@ def get_dump(core, dump_id):
 
 
 def submit_split(core, dump_id, items, say=None):
-    """Your split of a dump, once. Nothing is created until the person keeps it (or, in Focus time, at once)."""
+    """Your split of a dump, once. It's made into tasks at once (a dump may instead wait for the person's review)."""
     from . import dump
     return dump.submit(core, dump_id, items, say)
 

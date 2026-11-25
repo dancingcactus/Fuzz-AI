@@ -9,10 +9,35 @@
      or about, a message or page Fuzz should read, something Fuzz already made: they join the task's sources. */
   var serPick = null, refs = { people: [], links: [], artifacts: [] }, plusOpen = false, panel = null, panelQ = '', outsideClick = null;
   var found = { people: [], artifacts: null }, findAsk = 0;
-  /* Dump mode (docs/dump-mode.md): a mode of this box. dump is the split in front of you ({id, state, items, say}); the
-     offer is the quiet "This looks like a few things" line, shown at most once for a draft and never over what you're typing. */
-  var dumpOn = false, dump = null, dumpPoll = 0, offerSeen = false;
-  var DUMP_GROUPS = [['task', 'To do'], ['later', 'For later'], ['note', 'To keep'], ['done', 'Already done, or not yours']];
+  /* Dump mode (docs/dump-mode.md): a mode of this box. Sort it out splits what you wrote and adds the tasks, a best guess
+     that one Undo takes back. polls: the sorts still on their way. The offer is the quiet "Looks like a few things" line next
+     to the switch, shown at most once for a draft and never over what you're typing. */
+  var dumpOn = false, polls = {}, offerSeen = false, sortMsg = '', sortAt = 0, ui = null;   /* ui: what the mounted view lets a finished sort do (null when New isn't on screen) */
+  function stopPoll(id) { clearInterval(polls[id]); delete polls[id]; }
+  /* A sort is made as the split comes back, or it fails. The core has the result either way, so the screen reloads from it. */
+  function sortDone(r, deep) {
+    var n = (r.task_ids || []).length, ok = r.state === 'committed';
+    if (ok) {
+      Promise.resolve(Live.sync()).then(function () {
+        /* The onboarding's first capture can be a dump: the first task it made goes on to the wait, as a typed one does */
+        var made = n && Store.item('t' + r.task_ids[0]);
+        if (made) Onboard.captured(made);
+      }, function () { /* the next sync catches up */ });
+    } else if (!draft.trim()) draft = r.text || '';   /* it didn't come: your words go back in the box, if it's empty */
+    sortAt = Date.now();
+    sortMsg = !ok ? 'I couldn’t sort that one. Your words are back in the box.'
+      : n ? 'Sorted. ' + (n === 1 ? 'It’s' : 'They’re') + (deep ? ' in your Focus time.' : ' waiting in Triage.') : 'Sorted. There was nothing to do in it, and it’s all kept.';
+    if (ui) ui.sorted(ok);
+  }
+  function pollDump(id, deep) {
+    polls[id] = setInterval(function () {
+      Live.dumpGet(id).then(function (r) {
+        if (!polls[id] || r.state === 'splitting') return;
+        stopPoll(id);
+        sortDone(r, deep);
+      }, function () { /* a blip: the next poll tries again */ });
+    }, 1200);
+  }
   function lineCount(t) { return String(t || '').split('\n').filter(function (l) { return l.trim(); }).length; }
   function looksLikeAFew(t) { return lineCount(t) >= 3; }
   var PLUS_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -117,7 +142,7 @@
   }
 
   V.mount = function (container, info) {
-    root = container; listening = false; confirm = '';
+    root = container; listening = false; confirm = sortMsg && Date.now() - sortAt < 20000 ? sortMsg : '';   /* a sort that finished as New was drawn again still says so */
     /* The Series page's Start a series: it opens with New series from this already picked */
     var startSeries = !!(info && info.params && info.params.series === 'start');
     if (startSeries) serPick = { start: true };
@@ -132,20 +157,19 @@
         '<h1 id="cap-h" class="cap-title">What is on your mind?</h1>' +
         /* The same box as Tell Fuzz on a Triage card: the field, with + and the mic inside it and what you added
            beside them. The field has focus; while a file is dragged over the page, the box is the drop zone. */
-        '<div id="cap-compose"><div class="cap-drop instr" id="drop"><label class="sr" for="cap-text">New</label>' +
+        '<div class="cap-drop instr" id="drop"><label class="sr" for="cap-text">New</label>' +
           Composer.box({ id: 'cap-text', rows: 4, placeholder: 'For example: send Sam the slides from Tuesday', describedBy: ob && ob.tip ? 'cap-tip' : '',
             tools: Composer.bar({ plus: '<span class="cap-plusrow" id="cap-plusrow">' + plusHTML() + '</span>', mic: { for: 'cap-text', label: 'Dictate', id: 'cap-mic' },
               after: '<ul class="files" id="files" aria-label="Attached documents and the series"></ul>' }),
             typing: [['⌘ Enter', 'Capture'], ['Esc', 'Back']] }) +
           '<div class="cap-dropzone" aria-hidden="true"><b>Drop it here</b><small>Fuzz reads it along with your task.</small></div>' +
           '<input type="file" id="file" multiple hidden></div>' +
-        /* The quiet offer: a reserved line, so it never moves what you're typing. Never takes focus. */
-        '<p class="cap-offer" id="cap-offer" aria-live="polite"></p>' +
+        /* Dump mode's switch, and the quiet offer to its right: a reserved row, so it never moves what you're typing, and it never takes focus */
+        '<div class="cap-modebar">' + (Live.on() ? '<button type="button" role="switch" aria-checked="false" class="cap-switch" id="cap-dumpmode" title="Pour it all out: Fuzz sorts it into tasks and adds them. Undo takes them back."><span class="cap-track" aria-hidden="true"><span class="cap-knob"></span></span><span>Dump mode</span></button>' : '') +
+          '<p class="cap-offer" id="cap-offer" aria-live="polite"></p></div>' +
         (ob && ob.tip && Dictate.supported ? '<p class="cap-tip" id="cap-tip">' + Fuzz.mini('good', { cls: 'tip-fz' }) + '<span>' + esc(ob.tip) + '</span></p>' : '') +
         '<div class="actions cap-actions"><button type="button" class="btn primary" id="cap-go" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Capture</button>' +
-          (Live.on() ? '<button type="button" role="switch" aria-checked="false" class="cap-switch" id="cap-dumpmode" title="Pour it all out: Fuzz splits it into a short list, and nothing is made until you keep it"><span class="cap-track" aria-hidden="true"><span class="cap-knob"></span></span><span>Dump mode</span></button>' : '') +
-          '</div></div>' +
-        '<div id="cap-review" class="cap-review" hidden></div>' +
+          '</div>' +
       '</div></div>' +
       '<section class="recent"><h2>Captured recently</h2><ul class="cap-list" id="cap-list"></ul>' +
         '<p class="fine">Tasks from email, Slack and meetings arrive in triage on their own, so you only need to capture the ones that start in your head.</p></section></section>';
@@ -234,7 +258,7 @@
     function paintList() { $('#cap-list').innerHTML = listHTML(); }
     /* What you've typed survives leaving the page, so Esc never costs you a half-written thought. */
     ta.value = draft;
-    ta.addEventListener('input', function (e) { draft = ta.value; sync(); nudge(); if (confirm) { confirm = ''; paintSay(); } maybeOffer(e); });
+    ta.addEventListener('input', function (e) { draft = ta.value; sync(); nudge(); if (confirm) { confirm = ''; sortMsg = ''; paintSay(); } maybeOffer(e); });
     ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
     function paintSay() { Fuzz.say(confirm || (ob && ob.back ? 'One real thing on your plate. I’m listening.' : IDLE_LINE), { type: false }); }
     /* Mood for a moment, then back to idle (unless something else has changed it since). */
@@ -283,14 +307,14 @@
     mic.addEventListener('click', function () { if (Dictate.active()) Dictate.stop(); else Dictate.start(ta, opts()); });
     unhold = Dictate.hold(function () { return ta; }, opts);
 
-    /* ---- Dump mode */
+    /* ---- Dump mode: Sort it out splits what you wrote and adds the tasks. The words are kept, Undo takes the tasks back. */
     function paintOffer() {
       var o = $('#cap-offer'); if (!o) return;
-      o.innerHTML = offerSeen && !dumpOn && !dump && ta.value.trim() ? '<span>This looks like a few things.</span> <button type="button" class="linkbtn inline" id="cap-split">Split it?</button>' : '';
+      o.innerHTML = offerSeen && !dumpOn && ta.value.trim() ? '<span>Looks like a few things.</span> <button type="button" class="linkbtn inline" id="cap-split">Sort them out?</button>' : '';
     }
     /* It lands with a paste, a line break or dictation, never mid-word, and then it stays until you act or clear the box */
     function maybeOffer(e) {
-      if (!Live.on() || dumpOn || dump) return;
+      if (!Live.on() || dumpOn) return;
       if (!ta.value.trim()) { offerSeen = false; paintOffer(); return; }
       if (offerSeen || !looksLikeAFew(ta.value)) return;
       if (e && e.inputType === 'insertText') return;
@@ -299,96 +323,29 @@
     function paintMode() {
       var b = $('#cap-dumpmode'); if (b) b.setAttribute('aria-checked', String(dumpOn));
       go.lastChild.textContent = dumpOn ? 'Sort it out' : 'Capture';
-      ta.placeholder = dumpOn ? 'Everything on your mind, in any order. I’ll sort it.' : 'For example: send Sam the slides from Tuesday';
+      ta.placeholder = dumpOn ? 'Everything on your mind, in any order. I’ll sort it out.' : 'For example: send Sam the slides from Tuesday';
       paintOffer();
     }
-    function showReview(on) { $('#cap-compose').hidden = on; $('#cap-review').hidden = !on; }
-    function stopDumpPoll() { clearInterval(dumpPoll); dumpPoll = 0; }
-    function backToText() {
-      stopDumpPoll();
-      var old = dump; dump = null; showReview(false); paintMode();
-      if (old && old.id) Live.dumpDiscard(old.id);
-      ta.focus(); paintSay();
-    }
-    function reviewHTML() {
-      var d = dump, back = '<button type="button" class="btn" data-dump="back">Back to my text</button>';
-      if (d.state === 'splitting') return '<h1 class="cap-title">Reading it…</h1><p class="meta">Nothing is lost. Your words are kept just as you wrote them.</p><div class="actions">' + back + '</div>';
-      if (d.state === 'failed') return '<h1 class="cap-title">I couldn’t sort that this time</h1><p class="meta">Your words are safe. ' + esc(d.error || '') + '</p><div class="actions"><button type="button" class="btn primary" data-dump="retry">Try again</button><button type="button" class="btn" data-dump="one">Add it as one task</button>' + back + '</div>';
-      var items = d.items || [];
-      var groups = DUMP_GROUPS.map(function (g) {
-        var rows = items.filter(function (i) { return i.group === g[0]; });
-        return !rows.length ? '' : '<section class="cap-group" aria-labelledby="cap-g-' + g[0] + '"><h2 id="cap-g-' + g[0] + '" class="grp">' + g[1] + '</h2><ul class="cap-ditems">' + rows.map(function (i) {
-          return '<li><label class="cap-ditem"><input type="checkbox" data-item="' + i.id + '"' + (i.keep ? ' checked' : '') + '><span>' + esc(i.text) + '</span></label></li>';
-        }).join('') + '</ul></section>';
-      }).join('');
-      return '<h1 class="cap-title" id="cap-rh" tabindex="-1">Here’s how I’d keep it</h1>' + (items.length ? groups : '<p class="meta">There was nothing to do in it, and it’s all kept.</p>') +
-        '<div class="actions cap-ractions"><button type="button" class="btn primary" id="cap-keep" data-dump="keep">Keep these</button>' + back + '<button type="button" class="btn" data-dump="one">Add it as one task</button></div>' +
-        Composer.field({ id: 'cap-change', label: 'Tell Fuzz to change it', rows: 2, placeholder: 'For example: make the dentist a note',
-          tools: Composer.bar({ mic: { for: 'cap-change', label: 'Dictate', id: 'cap-change-mic' }, after: '<button type="button" class="btn small" data-dump="change">Change it</button>' }),
-          typing: [['⌘ Enter', 'Change it'], ['Esc', 'Back to my text']] });
-    }
-    function paintReview() {
-      showReview(true); $('#cap-review').innerHTML = reviewHTML();
-      if (dump.state === 'ready') { Fuzz.say(dump.say || 'I’ve got all of it. Here’s how I’d keep it.', { type: false }); Fuzz.setMood('happy'); var k = $('#cap-keep'); if (k) k.focus(); }
-      else if (dump.state === 'splitting') { Fuzz.setMood('thinking'); Fuzz.say('Reading it now. Nothing is lost.', { type: false }); }
-      else Fuzz.say('I couldn’t sort that one. Your words are safe.', { type: false });
-    }
-    function pollDump() {
-      stopDumpPoll();
-      var id = dump && dump.id, deep = dump && dump.deep;
-      dumpPoll = setInterval(function () {
-        Live.dumpGet(id).then(function (r) {
-          if (!dump || dump.id !== id) return;
-          if (r.state === 'splitting') return;
-          stopDumpPoll();
-          if (deep) {   /* Focus time: no review, the items were made as it came back */
-            dump = null; Live.sync();
-            confirm = r.state === 'committed' ? 'Sorted. It’s in your Focus time.' : 'I couldn’t sort that one. Your words are safe.'; paintSay(); Say.announce(confirm); return;
-          }
-          dump = r; dump.deep = false; paintReview();
-        }, function () { /* a blip: the next poll tries again */ });
-      }, 1200);
-    }
     function startDump(text) {
-      var deep = !!(window.DeepWorkView && DeepWorkView.active && DeepWorkView.active());
+      var deep = !!(window.DeepWorkView && DeepWorkView.active && DeepWorkView.active());   /* a Focus time session is running */
       Live.dumpStart(text, deep).then(function (r) {
-        offerSeen = false; Dictate.abort();
-        if (deep) { ta.value = ''; draft = ''; sync(); dumpOn = false; paintMode(); dump = { id: r.dump_id, deep: true, state: 'splitting' }; confirm = 'Got it. I’ll put what I find straight into your Focus time.'; paintSay(); Say.announce(confirm); pollDump(); return; }
-        dump = { id: r.dump_id, state: 'splitting', deep: false }; paintReview(); pollDump();
+        offerSeen = false; sortMsg = ''; Dictate.abort(); ta.value = ''; draft = ''; sync(); paintOffer();
+        confirm = 'Sorting it out. Nothing is lost.'; paintSay(); Say.announce(confirm); Fuzz.setMood('thinking'); nudge();
+        pollDump(r.dump_id, deep);
       }, function (e) { Fuzz.say(e.message, { type: false }); ta.focus(); });
     }
-    function ticked() { return Array.prototype.map.call($('#cap-review').querySelectorAll('input[data-item]:checked'), function (c) { return +c.dataset.item; }); }
-    function finishDump(r, one) {
-      var n = (r.task_ids || []).length, id = dump && dump.id;
-      dump = null; ta.value = ''; draft = ''; attached = []; dumpOn = false; offerSeen = false; sync(); showReview(false); paintFiles(); paintMode();
-      confirm = one ? 'Captured. It’s waiting in your triage queue.' : n ? 'Kept. ' + (n === 1 ? 'It’s' : 'They’re') + ' waiting in Triage.' : 'Kept. There was nothing to do in it, and it’s all safe.';
-      paintSay(); paintList(); Say.announce(confirm); Fuzz.pAnim('hop'); Fuzz.checkGlyph(1300); moodFor('happy', 1400); ta.focus();
-      /* The onboarding's first capture can be a dump: the first task it made goes on to the wait, as a typed one does */
-      var first = (r.task_ids || [])[0], made = first && Store.item('t' + first);
-      if (made) Onboard.captured(made);
-      return id;
-    }
-    function reviewClick(e) {
-      var b = e.target.closest('[data-dump]'); if (!b || !dump) return;
-      var what = b.dataset.dump, id = dump.id;
-      if (what === 'back') backToText();
-      else if (what === 'keep') { b.disabled = true; Live.dumpCommit(id, ticked()).then(function (r) { finishDump(r, false); }, function (er) { b.disabled = false; Fuzz.say(er.message, { type: false }); }); }
-      else if (what === 'one') { b.disabled = true; Live.dumpOneTask(id).then(function (r) { finishDump(r, true); }, function (er) { b.disabled = false; Fuzz.say(er.message, { type: false }); }); }
-      else if (what === 'retry' || what === 'change') {
-        var said = what === 'retry' ? 'Try again.' : ($('#cap-change').value || '').trim();
-        if (!said) { $('#cap-change').focus(); return; }
-        Live.dumpRevise(id, said).then(function () { dump.state = 'splitting'; paintReview(); pollDump(); }, function (er) { Fuzz.say(er.message, { type: false }); });
-      }
-    }
-    $('#cap-review').addEventListener('click', reviewClick);
-    $('#cap-review').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.id === 'cap-change') { e.preventDefault(); reviewClick({ target: $('#cap-review [data-dump="change"]') }); } });
+    ui = { sorted: function (ok) {
+      if (!ok && !ta.value.trim()) { ta.value = draft; sync(); maybeOffer(); }
+      confirm = sortMsg; paintSay(); paintList(); Say.announce(confirm);
+      if (ok) { Fuzz.pAnim('hop'); Fuzz.checkGlyph(1300); moodFor('happy', 1400); } else Fuzz.setMood('idle');
+    } };
     var modeBtn = $('#cap-dumpmode');
     if (modeBtn) modeBtn.addEventListener('click', function (e) { dumpOn = !dumpOn; paintMode(); if (e.detail) ta.focus(); });   /* a mouse click goes back to the words; a key press stays on the switch, so Space flips it back */
     $('#cap-offer').addEventListener('click', function (e) {
       if (!e.target.closest('#cap-split')) return;
-      dumpOn = true; paintMode(); submit();   /* taking it keeps your text and shows the split */
+      dumpOn = true; paintMode(); submit();   /* taking it turns the switch on and sorts what you wrote */
     });
-    dumpOn = false; dump = null; offerSeen = false;
+    paintMode();   /* the switch and the offer are as they were: a remount doesn't flip them back */
 
     function submit() {
       var text = ta.value.trim();
@@ -425,7 +382,6 @@
     escKey = function (e) {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
       e.preventDefault();
-      if (dump && !dump.deep) { backToText(); return; }   /* in the review, Esc is back to your words */
       if (plusOpen && panel) { backToList(); return; }   /* in a panel, Esc goes back to the list first */
       if (plusOpen) { closePlus(true); return; }
       /* Escape stops listening first, keeping what was heard */
@@ -437,7 +393,7 @@
   V.unmount = function () {
     document.removeEventListener('keydown', escKey);
     if (outsideClick) document.removeEventListener('click', outsideClick); outsideClick = null;
-    plusOpen = false; panel = null; panelQ = ''; clearInterval(dumpPoll); dumpPoll = 0;
+    plusOpen = false; panel = null; panelQ = ''; ui = null;   /* a sort still on its way finishes without the page, and shows its message the next time New is drawn */
     if (docDrag) Object.keys(docDrag).forEach(function (n) { window.removeEventListener(n, docDrag[n]); }); docDrag = null;
     if (unhold) unhold(); unhold = null; Dictate.abort(); listening = false;
     if (unsub) unsub(); unsub = null; clearInterval(timer); clearTimeout(moodTimer); clearTimeout(boredTimer);

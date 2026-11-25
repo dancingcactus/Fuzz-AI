@@ -56,28 +56,27 @@ const DUMP = 'send the budget numbers to the finance lead\ncall the dentist\nnot
 const live = (tasks) => tasks.filter(t => t.state !== 'letgo');
 const until = async (fn, ms = 90000) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error('timed out'); await new Promise(r => setTimeout(r, 400)); } };
 
-test('a pasted list: the offer, the real split, a review, Keep, and one Undo', { skip: !HAVE_UV && 'needs uv' }, async () => {
+test('a pasted list: the offer, then Sort it out adds the tasks with no review, the original is stored, and one Undo takes them back', { skip: !HAVE_UV && 'needs uv' }, async () => {
   await page.locator('#cap-text').focus();
   await page.evaluate((t) => { const ta = document.getElementById('cap-text'); ta.value = t; ta.dispatchEvent(new InputEvent('input', { inputType: 'insertFromPaste', bubbles: true })); }, DUMP);
   await page.locator('#cap-split').waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'cap-text', 'the offer never takes focus');
   await page.locator('#cap-split').click();
-  await page.locator('#cap-keep').waitFor({ timeout: 90000 });   /* the real run: serve → fuzz run split → the stand-in client → MCP submit_split → the polling */
-  const groups = await page.locator('#cap-review .grp').allTextContents();
-  assert.deepEqual(groups, ['To do', 'For later', 'To keep', 'Already done, or not yours']);
-  assert.deepEqual(live((await api('GET', '/tasks')).tasks), [], 'nothing is made by the split');
-  await page.locator('#cap-review label', { hasText: 'call the dentist' }).locator('input').uncheck();
-  await page.locator('#cap-keep').click();
-  await page.locator('#cap-compose').waitFor({ state: 'visible' });
-  const made = live((await api('GET', '/tasks')).tasks).map(t => [t.title, t.state]).sort();
-  assert.deepEqual(made, [['send the budget numbers to the finance lead', 'triage'], ['someday learn to bake bread', 'parked']]);
-  const row = (await api('GET', '/dumps/1'));
+  /* the real run: serve → fuzz run split → the stand-in client → MCP submit_split → the tasks, made as it comes back */
+  const made = await until(async () => { const t = live((await api('GET', '/tasks')).tasks); return t.length >= 3 && t.map(x => [x.title, x.state]).sort(); });
+  assert.deepEqual(made, [['call the dentist', 'triage'], ['send the budget numbers to the finance lead', 'triage'], ['someday learn to bake bread', 'parked']]);
+  await page.waitForFunction(() => /Sorted\. They’re waiting in Triage/.test(document.getElementById('bubble').textContent), null, { timeout: 30000 });
+  assert.equal(await page.locator('#cap-keep, #cap-review').count(), 0, 'no review step');
+  assert.equal(await page.locator('#cap-text').inputValue(), '', 'the box is clear');
+  const row = await api('GET', '/dumps/1');
   assert.equal(row.state, 'committed');
-  assert.equal(row.text, DUMP, 'the raw dump is kept as written');
-  assert.equal(row.task_ids.length, 2, 'and linked to what it made');
+  assert.equal(row.text, DUMP, 'the original text is stored as written');
+  assert.equal(row.task_ids.length, 3, 'and linked to what it made');
   await api('POST', '/undo', {});
   assert.deepEqual(live((await api('GET', '/tasks')).tasks), [], 'one Undo takes the whole dump back');
-  assert.equal((await api('GET', '/dumps/1')).state, 'undone');
+  const undone = await api('GET', '/dumps/1');
+  assert.equal(undone.state, 'undone');
+  assert.equal(undone.text, DUMP, 'and the original is still stored');
   assert.deepEqual(page.errors, []);
 });
 

@@ -1,13 +1,15 @@
 """Dump mode (docs/dump-mode.md): pour it all out in one box, and Fuzz splits it into a short list.
 
-A dump goes through three steps, and nothing is created until the third:
+A dump goes through three steps:
 
   start()    the raw text is kept (table dumps) and the splitter, a short run of the `split` role, is started
-  submit()   the splitter's answer: items grouped as task, note, later or done. Stored on the dump, nothing else
-  commit()   the items you ticked become tasks, all in one transaction, so one Undo takes the lot back
+  submit()   the splitter's answer: items grouped as task, note, later or done
+  commit()   the items become tasks, all in one transaction, so one Undo takes the lot back
 
-In Focus time there is no review: submit() commits what the splitter found at once, and the tasks go straight
-into the session like any other capture there.
+For now there is no review: submit() commits what the splitter found at once, best guess, and the tasks go to Triage
+(or, with a Focus time session running, into the session) like any other capture. A dump started with review=True
+waits after submit() for you to keep it (commit() with the ids you ticked), change it (revise()) or leave it: that is
+the verification step, built and tested, and not used by the page yet.
 
 The dump and its items are not events (the raw text is the most personal thing Fuzz holds, and you can delete
 it), so what Undo puts back outside the projection is the dump's own state (UNDO_HOOKS: dump.committed).
@@ -44,7 +46,7 @@ def _items(row):
         return []
 
 
-def start(core, text, deep_work=False):
+def start(core, text, deep_work=False, review=False):
     """Keep the text and make the dump; the caller starts the splitter. Returns the dump id."""
     text = (text or "").strip()
     if not text:
@@ -52,8 +54,9 @@ def start(core, text, deep_work=False):
     if len(text) > TEXT_MAX:
         raise FuzzError(f"A dump is at most {TEXT_MAX} characters. Split it into two", "text")
     with core.tx("human"):
-        return core.q("INSERT INTO dumps (user_id, text, state, deep_work, created_at, split_at) VALUES (?,?,?,?,?,?)",
-                      (core.user_id, text, "splitting", 1 if deep_work else 0, core.now_iso(), core.now_iso())).lastrowid
+        return core.q("INSERT INTO dumps (user_id, text, state, deep_work, review, created_at, split_at) VALUES (?,?,?,?,?,?,?)",
+                      (core.user_id, text, "splitting", 1 if deep_work else 0, 1 if review and not deep_work else 0,
+                       core.now_iso(), core.now_iso())).lastrowid
 
 
 def revise(core, dump_id, instruction):
@@ -101,8 +104,8 @@ def _clean(items):
 
 
 def submit(core, dump_id, items, say=None):
-    """The splitter's answer. It's stored and nothing is created, except in Focus time, where it's committed at once.
-    Returns {dump_id, state, items}."""
+    """The splitter's answer. It's made into tasks at once, unless the dump waits for review (then it's only stored).
+    Returns {dump_id, state, items, ...commit's result when it was made}."""
     r = _row(core, dump_id)
     if r["state"] != "splitting":
         raise FuzzError("This dump isn't waiting for a split", "dump_id", 409)
@@ -112,7 +115,7 @@ def submit(core, dump_id, items, say=None):
         core.q("UPDATE dumps SET state='ready', items=?, say=?, error=NULL, split_at=? WHERE id=?",
                (json.dumps(items), say, core.now_iso(), dump_id))
     out = {"dump_id": dump_id, "state": "ready", "items": len(items)}
-    if r["deep_work"]:
+    if not r["review"]:
         out.update(commit(core, dump_id))
         out["state"] = "committed"
     return out
@@ -136,7 +139,7 @@ def view(core, dump_id):
     r = _row(core, dump_id)
     state = _state(core, r)
     linked = {i["id"]: i["task_id"] for i in core.all("SELECT id, task_id FROM dump_items WHERE dump_id=?", (dump_id,))}
-    out = {"id": r["id"], "state": state, "text": r["text"], "deep_work": bool(r["deep_work"]), "say": r["say"],
+    out = {"id": r["id"], "state": state, "text": r["text"], "deep_work": bool(r["deep_work"]), "review": bool(r["review"]), "say": r["say"],
            "instruction": r["instruction"], "created_at": r["created_at"], "items": _items(r),
            "error": r["error"] if state == "failed" else None}
     if state == "failed" and not out["error"]:

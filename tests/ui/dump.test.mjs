@@ -1,5 +1,5 @@
-/* Dump mode on the New box (docs/dump-mode.md): a toggle, a quiet "Split it?" offer that never interrupts, a review
-   of Fuzz's split that makes nothing until you keep it, and Focus time with no review at all.
+/* Dump mode on the New box (docs/dump-mode.md): a switch, a quiet offer to its right that never interrupts, and Sort it
+   out, which splits what you wrote and adds the tasks as a best guess (no review for now; Undo takes them back).
    The core's side is in core/tests/test_dump.py; here the Live calls are stubbed on the demo page.
    Run: cd tests/ui && npm install && npm test */
 import { test, before, after, beforeEach, afterEach } from 'node:test';
@@ -23,12 +23,6 @@ before(async () => {
 });
 after(async () => { await browser?.close(); server?.kill(); });
 
-const SPLIT = {
-  id: 7, state: 'ready', say: 'I’ve got all of it.',
-  items: [{ id: 1, group: 'task', text: 'Send the budget numbers', keep: true }, { id: 2, group: 'task', text: 'Call the dentist', keep: true },
-    { id: 3, group: 'note', text: 'The vendor seems slow lately', keep: true }, { id: 4, group: 'later', text: 'Learn to bake bread', keep: true },
-    { id: 5, group: 'done', text: 'Paid the parking ticket', keep: false }],
-};
 const DUMP = 'send the budget numbers\ncall the dentist\nthe vendor seems slow lately\nsomeday learn to bake bread';
 
 beforeEach(async () => {
@@ -38,18 +32,16 @@ beforeEach(async () => {
   page.errors = errors;
   await page.goto(`http://127.0.0.1:${PORT}/#/triage`);
   await page.locator('#card [data-act]').first().waitFor();
-  await page.evaluate((split) => {
+  await page.evaluate((text) => {
     window.calls = [];
-    window.nextDump = split;
+    window.nextDump = { id: 7, state: 'splitting', text };
     Live.on = () => true;   /* the core's calls are stubbed: the screen is what's under test */
     Live.dumpStart = (t, d) => { calls.push(['start', t, d]); return Promise.resolve({ dump_id: 7 }); };
     Live.dumpGet = () => Promise.resolve(window.nextDump);
-    Live.dumpRevise = (id, said) => { calls.push(['revise', said]); return Promise.resolve({}); };
-    Live.dumpCommit = (id, accept) => { calls.push(['commit', accept]); return Promise.resolve({ task_ids: [11, 12, 13] }); };
-    Live.dumpOneTask = () => { calls.push(['one']); return Promise.resolve({ task_ids: [14] }); };
-    Live.dumpDiscard = () => { calls.push(['discard']); return Promise.resolve(); };
+    window.realSync = Live.sync;
+    Live.sync = () => { calls.push(['sync']); return Promise.resolve(); };
     App.navigate('#/capture');
-  }, SPLIT);
+  }, DUMP);
   await page.locator('#cap-text').waitFor();
 });
 afterEach(async () => { assert.deepEqual(page.errors, []); await page.close(); });
@@ -60,13 +52,14 @@ const paste = (text) => page.evaluate((t) => {
   ta.dispatchEvent(new InputEvent('input', { inputType: 'insertFromPaste', bubbles: true }));
 }, text);
 const calls = () => page.evaluate(() => window.calls);
+const said = () => page.locator('#bubble').textContent();
 
 test('a pasted list shows a quiet offer: no dialog, the cursor stays, and Enter still captures one task', async () => {
   await page.locator('#cap-text').focus();
   assert.equal(await page.locator('#cap-offer').textContent(), '');
   await paste(DUMP);
   await page.locator('#cap-split').waitFor();
-  assert.match(await page.locator('#cap-offer').textContent(), /This looks like a few things/);
+  assert.match(await page.locator('#cap-offer').textContent(), /Looks like a few things/);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'cap-text', 'the offer never takes focus');
   assert.equal(await page.locator('dialog[open]').count(), 0);
   assert.equal(await page.locator('#cap-offer').getAttribute('aria-live'), 'polite');
@@ -74,6 +67,18 @@ test('a pasted list shows a quiet offer: no dialog, the cursor stays, and Enter 
   await page.waitForFunction(() => document.getElementById('cap-text').value === '');
   assert.deepEqual(await calls(), []);
   assert.equal(await page.locator('#cap-offer').textContent(), '', 'and the offer is gone with the text');
+});
+
+test('the offer sits to the right of the switch, on its row, and the row is there before the offer is', async () => {
+  const before = await page.locator('.cap-modebar').boundingBox();
+  await paste(DUMP);
+  await page.locator('#cap-split').waitFor();
+  const after = await page.locator('.cap-modebar').boundingBox();
+  assert.equal(after.height, before.height, 'the offer takes no new space, so nothing under it moves');
+  const sw = await page.locator('#cap-dumpmode').boundingBox();
+  const offer = await page.locator('#cap-offer').boundingBox();
+  assert.ok(offer.x >= sw.x + sw.width, 'to the right of the switch');
+  assert.ok(Math.abs((offer.y + offer.height / 2) - (sw.y + sw.height / 2)) < sw.height / 2, 'on the same row');
 });
 
 test('the offer does not appear while you are typing, or for a short list', async () => {
@@ -93,31 +98,60 @@ test('the offer does not appear while you are typing, or for a short list', asyn
   await page.locator('#cap-split').waitFor();
 });
 
-test('taking the offer shows the split, and nothing is made until you keep it', async () => {
+test('taking the offer sorts it out at once: no review, the box clears, and the tasks are in Triage when it is done', async () => {
   await paste(DUMP);
   await page.locator('#cap-split').click();
-  await page.locator('#cap-keep').waitFor();
+  await page.waitForFunction(() => document.getElementById('cap-text').value === '');
   assert.deepEqual((await calls())[0], ['start', DUMP, false]);
-  const groups = await page.locator('#cap-review .grp').allTextContents();
-  assert.deepEqual(groups, ['To do', 'For later', 'To keep', 'Already done, or not yours']);
-  assert.equal(await page.locator('#cap-review input[data-item]:checked').count(), 4, 'what Fuzz would keep is ticked, the done one is not');
-  assert.equal((await calls()).some(c => c[0] === 'commit'), false);
-  await page.locator('#cap-review [data-item="2"]').uncheck();
-  await page.locator('#cap-keep').click();
-  await page.waitForFunction(() => window.calls.some(c => c[0] === 'commit'));
-  assert.deepEqual((await calls()).find(c => c[0] === 'commit')[1].sort(), [1, 3, 4]);
-  await page.locator('#cap-compose').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#cap-text').inputValue(), '');
-  assert.match(await page.locator('#bubble').textContent(), /Kept\. They’re waiting in Triage/);
+  assert.equal(await page.locator('#cap-keep, #cap-review, [data-dump]').count(), 0, 'nothing to approve: it is a best guess');
+  assert.equal(await page.locator('#cap-dumpmode').getAttribute('aria-checked'), 'true', 'taking it turns the switch on');
+  assert.match(await said(), /Sorting it out/);
+  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', task_ids: [11, 12, 13] }; });
+  await page.waitForFunction(() => /Sorted\. They’re waiting in Triage/.test(document.getElementById('bubble').textContent), null, { timeout: 15000 });
+  assert.ok((await calls()).some(c => c[0] === 'sync'), 'and the screen reloads from the core');
 });
 
-test('in the onboarding, a dump counts as the first capture: its first task goes on to the wait', async () => {
-  await page.evaluate(() => { Store.item = (id) => ({ id, coreId: +id.slice(1) }); Onboard.captured = (it) => { window.calls.push(['onboard', it.id]); return true; }; });
+test('the page drawing New again while it sorts changes nothing: the switch stays on and the result still shows', async () => {
   await paste(DUMP);
   await page.locator('#cap-split').click();
-  await page.locator('#cap-keep').click();
-  await page.waitForFunction(() => window.calls.some(c => c[0] === 'onboard'));
-  assert.deepEqual((await calls()).find(c => c[0] === 'onboard'), ['onboard', 't11']);
+  await page.waitForFunction(() => window.calls.some(c => c[0] === 'start'));
+  await page.evaluate(() => { App.navigate('#/triage'); });   /* away and back: the view is drawn again, as it is when the core syncs */
+  await page.locator('#card [data-act]').first().waitFor();
+  await page.evaluate(() => { App.navigate('#/capture'); });
+  await page.locator('#cap-text').waitFor();
+  assert.equal(await page.locator('#cap-dumpmode').getAttribute('aria-checked'), 'true', 'the switch is as you left it');
+  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', task_ids: [11, 12] }; });
+  await page.waitForFunction(() => /Sorted\. They’re waiting in Triage/.test(document.getElementById('bubble').textContent), null, { timeout: 15000 });
+  await page.evaluate(() => { App.navigate('#/triage'); });   /* and drawn again after it said so: it still says so */
+  await page.locator('#card [data-act]').first().waitFor();
+  await page.evaluate(() => { App.navigate('#/capture'); });
+  await page.locator('#cap-text').waitFor();
+  assert.match(await said(), /Sorted\. They’re waiting in Triage/);
+});
+
+test('with the switch on, the button says Sort it out and does the same', async () => {
+  await page.locator('#cap-dumpmode').click();
+  assert.equal((await page.locator('#cap-go').textContent()).trim(), 'Sort it out');
+  await page.fill('#cap-text', 'ring the dentist\nsend the budget\nbook the room');
+  await page.locator('#cap-go').click();
+  await page.waitForFunction(() => window.calls.some(c => c[0] === 'start'));
+  assert.deepEqual((await calls())[0], ['start', 'ring the dentist\nsend the budget\nbook the room', false]);
+  assert.equal(await page.locator('#cap-dumpmode').getAttribute('aria-checked'), 'true', 'it stays on until you flip it back');
+});
+
+test('a dump with nothing to do says it is all kept', async () => {
+  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', task_ids: [] }; });
+  await paste(DUMP);
+  await page.locator('#cap-split').click();
+  await page.waitForFunction(() => /nothing to do in it, and it’s all kept/.test(document.getElementById('bubble').textContent), null, { timeout: 15000 });
+});
+
+test('a sort that fails puts your words back in the box', async () => {
+  await page.evaluate((text) => { window.nextDump = { id: 7, state: 'failed', text, error: 'Fuzz took too long to split it' }; }, DUMP);
+  await paste(DUMP);
+  await page.locator('#cap-split').click();
+  await page.waitForFunction((t) => document.getElementById('cap-text').value === t, DUMP, { timeout: 15000 });
+  assert.match(await said(), /couldn’t sort that one\. Your words are back in the box/);
 });
 
 test('Dump mode is a switch: it holds where you leave it, and the button says Sort it out while it is on', async () => {
@@ -134,60 +168,27 @@ test('Dump mode is a switch: it holds where you leave it, and the button says So
   assert.equal((await page.locator('#cap-go').textContent()).trim(), 'Capture');
 });
 
-test('Esc in the review goes back to your words and drops the dump', async () => {
-  await page.evaluate(() => { document.getElementById('cap-dumpmode').click(); });
-  await page.fill('#cap-text', DUMP);
-  await page.keyboard.press('Meta+Enter');
-  await page.locator('#cap-keep').waitFor();
-  await page.keyboard.press('Escape');
-  await page.locator('#cap-compose').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#cap-text').inputValue(), DUMP, 'your words are still there');
-  assert.ok((await calls()).some(c => c[0] === 'discard'));
+test('in the onboarding, a dump counts as the first capture: its first task goes on to the wait', async () => {
+  await page.evaluate(() => { Store.item = (id) => ({ id, coreId: +id.slice(1) }); Onboard.captured = (it) => { window.calls.push(['onboard', it.id]); return true; }; window.nextDump = { id: 7, state: 'committed', task_ids: [11, 12] }; });
+  await paste(DUMP);
+  await page.locator('#cap-split').click();
+  await page.waitForFunction(() => window.calls.some(c => c[0] === 'onboard'), null, { timeout: 15000 });
+  assert.deepEqual((await calls()).find(c => c[0] === 'onboard'), ['onboard', 't11']);
 });
 
-test('tell Fuzz to change it runs the split again with your words', async () => {
-  await page.evaluate(() => { document.getElementById('cap-dumpmode').click(); });
-  await page.fill('#cap-text', DUMP);
-  await page.keyboard.press('Meta+Enter');
-  await page.locator('#cap-keep').waitFor();
-  await page.fill('#cap-change', 'Make the dentist a note');
-  await page.keyboard.press('Meta+Enter');
-  await page.waitForFunction(() => window.calls.some(c => c[0] === 'revise'));
-  assert.deepEqual((await calls()).find(c => c[0] === 'revise'), ['revise', 'Make the dentist a note']);
-});
-
-test('a split that fails says your words are safe and offers one task', async () => {
-  await page.evaluate(() => { window.nextDump = { id: 7, state: 'failed', error: 'Fuzz took too long to split it', items: [] }; document.getElementById('cap-dumpmode').click(); });
-  await page.fill('#cap-text', DUMP);
-  await page.keyboard.press('Meta+Enter');
-  await page.locator('[data-dump="one"]').waitFor();
-  assert.match(await page.locator('#cap-review').textContent(), /Your words are safe/);
-  await page.locator('[data-dump="one"]').click();
-  await page.waitForFunction(() => window.calls.some(c => c[0] === 'one'));
-});
-
-test('with a real Focus time session running, New still knows it, so the dump goes in with no review', async () => {
+test('with a real Focus time session running, New still knows it, so the dump goes in as Focus time work', async () => {
   /* nothing about the session is stubbed: the session survives a visit to another page, and so does active() */
-  await page.evaluate(() => App.navigate('#/deepwork'));
+  await page.evaluate(() => { Live.sync = window.realSync; App.navigate('#/deepwork'); });   /* the Guide uses the page's own sync */
   await page.locator('#dw-go').click();
   await page.locator('#dw-step').waitFor();
   await page.keyboard.press('n');
   await page.locator('#cap-text').waitFor();
+  await page.evaluate(() => { Live.sync = () => { calls.push(['sync']); return Promise.resolve(); }; });
   assert.equal(await page.evaluate(() => DeepWorkView.active()), true, 'the session is still running on New');
-  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', items: [] }; });
+  await page.evaluate(() => { window.nextDump = { id: 7, state: 'committed', task_ids: [11] }; });
   await paste(DUMP);
   await page.locator('#cap-split').click();
   await page.waitForFunction(() => document.getElementById('cap-text').value === '');
   assert.deepEqual((await calls())[0], ['start', DUMP, true]);
-  assert.equal(await page.locator('#cap-keep').count(), 0);
-});
-
-test('in Focus time there is no review: the words go in, and the box clears', async () => {
-  await page.evaluate(() => { window.DeepWorkView = Object.assign({}, window.DeepWorkView, { active: () => true }); window.nextDump = { id: 7, state: 'committed', items: [] }; });
-  await paste(DUMP);
-  await page.locator('#cap-split').click();
-  await page.waitForFunction(() => document.getElementById('cap-text').value === '');
-  assert.deepEqual((await calls())[0], ['start', DUMP, true]);
-  assert.equal(await page.locator('#cap-keep').count(), 0, 'no review in Focus time');
-  await page.waitForFunction(() => /Sorted/.test(document.getElementById('bubble').textContent));
+  await page.waitForFunction(() => /Sorted\. It’s in your Focus time/.test(document.getElementById('bubble').textContent), null, { timeout: 15000 });
 });
