@@ -190,7 +190,8 @@ class DumpHttp(Server):
         did = body["dump_id"]
         self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "splitting")
         dump.submit(core, did, ITEMS, "Here you go.")
-        self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "committed", "made at once: no review by default")
+        with mock.patch("fuzz.engine.run_now"):
+            self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "committed", "made at once: no review by default")
         self.req("POST", "/undo", {})
         self.assertEqual([t for t in self.req("GET", "/tasks")[1]["tasks"] if t["state"] != "letgo"], [])
         # the verification step, for later: a dump started with review waits
@@ -209,6 +210,23 @@ class DumpHttp(Server):
         self.assertEqual(alive(), [])
         self.assertEqual(self.req("DELETE", f"/dumps/{did}")[1], {"deleted": did})
         self.assertEqual(self.req("GET", f"/dumps/{did}")[0], 404)
+
+    def test_the_tasks_a_dump_makes_are_handed_to_fuzz_to_process_as_a_typed_one_is(self):
+        core = self.srv.app.core(1)
+        cfg = core.config
+        cfg["engine"]["client"] = "claude-code"
+        core.save_config(cfg)
+        with mock.patch("fuzz.engine.run_now"):
+            did = self.req("POST", "/dumps", {"text": TEXT})[1]["dump_id"]
+        with mock.patch("fuzz.engine.run_now") as run:
+            self.req("GET", f"/dumps/{did}")
+            self.assertEqual(run.call_count, 0, "nothing to process while it's still being split")
+        dump.submit(core, did, ITEMS, "Here you go.")
+        with mock.patch("fuzz.engine.run_now") as run:
+            self.assertEqual(self.req("GET", f"/dumps/{did}")[1]["state"], "committed")
+            self.assertEqual([c.args[1] for c in run.call_args_list], ["executor"], "Fuzz starts on the new tasks")
+            self.req("GET", f"/dumps/{did}")
+            self.assertEqual(run.call_count, 1, "and polling again doesn't start it twice")
 
     def test_no_engine_means_no_dump_and_nothing_is_kept(self):
         status, err = self.req("POST", "/dumps", {"text": TEXT})

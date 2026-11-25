@@ -67,6 +67,10 @@ The New task box has a **Dump mode** switch (Live only: the split needs the core
 - **The tasks are made as the split comes back,** in one transaction with one `dump.committed` event, so one Undo takes
   the whole dump back. Tasks go to Triage, a "later" item is parked, a note or a done item is only kept with the dump.
   Undo returns the dump to "undone".
+- **Fuzz then processes each task.** The split runs in its own process, so the server starts the executor when the page
+  polls and finds the dump committed (`GET /dumps/<id>`), the same kick a typed capture gets: each new task is gathered
+  and reaches Triage with its brief. A Focus time dump skips it, as a Focus time capture does. If the page is closed, the
+  clock's retry (about three minutes) starts it.
 - **The original text is stored** in the `dumps` table (not an event), whatever happens to the items, and each item that
   made a task is in `dump_items`, linked back to it (`dump.for_task`). Nothing on the page shows it.
 - **The page** sends the text, clears the box, says "Sorting it out. Nothing is lost.", and polls. Then it says "Sorted.

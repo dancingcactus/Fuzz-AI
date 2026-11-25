@@ -482,7 +482,12 @@ class App:
 
     def dump_get(self, core, m, body, q):
         with core.reading():
-            return dump.view(core, int(m.group(1)))
+            out = dump.view(core, int(m.group(1)))
+            if out["state"] == "committed" and not out["deep_work"]:
+                # The split ran in its own process, so nothing here saw the tasks made: start Fuzz on them now, as a
+                # typed capture does (throttled, and a no-op when none waits to be gathered)
+                kick_executor(self, core)
+        return out
 
     def dump_revise(self, core, m, body, q):
         dump_id = dump.revise(core, int(m.group(1)), body.get("instruction"))
