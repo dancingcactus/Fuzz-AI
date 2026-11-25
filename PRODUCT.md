@@ -14,7 +14,7 @@ Knowledge workers with ADHD, or with heavy executive-function load. Their work a
 
 Fuzz is an agentic task partner. It turns incoming asks into one card at a time, suggests the next move, and does the work itself (research, drafting, actions) in the background, coming back for approval or a decision. Success means the user clears their queue without dread, starts things easily, and trusts what Fuzz did on their behalf.
 
-This repository is a clickable, no-build demo with invented data. Its current job is **design refinement**: settling the UX and visual design before a real product is built. The AI work, dictation, attachments, source linking and "Work in Claude" are all simulated (see README "What is simulated").
+This repository is a clickable, no-build demo with invented data. Its current job is **design refinement**: settling the UX and visual design before a real product is built. The AI work, dictation, attachments, source linking and "Work in Claude" are all simulated (see `docs/reference.md`, "What is simulated").
 
 ## Positioning
 
@@ -33,7 +33,7 @@ Fuzz is an execution partner, not a list. "Hand it to Fuzz" is the primary actio
 - Human approval is required for anything that cannot be undone (drafts wait for "Approve and send"); every change has Undo.
 - Tasks keep thin records: a reference list of sources and the extracted ask, never the whole message.
 - Time is described in human terms ("when I'm back at my desk", "before the planning review"); exact time is the fallback. No red overdue counts: past due reads "past its time".
-- The Agentic Operating System principles (numbered 1–18 in the README) describe the current intent. The user has not made them binding; treat them as strong guidance, not law.
+- The Agentic Operating System principles (numbered 1–18 in `docs/principles.md`) describe the current intent. The user has not made them binding; treat them as strong guidance, not law.
 - The no-build static HTML/CSS/JS shape is current practice, not a commitment.
 - Undecided: the real product's stack, integrations (email, Slack, meetings, Claude), and accounts or multi-user scope.
 
@@ -45,7 +45,7 @@ Fuzz is an execution partner, not a list. "Hand it to Fuzz" is the primary actio
 ## Evidence on Hand
 
 - All demo tasks, people and content in `js/data.js` are invented. There are no real users, testimonials, metrics or customer data; do not fabricate any.
-- Source design artifacts referenced by the README: Triage Queue Mockup, Fuzz Triage, Warm Theme System, Task matching doc. A matcher spike lives in `spikes/task-matching/`.
+- Source design artifacts referenced by `docs/reference.md`: Triage Queue Mockup, Fuzz Triage, Warm Theme System, Task matching doc. A matcher spike lives in `spikes/task-matching/`.
 
 ## Product Principles
 

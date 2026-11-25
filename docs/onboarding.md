@@ -1,65 +1,28 @@
 # Onboarding: requirements
 
-Status: built, steps 1 to 6 of the order of work, in `js/onboarding.js`, `core/fuzz/onboarding.py`,
-`install.sh` and `docs/fuzz-tone.md`. Step 7, trying it with someone who has ADHD, hasn't happened, and the
-tip wording hasn't been reviewed by someone qualified in ADHD yet. The code facts below were checked
-against `claude/ask-me-later` at `895ecd3`.
+Status: the current flow is built, in `js/onboarding.js`, `core/fuzz/onboarding.py`, `install.sh` and
+`docs/fuzz-tone.md`. Nobody with ADHD has tried it yet, and the tip wording hasn't been tried with real users.
+
+A new flow (Triage time first, then Dump mode) is proposed under [Proposed changes](#proposed-changes); everything else
+in this document describes what's built today, until that flow replaces it.
 
 ## Goal
 
 A new user goes from nothing to working a real card, in the browser, in one short sitting. On the way
-Fuzz introduces himself, sets up what he needs, and teaches how to be effective with ADHD.
+Fuzz introduces himself, sets up what he needs, and teaches practices for getting things done.
 
 This replaces the old four-step guided setup (`js/setup.js`, now removed) as the first-run experience.
 Changing anything later happens on the Settings page (`#/settings`, see "As built").
 
-## The flow
+## Proposed changes
 
-1. **One paste.** A single command, copied from the README, installs the core, initialises it, starts `fuzz serve` and
-   opens the browser, already signed in. The user never copies a token or opens a log file, and never
-   goes back to the terminal.
-2. **A short form.** Name, app (Claude or Copilot) and working hours. These are the only things asked
-   before Fuzz has done anything.
-   - The app Fuzz finds on the Mac is highlighted. Choosing one installs Fuzz for it in the background.
-   - Working hours include weekends and "no fixed hours". Fuzz reads for new asks during these hours.
-   - See [When the app isn't ready](#when-the-app-isnt-ready).
-3. **Fuzz introduces himself.** Who he is and what his job is, in his own tone, in a few lines. This
-   includes the trust promise: nothing goes out without a yes, and everything has Undo.
-4. **Press N.** Fuzz asks them to press N and enter one real task, nudging towards something he can
-   write or think through, since he has no lookup tools yet. The New task screen shows the dictation
-   tip. Anyone using a mouse can use the New task button.
-5. **Tips during the wait.** A captured task goes to Fuzz before it reaches Triage, so there's a real
-   wait. Fuzz uses it for the three [first tips](#first-tips). The tips can be ignored.
-6. **The first card.** When the task is ready, Fuzz says so and waits until the user is ready. He then
-   walks them through that one decision, teaching only the action that fits. A captured task can land
-   two ways, and both need a path:
-   - **As a normal card:** Fuzz teaches Assign.
-   - **Already done,** when looking it up was the whole job: Fuzz shows what he did.
-7. **A check-in on that task.** Twenty minutes to come back to it, once, at a time the user picks.
-   Fuzz puts it on their calendar when he has a calendar tool to send with; otherwise it's a calendar
-   file to open. Not now skips it.
-8. **The Guide, one part at a time.** Fuzz points at Triage, Something else, New task and the menu,
-   with a line on each, so the user knows where to start next time.
-9. **What's next.** One line saying that Fuzz only knows what they type until a source is connected.
-   The onboarding ends here, Fuzz runs a first read, and setup cards take over.
+The first sitting and what follows are being redesigned. Each is a hypothesis, kept in its own document:
 
-The first read must use Run now. Scheduled reading stops outside working hours, so a user setting up on
-a Saturday would otherwise see nothing until Monday.
-
-### When the app isn't ready
-
-Fuzz can only use a client that passes its check, and install has to finish before the first task. So
-choosing an app has three outcomes:
-
-- **Ready:** Fuzz carries on.
-- **Installed but has a problem:** Fuzz repairs it, or says what to do.
-- **Neither yet:** Fuzz gives a link to get one and offers Demo data, so the user isn't stuck.
-
-### Interruptions
-
-Closing the page at any step keeps everything. Coming back resumes at the same step. Anyone can skip
-the intro, and people who have already set up never see it. Settings has **Show me around again**, for
-the intro and the tips.
+- [`onboarding-flow.md`](onboarding-flow.md): the proposed first sitting, from the paste to the hand-over, in 11 steps.
+- [`dump-mode.md`](dump-mode.md): the New task box as a place to get everything out of your head.
+- [`slow-reveal.md`](slow-reveal.md): the practices Fuzz teaches after the first sitting, one at a time.
+- [`pointing.md`](pointing.md): how Fuzz points at the control the user needs next, and says why.
+- [What needs building](#what-needs-building-the-proposed-flow) lists the work across all four.
 
 ## What Fuzz teaches
 
@@ -71,7 +34,7 @@ These three are the only tips in the onboarding itself:
    where to start. (This used to ask for a recurring daily slot on the calendar; since the Guide, the
    only calendar ask is the one check-in on the first task, after its card.)
 2. **Don't be afraid to ask Fuzz to change things, or to send a task back to him as often as you
-   like.** On a draft, E asks for a change. On other cards, E (Tell Fuzz) opens the card's box. Fuzz repeats
+   like.** On a draft, Tell Fuzz (E) asks for a change. On other cards, Tell Fuzz (E) opens the card's box. Fuzz repeats
    this on their first draft.
 3. **Missing a session loses nothing.** Nothing is lost, and stopping at 20 minutes with cards left is
    fine. This one matters most, because it stops the appointment becoming one more thing to fail at.
@@ -84,7 +47,7 @@ Each is said once, when it first becomes relevant, by Fuzz, in a line or two:
 | --- | --- |
 | Hold Option + Space to dictate | On the first New task screen |
 | Press T to park a stray thought | On the first card |
-| Everything has Undo | After their first action |
+| What you do in Fuzz can be undone | After their first action |
 | Say how you're doing, and the queue changes to match | At the first check-in |
 | Letting something go is a real outcome | On the first stale card |
 | Schedule in human terms, like "when I'm back at my desk" | The first time they open Schedule |
@@ -93,8 +56,8 @@ Each is said once, when it first becomes relevant, by Fuzz, in a line or two:
 
 ### How to word them
 
-- Say "helps a lot of people", not "proven". Evidence varies by strategy.
-- Someone qualified in ADHD reviews the lines before they ship.
+- Fuzz is opinionated. He says how he works, as a fact, and doesn't cite evidence or name a condition.
+- Say what he did and why it's useful, not what technique it is.
 - No medical advice, and no assumption of a diagnosis. `PRODUCT.md` also includes people with heavy
   executive-function load.
 
@@ -104,10 +67,10 @@ Each is said once, when it first becomes relevant, by Fuzz, in a line or two:
 | --- | --- | --- |
 | Name | Form | Typed |
 | App (Claude or Copilot) | Form | Pick one; the installed one is highlighted |
-| Working hours | Form | Hours, weekends, or no fixed hours |
+| Working hours | Fuzz's first question, a card in Triage | Your usual hours, every day, no fixed hours, or a picker |
 | Lookup source | First setup card | The first connector, in plain words |
 | Output folder | Setup card | One-tap yes to `~/Documents/Fuzz`, because it's a real permission |
-| Colour theme | Light card a few days in | One tap with a live preview |
+| Colour theme | Step 7, in the wait (today: a light card a few days in) | One tap with a live preview |
 | Send tools | When the first draft is approved | Never pre-ticked |
 | Other emails, Slack ID | When a connector shows an address Fuzz doesn't know | Never asked up front |
 | Calm mode, high contrast, appearance, code font | Not asked | Stay in Settings |
@@ -122,19 +85,24 @@ on.
 Everything after the form arrives as a card in the queue:
 
 - There is only ever one setup card at a time, and it comes after real work.
-- The order is lookup source, then output folder, then colour theme.
+- The order is lookup source, then output folder, then colour theme. (In the proposed flow the theme is asked at step 7,
+  and only comes back here if skipped.)
 - "Not now" means it. The card goes away quietly and comes back at most once. It never builds up.
 - Answering one counts as progress. Ignoring one never counts against them.
 - The lookup source card leaves the browser, because connectors sign in through Claude or Copilot. It
-  needs principle 5 most: instructions that stay visible, and a way back.
+  needs onboarding principle 5 most: instructions that stay visible, and a way back.
 
-## Principles
+## Onboarding principles
 
-These add to the Product Principles in `PRODUCT.md` and the numbered principles in the README, and
-don't replace them.
+These add to the Product Principles in `PRODUCT.md` and the numbered principles in `docs/principles.md`, and
+don't replace them. When this doc says "principle N", it means these; the app-wide ones are named "app principle N".
+The closest pairs: onboarding 11 (talk about the strategy, not the person) and app principle 11 (no shame spirals), and
+the Safe idea in [the arc](onboarding-flow.md#the-arc) and app principle 6 (humans approve what can't be undone, and every change has Undo).
 
 1. **Show value before asking for effort.** Interest is the fuel, and first-session novelty burns off
-   fast. *Test:* after the form, the next thing they do is hand Fuzz something real.
+   fast. *Test:* before the user hands over anything of their own, Fuzz has shown he takes work off their plate
+   (step 5, his own task, with a calendar event to show for it). The first real thing they give him is theirs: their
+   words through New (step 6), or what the extractor finds (step 10). It is never something Fuzz made up for them.
 2. **Ask only what Fuzz can't work out.** A blank field means recalling or fetching something, and
    leaving the app to do that can end the session. *Test:* no step needs a trip to another app to look
    something up.
@@ -157,14 +125,16 @@ don't replace them.
 9. **One paste, then the browser.** Every terminal step is a place to stall. *Test:* the user never
    returns to the terminal, copies a token or opens a log file.
 10. **Teach by doing, one idea at a time.** A strategy tried on your own real task can stick. Each
-    tip is one sentence from Fuzz, attached to what's happening then, with the longer why folded away.
+    tip is one sentence from Fuzz, attached to what's happening then, and the sentence says how it helps. There's
+    no folded-away "why".
     *Test:* removing every tip wouldn't add a step, and skipping them costs nothing.
 11. **Talk about the strategy, not the person.** Advice can sound like "you've been doing it wrong",
     and shame is what Fuzz exists to avoid. *Test:* each line reads fine to someone who is tired,
     undiagnosed or already knows all this.
 12. **Fuzz introduces himself by working.** A tour spends the user's early interest and proves
     nothing. The intro is always calm, with no flashes or gags, and the normal lively default starts
-    after it. *Test:* someone can skip every word and still know Fuzz takes work off their plate.
+    after it. *Test:* someone can skip every word and still know Fuzz takes work off their plate, because step 5
+    shows it.
 13. **Settings arrive as cards, when they'd pay off.** A settings tour means decisions with no
     experience to base them on. *Test:* each question either changes something on screen or tells the
     user what Fuzz may now do.
@@ -174,35 +144,28 @@ Everything comes from Fuzz, in his tone, and Calm mode is respected, as `PRODUCT
 These principles come from common ADHD traits and the code, not from testing. There are no real users
 yet, so treat them as hypotheses until someone with ADHD tries the flow.
 
-## What needs building
+## What needs building (the proposed flow)
 
 | Need | Today | Work |
 | --- | --- | --- |
-| Tone guide for Fuzz's writing | Lines scattered through the UI | Write it first; the intro and tips depend on it |
-| One-paste bootstrap | Four commands, then a token link | A script that does it all and opens the browser signed in, with the command in the README |
-| Install from the browser | `POST /engine/clients/{client}/install` exists; the UI doesn't call it | UI only, but see below |
-| Choosing the app | `PUT /engine` exists; the UI doesn't call it | UI only |
-| Repairing a client | The `repair` action exists; the UI doesn't call it | UI only |
-| Working hours | `extract.hours` and `extract.weekends` in config, no route | A small backend route |
-| First read | `POST /engine/run` with role `extractor` | Call it at the end of the flow |
-| Calendar file | Nothing | Generate an `.ics` in the browser |
-| Setup cards | Nothing; check-ins and permission cards are the precedent | A new card type |
-| Identity from a connector | Nothing | Needed before Slack IDs and other emails can stay unasked |
-| Resume and Show me around again | Reopening setup starts at step 1; closing it stops it reopening | Saved progress, and a Settings entry |
-| First-card walkthrough | Nothing | Both landing paths |
-
-**Installing restarts the server.** `fuzz install` reloads the launchd jobs, including the `fuzz serve`
-that would be handling the request. The page has to survive that and reconnect.
+| Fuzz's Triage time task | Nothing; the 20-minute check-in is the nearest | A first task Fuzz owns, explained as Triage time, ending in a recurring event or a repeating calendar file |
+| Calendar check branch | The kickoff task asks per source | A calendar-only check, shown only when access is missing |
+| Dump mode | The New task box takes one task | A toggle on N, a splitter, a review list, and a "kept as a note" path |
+| Get-to-know-you cards (step 7) | Setup cards carry output folder and colour theme only | Two question cards (what gets in your way; how Fuzz should write), the theme card moved earlier, and a way to keep unanswered ones from delaying step 8 |
+| "What you can do with a task" (step 7) | The tour covers the Guide, not the action row | One card in Fuzz's words, drawn from the action row in `docs/card-actions.md` |
+| Tour after the dump | The tour follows the first card | Move the step, and handle a dump with no tasks |
+| Pointers that say why | `spotlight()` and `pointerHTML()` in `js/onboarding.js` ring New and the Triage label, with a one-word pill | A target given by element and a caption (title, sentence, Fuzz face, bubble tail) instead of two hard-coded targets; see [Pointing at things](pointing.md) |
+| Tips without the fold | Each of the three first tips has "Why this helps" folded away | Drop the fold. Each tip is one line from Fuzz that says how it helps |
+| Later and Book time offered by Fuzz's judgment | Offered on the card, always | A rule for when a card suits each, and a pointer the first time |
+| First dump cards chosen to fit what's taught | The first card is the one the user captured | A rule for ordering the first cards, so Assign or Tell Fuzz is the natural move and Later or Book time isn't shown yet |
 
 ## Order of work
 
-1. Write the tone guide.
-2. Build the one-paste bootstrap and browser sign-in.
-3. Build the form, including the install path, its three outcomes and the restart.
-4. Build the intro, New task step, tips and first card.
-5. Build the calendar file.
-6. Build setup cards and later tips.
-7. Try the flow with someone who has ADHD.
+The current flow is built: the tone guide, the one-paste bootstrap, the form with install and repair, the intro and
+tips, the first card, the calendar file, setup cards and later tips. Next, in this order:
+
+1. Try the current flow with someone who has ADHD.
+2. Build the proposed flow from the table above.
 
 ## As built
 
@@ -231,7 +194,8 @@ that would be handling the request. The page has to survive that and reconnect.
   hidden. The three first tips are told as what Fuzz does: one queue he helps you prioritize, so a
   short stretch is enough and the Guide asks where to start; he collects each task's context and resources in
   one place; he keeps things up to date while you're away (and doesn't keep score). Each has "Why this helps"
-  folded away, and Got it (Enter) moves on.
+  folded away, and Got it (Enter) moves on. (The proposed flow drops the fold: each tip is one line that says how it
+  helps. See the build table.)
 - **Fuzz is there in full** on each onboarding page: the jointed body, greeting once and then resting.
   He waves on the intro, leans in for the questions, hops (then rests caring) on how he helps, clacks
   his claw on "All set", works through papers during the wait, and does a ta-da (jazz hands if it's
@@ -283,4 +247,24 @@ Not built yet:
   draft back when no send tools are allowed. The guided setup in Settings picks them.
 - **Identity from a connector.** Other emails and Slack IDs are no longer asked up front, but nothing reads
   them from a connector yet, so they still come from Settings › About you or `fuzz me add`.
-- **Step 7.** No one with ADHD has tried the flow, and the tips haven't had the qualified review.
+- **Trying it with someone who has ADHD.** No one has tried the flow, and the tip wording hasn't been tried with real users.
+
+### The first read
+
+The first read uses Run now. Scheduled reading stops outside working hours, so someone setting up on a Saturday
+would otherwise see nothing until Monday.
+
+### When the app isn't ready
+
+Fuzz can only use a client that passes its check, and install has to finish before the first task. So
+choosing an app has three outcomes:
+
+- **Ready:** Fuzz carries on.
+- **Installed but has a problem:** Fuzz repairs it, or says what to do.
+- **Neither yet:** Fuzz gives a link to get one and offers Demo data, so the user isn't stuck.
+
+### Interruptions
+
+Closing the page at any step keeps everything. Coming back resumes at the same step. Anyone can skip
+the intro, and people who have already set up never see it. Settings has **Show me around again**, for
+the intro and the tips.
