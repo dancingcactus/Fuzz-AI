@@ -111,7 +111,11 @@ def options(core, t, now=None):
     if none of the best few is tomorrow, the best one tomorrow takes the last place."""
     now = now or core.now()
     cal = calendar(core)
-    every = fuzz_times(core, t, now) if cal is None else ranked(core, t, cal, now)
+    every = ranked(core, t, cal, now) if cal is not None else []
+    if not every:
+        # No calendar, an old report, or nothing free in it: Book time still offers Fuzz's own times,
+        # so a task can always be booked (the hold card or ICS then puts it on the calendar)
+        every = fuzz_times(core, t, now)
     out = every[:OPTIONS]
     tz = timeres.local_tz(core)
     tomorrow = now.astimezone(tz).date() + timedelta(days=1)
@@ -144,7 +148,7 @@ def calendar(core):
 
 def free_until(core, now=None):
     """When the free time you're in now ends, from the calendar the executor last reported: the start of your next
-    meeting, for Deep Work's "Until 2pm". None when there's no report, or now isn't in a reported free slot."""
+    meeting, for Focus time's "Until 2pm". None when there's no report, or now isn't in a reported free slot."""
     cal = calendar(core)
     now = now or core.now()
     for s in (cal or {}).get("slots") or []:
@@ -403,7 +407,7 @@ def tick(core):
                 missed = (t.get("missed_blocks") or 0) + 1
                 again = missed >= 2   # repeated misses: it keeps coming back
                 ch.task(t["id"], missed_blocks=0 if again else missed, order_key=tasks.next_order(core),
-                        variant_tags=tasks._tags(t, add=("put_off",) if again else ("missed_block",), remove=("doing", "block")),
+                        variant_tags=tasks._tags(t, add=("put_off",) if again else ("missed_block",), remove=("block",)),
                         reason=tasks.PUT_OFF_REASON if again else "The block for this went by. Find another time?")
                 events.emit(core, "task.block_missed", task_id=t["id"], changes=ch, data={"missed": missed},
                             log=("status", "The block for this went by without it."))
@@ -476,7 +480,7 @@ CHECKIN_MINUTES = 20
 
 
 def checkin_link(core, t, end):
-    """Where a check-in opens: the task on the Guide when it's yours to work on (My work), else Triage,
+    """Where a check-in opens: the task on the Guide when it's yours to work on (Focus time), else Triage,
     where Fuzz brings back what it found. Either way the time is set to the check-in's end."""
     base = (_bcfg(core).get('ui_url') or 'http://127.0.0.1:8765/').rstrip('/')
     until = f"?until={end.astimezone(timeres.local_tz(core)).strftime('%H:%M')}"

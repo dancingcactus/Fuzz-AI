@@ -24,12 +24,12 @@ MOVES = {
     # approved: Fuzz's sender sends it with its own connectors, or it comes back to review if it can't
     "sending": {"done", "waiting", "review", "triage", "letgo", "merged"},
     "session": {"done", "triage", "queued", "parked", "letgo", "scheduled", "waiting", "merged"},
-    # deepwork: yours, and it takes real time, so it waits for a Deep Work session instead of Triage
+    # deepwork: yours, and it takes real time, so it is in a Focus time session: it comes in when you start and leaves when you wrap up
     "deepwork": {"done", "triage", "queued", "parked", "letgo", "session", "scheduled", "waiting", "merged"},
     # review: a draft you put off comes back for your OK
     # waiting (from scheduled, parked, done, letgo): the thread hands the next move to someone else (the
     # extractor's waiting_on); from done or letgo only with a new ask that reopens it
-    # deepwork (from scheduled): the calendar link to booked time (#/work/<id>) starts Deep Work on it from the Guide
+    # deepwork (from scheduled): the calendar link to booked time (#/work/<id>) starts Focus time on it
     "scheduled": {"triage", "review", "done", "letgo", "merged", "queued", "parked", "waiting", "deepwork"},
     "waiting": {"triage", "done", "letgo", "queued", "review", "parked", "merged"},
     "parked": {"triage", "done", "letgo", "queued", "merged", "waiting"},

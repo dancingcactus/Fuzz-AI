@@ -58,16 +58,17 @@ test('the check-in offers a few times and, without a calendar tool, a one-off 20
   assert.match(page.url(), /#\/guide/);
 });
 
-test('the tour points at Triage, My work, Something else and the menu, then the onboarding is over', async () => {
+test('the tour points at Triage, Something else, New task and the menu, then the onboarding is over', async () => {
   await at('tour', '#/guide');
   const tip = page.locator('#onb-tour');
   const seen = [];
   for (let i = 0; i < 4; i++) {
     await tip.locator('h2').waitFor();
+    await page.locator('.onb-spot').waitFor();   /* the spotlight follows the Guide's rows, which redraw: it lands within a beat */
     seen.push([(await tip.locator('h2').textContent()).trim(), await page.evaluate(() => { const e = document.querySelector('.onb-spot'); return e && (e.dataset.pick || e.id || e.textContent.trim()); })]);
     await tip.locator('[data-tour="next"]').click();
   }
-  assert.deepEqual(seen, [['Triage', 'triage'], ['My work', 'My work'], ['Something else', 'typed'], ['Everything else', 'menubtn']]);
+  assert.deepEqual(seen, [['Triage', 'triage'], ['Something else', 'else'], ['New task', 'g-new'], ['Everything else', 'menubtn']]);
   await page.waitForFunction(() => !document.querySelector('#onb-tour') && !Onboard.active());
   assert.equal(await page.locator('.onb-spot').count(), 0);
 });

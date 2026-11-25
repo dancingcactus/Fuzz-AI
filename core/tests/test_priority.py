@@ -146,9 +146,9 @@ class Priority(CoreCase):
         quick_urgent = ask(self.core, "Approve the PO", effort_mins=3, due="2026-10-20T15:00:00Z")
         scheduler.tick(self.core)
         r = checkins.record(self.core, "overloaded")
-        self.assertEqual((r["held"], r["deep_work"]), (1, 1))
+        self.assertEqual(r["held"], 2)
         self.assertEqual(self.task(quick)["state"], "scheduled")
-        self.assertEqual(self.task(boss_long)["state"], "deepwork", "an hour's work waits in Deep Work")
+        self.assertEqual(self.task(boss_long)["state"], "scheduled", "an hour's work waits for tomorrow")
         self.assertEqual(self.order(), [boss_quick, quick_urgent, slow_urgent],
                          "warm-up, then urgent, quickest first")
 
@@ -182,9 +182,9 @@ class Priority(CoreCase):
         self.assertEqual(self.order(), [chased, stale, plain, deep], "okay: after the rest")
         before = self.last_event_id()
         r = checkins.record(self.core, "tired")
-        self.assertEqual((r["held"], r["deep_work"]), (2, 1))
-        self.assertEqual(self.task(deep)["state"], "deepwork", "tired: to the Deep Work pool, not tomorrow")
-        self.assertIn("task.assigned", self.types_since(before))
+        self.assertEqual(r["held"], 3)
+        self.assertEqual(self.task(deep)["state"], "scheduled", "tired: waits for tomorrow like the rest (no queue)")
+        self.assertIn("task.scheduled", self.types_since(before))
         actions.undo(self.core)
         self.assertEqual({self.task(t)["state"] for t in (plain, deep, stale)}, {"triage"}, "one Undo")
 

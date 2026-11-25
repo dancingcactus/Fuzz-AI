@@ -1,4 +1,4 @@
-/* Lineup: one page, by who has the ball. To decide (the Triage count), Yours, My work, With Fuzz (his lane, live),
+/* Lineup: one page, by who has the ball. To decide (the Triage count), Yours, In Focus time, With Fuzz (his lane, live),
    Waiting on others, Later, then Parked and Finished (both collapsed). Everything here reads and writes the shared Store. */
 (function () {
   var V = {};
@@ -9,7 +9,7 @@
   var same = { id: null, state: 'closed', choices: [] };
 
   var TABS = {
-    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'working', 'queued', 'sending', 'mine', 'session', 'deepwork', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, in My work, or coming back later. Fuzz works on a few at once.' },
+    current: { label: 'Current', cols: ['Status', 'Age', 'Now'], states: ['review', 'working', 'queued', 'sending', 'mine', 'session', 'deepwork', 'scheduled'], blurb: 'In motion: running with Fuzz, waiting for your OK, being sent, with you, open in Claude or Copilot, in Focus time, or coming back later. Fuzz works on a few at once.' },
     parked: { label: 'Parked', cols: ['Status', 'Parked', 'Note'], states: ['parked'], blurb: 'Out of triage with no date. Parked tasks never nag. A few a week come back, on days you have room, to ask if you still want them, and one wakes up if something new comes in about it.' },
     waiting: { label: 'Waiting on others', cols: ['Waiting on', 'Waiting', 'Next check'], states: ['waiting'], blurb: 'You’re blocked until someone gets back to you. Fuzz checks back on each one, and a reply brings it straight back to triage.' },
     done: { label: 'Done', cols: ['Result', 'Finished', 'Summary'], states: ['done'], blurb: 'Finished work. Open any task to see exactly what was done, sent and decided.' },
@@ -144,15 +144,15 @@
     return r;
   }
 
-  /* My work: the tasks you said you'll do, which take real time, in the order a Deep Work session offers them */
+  /* In Focus time: tasks you started and haven't wrapped up, in the order the Guide offers them. There is no queue to add to. */
   function deepHTML() {
     var pool = Store.inState('deepwork');
     if (!pool.length) return '';
     var mins = pool.reduce(function (a, it) { return a + DeepWork.est(it); }, 0);
     var rows = pool.map(function (it) { return rowHTML(it, it.leftOff ? 'Started' : 'Ready', it.leftOff ? 'accent' : 'muted', it.leftOff ? 'Left off: ' + it.leftOff : '≈ ' + DeepWork.dur(DeepWork.est(it))); });
-    var head = '<div class="deep-head"><p class="meta">Yours to do, and each takes real time. Fuzz gets each one ready.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
-      '<a class="btn primary deep-go" href="#/deepwork">Work on something</a></div>';   /* the Guide, with the top of My work picked */
-    return sectionHTML('deep', 'My work', rows, '', head);
+    var head = '<div class="deep-head"><p class="meta">Started, and not wrapped up yet. Each is booked, postponed or finished when you wrap up.' + (mins ? ' About ' + DeepWork.dur(mins) + ' in all.' : '') + '</p>' +
+      '<a class="btn primary deep-go" href="#/deepwork">Work on something</a></div>';   /* the Guide, with the top of what's ready picked */
+    return sectionHTML('deep', 'In Focus time', rows, '', head);
   }
 
   /* Fuzz's lane: what he is doing right now, step by step */

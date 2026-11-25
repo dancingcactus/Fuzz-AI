@@ -102,6 +102,28 @@ window.FuzzVocab = {
    "suggested": "allow_once",
    "safe": null
   },
+  "rhythm_best": {
+   "family": "question",
+   "options": [
+    "morning",
+    "afternoon",
+    "late",
+    "varies",
+    "not_now"
+   ],
+   "suggested": null,
+   "safe": null
+  },
+  "rhythm_plan": {
+   "family": "approval",
+   "options": [
+    "approve",
+    "always_allow",
+    "skip"
+   ],
+   "suggested": "approve",
+   "safe": null
+  },
   "hold": {
    "family": "approval",
    "options": [
@@ -253,8 +275,6 @@ window.FuzzVocab = {
   "assign",
   "book",
   "decide",
-  "deep_work",
-  "do_now",
   "done",
   "draft_it",
   "drop",
@@ -277,7 +297,6 @@ window.FuzzVocab = {
  ],
  "taskOptions": [
   "assign",
-  "deep_work",
   "session",
   "schedule",
   "done",
@@ -286,7 +305,6 @@ window.FuzzVocab = {
   "someone_else",
   "drop",
   "book",
-  "do_now",
   "after_others",
   "first_step",
   "decide",
@@ -306,17 +324,7 @@ window.FuzzVocab = {
    "drop",
    "done"
   ],
-  "doing": [
-   "done",
-   "pause",
-   "assign",
-   "deep_work",
-   "session",
-   "book"
-  ],
   "in_the_way": [
-   "do_now",
-   "deep_work",
    "book",
    "first_step",
    "decide",
@@ -346,7 +354,6 @@ window.FuzzVocab = {
   ]
  },
  "bigLead": [
-  "do_now",
   "book",
   "after_others",
   "first_step"
@@ -375,5 +382,9 @@ window.FuzzVocab = {
  "checkKinds": [
   "spot_message",
   "spot_run"
+ ],
+ "rhythmKinds": [
+  "rhythm_best",
+  "rhythm_plan"
  ]
 };

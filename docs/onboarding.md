@@ -211,7 +211,7 @@ tips, the first card, the calendar file, setup cards and later tips. Next, in th
   (`POST /onboarding/checkin`) makes an approved `calendar_hold` draft for the sender, since pressing the
   button was the yes; there's no hold card. Without one, Add to my calendar downloads a one-off `.ics`.
   Either way it's only the time: the task isn't booked or moved, so Fuzz keeps working on it. The event is
-  "Check in with Fuzz: <task>", and links to Triage (or to the task on the Guide when it's in My work).
+  "Check in with Fuzz: <task>", and links to Triage (or to the task on the Guide when it's yours to start).
 - **The tour** (step `tour`) runs on the Guide: a bubble beside each part in turn, the part ringed, Next
   (Enter) and Skip the tour. Leaving the Guide hides it; coming back picks it up again. Got it on the last
   one ends the onboarding: the Undo tip, and one line saying the next card is a task for Fuzz.

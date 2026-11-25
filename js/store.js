@@ -252,7 +252,7 @@
       function key(x) {
         var inFocus = fo.indexOf(x.coreId || x.id) > -1 ? 0 : 1;
         var mid = ek ? ek[x.id].concat([inFocus, 0, 0]) : [x.dueAt ? 0 : 1, inFocus, x.handedBack ? 1 : 0, fits(x) ? 0 : 1, 0, 0];
-        return [x.id === state.shown ? 0 : 1, x.picked ? 0 : 1, x.doing ? 0 : 1, x.atEnd ? 1 : 0].concat(mid, [x.order]);
+        return [x.id === state.shown ? 0 : 1, x.picked ? 0 : 1, x.block ? 0 : 1, x.atEnd ? 1 : 0].concat(mid, [x.order]);
       }
       state.queue.sort(function (a, b) {
         var x = S.item(a), y = S.item(b);
@@ -324,14 +324,14 @@
       S.log(it, 'status', 'You took this one yourself. Fuzz keeps the sources ready.');
     },
     done: function (id) { var it = S.item(id); S.leave(id); it.state = 'done'; it.doneAgo = 'Just now'; it.now = 'Marked done by you'; S.log(it, 'status', 'You marked this done.'); wrapCheck(it); },
-    /* I'll do it: yours, and it takes real time. It leaves Triage for My work and waits for a Deep Work session. */
-    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.doing = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'In My work, ready when you start'; S.log(it, 'status', 'You said you’ll do this. It’s in My work, and Fuzz gets it ready for when you sit down to it.'); },
+    /* Focus time starts on it: it leaves Triage (or booked time) for the session, and stays there until you wrap up. */
+    deepWork: function (id) { var it = S.item(id); S.leave(id); it.state = 'deepwork'; it.block = false; it.now = it.leftOff ? 'Left off: ' + it.leftOff : 'In Focus time'; S.log(it, 'status', 'You started on this in Focus time.'); },
     /* Stop here in a session: where you left off goes in its notes, and it moves to the back of the pool */
     deepWorkLeftOff: function (id, note) {
       var it = S.item(id); if (!it) return; note = (note || '').trim();
       if (note) { it.leftOff = note; it.now = 'Left off: ' + note; }
       state.items = state.items.filter(function (i) { return i !== it; }).concat([it]);
-      S.log(it, note ? 'guidance' : 'status', note ? 'Stopped here in My work. Where you left off: ' + note : 'Stopped here in My work.');
+      S.log(it, note ? 'guidance' : 'status', note ? 'Stopped here in Focus time. Where you left off: ' + note : 'Stopped here in Focus time.');
     },
     session: function (id) { var it = S.item(id); S.leave(id); it.state = 'session'; it.now = 'Open in ' + S.workIn; S.log(it, 'status', 'You opened this in a working session with ' + S.workIn + '. Fuzz keeps the sources ready.'); },
     /* opt is one of S.scheduleOptions(it), or an exact time: the core's Schedule options, as the API sends them */
@@ -353,23 +353,19 @@
          task card that isn't time-sensitive. One change, so one Undo puts them all back (the core's checkins.record) */
       var held = S.queue().filter(function (i) {
         /* a card asking its own question would lose it if it moved: it stays, last (the core's KEEP_TAGS) */
-        if (i.kind !== 'task' || i.doing || i.block || i.blockEnd || i.handedBack || i.result || i.foundOut || i.review || i.checkBack || i.putOff || i.inTheWay) return false;
+        if (i.kind !== 'task' || i.block || i.blockEnd || i.handedBack || i.result || i.foundOut || i.review || i.checkBack || i.putOff || i.inTheWay) return false;
         if (followUp === 'hold_rest') return !i.dueAt;
         return (answer === 'tired' || answer === 'overloaded') && !Prio.included(answer, Prio.cats(i));
       });
-      /* Deep work waits in the Deep Work pool for a session with time, not for tomorrow morning */
-      var deep = followUp === 'hold_rest' ? [] : held.filter(function (i) { return Prio.cats(i).indexOf('deep') > -1; });
-      held = held.filter(function (i) { return deep.indexOf(i) < 0; });
-      var ch = S.track(held.concat(deep).map(function (i) { return i.id; }), function () {
+      var ch = S.track(held.map(function (i) { return i.id; }), function () {
         state.checkins.unshift({ answer: answer, followUp: followUp || null, moment: moment, at: Date.now() });
         state.moment = moment; state.energy = answer; state.shown = null;
         held.forEach(function (i) { S.schedule(i.id, Sched.tomorrowMorning()); i.checkinHold = true; });
-        deep.forEach(function (i) { S.deepWork(i.id); });
         state.held = (state.held || []).concat(held.map(function (i) { return i.id; }));
         S.sortQueue();
       });
       emit({ type: 'moment' });
-      return { change: ch, held: held.length + deep.length, deep: deep.length };
+      return { change: ch, held: held.length };
     },
     /* Momentum ("Sure, just a few more"): one level up, and a few of what a check-in held come back: the new
        level's stretch, best placed first (never a card you scheduled yourself). The core's checkins.more. */
@@ -486,19 +482,17 @@
       S.leave(id); it.state = 'scheduled'; it.booked = opt && opt.label; it.now = 'Booked ' + (opt ? opt.label : '');
       S.log(it, 'status', 'You booked time: ' + (opt ? opt.label : 'a block') + '.');
     },
-    /* Do it now: the working card, first in the list */
-    doNow: function (id) { var it = S.item(id); if (!it) return; it.doing = true; it.forceBig = false; S.pick(id); S.log(it, 'status', 'You started on this.'); },
     pause: function (id, note) {
       var it = S.item(id); if (!it) return;
-      it.doing = false; it.firstStepMode = false; it.picked = false; it.order = ++state.maxOrder; if (state.shown === id) state.shown = null; S.sortQueue();
+      it.block = false; it.picked = false; it.order = ++state.maxOrder; if (state.shown === id) state.shown = null; S.sortQueue();
       S.log(it, note && note.trim() ? 'guidance' : 'status', note && note.trim() ? 'You paused. Where you left off: ' + note.trim() : 'You paused this.');
     },
-    afterOthers: function (id) { var it = S.item(id); if (!it) return; it.afterOthers = true; it.doing = false; S.toBack(id); S.log(it, 'status', 'After the others: you’ll get to it once the rest are sorted.'); },
+    afterOthers: function (id) { var it = S.item(id); if (!it) return; it.afterOthers = true; S.toBack(id); S.log(it, 'status', 'After the others: you’ll get to it once the rest are sorted.'); },
     firstStep: function (id) {
       var it = S.item(id); if (!it) return;
-      S.log(it, 'status', 'Fuzz is writing the checklist. Step 1 comes back to you next.');
+      S.log(it, 'status', 'Fuzz is writing the checklist. It comes back to you next, with step 1 first.');
       if (S.live) { S.leave(id); it.state = 'queued'; it.gathering = true; return; }
-      it.doing = true; it.firstStepMode = true; it.firstStep = it.firstStep || 'Open what you need and write the first line (two minutes).'; S.pick(id);
+      it.foundOut = true; it.firstStep = it.firstStep || 'Open what you need and write the first line (two minutes).'; S.pick(id);   /* back as a result, step 1 first */
     },
     /* ---- deliverables ----
        Named outcomes served by many tasks. Live mode keeps the core's list in state.deliverables. */
@@ -712,10 +706,10 @@
       var id = 'deep' + (++captureN);
       var it = {
         id: id, kind: 'task', state: 'deepwork', title: text.trim(), source: 'Captured by you', who: 'You', age: 'Just now', stage: 'fresh', now: 'You’re working on it now', mins: 30, energy: 'normal', order: ++state.maxOrder,
-        incoming: 'You asked for this one by name in My work.', aiNote: 'You started this in My work, so Fuzz hasn’t had time to gather anything for it yet.',
+        incoming: 'You asked for this one by name in Focus time.', aiNote: 'You started this in Focus time, so Fuzz hasn’t had time to gather anything for it yet.',
         log: [], sources: [], context: [], conversation: [], people: [], code: []
       };
-      S.log(it, 'status', 'You started this in My work.');
+      S.log(it, 'status', 'You started this in Focus time.');
       state.items.push(it);
       emit({ type: 'capture', item: it });
       return it;

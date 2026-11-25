@@ -180,12 +180,11 @@ def finish_gathering(core, task_id, actor="fuzz:executor", log=None, result=Fals
 
 def _found_out(core, t, actor, log=None):
     """Fuzz's options for "I can't decide" are in the brief: the card comes back next, right after the one in front.
-    Just the first step: the checklist is in, and the task comes back next as the working card, on step 1."""
+    Just the first step: the checklist is in, and the task comes back next as a result, with step 1 first."""
     first = "first_step" in (t.get("variant_tags") or [])
     with core.tx(actor):
         ch = events.Changes()
-        tasks.move(core, ch, t, "triage", remove_tags=("finding_out",),
-                   add_tags=("doing", "first_step") if first else ("found_out",),
+        tasks.move(core, ch, t, "triage", remove_tags=("finding_out", "first_step"), add_tags=("found_out",),
                    schedule_anchor=None, schedule_fire_at=None)
         events.emit(core, "task.gathered", task_id=t["id"], changes=ch,
                     data={"first_step": True} if first else {"found_out": t.get("find_out")},
@@ -509,6 +508,7 @@ def tick(core):
     """Run every minute by `fuzz serve` (and by `fuzz tick`). Returns what moved."""
     from . import review, sessions
     out = {"released": expire_leases(core), "came_back": 0, "deadline": 0, "stale": 0, "gather_timeout": 0}
+    tasks.migrate_queue(core)   # once: what waited in the old queue comes back asking for a time
     now = core.now_iso()
     # Gathering never keeps a task from you for long: no run picked it up in time, so it goes to triage as is
     late = iso(core.now() - timedelta(minutes=core.config["gather"]["minutes"]))

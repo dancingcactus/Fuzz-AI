@@ -1,6 +1,7 @@
 """Working sessions: a size on cards, a big task's four choices, Later vs Book time, Do it now and the working
 card, After the others, "What's in the way?", and the screen-time record."""
 
+import json
 import unittest
 
 from helpers import CoreCase
@@ -27,12 +28,12 @@ class Sessions(CoreCase):
         return [t["title"] for _, t in cards.queue(self.core)]
 
     # ---- size and big tasks
-    def test_a_big_task_shows_its_size_and_leads_with_the_four_choices(self):
+    def test_a_big_task_shows_its_size_and_leads_with_the_three_choices(self):
         big = self.sized("Write the Q4 readout", 90, 6)
         v = self.view(big)
         self.assertEqual(v["size"]["label"], "≈ 1½ h · 6 steps")
         self.assertTrue(v["size"]["big"])
-        self.assertEqual(v["lead"], ["do_now", "book", "after_others", "first_step"])
+        self.assertEqual(v["lead"], ["book", "after_others", "first_step"])
         self.assertEqual(v["suggested"], "book")
         self.assertTrue(v["book_options"])
         small = self.sized("Reply to Marcus", 10, 1)
@@ -60,9 +61,12 @@ class Sessions(CoreCase):
         scheduler.tick(self.core)
         t = self.task(tid)
         self.assertEqual(t["state"], "triage")
-        self.assertIn("doing", t["variant_tags"])
+        self.assertIn("block", t["variant_tags"])
+        self.assertNotIn("doing", t["variant_tags"])
         self.assertNotIn("put_off", t["variant_tags"])
-        self.assertEqual(self.card_for(tid, "task")["suggested"], "done")
+        c = self.card_for(tid, "task")
+        self.assertEqual(c["prompt"], "Your booked time is starting.")
+        self.assertEqual(cards.options(c, t), cards.TASK_OPTIONS, "an ordinary card: the link on your calendar starts Focus time")
 
     def test_during_a_block_its_task_is_first_and_a_deadline_second(self):
         tid = self.sized("Write the Q4 readout", 90, 6)
@@ -84,19 +88,19 @@ class Sessions(CoreCase):
         with self.assertRaises(FuzzError):
             answers.answer(self.core, self.view(b)["id"], "book", {"anchor": slot})
 
-    # ---- Do it now and the working card
-    def test_do_it_now_opens_the_working_card_first_and_pause_puts_it_back(self):
+    # ---- the working card is gone (docs/book-then-work.md)
+    def test_there_is_no_working_card_and_a_started_block_is_an_ordinary_card_first_in_the_list(self):
         tasks.capture(self.core, "Renew the parking permit")
         tid = self.sized("Write the Q4 readout", 90, 6)
-        answers.answer(self.core, self.card_for(tid)["id"], "do_now")
+        self.core.q("UPDATE tasks SET variant_tags=? WHERE id=?", (json.dumps(["block"]), tid))
+        cards.sync(self.core, tid, "front")
         c = self.card_for(tid, "task")
-        self.assertEqual(cards.options(c, self.task(tid)), ["done", "pause", "assign", "deep_work", "session", "book"])
+        opts = cards.options(c, self.task(tid))
+        self.assertNotIn("pause", opts)
+        self.assertNotIn("do_now", opts)
+        self.assertIn("book", opts)
         self.assertEqual(self.front()[0], "Write the Q4 readout")
-        answers.answer(self.core, c["id"], "pause", "Drafted the intro; numbers next")
-        t = self.task(tid)
-        self.assertNotIn("doing", t["variant_tags"])
-        self.assertIn("Where I left off: Drafted the intro; numbers next", t["notes"])
-        self.assertEqual(self.front(), ["Renew the parking permit", "Write the Q4 readout"])
+        self.assertNotIn("doing", {t for tag in cards.TASK_VARIANTS for t in [tag[0]]})
 
     # ---- After the others
     def test_after_the_others_goes_last_and_asks_to_book_next_session(self):
@@ -121,7 +125,9 @@ class Sessions(CoreCase):
         tools.finish_gathering(self.core, tid)
         t = self.task(tid)
         self.assertEqual(t["title"], "Write the Q4 readout")
-        self.assertTrue({"doing", "first_step"} <= set(t["variant_tags"]))
+        self.assertIn("found_out", t["variant_tags"])   # it comes back as a result, with step 1 first, not as a working card
+        self.assertNotIn("first_step", t["variant_tags"])
+        self.assertNotIn("doing", t["variant_tags"])
         self.assertIn("book", cards.options(self.card_for(tid, "task"), t))
 
     # ---- What's in the way?

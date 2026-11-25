@@ -63,7 +63,7 @@
     },
     /* Where you are: the route, its id (#/work/<id>) and its query (?until=13:30&what=…) */
     here: function () { return here; },
-    /* The route's name (Lineup, My work…) for the feedback button: never a task's or file's title */
+    /* The route's name (Lineup, Focus time…) for the feedback button: never a task's or file's title */
     viewTitle: function () { return currentName && ROUTES[currentName] ? titleFor(currentName).replace(/ · Fuzz$/, '') : null; },
     paintLabel: function () { paintLabel(); },
     fmtUntil: function (s) { return fmtUntil(s); },
@@ -116,7 +116,7 @@
           '<button type="button" role="menuitem" data-menu="keys">' + ICON.keys + '<span><b>Keys and help</b></span><kbd aria-hidden="true">?</kbd></button>' +
         '</div></div></div>' +
       '<dialog class="dlg keys-dlg" id="appkeys" aria-labelledby="appkeys-h"><div class="dlg-in"><div class="dlg-top"><h2 id="appkeys-h">Keys and help</h2><button type="button" class="iconbtn" data-close aria-label="Close">' + XSVG + '</button></div>' +
-        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and My work</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
+        '<section><h3>Anywhere</h3><dl class="keylist"><div><dt><kbd>N</kbd></dt><dd>New</dd></div><div><dt><kbd>?</kbd></dt><dd>The keys for where you are, in Triage, the Guide and Focus time</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a menu or a box</dd></div></dl></section>' +
         '<section><h3>Getting around</h3><p class="meta">The Fuzz logo opens the Guide, where you pick where to start. The label next to it says where you are; click it to go back. Lineup, Artifacts and Settings are in the menu with Fuzz’s head.</p></section></div></dialog>';
     document.getElementById('undobtn').addEventListener('click', function () { toggleMenu(false); toggleUndo(); });
     if (window.Feedback) Feedback.bind(document.getElementById('fbbtn'));
@@ -233,10 +233,10 @@
     if (a.hidden) return;
     var dw = window.DeepWork && DeepWork.label ? DeepWork.label() : null;
     var k, sub = '', ring = null, cur = false;
-    /* A session is a place like any other: "My work · Back to the Guide". Clicking it is a way out of the session
+    /* A session is a place like any other: "Focus time · Back to the Guide". Clicking it is a way out of the session
        (the wrap-up, then the Guide); the session's clock stays in the header bar. From other pages mid-session the
        label is theirs, and the Guide they lead back to is the session. */
-    if (onGuide && dw && (dw.session || dw.wrap)) { k = 'My work'; sub = BACK; }
+    if (onGuide && dw && (dw.session || dw.wrap)) { k = 'Focus time'; sub = BACK; }
     else if (onGuide) { k = 'Guide'; cur = true; }
     else if (name === 'triage') { var u = untilAhead(here.params.until); k = 'Triage'; sub = (u ? 'Until ' + u + ' · ' : '') + BACK; }
     else { k = PLACE[name] || ROUTES[name].title; sub = BACK; }
@@ -248,7 +248,7 @@
     if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     var title = cur ? 'The Guide: where do you want to start?' : BACK;
     if (a.title !== title) a.title = title;
-    if (onGuide) { var dt = titleFor(name); if (document.title !== dt) document.title = dt; }   /* Guide, or My work while a session runs */
+    if (onGuide) { var dt = titleFor(name); if (document.title !== dt) document.title = dt; }   /* Guide, or Focus time while a session runs */
   }
   function toggleUndo(force) {
     var pop = document.getElementById('undopop'), btn = document.getElementById('undobtn');
@@ -310,7 +310,7 @@
   }
   function titleFor(name) {
     var dw = DeepWork.label && DeepWork.label();
-    return (ROUTES[name].place === 'guide' && dw && (dw.session || dw.wrap) ? 'My work' : ROUTES[name].title) + ' · Fuzz';
+    return (ROUTES[name].place === 'guide' && dw && (dw.session || dw.wrap) ? 'Focus time' : ROUTES[name].title) + ' · Fuzz';
   }
   function route(force) {
     var info = parse(location.hash), name = info.name, key = location.hash;

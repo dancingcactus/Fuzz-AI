@@ -34,9 +34,9 @@ async function show(id, flags) {
   await page.evaluate(([id, flags]) => {
     const { __new, ...flags2 } = flags || {};
     if (__new && !Store.item(id)) Store.get().items.push(Object.assign({ id, state: 'triage', source: 'Test', who: 'Test', age: '1 day', sources: [], people: [], log: [] }, __new));
-    const it = Store.item(id); const { __doNow, ...rest } = flags2; Object.assign(it, rest);
+    const it = Store.item(id); const rest = flags2; Object.assign(it, rest);
     if (!Store.inQueue(id)) Store.enqueue(it, 'front');
-    Store.pick(id); if (__doNow) Store.doNow(id); App.refresh();
+    Store.pick(id); App.refresh();
   }, [id, flags]);
   await page.waitForFunction((id) => Store.shown() === id, id);
   await page.locator('#card .card-actions').first().waitFor({ timeout: 10000 });
@@ -54,7 +54,7 @@ const KINDS = [
   ['waiting check-in', 'vendor', { putOff: false, checkBack: true, waitingOn: 'Dana' }],
   ['keeps coming back', 'vendor'],
   ['stale check-in', 'naming', { stage: 'stale', handedBack: false, result: false, quick: null }],
-  ['working card', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, __doNow: true }],
+  ['booked time is over', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, block: true, blockEnd: true }],
   ['join a waiting reply', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, joinReply: true, joinReason: 'A reply to this thread is waiting for your OK.' }],
   ['parked check-in Fuzz leans to let go', 'vendor', { putOff: false, review: true, leansGo: true }],
   ['draft waiting for your OK', 'retro', {}],
@@ -63,6 +63,7 @@ const KINDS = [
   ['calendar hold', 'hold-test', { __new: { kind: 'task', cardKind: 'hold', title: 'Prepare the demo', holdPrompt: 'Add a hold for this to your calendar?', holdWhen: 'Tue 2 to 3 PM' } }],
   ['task that already went after the others', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, afterOthers: true }],
   ['What’s in the way?', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, inTheWay: true }],
+  ['booked time has started', 'naming', { stage: 'fresh', handedBack: false, result: false, quick: null, block: true, blockEnd: false }],
 ];
 
 for (const [name, id, flags] of KINDS) {
@@ -111,7 +112,8 @@ test('a key means one verb across every card kind (rule 3)', async () => {
 test('every card has a free way out on S, in the visible row (rule 6)', async () => {
   for (const [name, id, flags] of KINDS) {
     await show(id, flags);
-    const n = await page.locator('#card .card-actions [aria-keyshortcuts~="S"]:not([role="menuitem"])').count();
+    /* Later is a visible button, or the first item in the time split button whose face is Book time */
+    const n = await page.locator('#card .card-actions [aria-keyshortcuts~="S"]:not([role="menuitem"]), #card .card-actions #whenmenu [role="menuitem"][data-act="schedule"]').count();
     assert.ok(n >= 1, `${name} has S`);
   }
 });
@@ -119,15 +121,15 @@ test('every card has a free way out on S, in the visible row (rule 6)', async ()
 test('the order is who does it, then when, then clear it from my plate (rule 5)', async () => {
   await show('naming', KINDS[0][2]);
   const order = await page.locator('#card .card-actions > .ca-row > *').evaluateAll(els => els.map(e => (e.querySelector('[data-act]') || e).dataset.act));
-  assert.deepEqual(order, ['claude', 'schedule', 'done']);
+  assert.deepEqual(order, ['claude', 'book', 'done']);   /* the time split button: Book time on its face, Later behind its chevron */
 });
 
 test('a menu holds one theme: Later has the when moves, Done the clear-it moves (rule 15)', async () => {
   await show('naming', KINDS[0][2]);
   const items = async (id) => page.locator(`#${id} [role="menuitem"]`).evaluateAll(b => b.map(x => x.dataset.act));
-  assert.deepEqual(await items('whenmenu'), ['book', 'afterothers']);
+  assert.deepEqual(await items('whenmenu'), ['schedule', 'afterothers']);
   assert.deepEqual(await items('clearmenu'), ['park', 'waiting', 'theirs']);
-  assert.deepEqual(await items('whomenu'), ['deepwork', 'donow']);
+  assert.equal(await page.locator('#whomenu').count(), 0, 'no I’ll do it and no Do it now: a task is booked or put off');
 });
 
 test('Let it go is in Done’s menu on a check-in, and L still works (rules 9 and 15)', async () => {
@@ -145,7 +147,7 @@ test('H is Help me start, in the card where it is offered (rule 3)', async () =>
 
 /* Rule 13: what you typed for Fuzz goes with every action that closes or moves the card */
 const NOTED = [
-  ['ordinary task', 0, ['park', 'afterothers', 'theirs', 'deepwork']],
+  ['ordinary task', 0, ['park', 'afterothers', 'theirs']],
   ['stale check-in', 9, ['helpstart', 'letgo', 'keep', 'park']],
   ['keeps coming back', 8, ['stillmatters', 'letgo', 'assign']],
   ['parked check-in', 6, ['keepparked', 'clarify', 'letgo']],
@@ -209,7 +211,7 @@ test('the setup cards: one lead and a row, the way out in it, nothing the compon
 });
 
 /* Rule 13 for the actions that open a small form first (Pause, Waiting on someone), and for a question's own note */
-test('Pause: the note for Fuzz goes with it, and so does where you left off (rule 13)', async () => {
+test('Pause (when booked time is over): the note for Fuzz goes with it, and so does where you left off (rule 13)', async () => {
   await show('naming', KINDS[10][2]);
   await page.keyboard.press('e');
   await page.keyboard.type('and mention the budget');
