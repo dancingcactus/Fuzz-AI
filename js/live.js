@@ -867,6 +867,9 @@
     },
     useDemo: function () { pick('demo'); },
     /* Lineup's Open again, for a task that's already in Claude */
+    /* Dump mode (docs/dump-mode.md): the split is a short run, and the tasks are made as it comes back */
+    dumpStart: function (text, deepWork) { return api('POST', '/dumps', { text: text, deep_work: !!deepWork }); },
+    dumpGet: function (id) { return api('GET', '/dumps/' + id); },
     /* Deep Work: when the free time you're in ends (your next meeting), from the calendar Fuzz last read */
     deepWorkInfo: function () { return api('GET', '/deepwork'); },
     /* How a Focus time session went, so the block it was in can be judged productive (core/fuzz/rhythm.py) */

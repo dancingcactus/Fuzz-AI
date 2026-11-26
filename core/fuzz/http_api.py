@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import __version__, actions, cards, config, drafts, engine, events, followups, groups, matching, people, scheduler, sessions, states, tasks
+from . import __version__, actions, cards, config, drafts, dump, engine, events, followups, groups, matching, people, scheduler, sessions, states, tasks
 from .db import Core, FuzzError
 
 UI_ROOT = Path(__file__).resolve().parents[2]  # the repo root: index.html, js/, css/, assets/
@@ -242,6 +242,12 @@ class App:
             ("POST", r"/entities/(\d+)/facts", self.entity_edit),
             ("POST", r"/facts/(\d+)/(confirm|reject)", self.fact_action),
             ("POST", r"/ask", self.ask),
+            ("POST", r"/dumps", self.dump_start),
+            ("GET", r"/dumps/(\d+)", self.dump_get),
+            ("POST", r"/dumps/(\d+)/revise", self.dump_revise),
+            ("POST", r"/dumps/(\d+)/commit", self.dump_commit),
+            ("POST", r"/dumps/(\d+)/one_task", self.dump_one_task),
+            ("DELETE", r"/dumps/(\d+)", self.dump_delete),
             ("DELETE", r"/artifacts/(\d+)", self.delete_artifact),
             ("GET", r"/setup", self.setup_get),
             ("POST", r"/setup/discover", self.setup_discover),
@@ -456,6 +462,54 @@ class App:
         ask_id = recall.new_ask_id()
         engine.run_now(core, "ask", ask=(ask_id, question))
         return {"ask_id": ask_id}, 202
+
+    # ---- Dump mode (dump.py, docs/dump-mode.md): the split is a short run; nothing is made until you keep it
+    def _split_run(self, core, dump_id):
+        if not config.role_engine(core.config, "split")[0]:
+            raise FuzzError("Fuzz needs Claude Code or Copilot to split a dump. Set one up in Settings › Engine.",
+                            "engine", 409)
+        engine.run_now(core, "split", ask=(str(dump_id), ""))
+
+    def dump_start(self, core, m, body, q):
+        """{text, deep_work?, review?}: keep the text and start the split. Poll GET /dumps/<id>. The items are made as
+        soon as the split comes back (a best guess, one Undo takes them back), unless review is set: then it waits for you."""
+        if not config.role_engine(core.config, "split")[0]:
+            raise FuzzError("Fuzz needs Claude Code or Copilot to split a dump. Set one up in Settings › Engine.",
+                            "engine", 409)
+        dump_id = dump.start(core, body.get("text"), deep_work=bool(body.get("deep_work")), review=bool(body.get("review")))
+        self._split_run(core, dump_id)
+        return {"dump_id": dump_id}, 202
+
+    def dump_get(self, core, m, body, q):
+        with core.reading():
+            out = dump.view(core, int(m.group(1)))
+            if out["state"] == "committed" and not out["deep_work"]:
+                # The split ran in its own process, so nothing here saw the tasks made: start Fuzz on them now, as a
+                # typed capture does (throttled, and a no-op when none waits to be gathered)
+                kick_executor(self, core)
+        return out
+
+    def dump_revise(self, core, m, body, q):
+        dump_id = dump.revise(core, int(m.group(1)), body.get("instruction"))
+        self._split_run(core, dump_id)
+        return {"dump_id": dump_id}, 202
+
+    def dump_commit(self, core, m, body, q):
+        """{accept?: [item ids]}: make what you ticked, in one go; one Undo takes it all back."""
+        out = dump.commit(core, int(m.group(1)), body.get("accept"))
+        if out["gather"]:
+            self.follow(core, list(actions.GATHER))
+        return out
+
+    def dump_one_task(self, core, m, body, q):
+        """The split isn't coming: keep the whole text as one task."""
+        out = dump.as_one_task(core, int(m.group(1)))
+        if out["gather"]:
+            self.follow(core, list(actions.GATHER))
+        return out
+
+    def dump_delete(self, core, m, body, q):
+        return dump.discard(core, int(m.group(1)))
 
     def get_artifact(self, core, m, body, q):
         """One file's name, type and task, for the viewer (artifact.html). The bytes come from /files/<id>."""

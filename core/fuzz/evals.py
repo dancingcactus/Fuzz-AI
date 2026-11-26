@@ -45,7 +45,7 @@ KINDS = {"extract": ("keep", "skip"), "draft": ("reference", "rules"), "executor
          # a series suggestion's outcome (series/ask.py): wanted (Add it, I'll do it) or not_needed
          "series_suggest": ("wanted", "not_needed", "behaviour"),
          # global only, invented: a sender's or recall's behaviour to check, a check-in's order (priority_evals)
-         "send": ("behaviour",), "recall": ("behaviour",), "priority": ("order",)}
+         "send": ("behaviour",), "recall": ("behaviour",), "dump": ("behaviour",), "priority": ("order",)}
 SETS = ("all", "global", "personal")
 
 

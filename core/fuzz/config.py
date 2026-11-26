@@ -16,7 +16,7 @@ DEFAULTS = {
     "budget": {"max_working": 2, "max_steps": 20, "max_attempts": 3, "lease_minutes": 10,
                # how long one client run may take before it's stopped, in minutes the Mac is awake (sleep doesn't
                # count). The longest healthy runs seen: executor 8, extractor 52 (2026-11)
-               "run_minutes": {"executor": 30, "extractor": 90, "sender": 10, "ask": 15}},
+               "run_minutes": {"executor": 30, "extractor": 90, "sender": 10, "ask": 15, "split": 5}},
     "tz": "local",
     "stale_days": 7,
     # The parked review: a few parked tasks a day come back to ask "Still want this?", how many by your

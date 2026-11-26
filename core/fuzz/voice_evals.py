@@ -41,7 +41,7 @@ def voice_compare(core, runner=None, client=None, model=None, workers=4, ref=Non
     added_points: points a draft made that you didn't send, which is how an example's facts leaking into a draft
     would show. A case's examples were all written before its draft, and never include what you sent for it.
     Not recorded as a run: a report to read before trusting the examples."""
-    client, model, adapter = draft_evals._engine(core, client, model, runner)
+    client, model, adapter = evals.engine(core, "executor", client, model, runner)
     text, version, _ = draft_evals.skill_text(ref)
     rules = draft_evals.drafting_rules(text)
     lessons = learning.lessons_for(core, draft_evals.SURFACE)

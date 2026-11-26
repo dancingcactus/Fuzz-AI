@@ -9,7 +9,7 @@
 
   var RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days']];
   var LABEL = { copilot: 'GitHub Copilot', 'claude-code': 'Claude Code' };
-  var ROLE = { extractor: 'Reading', executor: 'Working', sender: 'Sending', ask: 'Answering', setup: 'Setup' };
+  var ROLE = { extractor: 'Reading', executor: 'Working', sender: 'Sending', ask: 'Answering', split: 'Sorting', setup: 'Setup' };
   /* The headline unit per client: its bill, else tokens */
   var UNIT = {
     copilot: { key: 'credits', name: 'AI credits', fmt: function (v) { return num(v, 2); } },

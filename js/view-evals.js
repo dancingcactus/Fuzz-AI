@@ -1,5 +1,5 @@
 /* Evals: a debugging view of every eval run (docs/evals.md). Runs start from Run now (on the model picked here)
-   or the terminal (fuzz eval run | dupes | senders | drafts | executor | send | recall | series | priority).
+   or the terminal (fuzz eval run | dupes | senders | drafts | executor | send | recall | dump | series | priority).
    #/evals lists the newest run of each surface and every run; #/evals/<id> opens one: what changed against the
    run it was gated on, every case, and why a case failed. Only what's in this store is shown. */
 (function () {
@@ -8,12 +8,12 @@
   var root = null, list = null, detail = null, failed = null, surface = 'all', onlyFailing = true, runId = null, vs = null;
 
   var SURFACES = [['all', 'All'], ['extract', 'Extraction'], ['dupes', 'Duplicates'], ['senders', 'Senders'], ['draft', 'Drafts'], ['executor', 'Executor'],
-    ['send', 'Sender'], ['recall', 'Recall'], ['series_suggest', 'Series'], ['priority', 'Priority']];
+    ['send', 'Sender'], ['recall', 'Recall'], ['dump', 'Dump'], ['series_suggest', 'Series'], ['priority', 'Priority']];
   var NAME = { extract: 'Extraction', dupes: 'Duplicates', senders: 'Senders', draft: 'Drafts', executor: 'Executor',
-    send: 'Sender', recall: 'Recall', series_suggest: 'Series', priority: 'Priority' };
+    send: 'Sender', recall: 'Recall', dump: 'Dump', series_suggest: 'Series', priority: 'Priority' };
   var CMD = { extract: 'fuzz eval run', dupes: 'fuzz eval dupes', senders: 'fuzz eval senders', draft: 'fuzz eval drafts', executor: 'fuzz eval executor',
-    send: 'fuzz eval send', recall: 'fuzz eval recall', series_suggest: 'fuzz eval series', priority: 'fuzz eval priority' };
-  var LATEST = ['extract', 'dupes', 'senders', 'draft', 'executor', 'send', 'recall', 'series_suggest', 'priority'];
+    send: 'fuzz eval send', recall: 'fuzz eval recall', dump: 'fuzz eval dump', series_suggest: 'fuzz eval series', priority: 'fuzz eval priority' };
+  var LATEST = ['extract', 'dupes', 'senders', 'draft', 'executor', 'send', 'recall', 'dump', 'series_suggest', 'priority'];
   var NO_MODEL = { dupes: 1, senders: 1, series_suggest: 1, priority: 1 };
   /* The model a run is on: none pinned is the client's default, which can change under it */
   function modelSaid(r) { return r.model || (r.client === 'stub' ? 'stub' : NO_MODEL[r.surface] ? '' : (r.client ? r.client + ' default (not pinned)' : '')); }
@@ -119,7 +119,7 @@
 
   /* What a run costs, said on the button: the matcher needs no model; the rest take minutes of model calls */
   var COST = { extract: 'model calls, a few minutes', dupes: 'no model, a few seconds', senders: 'no model, a second', draft: 'model calls, a few minutes', executor: 'model calls, a few minutes',
-    send: 'model calls, a few minutes', recall: 'model calls, a few minutes', series_suggest: 'no model, a few seconds', priority: 'no model, a second' };
+    send: 'model calls, a few minutes', recall: 'model calls, a few minutes', dump: 'model calls, a few minutes', series_suggest: 'no model, a few seconds', priority: 'no model, a second' };
 
   /* Which model Run now uses: the one typed here, else evals.model, else the roles' engine (docs/evals.md) */
   var pick = null;
@@ -238,7 +238,7 @@
 
   function paint() {
     var head = '<a class="linkbtn set-back" href="#/settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Settings</a>' + '<div class="tasks-head"><h1>Evals</h1><p class="meta">A debugging view of every eval run in this store. Start one with Run now, ' +
-      'or from the terminal (fuzz eval run, dupes, senders, drafts, executor, send, recall, series or priority). Times are UTC. What’s yours stays on this machine. ' +
+      'or from the terminal (fuzz eval run, dupes, senders, drafts, executor, send, recall, dump, series or priority). Times are UTC. What’s yours stays on this machine. ' +
       'Thin spots? <a href="#/labels">Label cases</a> by hand.</p></div>';
     if (failed) { root.innerHTML = head + '<p class="lempty">' + esc(failed) + '</p>'; return; }
     if (!list) { root.innerHTML = head + '<p class="lempty">Loading runs…</p>'; return; }
